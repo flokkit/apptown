@@ -152,6 +152,13 @@
    button's line, padding and border on a wide screen, a 44px target to tap. */
 :root { --row-action-size: calc(var(--fs-lg) + 10px); }
 @media (max-width: 800px), (pointer: coarse) { :root { --row-action-size: 44px; } }
+/* The ⋯'s width: its padding, border and glyph, and at least a tap target.
+   A list reserves it before the menu arrives, so the menu takes no width
+   from the row's names when it does. */
+:root { --row-menu-width: max(var(--row-action-size), calc(var(--fs-lg) + 26px)); }
+/* A text button in a table row: one line of the text it sits in. The em
+   resolves where it is used, so it follows the row's text size. */
+:root { --row-text-button-size: calc(1em * var(--lh-body)); }
 :root[data-size="small"] { font-size: 87.5%; }
 :root[data-size="large"] { font-size: 112.5%; }
 @media (prefers-color-scheme: dark) {

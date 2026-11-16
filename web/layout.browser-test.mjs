@@ -1123,8 +1123,10 @@ try {
       assert.deepEqual(split, [], `Recent tries keeps its words whole beside a long error at ${width}, ${size}`)
     }
   }
-  // Record-table controls share a body-text-height slot, including menu
-  // buttons and button links. Phone styles must not restore a taller button.
+  // Record-table text buttons and button links sit at body-text height, and
+  // on a phone each keeps a 44px tap area. The row's ⋯ keeps the action
+  // size, which a row reserves before its menu arrives, so a row is as tall
+  // empty as with its ⋯. A status chip keeps its stamp size.
   for (const width of [390, 1440]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('http://layout.test/')
@@ -1134,16 +1136,50 @@ try {
       document.getElementById('root').innerHTML = `<main class="main"><table class="record-table"><tbody>
         <tr><td class="phone-name">Needs you</td><td class="record-action phone-action"><div class="row row-2"><button class="primary">Accept</button><button>Close</button></div></td></tr>
         <tr><td class="phone-name">Token</td><td class="record-action phone-action"><button class="subtle danger">Revoke</button></td></tr>
-        <tr><td class="phone-name">Deployment</td><td class="record-action phone-action"><a class="btn" href="#deployment">Open</a><button class="more-menu-button">⋯</button></td></tr>
+        <tr><td class="phone-name">Deployment</td><td class="record-action phone-action"><a class="btn" href="#deployment">Open</a></td></tr>
+        <tr id="menu-arrived"><td class="phone-name">Menu</td><td class="phone-state"><button class="chip chip-button pass">working</button></td><td class="record-action phone-action"><span class="row row-2"><div class="more-menu"><button class="subtle more-menu-button" aria-label="More actions">⋯</button></div></span></td></tr>
+        <tr id="menu-waiting"><td class="phone-name">Menu</td><td class="phone-state"><button class="chip chip-button pass">working</button></td><td class="record-action phone-action"></td></tr>
       </tbody></table></main>`
     }, theme)
     await fontsReady(page)
-    const controls = await page.locator('.record-table td :is(button, a.btn)').evaluateAll(buttons => buttons.map(button => ({ height: button.getBoundingClientRect().height, line: parseFloat(getComputedStyle(button.closest('td')).lineHeight) })))
-    assert.ok(controls.every(c => Math.abs(c.height - c.line) < 1), `record buttons sit at text height at ${width}, ${theme}: ${JSON.stringify(controls)}`)
+    // tap: whether a finger 21px above and below the button's middle still lands on it.
+    const controls = await page.locator('.record-table td :is(button, a.btn):not(.more-menu-button, .chip)').evaluateAll(buttons => buttons.map(button => {
+      const r = button.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2
+      const tap = [-21, 21].every(dy => document.elementFromPoint(x, y + dy)?.closest('button, a.btn') === button)
+      return { height: r.height, line: parseFloat(getComputedStyle(button.closest('td')).lineHeight), tap }
+    }))
+    assert.ok(controls.length === 4 && controls.every(c => Math.abs(c.height - c.line) < 1), `record buttons sit at text height at ${width}, ${theme}: ${JSON.stringify(controls)}`)
+    if (width <= 800) assert.ok(controls.every(c => c.tap), `record buttons keep a 44px tap area at ${width}, ${theme}: ${JSON.stringify(controls)}`)
+    const more = await page.locator('.more-menu-button').boundingBox()
+    if (width <= 800) assert.ok(more.height >= 43.5 && more.width >= 43.5, `a row's ⋯ is a 44px target at ${width}, ${theme}: ${JSON.stringify(more)}`)
+    else assert.ok(more.height > controls[0].height + 1, `a row's ⋯ keeps the action size at ${width}, ${theme}: ${JSON.stringify(more)}`)
+    const rows = await page.locator('#menu-arrived, #menu-waiting').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))
+    assert.ok(Math.abs(rows[0] - rows[1]) < 1, `a row is as tall before its ⋯ arrives as after at ${width}, ${theme}: ${JSON.stringify(rows)}`)
+    const chip = await page.locator('#menu-arrived .chip').evaluate(chip => [parseFloat(getComputedStyle(chip).fontSize), parseFloat(getComputedStyle(chip.closest('td')).fontSize)])
+    assert.ok(chip[0] < chip[1], `a status chip in a row keeps its stamp size at ${width}, ${theme}: ${JSON.stringify(chip)}`)
     const accept = await page.getByRole('button', { name: 'Accept', exact: true }).boundingBox()
     const close = await page.getByRole('button', { name: 'Close', exact: true }).boundingBox()
     assert.equal(accept.y, close.y, `Accept and Close stay beside each other at ${width}, ${theme}`)
     if (out) await page.screenshot({ path: `${out}/record-buttons-${theme}-${width}.png`, fullPage: true })
+  }
+  // A deployment row's ⋯ arrives after the row is drawn (it waits for the
+  // viewer's permissions and the target's reading). The empty slot already
+  // holds its width and height, so the names keep their lines and the row
+  // does not grow when it arrives.
+  for (const width of [820, 850, 1024, 1440]) for (const size of ['medium', 'large']) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('http://layout.test/')
+    await page.evaluate(size => {
+      document.documentElement.dataset.size = size
+      const row = n => `<tr><td class="phone-name"><a href="#project"><strong>Club Newsletter</strong></a></td><td class="phone-value"><a href="#deployment">archive-migration-${n}</a></td><td class="technical phone-value record-wide fleet-roomy"><a href="#target">built-in-docker</a></td><td class="record-fit phone-state"><button class="chip chip-button unknown"><span aria-hidden="true">○</span><span class="chip-word">unknown</span></button></td><td class="phone-value fleet-roomy fleet-usage-col"><span class="fleet-usage">&lt;0.01 cores · 92.2 MB</span></td><td class="time record-fit phone-value">3 hours ago</td><td class="record-fit record-action phone-action"></td></tr>`
+      document.getElementById('root').innerHTML = `<div class="layout"><aside class="sidebar"></aside><main class="main"><section class="section"><div class="section-body"><div class="fleet"><table class="record-table fleet-table fleet-table-apps"><thead><tr><th>Project</th><th>Deployment</th><th class="fleet-roomy">Target</th><th class="record-fit">Status</th><th class="fleet-roomy fleet-usage-col">Resources</th><th class="record-fit">Last backup</th><th class="record-fit record-action"></th></tr></thead><tbody>${row(1)}${row(2)}</tbody></table></div></div></section></main></div>`
+    }, size)
+    await fontsReady(page)
+    const heights = () => page.locator('.fleet-table tbody tr').evaluateAll(rows => rows.map(row => row.getBoundingClientRect().height))
+    const before = await heights()
+    await page.locator('.fleet-table td.record-action').evaluateAll(cells => cells.forEach(cell => { cell.innerHTML = '<span class="row row-2"><div class="more-menu"><button class="subtle more-menu-button" aria-label="More actions">⋯</button></div></span>' }))
+    const after = await heights()
+    assert.ok(before.every((h, i) => Math.abs(h - after[i]) < 1), `deployment rows keep their height when their menus arrive at ${width}, ${size}: ${JSON.stringify({ before, after })}`)
   }
   assert.deepEqual(misses, [], 'phone round 3')
   assert.deepEqual(consoleLines.filter(line => line.includes('validateDOMNesting')), [], 'layout fixtures use valid HTML nesting')

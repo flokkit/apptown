@@ -1,5 +1,5 @@
 @layer components {
-.record-table { --row-action-size: calc(1em * var(--lh-body)); line-height: inherit; width: 100%; border-collapse: collapse; }
+.record-table { line-height: inherit; width: 100%; border-collapse: collapse; }
 .record-table th { text-align: left; }
 /* Columns size by what they hold: a short one (a status, a time, a number,
    the row's menu) fits its content; the rest share what is left and wrap. */
@@ -34,16 +34,26 @@
 .record-table td > button.record-name:hover { text-decoration: underline; }
 .record-table .number { text-align: right; font-variant-numeric: tabular-nums; }
 .record-table .technical { font-family: var(--font-mono); }
-/* Text buttons in a row sit at text height; a switch or a help "?" keeps its own size. */
-.record-table td :is(button, a.btn):not(.setting-switch, .page-help-q) { font-size: inherit; line-height: 1; box-sizing: border-box; height: var(--row-action-size); padding-block: 0; min-height: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* Text buttons in a row sit at text height. A switch, a help "?", a status
+   chip, a name that opens a panel and the row's ⋯ keep their own size: the
+   ⋯ fills the action slot reserved below, and a chip keeps its stamp size so
+   a status column is as narrow as its words. */
+.record-table td :is(button, a.btn):not(.setting-switch, .page-help-q, .chip, .record-name, .more-menu-button) { font-size: inherit; line-height: 1; box-sizing: border-box; height: var(--row-text-button-size); padding-block: 0; min-height: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* On a touch screen a text-height button still takes a fingertip: its tap
+   area reaches above and below it to the 44px row action size. */
+@media (max-width: 800px), (pointer: coarse) {
+  .record-table td :is(button, a.btn):not(.setting-switch, .page-help-q, .chip, .record-name, .more-menu-button) { position: relative; }
+  .record-table td :is(button, a.btn):not(.setting-switch, .page-help-q, .chip, .record-name, .more-menu-button)::after { content: ""; position: absolute; inset-inline: 0; top: 50%; height: var(--row-action-size); translate: 0 -50%; }
+}
 .record-table .record-action .row { flex-wrap: nowrap; }
 .record-table button.link { padding-inline: 0; }
 .record-table .record-action { text-align: right; overflow-wrap: normal; }
 /* A row's action slot has its final size from the first paint: a menu that
    waits for the viewer's permissions or a target reading must not make the
-   row grow when it arrives. The slot is the button plus the cell's padding;
-   a viewer with no act on the row keeps it empty. */
-.record-table td.record-action { height: calc(var(--row-action-size) + 2 * var(--space-2)); }
+   row grow when it arrives, in height or by taking width from the names.
+   The slot is the ⋯ plus the cell's padding and its 1px rule, which the
+   cell's height includes; a viewer with no act on the row keeps it empty. */
+.record-table td.record-action { height: calc(var(--row-action-size) + 2 * var(--space-2) + 1px); min-width: calc(var(--row-menu-width) + 2 * var(--space-2)); }
 .record-table .time { color: var(--muted); }
 .record-table-links tbody tr[data-linked] { cursor: pointer; }
 .record-table-links tbody tr[data-linked]:hover { background: var(--hover); }
