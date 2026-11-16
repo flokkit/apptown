@@ -40,7 +40,7 @@ func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 			hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: dk})
 			previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 
-			c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
+			c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n"))
 			if err != nil {
 				t.Fatal(err)
 			}

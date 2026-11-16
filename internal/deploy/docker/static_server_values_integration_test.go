@@ -15,7 +15,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/poll"
-	"github.com/flokkit/apptown/stock"
 )
 
 // Values the page is given arrive intact through the real static server and
@@ -34,7 +33,7 @@ func TestIntegrationStaticServerKeepsValuesIntact(t *testing.T) {
 			if value != "" {
 				args = append(args, "-e", BrowserEnvVar+"="+value)
 			}
-			args = append(args, stock.Images().StaticServer)
+			args = append(args, "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d")
 			args = append(args, StaticServerCommand(8080)...)
 			id := runDetached(t, args...)
 			port, err := exec.Command("docker", "port", id, "8080/tcp").Output()

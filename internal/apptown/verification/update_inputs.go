@@ -2,6 +2,7 @@ package verification
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -15,6 +16,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/BurntSushi/toml"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/imageline"
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,7 +80,9 @@ func UpdateInputs(tree string) (map[string]any, error) {
 				switch value := value.(type) {
 				case map[string]any:
 					for k, v := range value {
-						if k == "image" || k == "build" {
+						if k == "staticServer" {
+							out["staticServer"] = v
+						} else if k == "image" || k == "build" {
 							images[path+"/"+k] = v
 						}
 						walk(v, path+"/"+k)
@@ -213,9 +220,64 @@ func dockerBaseInputs(raw []byte) dockerInputs {
 	return out
 }
 
+// ImageUpdates binds image moves to the registry reading shown to the agent.
+type ImageUpdates struct {
+	Resolver imagelines.Resolver
+	Scope    imageline.Scope
+	Security bool
+	Readings *[]imagelines.Reading
+}
+
+// UpdateScope is the image scope authorized by the dependency level.
+func UpdateScope(level string) imageline.Scope {
+	if level == "aggressive" {
+		return imageline.Major
+	}
+	return imageline.Minor
+}
+func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
+	if old == next {
+		return nil
+	}
+	if _, err := name.NewDigest(next); err != nil {
+		return fmt.Errorf("image update must name a digest: %s", next)
+	}
+	if p.Security {
+		return nil
+	}
+	if p.Resolver == nil {
+		return fault.New(fault.Unavailable, "image registry readings are unavailable")
+	}
+	scope := p.Scope
+	if old == "" {
+		old = appcontract.StaticServerLine
+		scope = imageline.Line
+	}
+	answer, err := p.Resolver.Answer(ctx, old, scope)
+	if err != nil {
+		return fault.Wrap(fault.Unavailable, fmt.Errorf("image update is unknown: %w", err))
+	}
+	if p.Readings != nil {
+		*p.Readings = append(*p.Readings, answer)
+	}
+	nextTag, nextDigest, _ := strings.Cut(next, "@")
+	ref, err := name.NewTag(nextTag)
+	if err != nil {
+		return err
+	}
+	wanted, err := name.NewTag(answer.Tag)
+	if err != nil {
+		return err
+	}
+	if ref.Name() != wanted.Name() || nextDigest != answer.Digest {
+		return fmt.Errorf("image %s must equal the registry answer %s (%s)", next, answer.Image(), answer.Evidence())
+	}
+	return nil
+}
+
 // CompareUpdateInputs is the shared deterministic boundary for agent updates.
 // Security targets alone permit exact same-minor toolchain patch moves.
-func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchainPatch bool) error {
+func CompareUpdateInputs(ctx context.Context, before, after map[string]any, baseImages, allowToolchainPatch bool, images ImageUpdates) error {
 	keys := make([]string, 0, len(before)+len(after))
 	for k := range before {
 		keys = append(keys, k)
@@ -234,6 +296,20 @@ func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchai
 		}
 		refuse := func(why string) error {
 			return fmt.Errorf("Changes the Dockerfile beyond image versions; your settings allow only image version changes. %s: %s", k, why)
+		}
+		if k == "staticServer" {
+			old, _ := a.(string)
+			next, _ := b.(string)
+			if !baseImages {
+				return fmt.Errorf("Moves a base image; base image updates are turned off. staticServer")
+			}
+			if err := appcontract.ValidateStaticServer(next); err != nil {
+				return err
+			}
+			if err := images.compare(ctx, old, next); err != nil {
+				return err
+			}
+			continue
 		}
 		if aok && bok {
 			if x, ok := a.(dockerInputs); ok {
@@ -257,6 +333,11 @@ func CompareUpdateInputs(before, after map[string]any, baseImages, allowToolchai
 						why = fmt.Sprintf("%s → %s changes the image", old.Operand, next.Operand)
 					case old.Variant != next.Variant:
 						why = fmt.Sprintf("variant %s → %s", old.Variant, next.Variant)
+					}
+					if why == "" && old.External && next.External && old.Operand != next.Operand {
+						if err := images.compare(ctx, old.Operand, next.Operand); err != nil {
+							return fmt.Errorf("Changes the Dockerfile beyond image versions; your settings allow only image version changes. %s: stage %d: %w", k, i+1, err)
+						}
 					}
 					if why != "" {
 						return refuse(fmt.Sprintf("stage %d: %s", i+1, why))

@@ -25,7 +25,7 @@ func TestBootGivesEveryAppConsumerItsDeploymentURL(t *testing.T) {
 			if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
-			deps := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Routes: liveRoutes{}, Probe: upProbe{}, DFImage: testDF, StaticServer: testStaticServer}
+			deps := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Routes: liveRoutes{}, Probe: upProbe{}, DFImage: testDF}
 			want := "https://selected.example"
 			req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "url-app", StackID: "url-stack", Workspace: ws, Scratch: t.TempDir(), Probe: time.Second}
 			if target == "standing" {

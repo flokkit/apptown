@@ -135,7 +135,7 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/^deploy/tool-pins\\.txt$/"],
-      "matchStrings": ["(?:^|\\n)(?:alpine-git|caddy)[ \\t]+(?<currentValue>\\S+)[ \\t]+image (?<depName>[^\\s,]+)"],
+      "matchStrings": ["(?:^|\\n)alpine-git[ \\t]+(?<currentValue>\\S+)[ \\t]+image (?<depName>[^\\s,]+)"],
       "datasourceTemplate": "docker",
       "versioningTemplate": "docker"
     },
@@ -457,12 +457,6 @@
       "matchPackageNames": ["busybox"],
       "allowedVersions": "/^1(?:\\.|$)/",
       "groupName": "runtime BusyBox"
-    },
-    {
-      "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt"],
-      "matchPackageNames": ["caddy"],
-      "allowedVersions": "/^2(?:\\.|$)/",
-      "groupName": "runtime Caddy"
     },
     {
       "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt", "deploy/apptown-agent/Dockerfile"],

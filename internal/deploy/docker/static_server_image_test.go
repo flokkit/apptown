@@ -1,31 +1,49 @@
 package docker
 
 import (
+	"slices"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/toolversions"
 	"github.com/flokkit/apptown/stock"
 )
 
-// A static part is served by the static server its caller's snapshot gave
-// the host; a host given none refuses, naming why, rather than guess one.
-func TestAStaticPartIsServedByTheStaticServerTheHostWasGiven(t *testing.T) {
+func testImages() toolversions.Images { return toolversions.Images{DF: stock.Images().DF} }
+
+const testStaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+var testDF = stock.Images().DF
+
+// The preview must run the project's pin; changing Prepare to discard it
+// makes this test fail even though the host itself has valid runtime images.
+func TestStaticPreviewRunsTheProjectServerPin(t *testing.T) {
 	t.Parallel()
-	if got, err := (&Host{deps: Dependencies{StaticServer: "given"}}).staticServer(); err != nil || got != "given" {
-		t.Fatalf("a host given a server used %q (%v)", got, err)
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\napp:\n  web: {static: ., public: true}\n"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got, err := (&Host{}).staticServer(); err == nil {
-		t.Fatalf("a host given no server used %q", got)
+	fake := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if req.Args[0] == "port" {
+			return []byte("127.0.0.1:45678"), nil
+		}
+		return nil, nil
+	}}
+	_, err = NewHost(Dependencies{DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: fake}, Name: "preview", Workspace: t.TempDir()}, appcontract.Prepare(c, nil).PublicPart(), "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, args := range fake.args {
+		if len(args) > 0 && args[0] == "run" && slices.Contains(args, testStaticServer) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("project pin absent from Docker run: %v", fake.args)
+	}
+	c.StaticServer = ""
+	if _, err := NewHost(Dependencies{DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: fake}, Name: "preview", Workspace: t.TempDir()}, appcontract.Prepare(c, nil).PublicPart(), "", nil); err == nil {
+		t.Fatal("missing pin was served")
 	}
 }
-
-// testImages are a host's images in tests: the stock tool versions' static
-// server and df, and no chown image, which skips handing volumes over.
-func testImages() toolversions.Images {
-	im := stock.Images()
-	return toolversions.Images{StaticServer: im.StaticServer, DF: im.DF}
-}
-
-// The stock tool versions' static server and df, which test hosts are
-// given as a caller's snapshot would give them.
-var testStaticServer, testDF = stock.Images().StaticServer, stock.Images().DF

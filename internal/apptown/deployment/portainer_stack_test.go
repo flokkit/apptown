@@ -54,7 +54,7 @@ func TestDefaultReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 // image carries the command that serves it.
 func TestAnIntranetBundleRunsItsStaticImageAsItsRecordSays(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n"))
+	c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

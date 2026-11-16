@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/fix"
 )
 
@@ -85,7 +88,12 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		out.Reason = reason
 		return out, nil
 	}
-	if err := CompareUpdateInputs(inputs[0], inputs[1], categories.BaseImages, len(targets) > 0 && categories.ToolchainPatches); err != nil {
+	var readings []imagelines.Reading
+	if err := CompareUpdateInputs(ctx, inputs[0], inputs[1], categories.BaseImages, len(targets) > 0 && categories.ToolchainPatches, ImageUpdates{Resolver: r.images, Scope: UpdateScope(categories.Dependencies), Security: len(targets) > 0, Readings: &readings}); err != nil {
+		if fault.KindOf(err) == fault.Unavailable {
+			out.Reason = err.Error()
+			return out, nil
+		}
 		return refuse(err.Error())
 	}
 	if len(targets) > 0 && !categories.SecurityFixes {
@@ -107,5 +115,14 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	out.Validation = &workflow.StandingValidation{Image: r.executor.AgentImage, ReportDigest: observationDigest(raw), ScratchSettlement: "local staging removed; executor scratch cleanup is not observed here"}
 	out.Classification = "routine-dependency"
 	out.Reason = "toolchain and base-image inputs stay within the permitted bounds; the routine model receipt and required checks govern standing acceptance"
+	var evidence []string
+	for _, r := range readings {
+		if r.Stale {
+			evidence = append(evidence, r.Evidence())
+		}
+	}
+	if len(evidence) > 0 {
+		out.Reason += "; " + strings.Join(evidence, "; ")
+	}
 	return out, nil
 }

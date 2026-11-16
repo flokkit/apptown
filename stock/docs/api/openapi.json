@@ -5550,6 +5550,37 @@
         ],
         "type": "string"
       },
+      "Reading": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "readAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "registry": {
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "tag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "digest",
+          "registry",
+          "readAt",
+          "stale"
+        ],
+        "type": "object"
+      },
       "RecheckStarted": {
         "properties": {
           "message": {
@@ -12768,6 +12799,55 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/image-lines": {
+      "get": {
+        "operationId": "getImageLines",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ref",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reading"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "image-lines"
+        ],
+        "x-apptown-access": {
+          "contract": "imageLines.Newest: public image registry reading",
+          "kind": "public"
+        },
+        "x-apptown-feature": {
+          "area": "setup",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/infrastructure": {

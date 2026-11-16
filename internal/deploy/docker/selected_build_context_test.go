@@ -21,7 +21,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 		t.Run(fmt.Sprint(remote), func(t *testing.T) {
 			fake := &fakeClient{}
 			repo := selectedSourceRepo(t, map[string]string{
-				".apptown/app.yaml": "app:\n  web:\n    public: true\n    static: site\n  mirror:\n    static: site\n    ports: [\"9090\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n",
+				".apptown/app.yaml": "staticServer: " + testStaticServer + "\napp:\n  web:\n    public: true\n    static: site\n  mirror:\n    static: site\n    ports: [\"9090\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n",
 				"site/index.html":   "selected A", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n",
 			})
 			art, cleanup, err := PrepareSource(context.Background(), repo, "HEAD", "p", []deploy.ServiceSpec{{Name: "selected-service", Image: "example/service:1"}})
@@ -71,7 +71,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 				}
 				return nil, nil
 			}
-			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).prepareImages(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: art.Source.Workspace, Docker: dk, identity: &deploy.DockerIdentity{Deployment: "1", Generation: 7, Artifact: art.Hash}}, appcontract.Prepare(art.Source.Contract, nil))
+			got, err := NewHost(Dependencies{DFImage: testDF}).prepareImages(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: art.Source.Workspace, Docker: dk, identity: &deploy.DockerIdentity{Deployment: "1", Generation: 7, Artifact: art.Hash}}, appcontract.Prepare(art.Source.Contract, nil))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -114,7 +114,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 // local Docker daemon").
 func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\n  cache:\n    image: example/cache:7\ninit:\n  - name: migrate\n    build: migrations\n  - name: seed\n    image: example/seed:1\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\n  cache:\n    image: example/cache:7\ninit:\n  - name: migrate\n    build: migrations\n  - name: seed\n    image: example/seed:1\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 			dk := (Scope{Client: fake}).WithHost("ssh://attached", "attached", "")
 			req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: recorded,
 				identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
-			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
+			got, err := NewHost(Dependencies{DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 			present := recorded.Present(context.Background(), dk)
 			for _, args := range fake.args {
 				if args[0] == "build" || args[0] == "pull" {
@@ -199,7 +199,7 @@ func TestRecordedImagesBootAsRecordedAndBuildNothing(t *testing.T) {
 // credential or an unreachable registry is an error, never missing.
 func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: migrations\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +249,7 @@ func TestImagesByDigestArePulledWithTheirCredentialAndConfirmed(t *testing.T) {
 			dk := (Scope{Client: fake}).WithHost("ssh://attached", "attached", "")
 			req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: t.TempDir(), Docker: dk, Recorded: &recorded,
 				identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
-			got, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
+			got, err := NewHost(Dependencies{DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 			for _, args := range fake.args {
 				if slices.Contains(args, "build") || slices.Contains(args, "buildx") {
 					t.Fatalf("an image by digest was built: %v", args)

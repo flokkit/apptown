@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -35,6 +36,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/imageline"
 )
 
 func npmRegistry(t *testing.T) (string, *atomic.Bool) {
@@ -706,12 +708,13 @@ func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
 				t.Fatal(err)
 			}
 			f, _ := newNodeFixFixture(t, "patch", doc.Spec)
+			f.commands.images = testImageReadings{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "golang:1.27.4", Digest: "sha256:" + strings.Repeat("a", 64)}}}
 			updateWrite(t, f.hub, "mise.toml", "[tools]\ngo='1.27.3'\n")
 			updateWrite(t, f.hub, "Dockerfile", "FROM golang:1.27.3 AS build\nFROM scratch\n")
 			updateCommit(t, f.hub, "toolchain declarations")
 			installFakePi(f, func(_ int, req execution.Request) execution.Outcome {
 				updateWrite(t, req.Workspace, "mise.toml", "[tools]\ngo='1.27.4'\n")
-				updateWrite(t, req.Workspace, "Dockerfile", "FROM golang:1.27.4 AS build\nFROM scratch\n")
+				updateWrite(t, req.Workspace, "Dockerfile", "FROM golang:1.27.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa AS build\nFROM scratch\n")
 				updateCommit(t, req.Workspace, "security patch")
 				return execution.Outcome{Termination: execution.Exited, Output: piSays("patched toolchain")}
 			})
@@ -750,5 +753,47 @@ func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
 				t.Fatalf("%s judge=%t: %+v", status, called, ev)
 			}
 		})
+	}
+}
+
+type testImageReadings struct {
+	answer imagelines.Reading
+	err    error
+}
+
+func (r testImageReadings) Answer(context.Context, string, imageline.Scope) (imagelines.Reading, error) {
+	return r.answer, r.err
+}
+func TestRoutineImageRefusalIsAnUnknownCheck(t *testing.T) {
+	t.Parallel()
+	raw, _ := stock.FS.ReadFile("janitor-update.yaml")
+	doc, err := schema.ParseWorkflow(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, _ := newNodeFixFixture(t, "updates", doc.Spec)
+	updateWrite(t, f.hub, "Dockerfile", "FROM node:24.1-slim\n")
+	updateCommit(t, f.hub, "base image")
+	f.commands.images = testImageReadings{err: errors.New("registry offline")}
+	installFakePi(f, func(_ int, req execution.Request) execution.Outcome {
+		updateWrite(t, req.Workspace, "Dockerfile", "FROM node:24.9-slim@sha256:"+strings.Repeat("a", 64)+"\n")
+		updateCommit(t, req.Workspace, "move image")
+		return execution.Outcome{Termination: execution.Exited, Output: piSays("moved image")}
+	})
+	f.commands.judge = updateJudgeFunc(func(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error) {
+		t.Error("unknown registry answer reached model judgement")
+		return workflow.CheckReceipt{}, nil
+	})
+	run := queueRun(t, f, "updates", "updates")
+	steps := queueSteps(t, f, run)
+	queueExecute(t, f, steps["update"])
+	queueExecute(t, f, steps["routine"])
+	status, ev := stepStatus(t, f, steps["routine"].ID)
+	encoded, err := json.Marshal(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != workflow.StatusError || !strings.Contains(string(encoded), `"verdict":"cannot-assess"`) || !strings.Contains(string(encoded), "registry offline") {
+		t.Fatalf("%s %s", status, encoded)
 	}
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
-	"github.com/flokkit/apptown/stock"
 )
 
 // The real static server, as every path runs it: the site from /srv, and
@@ -57,7 +56,7 @@ func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html></html>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", stock.Images().StaticServer}, StaticServerCommand(8080)...)
+	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"}, StaticServerCommand(8080)...)
 	id := runDetached(t, args...)
 	var logs []byte
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {
@@ -81,7 +80,7 @@ func startStaticServer(t *testing.T, site, values string) string {
 	if values != "" {
 		args = append(args, "-e", BrowserEnvVar+"="+values)
 	}
-	args = append(args, stock.Images().StaticServer)
+	args = append(args, "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d")
 	args = append(args, StaticServerCommand(8080)...)
 	id := runDetached(t, args...)
 	port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()

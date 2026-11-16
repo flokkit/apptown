@@ -35,7 +35,7 @@ func TestAWorkerRefusesAnOversizedPreviewBeforeRemovingTheRunningOne(t *testing.
 	if err := os.WriteFile(filepath.Join(dk, "running-"+name), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 16G }\n"))
+	c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 16G }\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,10 +78,10 @@ func TestAWorkerAnswersWhetherItsDaemonCanHoldAPreview(t *testing.T) {
 		}
 		return c
 	}
-	if err := previews.Admit(t.Context(), parse("version: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 1G }\n")); err != nil {
+	if err := previews.Admit(t.Context(), parse("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 1G }\n")); err != nil {
 		t.Fatalf("a preview the worker can hold: %v", err)
 	}
-	err := previews.Admit(t.Context(), parse("version: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 16G }\n"))
+	err := previews.Admit(t.Context(), parse("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n    resources: { memory: 16G }\n"))
 	var refused *worker.AdmissionRefused
 	if !errors.As(err, &refused) || !strings.Contains(refused.Reason, "declares 16Gi of memory; this Docker host has 8Gi") {
 		t.Fatalf("an oversized preview: %v", err)

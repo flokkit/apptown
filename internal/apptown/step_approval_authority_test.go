@@ -205,7 +205,7 @@ func TestJanitorChoicesCoverProjectsAndReleaseSettings(t *testing.T) {
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
 	a.SyncStock(ctx)
-	pid, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	pid, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	java, _, _ := fleetRepo(t, a, "janitor-java", map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\n    tools: [java]\n", "Dockerfile": "FROM scratch\n"})
 	pack, err := a.Ways.Pack(ctx, "java")
 	if err != nil {
@@ -432,7 +432,7 @@ func testPackAdoption(t *testing.T, only string) {
 			a.SyncStock(ctx)
 			verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
 			tgLocalSh(t, a)
-			pid, _, _ := fleetRepo(t, a, "pack-static", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+			pid, _, _ := fleetRepo(t, a, "pack-static", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 			block, err := a.Ways.CreateBlock(ctx, "team/rules", "Original guidance.", "", "boss")
 			if err != nil {
 				t.Fatal(err)
@@ -887,7 +887,7 @@ func TestKeepPacksCurrentReachesAProjectWithoutThePlatformPack(t *testing.T) {
 	a := authzActors(t)
 	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
 	a.SyncStock(ctx)
-	pid, _, _ := fleetRepo(t, a, "packless", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	pid, _, _ := fleetRepo(t, a, "packless", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	var noRepo ids.ID
 	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
 		var err error
@@ -1059,8 +1059,8 @@ func TestJanitorRunPacksChecksProjectChoiceAndRecordsRequester(t *testing.T) {
 	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
 	a.SyncStock(ctx)
 	enablePackRule(t, a, ctx)
-	behind, _, _ := fleetRepo(t, a, "immediate-behind", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
-	other, _, _ := fleetRepo(t, a, "other-behind", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	behind, _, _ := fleetRepo(t, a, "immediate-behind", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	other, _, _ := fleetRepo(t, a, "other-behind", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	for _, id := range []ids.ID{behind, other} {
 		if err := recordCatalogFixture(a.Adoption, ctx, id, "boss"); err != nil {
 			t.Fatal(err)

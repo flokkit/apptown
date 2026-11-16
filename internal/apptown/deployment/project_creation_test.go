@@ -101,7 +101,7 @@ func TestNewProjectTargetChoiceIsEnforcedByOwner(t *testing.T) {
 			selection := choice
 			if choice == "static bucket" {
 				selection = "bucket"
-				c, err := appcontract.Parse([]byte("version: 2\napp:\n  web:\n    public: true\n    static: dist\n"))
+				c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 2\napp:\n  web:\n    public: true\n    static: dist\n"))
 				if err != nil {
 					t.Fatal(err)
 				}

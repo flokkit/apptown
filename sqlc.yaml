@@ -413,3 +413,18 @@ sql:
           - db_type: uuid
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
+  - engine: postgresql
+    schema: internal/apptown/dbschema/schema.sql
+    queries: internal/apptown/imagelines/internal/imagelinesql/queries.sql
+    gen:
+      go:
+        package: imagelinesql
+        out: internal/apptown/imagelines/internal/imagelinesql
+        sql_package: database/sql
+        overrides:
+          - db_type: uuid
+            go_type: github.com/flokkit/apptown/internal/ids.ID
+          - db_type: uuid
+            nullable: true
+            go_type: github.com/flokkit/apptown/internal/ids.ID
+        omit_unused_structs: true

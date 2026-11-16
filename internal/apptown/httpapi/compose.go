@@ -117,12 +117,11 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		services[in.Name] = svc
 	}
 
-	var server string
-	if h.tools != nil {
-		server = h.tools.Current().Images.StaticServer
-	}
-	if server == "" {
-		return "", nil, fmt.Errorf("no static server image: the tool versions name it")
+	server := c.StaticServer
+	if c.HasStaticParts() {
+		if _, err := appcontract.StaticServerImage(server); err != nil {
+			return "", nil, err
+		}
 	}
 	for _, p := range parts {
 		svc := map[string]any{}

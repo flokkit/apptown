@@ -14,7 +14,9 @@ import (
 	"unsafe"
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -84,6 +86,9 @@ func restartApp(t *testing.T, db *database.DB) *App {
 // constructApp performs construction only, without stock or authorization writes.
 func constructApp(t *testing.T, db *database.DB, cfg Config) *App {
 	t.Helper()
+	if cfg.ImageResolver == nil {
+		cfg.ImageResolver = testImageResolver{}
+	}
 	if cfg.DockerClient == nil {
 		cfg.DockerClient = defaultTestDocker()
 	}
@@ -312,4 +317,16 @@ func TestAppDataStaysInTheTemporaryRoot(t *testing.T) {
 	if filepath.Dir(dir) != os.TempDir() {
 		t.Fatalf("app data %q must be inside the shared temporary root %q", dir, root)
 	}
+}
+
+// testImageResolver is this package's fake of the registry readings owner.
+// Creation tests never contact public registries.
+type testImageResolver struct{}
+
+func (testImageResolver) Answer(_ context.Context, ref string, scope imageline.Scope) (imagelines.Reading, error) {
+	line, err := imageline.Parse(ref, scope)
+	if err != nil {
+		return imagelines.Reading{}, err
+	}
+	return imagelines.Reading{Answer: imageline.Answer{Tag: line.Repository.Tag(line.Prefix + line.Variant).Name(), Digest: "sha256:" + strings.Repeat("a", 64), Registry: "registry.test"}, ReadAt: time.Date(2026, 11, 17, 0, 0, 0, 0, time.UTC)}, nil
 }

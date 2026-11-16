@@ -121,7 +121,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		}
 		defer cleanup()
 		before := dk.imageID(ctx, tag)
-		server, err := h.staticServer()
+		server, err := appcontract.StaticServerImage(c.StaticServer)
 		if err != nil {
 			return 0, err
 		}
@@ -305,7 +305,7 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		args = append(args, trust.ContainerArgs(!dk.remote())...)
 	}
 	if c.Static != "" {
-		server, err := h.staticServer()
+		server, err := appcontract.StaticServerImage(c.StaticServer)
 		if err != nil {
 			return 0, err
 		}

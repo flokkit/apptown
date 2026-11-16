@@ -12,8 +12,9 @@ import (
 // Contract is the canonical declaration parsed from .apptown/app.yaml. Callers
 // retain it as source intent and use Prepare for mutable execution inputs.
 type Contract struct {
-	Needs      []string
-	NeedParams map[string]map[string]string
+	StaticServer string
+	Needs        []string
+	NeedParams   map[string]map[string]string
 	// NeedSizes are catalogue size selections; Command is filled only by execution resolution.
 	NeedSizes map[string]NeedSize
 	// Version is the contract's shape version: 1 (or none written) or 2
@@ -68,10 +69,12 @@ type InitContainer struct {
 // Part is one app-owned container from .apptown/app.yaml's `app:` map. Compose
 // conventions for the run mechanics; Public marks the front door (exactly one).
 type Part struct {
-	Name   string
-	Build  string // build context (compose `build:`)
-	Image  string // pushed ref (compose `image:`)
-	Static string // client-only: serve this committed folder
+	// StaticServer is copied from the declaration by Prepare.
+	StaticServer string
+	Name         string
+	Build        string // build context (compose `build:`)
+	Image        string // pushed ref (compose `image:`)
+	Static       string // client-only: serve this committed folder
 	// StaticBuild is a static site built first: its output folder is
 	// served as Static is. Exactly one of Build, Image, Static, StaticBuild.
 	StaticBuild *StaticBuild
@@ -221,6 +224,7 @@ func Prepare(c *Contract, connections map[string]string) *Plan {
 	p := &Plan{Parts: append([]Part(nil), c.Parts...), Init: append([]InitContainer(nil), c.Init...)}
 	for i := range p.Parts {
 		part := &p.Parts[i]
+		part.StaticServer = c.StaticServer
 		part.Command = append([]string(nil), part.Command...)
 		if part.Intent != nil {
 			health := *part.Intent

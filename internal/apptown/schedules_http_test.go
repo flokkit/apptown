@@ -166,7 +166,7 @@ func TestJanitorPageReadsWithAnInstanceRuleAndAProjectWithoutARepository(t *test
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
 	a.SyncStock(ctx)
-	covered, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	covered, _, _ := fleetRepo(t, a, "janitor-covered", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	empty, err := a.Projects.BySlug(t.Context(), "game")
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 	}
 	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
 	a.SyncStock(ctx)
-	covered, _, _ := fleetRepo(t, a, "janitor-scan-now", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	covered, _, _ := fleetRepo(t, a, "janitor-scan-now", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	platform, err := a.Ways.Pack(t.Context(), "apptown")
 	if err != nil {
 		t.Fatal(err)
@@ -334,7 +334,7 @@ func TestFleetReadsAuthorityFactsOnceForTheSet(t *testing.T) {
 	}
 	projects := []ids.ID{}
 	add := func(i int) {
-		id, _, _ := fleetRepo(t, a, fmt.Sprintf("shape-%d", i), map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+		id, _, _ := fleetRepo(t, a, fmt.Sprintf("shape-%d", i), map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 		err := a.DB.InTx(ctx, func(tx *database.Tx) error {
 			return adoption.SetMembershipIn(ctx, tx, id, []adoption.Membership{{Pack: pack.Name, Version: pack.Version}}, "fixture", "fixture", time.Now())
 		})
@@ -429,7 +429,7 @@ func TestJanitorChoicesSurviveAnAdoptedWorkflowMeaningAndVersionChange(t *testin
 	a := authzActors(t)
 	ctx := verifiedContext(t.Context(), testAdmittedPrincipalForPacks(t, a))
 	a.SyncStock(ctx)
-	pid, _, _ := fleetRepo(t, a, "workflow-change", map[string]string{".apptown/app.yaml": "app:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
+	pid, _, _ := fleetRepo(t, a, "workflow-change", map[string]string{".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    static: site\n    public: true\n", "site/index.html": "hello"})
 	declare := func(means string) string {
 		return fmt.Sprintf(`apiVersion: apptown.dev/v1
 kind: Workflow

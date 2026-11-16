@@ -12,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 // Target capacity: how full a target is. A fixed host (a Docker host, a
@@ -555,8 +554,3 @@ func (s *Service) share(ctx context.Context, dep *Deployment, parts []PartResour
 	}
 	return out
 }
-
-// ToolVersions is the current tool versions snapshot, for a unit of work
-// that runs AppTown's own images (a release build's static server): it
-// takes one at its start and keeps it.
-func (s *Service) ToolVersions() toolversions.Snapshot { return s.env.ToolVersions() }

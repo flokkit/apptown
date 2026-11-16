@@ -141,7 +141,7 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate the schema before migration 238 recorded notifications.
-	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP TABLE notification_deliveries; DROP TABLE notification_items; DROP TABLE notification_baseline`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP TABLE image_line_readings; DROP TABLE notification_deliveries; DROP TABLE notification_items; DROP TABLE notification_baseline`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate the schema before migration 239 removed the

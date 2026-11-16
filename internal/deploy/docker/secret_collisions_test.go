@@ -22,7 +22,7 @@ func TestDockerRefusesNeedSecretCollisionsBeforeApplicationEffects(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			deps := Dependencies{Needs: credentialNeed{password: "need-sentinel"}, Secrets: collisionSecrets{consumer: {"DATABASE_URL": "manual-sentinel"}}, StaticServer: testStaticServer, DFImage: testDF}
+			deps := Dependencies{Needs: credentialNeed{password: "need-sentinel"}, Secrets: collisionSecrets{consumer: {"DATABASE_URL": "manual-sentinel"}}, DFImage: testDF}
 			client := &recordingClient{}
 			_, err = NewHost(deps).Boot(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "owned", Workspace: t.TempDir()}, c)
 			if err == nil || !strings.Contains(err.Error(), consumer) || !strings.Contains(err.Error(), "DATABASE_URL") || strings.Contains(err.Error(), "sentinel") || len(client.calls) != 0 {

@@ -188,6 +188,13 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 			if code, body := stepTokenAPIDoor(h, token); code != 200 || !strings.Contains(body, fmt.Sprintf(`"run/%d"`, run.ID)) {
 				t.Fatalf("API door: %d %s", code, body)
 			}
+			request := httptest.NewRequest("GET", "/api/v1/image-lines?ref=caddy:2-alpine&scope=line", nil)
+			request.Header.Set("X-AppTown-Session-Token", token)
+			response := httptest.NewRecorder()
+			GETOnly(h).ServeHTTP(response, request)
+			if response.Code != 200 || !strings.Contains(response.Body.String(), `"registry":"registry.test"`) {
+				t.Fatalf("step cannot read image lines: %d %s", response.Code, response.Body)
+			}
 			if scenario == "still live" {
 				return
 			}

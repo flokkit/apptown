@@ -249,7 +249,7 @@ func withPreviewWorker(t *testing.T, fake *fakePreviewWorker, cfg Config) Config
 	return cfg
 }
 
-const staticSiteContract = "version: 1\napp:\n  web:\n    static: .\n    public: true\n"
+const staticSiteContract = "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n"
 
 // previewWorkerWorld is an AppTown with a worker for previews (and a preview
 // domain unless noDomain), a local Docker that records everything and runs
@@ -487,7 +487,7 @@ func runRuntimeGate(t *testing.T, place gatePlace) (*workflow.Step, string, stri
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)

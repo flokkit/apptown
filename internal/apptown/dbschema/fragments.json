@@ -23,5 +23,6 @@
   "internal/apptown/tasks/schema.sql",
   "internal/apptown/evals/schema.sql",
   "internal/apptown/maintenance/schema.sql",
-  "internal/apptown/notification/schema.sql"
+  "internal/apptown/notification/schema.sql",
+  "internal/apptown/imagelines/schema.sql"
 ]

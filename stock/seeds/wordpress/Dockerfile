@@ -1,8 +1,8 @@
 # Composer resolves only the committed lock; core, plugins and theme ship together.
 # Each RUN that downloads mounts the extra certificates AppTown gives a build
 # (the secret apptown-trust) and runs them first; without them it runs as is.
-FROM composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac AS composer
-FROM php:8.3.35-apache-bookworm@sha256:b79a53c3fb1dd4b9f350a8d99d84951512b6c21044e61bbecfee8af030b3722e AS runtime
+FROM composer:2 AS composer
+FROM php:8.3-apache-bookworm AS runtime
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends libpng-dev libjpeg62-turbo-dev libwebp-dev unzip \
     && docker-php-ext-configure gd --with-jpeg --with-webp \

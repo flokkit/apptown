@@ -44,6 +44,7 @@ func appRoutes(a *App) []routeSpec {
 	var auditLog httpapi.AuditLog
 	var deployments httpapi.Deployments
 	var health httpapi.Health
+	var imageLines httpapi.ImageLines
 	var configuration httpapi.Configuration
 	var secrets httpapi.Secrets
 	var authorization httpapi.Authorization
@@ -228,7 +229,8 @@ func appRoutes(a *App) []routeSpec {
 		invites = httpapi.NewInvites(a.Access, a.cfg.browserSession(), a.cfg.proxies, a.cfg.authMode == "internal")
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
 		secrets = httpapi.NewSecrets(a.Secrets, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
-		configuration = httpapi.NewConfiguration(a.Dependencies, a.cfg.stock.Tools)
+		imageLines = httpapi.ImageLines{Resolver: a.imageLines}
+		configuration = httpapi.NewConfiguration(a.Dependencies)
 		health = httpapi.NewHealth(a.DB.Pool().PingContext)
 		deployments = httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access)
 		auditLog = httpapi.NewAuditLog(a.DB, a.Projects)
@@ -329,6 +331,7 @@ func appRoutes(a *App) []routeSpec {
 		memberRoute("GET /api/v1/conformance/projects/{slug}/fixes", conformance.ProjectFixes, "project-slug").inArea("conformance"),
 		requireRoute("GET /api/v1/workers", remediations.Workers, access.CapConformanceRead, "instance").inArea("worker"),
 		adminRoute("PUT /api/v1/workers", remediations.Workers).inArea("worker"),
+		publicRoute("GET /api/v1/image-lines", imageLines.Newest, "imageLines.Newest: public image registry reading").inArea("setup"),
 		publicRoute("GET /api/v1/config/schema", configuration.ConfigSchema, "configuration.ConfigSchema: shared contract schema").inArea("setup"),
 		publicRoute("POST /api/v1/config/validate", configuration.ConfigValidate, "configuration.ConfigValidate: validate caller-supplied configuration without persisting it").inArea("setup"),
 		publicRoute("POST /api/v1/dev-compose", configuration.DevCompose, "configuration.DevCompose: render caller-supplied local compose configuration").inArea("setup"),

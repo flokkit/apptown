@@ -18,7 +18,8 @@ import (
 
 // sizedNeedYAML is the world's app with a Postgres it sizes, and a
 // production profile that gives the database more.
-const sizedNeedYAML = `app:
+const sizedNeedYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -139,7 +140,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 // anything is built, pulled or run there.
 func TestAReleaseLargerThanItsHostIsRefusedBeforeAnyEffect(t *testing.T) {
 	t.Parallel()
-	w := newDigestWorldWith(t, "", "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\n    resources: { memory: 64G }\n", nil)
+	w := newDigestWorldWith(t, "", "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n  worker:\n    build: worker\n    resources: { memory: 64G }\n", nil)
 	b := w.publish(t)
 	before := len(w.hosts.commands("lab"))
 	rel, err := w.promote(t, b.ID, "prod", w.lab)
@@ -157,7 +158,7 @@ func TestAReleaseLargerThanItsHostIsRefusedBeforeAnyEffect(t *testing.T) {
 // registers) is refused before the release does anything on the host.
 func TestASizeForANeedThatRunsNoServiceIsRefusedBeforeAnyEffect(t *testing.T) {
 	t.Parallel()
-	w := newDigestWorldWith(t, "", "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\nneeds:\n  llm:\n    resources: { memory: 1G }\n", nil)
+	w := newDigestWorldWith(t, "", "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\nneeds:\n  llm:\n    resources: { memory: 1G }\n", nil)
 	b := w.publish(t)
 	rel, err := w.promote(t, b.ID, "prod", w.lab)
 	if err == nil && rel.State == Released {
@@ -501,7 +502,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 // one and leaves the managed database out.
 func TestAnElasticTargetShowsSizesAndAnEstimate(t *testing.T) {
 	t.Parallel()
-	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 768M }\n")
+	p := newPromotionTargetsWith(t, false, "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 768M }\n")
 	b := p.land(t)
 	if rel, err := p.promote(t, b.ID, "cloud", p.target(t, "do-syd")); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
@@ -566,7 +567,7 @@ func TestADeploymentShowsItsShareOfItsHost(t *testing.T) {
 // standing reader made with docker run or read by an attached exec.
 func TestAPortainerTargetsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	t.Parallel()
-	p := newPromotionTargetsWith(t, false, "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")
+	p := newPromotionTargetsWith(t, false, "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: 256M }\n")
 	p.land(t)
 	if rel := p.releaseDefault(t); rel.State != Released {
 		t.Fatalf("release: %+v", rel)

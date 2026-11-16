@@ -63,7 +63,7 @@ func TestAPreviewMarkedForRemovalIsNeverReused(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
+	c, err := appcontract.Parse([]byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nversion: 1\napp:\n  web:\n    static: .\n    public: true\n"))
 	if err != nil {
 		t.Fatal(err)
 	}

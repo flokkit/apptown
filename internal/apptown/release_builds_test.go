@@ -72,7 +72,8 @@ import (
 // published digest bundle does once promoted, recovered or tagged is the
 // deployment package's (digest_release_test.go).
 
-const releaseAppYAML = `app:
+const releaseAppYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -94,7 +95,8 @@ init:
 // names one version of the project's DOCR repository. App Platform refuses
 // an app naming two versions of one repository (restore test RT-L3), which
 // the multipart app's distinct images would be.
-const releaseOneImageYAML = `app:
+const releaseOneImageYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -1866,7 +1868,8 @@ func TestAManualDeployMissingASettingIsRefusedBeforeAnyEffect(t *testing.T) {
 func localReleaseWorld(t *testing.T) *releaseWorld {
 	t.Helper()
 	w := newReleaseWorld(t, func(c *Config) { c.Worker, c.PrivateDocker = nil, false })
-	w.appYAML = `app:
+	w.appYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site

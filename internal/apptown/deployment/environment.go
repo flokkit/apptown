@@ -162,7 +162,7 @@ func (e *Environment) hostDependencies(projectID ids.ID, creds dependency.Creden
 	im := e.ToolVersions().Images
 	return docker.Dependencies{
 		Secrets: hostSecrets{secrets: e.secrets, project: projectID, env: e, keys: keys}, Needs: dependency.LocalRuntime{Catalog: e.needs, Credentials: creds}, Registry: hostRegistry{e.integrations, projectID}, Integrations: hostContributions{e.integrations, projectID},
-		Routes: hostRoutes{e}, Probe: e.probe, StaticServer: im.StaticServer, ChownImage: im.Sh, DFImage: im.DF,
+		Routes: hostRoutes{e}, Probe: e.probe, ChownImage: im.Sh, DFImage: im.DF,
 	}
 }
 
@@ -538,7 +538,7 @@ func (e *Environment) ToolVersions() toolversions.Snapshot {
 // rehearsal's withheld secrets and its one origin), its needs given creds.
 func (e *Environment) SealedHost(projectID ids.ID, secrets docker.SecretResolver, routes docker.Routes, creds dependency.Credentials, im toolversions.Images) docker.Dependencies {
 	return docker.Dependencies{Secrets: secrets, Needs: dependency.LocalRuntime{Catalog: e.needs, Credentials: creds}, Registry: hostRegistry{e.integrations, projectID},
-		Routes: routes, Probe: e.probe, StaticServer: im.StaticServer, ChownImage: im.Sh, DFImage: im.DF}
+		Routes: routes, Probe: e.probe, ChownImage: im.Sh, DFImage: im.DF}
 }
 
 // RefusesContract is the target's refusal of c, judged on what the target

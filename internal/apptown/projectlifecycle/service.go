@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
@@ -77,6 +78,7 @@ type initialDeployment interface {
 }
 
 type Dependencies struct {
+	Images       imagelines.Resolver
 	Deployments  initialDeployment
 	Jobs         jobs.Enqueuer
 	Identity     *identity.Service
@@ -104,6 +106,7 @@ type Config struct {
 	Now func() time.Time
 }
 type Service struct {
+	images       imagelines.Resolver
 	deployments  initialDeployment
 	jobs         jobs.Enqueuer
 	identity     *identity.Service
@@ -127,7 +130,7 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{deployments: deps.Deployments, db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{images: deps.Images, deployments: deps.Deployments, db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the

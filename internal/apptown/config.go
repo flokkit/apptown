@@ -33,11 +33,14 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/inference"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 )
 
 // Config is construction input, not live application state. New validates and
 // copies it; changing this value afterwards cannot reconfigure an instance.
 type Config struct {
+	// ImageResolver supplies public-image registry readings at construction; nil builds the instance readings owner.
+	ImageResolver imagelines.Resolver
 	// UpdateChannel selects stable releases unless explicitly set to prerelease.
 	UpdateChannel string
 	// DockerClient supplies the command transport before owners are wired.

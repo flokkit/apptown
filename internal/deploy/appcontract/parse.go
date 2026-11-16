@@ -121,6 +121,7 @@ type appYamlInit struct {
 }
 
 type appYamlDoc struct {
+	StaticServer string `yaml:"staticServer"`
 	// Version is the contract's shape version. Absent means 1 (files that
 	// predate versioning); a nonpositive value is invalid; a version this binary
 	// does not know is a clear error, never a silent partial decode.
@@ -352,6 +353,15 @@ func Parse(raw []byte) (*Contract, error) {
 		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
 	c.NotAppCode = notApp
+	c.StaticServer = doc.StaticServer
+	if doc.StaticServer != "" {
+		if !c.HasStaticParts() {
+			return nil, fmt.Errorf("staticServer: this app has no static parts")
+		}
+		if err := ValidateStaticServer(doc.StaticServer); err != nil {
+			return nil, err
+		}
+	}
 
 	// init: ordered run-to-completion containers that must succeed before the
 	// app parts start.

@@ -176,7 +176,7 @@ exit 0
 
 // madeFiles are what the script makes on the worker: a file, and the
 // native contract and a page so the run's preview boots.
-var madeFiles = map[string]string{"made.txt": "made on the worker\n", ".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html></html>\n"}
+var madeFiles = map[string]string{"made.txt": "made on the worker\n", ".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n", "index.html": "<html></html>\n"}
 
 // runMake runs the script step's attempt on the worker, where it writes
 // files, and waits for its step to settle as want.

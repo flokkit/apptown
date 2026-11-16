@@ -24,7 +24,8 @@ import (
 
 // profiledAppYAML is the world's app with resources and a production
 // profile: production gives the worker 1G and a greeting of its own.
-const profiledAppYAML = `app:
+const profiledAppYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -356,7 +357,7 @@ func TestAppPlatformFitsEachPartBeforeAnyEffect(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			app := "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: " + tc.memory + " }\n"
+			app := "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n    resources: { memory: " + tc.memory + " }\n"
 			if tc.want != "" {
 				// A managed database is the first effect a release makes.
 				app += "needs:\n  postgres:\n    version: \"16\"\n"

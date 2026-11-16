@@ -25,14 +25,14 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 				}
 				return nil, nil
 			}}
-			part := &appcontract.Part{Static: ".", Port: 8080}
+			part := &appcontract.Part{StaticServer: testStaticServer, Static: ".", Port: 8080}
 			var secrets map[string]string
 			if mode == "contract" {
 				part.Env = map[string]string{BrowserEnvVar: `{"SENTRY_DSN":"substituted"}`}
 			} else {
 				secrets = map[string]string{BrowserEnvVar: "private-review-canary"}
 			}
-			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
+			_, err := NewHost(Dependencies{DFImage: testDF}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 func TestAnUnreadableBrowserValueLeavesTheRunningContainer(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{reply: func(Command) ([]byte, error) { return nil, nil }}
-	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
+	_, err := NewHost(Dependencies{DFImage: testDF, Integrations: unreadableBrowser{}}).startAppContainer(t.Context(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{StaticServer: testStaticServer, Static: ".", Port: 8080}, "", nil)
 	if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 		t.Fatalf("want the read failure, got %v", err)
 	}
@@ -94,7 +94,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					}
 					return nil, nil
 				}}
-				c := &appcontract.Contract{Parts: []appcontract.Part{
+				c := &appcontract.Contract{StaticServer: testStaticServer, Parts: []appcontract.Part{
 					{Name: "web", Public: true, Static: ".", Port: 8080},
 					{Name: "worker", Image: "worker:1"},
 				}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
@@ -109,7 +109,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 				if readable {
 					browser = givenBrowser{}
 				}
-				_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: browser, Probe: reviewUp{}}).Boot(context.Background(), req, c)
+				_, err := NewHost(Dependencies{DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: browser, Probe: reviewUp{}}).Boot(context.Background(), req, c)
 				if !readable {
 					if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 						t.Fatalf("expected the read failure, got %v", err)
@@ -178,13 +178,13 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	c := &appcontract.Contract{Parts: []appcontract.Part{
+	c := &appcontract.Contract{StaticServer: testStaticServer, Parts: []appcontract.Part{
 		{Name: "web", Public: true, Image: "web:1", Port: 8080},
 		{Name: "worker", Image: "worker:1"},
 	}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
 	req := BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), persistent: true,
 		identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
-	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
+	host := NewHost(Dependencies{DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
 	_, err := host.Boot(context.Background(), req, c)
 	if AsBootError(err) == nil || AsBootError(err).Phase != PhaseConfig || !strings.Contains(err.Error(), "attached integrations") {
 		t.Fatalf("expected a configuration failure, got %v", err)

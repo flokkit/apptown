@@ -182,7 +182,7 @@ func TestABootsDockerConfigurationFindsTheCLIPlugins(t *testing.T) {
 // by ID as a static site. A release's recorded images are never built.
 func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	t.Parallel()
-	c, err := appcontract.Parse([]byte("app:\n  web:\n    public: true\n    static: { build: site, target: out, output: dist }\n"))
+	c, err := appcontract.Parse([]byte("staticServer: " + testStaticServer + "\n" + "app:\n  web:\n    public: true\n    static: { build: site, target: out, output: dist }\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	}
 	req := BootRequest{Allowed: AuthorisedWhenRequested, Name: "apptown-env-p-main", Workspace: ws, Docker: Scope{Client: fake},
 		identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
-	plan, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
+	plan, err := NewHost(Dependencies{DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	recorded := &RecordedImages{Parts: map[string]string{"web": "sha256:recorded"}}
 	req.Recorded = recorded
 	fake.reply = func(req Command) ([]byte, error) { return []byte("sha256:recorded"), nil }
-	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil)); err != nil {
+	if _, err := NewHost(Dependencies{DFImage: testDF}).prepareImages(t.Context(), req, appcontract.Prepare(c, nil)); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range fake.args {

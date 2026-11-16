@@ -23,15 +23,18 @@ security target. Only the public part's running-image findings become image
 targets. Static parts run AppTown's file server, so its image findings remain
 scan observations rather than project fix targets; source dependency findings
 still have their own fix targets. Findings in other parts need a person.
-Adding, refreshing or removing a digest on the same image and tag is a base-image
-update at any level.
+Image updates stay digest-pinned. The Janitor uses `apptown image newest` for
+external FROM operands and `staticServer:`; AppTown checks routine moves against
+the same recorded registry answer. A refused lookup leaves that image unchanged.
+A security target may choose the smallest pinned build that clears the finding.
 Direct dependencies move to stable releases only. A package they pull in may be
 a pre-release (alpha, beta, rc) when the stable release itself requires it; the
 janitor never pins one.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need. Repairs may update declarations in
 `.apptown/app.yaml` required by the new pack's checks. Dependency updates and
-security fixes keep that file unchanged.
+security fixes change only `staticServer:` in that file, when base image updates
+are on. Static projects missing that pin receive it through a dependency update.
 
 In Janitor settings, choose dependencies **Off**, **Patch and minor** or
 **Including major**, plus **Security fixes**, **Base images**, **Toolchain patches
@@ -99,7 +102,9 @@ person asks it to try again. Janitor's update and repair agents have 45 minutes
 per step.
 
 An empty update needs a final agent message with release-listing commands and
-relevant output for parts that declare dependencies and external base images.
+relevant output for parts that declare dependencies, plus the resolver answers
+and refusals for external base images and `staticServer:`. A stale answer names
+its reading time and registry error.
 `scratch`, stage names, variable operands and parts without a manifest or
 Dockerfile need no listing. Write the account in the final message, not a report
 file. When an independent check passes the account, the empty Change closes as

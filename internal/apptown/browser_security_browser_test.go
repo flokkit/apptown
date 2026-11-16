@@ -3159,7 +3159,8 @@ a { color: #0b5d3b; }
 	"public/images/club-logo.svg": `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="18" cy="44" r="12" fill="none" stroke="#0b5d3b" stroke-width="4"/><circle cx="46" cy="44" r="12" fill="none" stroke="#0b5d3b" stroke-width="4"/><path d="M18 44 L30 22 L46 44 M30 22 L40 22" fill="none" stroke="#0b5d3b" stroke-width="4"/></svg>
 `,
-	".apptown/app.yaml": `
+	".apptown/app.yaml": `staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+
 version: 2
 app:
   site:
@@ -3392,7 +3393,8 @@ test("more fuel goes higher", () => {
   assert.ok(launchHeight({ fuel: 5, fins: 3 }) > launchHeight({ fuel: 2, fins: 3 }));
 });
 `,
-	".apptown/app.yaml": `
+	".apptown/app.yaml": `staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+
 version: 2
 app:
   game:
@@ -4118,7 +4120,8 @@ spec:
 		c := scene.open("tom", "club-newsletter", title, title+" on the club website.")
 		scene.write(c, map[string]string{fmt.Sprintf("public/update-%d.html", i): "<!doctype html><title>" + title + "</title><h1>" + title + "</h1>"})
 		if i == 0 {
-			scene.write(c, map[string]string{".apptown/app.yaml": `version: 2
+			scene.write(c, map[string]string{".apptown/app.yaml": `staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+version: 2
 app:
   site:
     static: public
@@ -5631,7 +5634,7 @@ func (s *tourScene) fieldnotes() {
 	// is a local tour stand-in, not a reconstruction of the WordPress site.
 	first := s.open("sam", "fieldnotes", "Start the journal", "A journal of everyday things, with a page for each entry.")
 	s.write(first, map[string]string{
-		".apptown/app.yaml": "version: 2\napp:\n  site:\n    static: public\n    public: true\n",
+		".apptown/app.yaml": "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\nversion: 2\napp:\n  site:\n    static: public\n    public: true\n",
 		"public/index.html": "<!doctype html><title>fieldnotes — local tour stand-in</title><h1>fieldnotes</h1><p>A journal of everyday things</p><p>Local tour stand-in for a WordPress journal.</p>",
 		"checks/tests.sh":   "test -s public/index.html\n",
 		"checks/style.sh":   "test -s .apptown/app.yaml\n",
@@ -5641,7 +5644,7 @@ func (s *tourScene) fieldnotes() {
 	c := s.open("sam", "fieldnotes", r.Title, r.Body)
 	// The source contains no preview image bytes or complete source tree. Serve
 	// an explicit local stand-in, never the remote preview or a claimed rebuild.
-	s.write(c, map[string]string{".apptown/app.yaml": "version: 2\napp:\n  site:\n    static: public\n    public: true\n", "public/index.html": "<!doctype html><title>fieldnotes — recorded change</title><h1>fieldnotes</h1><p>Local tour stand-in for the recorded adoption change. The original WordPress preview is not reproduced here.</p>"})
+	s.write(c, map[string]string{".apptown/app.yaml": "staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\nversion: 2\napp:\n  site:\n    static: public\n    public: true\n", "public/index.html": "<!doctype html><title>fieldnotes — recorded change</title><h1>fieldnotes</h1><p>Local tour stand-in for the recorded adoption change. The original WordPress preview is not reproduced here.</p>"})
 	s.commit(c, "sam", "Add local tour preview stand-in")
 	previewURL := s.serveSite(c)
 	steps := make([]schema.Step, 0, len(r.Steps))

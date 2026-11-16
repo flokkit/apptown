@@ -24,7 +24,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 	cc.Parts = append([]appcontract.Part(nil), c.Parts...)
 	cc.Init = append([]appcontract.InitContainer(nil), c.Init...)
 	built := map[string]string{}
-	prepare := func(name, build, static string, sb *appcontract.StaticBuild, image string, port int, recorded string) (string, error) {
+	prepare := func(serverImage, name, build, static string, sb *appcontract.StaticBuild, image string, port int, recorded string) (string, error) {
 		if t.Recorded != nil {
 			t.logf("Preparing recorded image %s on the Docker host", name)
 			if IsDigestReference(recorded) {
@@ -60,7 +60,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 				return "", err
 			}
 			image = Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.identity.Generation, name))
-			server, err := h.staticServer()
+			server, err := appcontract.StaticServerImage(serverImage)
 			if err != nil {
 				return "", err
 			}
@@ -82,7 +82,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			tag := Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.identity.Generation, name))
 			args := []string{"-t", tag}
 			if static != "" {
-				server, err := h.staticServer()
+				server, err := appcontract.StaticServerImage(serverImage)
 				if err != nil {
 					return "", err
 				}
@@ -119,7 +119,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 	}
 	for i := range cc.Parts {
 		p := &cc.Parts[i]
-		id, err := prepare(p.Name, p.Build, p.Static, p.StaticBuild, p.Image, p.Port, t.Recorded.part(p.Name))
+		id, err := prepare(p.StaticServer, p.Name, p.Build, p.Static, p.StaticBuild, p.Image, p.Port, t.Recorded.part(p.Name))
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func (h *Host) prepareImages(ctx context.Context, t BootRequest, c *appcontract.
 	}
 	for i := range cc.Init {
 		it := &cc.Init[i]
-		id, err := prepare("init-"+it.Name, it.Build, "", nil, it.Image, 0, t.Recorded.init(it.Name))
+		id, err := prepare("", "init-"+it.Name, it.Build, "", nil, it.Image, 0, t.Recorded.init(it.Name))
 		if err != nil {
 			return nil, err
 		}

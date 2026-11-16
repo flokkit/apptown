@@ -88,7 +88,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{password}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
+			_, err = NewHost(Dependencies{DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{password}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
 				BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-creds", StackID: "pvcreds", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
 			be := AsBootError(err)
 			if err == nil || be.Phase != tc.phase {
@@ -131,7 +131,7 @@ func TestAFailedInitSaysHowItExitedAndKeepsTheEnd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{"unused"}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
+			_, err = NewHost(Dependencies{DFImage: testDF, Secrets: reviewNoSecrets{}, Needs: credentialNeed{"unused"}, Probe: &Probe{Settle: time.Millisecond}}).Boot(context.Background(),
 				BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-init", StackID: "pvinit", Workspace: t.TempDir(), Slug: "app", Deployment: "preview", Probe: 200 * time.Millisecond, Scratch: t.TempDir()}, c)
 			if be := AsBootError(err); err == nil || be.Phase != PhaseParts || !strings.Contains(err.Error(), tc.want) || !strings.Contains(err.Error(), "exit status 1") {
 				t.Fatalf("init failure: %v", err)

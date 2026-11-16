@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -17,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -269,11 +271,11 @@ func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testin
 			source.ChangeBaseSHA = routineGit(t, repo, "rev-parse", "HEAD")
 			routineGit(t, repo, "checkout", "change")
 			routineGit(t, repo, "merge", "main", "--no-edit")
-			routineWrite(t, filepath.Join(repo, "Dockerfile"), []byte("FROM golang:1.27.4 AS build\nFROM scratch\n"))
+			routineWrite(t, filepath.Join(repo, "Dockerfile"), []byte("FROM golang:1.27.4@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa AS build\nFROM scratch\n"))
 			routineWrite(t, filepath.Join(repo, "mise.toml"), []byte("[tools]\ngo='1.27.4'\n"))
 			routineGit(t, repo, "add", ".")
 			routineGit(t, repo, "commit", "-m", "patch")
-			inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+			inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "golang:1.27.4", Digest: "sha256:" + strings.Repeat("a", 64)}}})
 			declarations := inspector.fixes
 			inspector.fixes = func(ctx context.Context, s workflow.Source) ([]fix.Declaration, []check.Finding, error) {
 				ds, targets, err := declarations(ctx, s)
@@ -291,5 +293,25 @@ func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testin
 				t.Fatalf("%+v %v", result, err)
 			}
 		})
+	}
+}
+
+func TestRoutineImageLookupFailureRemainsUnknown(t *testing.T) {
+	t.Parallel()
+	data, repo, source := routineRepository(t)
+	routineGit(t, repo, "checkout", "main")
+	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"))
+	routineGit(t, repo, "add", ".")
+	routineGit(t, repo, "commit", "-m", "static app")
+	source.ChangeBaseSHA = routineGit(t, repo, "rev-parse", "HEAD")
+	routineGit(t, repo, "checkout", "change")
+	routineGit(t, repo, "merge", "main", "--no-edit")
+	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("staticServer: caddy:2.9-alpine@sha256:"+strings.Repeat("a", 64)+"\napp:\n  web: {static: ., public: true}\n"))
+	routineGit(t, repo, "add", ".")
+	routineGit(t, repo, "commit", "-m", "pin server")
+	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{err: fmt.Errorf("registry offline")})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", BaseImages: true})
+	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "registry offline") {
+		t.Fatalf("%+v %v", result, err)
 	}
 }

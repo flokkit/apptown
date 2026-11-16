@@ -126,7 +126,7 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	prepared, err := PrepareBoot(t.Context(), live, &RegistryCredential{Host: "registry.example", Username: "u", Token: "secret-token"}, "app", "preview", ws, c)
 	if err != nil {
 		t.Fatal(err)
@@ -180,7 +180,7 @@ func TestTheDigestFollowsThePublicValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepare := func(browser string) string {
-		p, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{browser}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
+		p, err := PrepareBoot(t.Context(), Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{browser}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -193,7 +193,7 @@ func TestTheDigestFollowsThePublicValues(t *testing.T) {
 		t.Fatal("a browser value changed and the digest did not")
 	}
 	withSecrets := func(version string) Prepared {
-		p, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{version}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
+		p, err := PrepareBoot(t.Context(), Dependencies{DFImage: testDF, Secrets: liveSecrets{version}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func TestEveryPreparedBootHasAConfigurationOfItsOwn(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM registry.example/base:1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	configs := map[string]bool{}
 	for _, login := range []*RegistryCredential{{Host: "registry.example", Username: "u", Token: "first"}, {Host: "registry.example", Username: "u", Token: "second"}, nil} {
 		p, err := PrepareBoot(t.Context(), live, login, "app", "", ws, c)
@@ -274,7 +274,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws := t.TempDir()
-	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	p, err := PrepareBoot(t.Context(), live, nil, "app", "", ws, c)
 	if err != nil {
 		t.Fatal(err)

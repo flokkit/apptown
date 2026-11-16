@@ -9,18 +9,22 @@ majors too) and each ecosystem's dependency guidance. Never downgrade, change
 sources, make a direct dependency a pre-release, pin an indirect package to
 one, or add a direct dependency the update does not need. An indirect
 pre-release that a stable direct dependency itself requires is allowed.
-For dependency updates and security fixes, keep `.apptown/app.yaml` unchanged.
+For dependency updates and security fixes, change only `staticServer:` in
+`.apptown/app.yaml`, and only when base image updates are on. If static parts
+have no pin, add the answer to `apptown image newest caddy:2-alpine --scope line`.
 For a pack adoption, add or change only the declarations in `.apptown/app.yaml`
 that the new pack's failing checks name.
 
 Move external Dockerfile FROM images within the selected level, keeping the
 same image name and tag variant (`-alpine`, `-slim`, `-bookworm-slim`,
-`-alpine3.22` stay). List the image's tags from its registry: for Docker Hub
-library images `https://hub.docker.com/v2/repositories/library/<name>/tags?name=<version>`
-(follow pagination), or `crane ls` or `skopeo list-tags` when present. Pin a
-newer build of the same tag by digest. For a security target choose the
-smallest release whose image no longer has the finding. Leave stage
-references, scratch and operands containing `$` unchanged; they need no listing.
+`-alpine3.22` stay). For each external FROM and `staticServer:`, run
+`apptown image newest <current> --scope minor` at routine, or `--scope major`
+at aggressive, and move to exactly the printed tag and digest. If it refuses,
+change nothing for that image and say so. Record its registry reading and any
+stale-reading warning in the final message. For a security target, use
+`--scope patch` when a smaller move clears the finding; a security fix may
+choose the smallest digest-pinned build that clears it. Leave stage references,
+scratch and operands containing `$` unchanged.
 Toolchain versions stay unchanged for dependency updates. For a security finding
 in the toolchain itself, use the smallest patch release within its minor that
 fixes it, updating every declaration, including mise, version files, go.mod's
@@ -42,6 +46,6 @@ start it with one sentence saying why, naming the image or package (for example
 "Waiting for a newer python:3.12-slim build: the newest build still has CVE-…").
 For every part that declares dependencies, give the command you ran to list
 newer releases and the lines of its output that show the result; for every
-external FROM, give the tag listing you read. `scratch`, stage names and
-operands containing `$` need no listing. A part with no manifest or Dockerfile
-needs no listing. Say when a command could not run.
+external FROM and `staticServer:`, give the resolver's answer and any refusal.
+A part with no manifest or image input needs no listing. Say when a command
+could not run.

@@ -12,7 +12,7 @@ import (
 // working, naming it; none attached says to attach one.
 func TestDockerDeploysWithNoLocalDockerAreTheAttachedHostsHealth(t *testing.T) {
 	t.Parallel()
-	w := noLocalDockerWorld(t, "app:\n  web: {static: site, public: true}\n")
+	w := noLocalDockerWorld(t, "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: site, public: true}\n")
 	s := w.service(true)
 	if h := s.AttachedDockerHostsHealth(context.Background()); !h.OK || !strings.Contains(h.Detail, "remote answered") {
 		t.Fatalf("an attached host that answers: %+v", h)

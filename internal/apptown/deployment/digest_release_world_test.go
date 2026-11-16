@@ -54,7 +54,8 @@ import (
 // worker is the composition root's journey
 // (TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest).
 
-const digestAppYAML = `app:
+const digestAppYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site
@@ -76,7 +77,8 @@ init:
 // names one version of the project's DOCR repository. App Platform refuses
 // an app naming two versions of one repository (restore test RT-L3), which
 // the multipart app's distinct images would be.
-const digestOneImageYAML = `app:
+const digestOneImageYAML = `staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+app:
   web:
     public: true
     static: site

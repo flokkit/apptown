@@ -134,7 +134,7 @@ func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	daemon.port, _ = strconv.Atoi(port)
 	a := testApp(t, Config{DockerClient: daemon})
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>does not load browser values</html>",
+		".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n", "index.html": "<html>does not load browser values</html>",
 	}, func(pid ids.ID) {
 		adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {
@@ -172,7 +172,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 		t.Run(fmt.Sprintf("change-live-ignore=%t", mutateIgnore), func(t *testing.T) {
 			a := testApp(t, Config{DockerClient: newFakeDocker()})
 			run, source := reviewLanding(t, a, []schema.Step{{Name: "catch-up", Uses: "reconcile"}, {Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-				".gitignore": "artifacts/\n", "artifacts/output.txt": "generated output", ".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n",
+				".gitignore": "artifacts/\n", "artifacts/output.txt": "generated output", ".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n",
 			}, func(pid ids.ID) {
 				adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 			})
@@ -231,7 +231,7 @@ func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fa
 	a := testApp(t, Config{DockerClient: daemon, DockerProbe: &docker.Probe{Settle: time.Millisecond}})
 	a.SyncStockDependencies(context.Background()) // error reporting's definition says what the page is given
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
-		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>the change's page</html>",
+		".apptown/app.yaml": "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n", "index.html": "<html>the change's page</html>",
 	}, func(pid ids.ID) {
 		adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {

@@ -73,7 +73,7 @@ func staticFixture(t *testing.T, dir, marker string) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, ".apptown", "app.yaml"),
-		[]byte("app:\n  web:\n    static: site\n    public: true\n"), 0o644); err != nil {
+		[]byte("staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\napp:\n  web:\n    static: site\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(dir, "site"), 0o755); err != nil {
@@ -103,7 +103,7 @@ func TestIntegrationStaticPreviewBoot(t *testing.T) {
 			ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
 			staticFixture(t, ws, "preview says hi")
 			if explicit {
-				if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web:\n    static: site\n    public: true\n    health:\n      readiness: {http: /, expect: 200, period: 5s, timeout: 2s, successThreshold: 2, failureThreshold: 2, checksDeps: false}\n"), 0o644); err != nil {
+				if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d\napp:\n  web:\n    static: site\n    public: true\n    health:\n      readiness: {http: /, expect: 200, period: 5s, timeout: 2s, successThreshold: 2, failureThreshold: 2, checksDeps: false}\n"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -162,7 +162,8 @@ func TestIntegrationServiceBackedPreviewBoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
-	_ = os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`
+	_ = os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(`staticServer: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+
 app:
   site:
     static: site

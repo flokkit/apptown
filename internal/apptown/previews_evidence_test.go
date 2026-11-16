@@ -82,7 +82,7 @@ func runtimeGate(t *testing.T, place gatePlace, beforeBoot, afterBoot func(*App,
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)
@@ -191,7 +191,7 @@ func TestRuntimeChecksNeverJudgeAPreviewOfAnEarlierCommit(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(ws, "dist/index.html"), []byte("old static page"), 0644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(ws, ".apptown/app.yaml"), []byte("app:\n  web: {static: dist, public: true}\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(ws, ".apptown/app.yaml"), []byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: dist, public: true}\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 		commitFolder(t, ws)
@@ -233,7 +233,7 @@ func TestRuntimeChecksJudgeTheContractThePreviewBooted(t *testing.T) {
 		t.Run(fmt.Sprint(onWorker), func(t *testing.T) {
 			before := func(_ *App, _ ids.ID, ws string, _ *fakePreviewWorker) {
 				path := filepath.Join(ws, ".apptown/app.yaml")
-				if err := os.WriteFile(path, []byte("app:\n  web: {static: ., public: true}\n"), 0644); err != nil {
+				if err := os.WriteFile(path, []byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n"), 0644); err != nil {
 					t.Fatal(err)
 				}
 				commitFolder(t, ws)
@@ -419,7 +419,7 @@ func bootWithShots(t *testing.T, report string) (*App, *workflow.Step) {
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	commitFolder(t, ws)

@@ -36,11 +36,10 @@ type List struct {
 const (
 	toolSh            = "apptown-sh"
 	toolDF            = "apptown-df"
-	toolStaticServer  = "static-server"
 	toolPrivateDocker = "private-docker"
 )
 
-var runtimeLines = map[string]string{toolSh: "1", toolDF: "1", toolStaticServer: "2", toolPrivateDocker: "27"}
+var runtimeLines = map[string]string{toolSh: "1", toolDF: "1", toolPrivateDocker: "27"}
 
 // Parse reads a tool versions document and validates it: every entry has an
 // exact version, and every image names a digest.
@@ -94,7 +93,7 @@ func (l *List) HasTool(tool string) bool {
 
 // Images is the set of runtime images.
 type Images struct {
-	Sh, DF, StaticServer, PrivateDocker string
+	Sh, DF, PrivateDocker string
 }
 
 // images reads the runtime images from the list: each runtime tool at this
@@ -117,7 +116,7 @@ func (l *List) images() (Images, error) {
 	for _, f := range []struct {
 		tool string
 		to   *string
-	}{{toolSh, &im.Sh}, {toolDF, &im.DF}, {toolStaticServer, &im.StaticServer}, {toolPrivateDocker, &im.PrivateDocker}} {
+	}{{toolSh, &im.Sh}, {toolDF, &im.DF}, {toolPrivateDocker, &im.PrivateDocker}} {
 		if *f.to, err = get(f.tool); err != nil {
 			return Images{}, err
 		}

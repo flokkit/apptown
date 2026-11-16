@@ -6,10 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/stock"
 )
 
 // A static site's image is built from a Dockerfile of its own that names
@@ -25,13 +23,14 @@ func TestAReleaseBuildGivesEachStaticImageItsOwnServingCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script, files, images, err := releaseBuildRequest(tree, deployment.PlanRelease(c), "linux/amd64", stock.Images().StaticServer)
+	c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	script, files, images, err := releaseBuildRequest(tree, c, "linux/amd64")
 	if err != nil || len(images) != 2 || len(files) != 2 {
 		t.Fatalf("request: %d images, %d files, %v", len(images), len(files), err)
 	}
 	want := map[string]string{
-		"/forge/release/part-web.Dockerfile":    docker.StaticSiteDockerfile(stock.Images().StaticServer, 8080),
-		"/forge/release/part-mirror.Dockerfile": docker.StaticSiteDockerfile(stock.Images().StaticServer, 9090),
+		"/forge/release/part-web.Dockerfile":    docker.StaticSiteDockerfile("caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 8080),
+		"/forge/release/part-mirror.Dockerfile": docker.StaticSiteDockerfile("caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 9090),
 	}
 	for _, f := range files {
 		if want[f.Path] != string(f.Content) || !strings.Contains(script, "'-f' '"+f.Path+"'") {
@@ -57,7 +56,8 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script, files, images, err := releaseBuildRequest(tree, deployment.PlanRelease(c), "linux/arm64", stock.Images().StaticServer)
+	c.StaticServer = "caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	script, files, images, err := releaseBuildRequest(tree, c, "linux/arm64")
 	if err != nil || len(images) != 1 || len(files) != 1 || images[0].Name != "part-site" {
 		t.Fatalf("request: %+v %+v %v", images, files, err)
 	}
@@ -87,7 +87,18 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	if strings.Contains(lines[exportLine], "--platform") || strings.Contains(script, "--builder") {
 		t.Fatalf("the export names a platform or a builder:\n%s", script)
 	}
-	if string(files[0].Content) != docker.StaticSiteDockerfile(stock.Images().StaticServer, 80) {
+	if string(files[0].Content) != docker.StaticSiteDockerfile("caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 80) {
 		t.Fatalf("the pack's Dockerfile:\n%s", files[0].Content)
+	}
+}
+
+func TestReleaseStaticBuildRefusesAMissingProjectServer(t *testing.T) {
+	t.Parallel()
+	c, err := appcontract.Parse([]byte("app:\n  web: {static: ., public: true}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := releaseBuildRequest(t.TempDir(), c, "linux/amd64"); err == nil || !strings.Contains(err.Error(), "Add staticServer:") {
+		t.Fatal(err)
 	}
 }
