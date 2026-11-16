@@ -45,7 +45,7 @@ func scanSnapshot(p workflow.ScanAttentionProject) Snapshot {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
 	for _, state := range p.Queues {
-		if state.State == "stuck" || state.State == "stopped" {
+		if state.State == "decide" || state.State == "stopped" {
 			out.Items = append(out.Items, queueItem(id, p.Name, href, state))
 		}
 	}

@@ -187,13 +187,13 @@ it('shows a stuck queue and a failed try by their error’s first line; the chan
   })
 })
 
-it.each(['waiting', 'updating', 'stuck', 'stopped'])('keeps progress and change links while reserving recovery: %s', async state => {
+it.each(['decide', 'updating', 'retrying', 'stopped'])('keeps progress and change links while reserving recovery: %s', async state => {
  const data = fixture()
  data.queues = [{ ...data.queues[0], state, words: `${state} progress` }]
  await render(data, true, el => {
   expect(el.textContent).toContain(`${state} progress`)
   expect(el.querySelector('a[href="/changes/open-change"]')).not.toBeNull()
-  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Close and try again')).toHaveLength(state === 'stuck' || state === 'stopped' ? 1 : 0)
+  expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Try again')).toHaveLength(state === 'stopped' ? 1 : 0)
  })
 })
 

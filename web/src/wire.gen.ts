@@ -1137,7 +1137,6 @@ export type JanitorChoicesCommand = {
 
 export type JanitorHistoryView = {
   history: JanitorHistory
-  releases: JanitorChangeRelease[]
   since: string
   until: string
 }
@@ -1151,15 +1150,6 @@ export type JanitorLandedChange = {
   landedAt: string
   queue: string
   packages: PackageMove[]
-}
-
-export type JanitorProcedure = {
-  title: string
-  workflow: string
-  version: number
-  stopRule: string
-  sentence: string
-  problem: string
 }
 
 export type JanitorRun = {
@@ -1189,7 +1179,6 @@ export type JanitorView = {
   choices: StandingRevision | null
   projects: JanitorProject[]
   deployments: JanitorDeployment[]
-  releaseHold: string
 }
 
 export type JobList = {
@@ -3897,12 +3886,6 @@ export type JanitorHistory = {
   more: boolean
 }
 
-export type JanitorChangeRelease = {
-  changeId: string | null
-  state: string
-  displayLabel: string
-}
-
 export type PackPick = {
   pack: string
   version: number
@@ -3923,9 +3906,6 @@ export type JanitorProject = {
   level: string
   choice?: JanitorChoice | null
   queues: QueueStatus[]
-  scans: janitorScans
-  procedures: JanitorProcedure[]
-  runNow: string
   scheduleProblem: string
 }
 
@@ -3934,7 +3914,6 @@ export type JanitorDeployment = {
   deploymentId: string | null
   name: string
   displayLabel: string
-  setting: RoutineUpdates
   automatic: boolean
   hold?: JanitorHold | null
 }
@@ -4365,6 +4344,7 @@ export type QueueStatus = {
   packages: PackageMove[]
   changeId?: string | null
   changeNumber: number
+  decide?: queueDecision | null
 }
 
 export type MainScans = {
@@ -5416,10 +5396,6 @@ export type janitorState = {
   help: string
 }
 
-export type janitorScans = {
-  lastScan: string
-}
-
 export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"
 
 export type OpenVEXProduct = {
@@ -5491,6 +5467,11 @@ export type OverviewHead = {
 export type File = {
   path: string
   class: string
+}
+
+export type queueDecision = {
+  act: string
+  stepId: string | null
 }
 
 export type ScanObservation = {

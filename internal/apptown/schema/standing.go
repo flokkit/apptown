@@ -31,33 +31,3 @@ func (m Metadata) DisplayTitle() string {
 	}
 	return m.Name
 }
-
-// RepairRounds counts the repair sessions the procedure declares.
-func (d *Doc) RepairRounds() int {
-	n := 0
-	for _, stage := range d.Spec.Stages {
-		for _, step := range stage.Steps {
-			if step.Uses == "agent/pi" {
-				if count, ok := asInt(step.With["repairRounds"]); ok {
-					n += count
-				}
-			}
-		}
-	}
-	return n
-}
-
-// Calls lists the workflows this procedure calls, in declaration order.
-func (d *Doc) Calls() []string {
-	var out []string
-	for _, stage := range d.Spec.Stages {
-		for _, step := range append(append([]Step{}, stage.OnEnter...), stage.Steps...) {
-			if step.Uses == "workflow/call" {
-				if name, ok := step.With["workflow"].(string); ok {
-					out = append(out, name)
-				}
-			}
-		}
-	}
-	return out
-}

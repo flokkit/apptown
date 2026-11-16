@@ -54,12 +54,35 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 		return nil, "", err
 	}
 	if len(current) > 0 {
-		state, err := queueStateIn(ctx, e.service.db, e.run.ProjectID, current[0].Queue)
+		attempts, err := queueEpisodeIn(ctx, e.service.db, e.run.ProjectID, current[0].Queue)
 		if err != nil {
 			return nil, "", err
 		}
-		stopped = state.Stopped()
+		failed := 0
+		for _, attempt := range attempts {
+			if attempt.FailedAttempt && !attempt.promoted {
+				failed++
+			}
+		}
+		stopped = failed >= queueStopAfter
+		if stopped {
+			for _, attempt := range attempts {
+				if attempt.promoted {
+					break
+				}
+				if attempt.Outcome == "faulted" {
+					var targets []check.Finding
+					if err := json.Unmarshal(attempt.Targets, &targets); err != nil {
+						return nil, "", err
+					}
+					for _, target := range targets {
+						previous[target.Fingerprint] = true
+					}
+				}
+			}
+		}
 	}
+
 	var publicPart string
 	var publicPartRead bool
 	seen := map[string]bool{}

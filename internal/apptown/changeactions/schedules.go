@@ -671,27 +671,16 @@ func asSchedule(ctx context.Context, projectID ids.ID) context.Context {
 
 // JanitorSchedule is the maintenance page's view of scheduler reads.
 type JanitorSchedule struct {
-	RunNow          string `json:"runNow"`
 	ScheduleProblem string `json:"scheduleProblem"`
 }
 
-// Janitor selects update eligibility from the schedules' declarations.
+// Janitor retains problems from the schedules' declarations.
 func (p ProjectSchedules) Janitor() JanitorSchedule {
-	out := JanitorSchedule{RunNow: "No janitor schedule adopted"}
-	if p.EvalCopy {
-		out.RunNow = "an eval copy runs no schedule"
-	}
+	out := JanitorSchedule{}
 	for _, schedule := range append(slices.Clone(p.Schedules), p.publicationStarts...) {
 		if schedule.Problem != "" {
 			out.ScheduleProblem = schedule.Problem
-			continue
 		}
-		if schedule.Standing && schedule.Queue != "" && (out.RunNow == "No janitor schedule adopted" || schedule.Waiting == "") {
-			out.RunNow = schedule.Waiting
-		}
-	}
-	if out.ScheduleProblem != "" {
-		out.RunNow = "Not known: " + out.ScheduleProblem
 	}
 	return out
 }

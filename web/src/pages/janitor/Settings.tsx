@@ -7,7 +7,6 @@ import { useGet, useAction } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Section } from '../../Section'
 import { PageHead } from '../../PageHead'
-import { ListTable } from '../../ListTable'
 import { fmtWhen } from '../../format'
 import type { JanitorView, JanitorProject, JanitorChoices, StandingRevision } from '../../wire.gen'
 
@@ -41,40 +40,10 @@ function Choices({ data, current, reload }: { data: JanitorView; current: boolea
   </>
 }
 
-function Problems({ data }: { data: JanitorView }) {
-  const policies = new Map<string, { key: string; workflow: string; title: string; version: number; sentence: string; stopRule: string; projects: JanitorProject[] }>()
-  for (const p of data.projects) for (const proc of p.procedures) {
-    const sentence = proc.problem ? `Not known: ${proc.problem}` : proc.sentence
-    const key = `${proc.workflow}/${proc.version}/${sentence}/${proc.stopRule}`
-    const row = policies.get(key) ?? { key, workflow: proc.workflow, title: proc.title, version: proc.version, sentence, stopRule: proc.stopRule, projects: [] }
-    row.projects.push(p); policies.set(key, row)
-  }
-  const rows = [...policies.values()]
-  const sharedVersions = new Map<string, typeof rows[number]>()
-  for (const row of rows) {
-    const shared = sharedVersions.get(row.workflow)
-    if (!shared || row.projects.length > shared.projects.length || row.projects.length === shared.projects.length && row.version > shared.version) sharedVersions.set(row.workflow, row)
-  }
-  const deployments = data.deployments.filter(d => d.setting.mode === 'window' && data.projects.some(p => p.projectId === d.projectId))
-  return <>
-    {rows.length > 0 ? <ListTable label="Repair limits" rows={rows} rowKey={p => p.key} columns={[
-      { key: 'work', label: 'Queue and workflow', phone: 'name', render: p => <><strong>{p.title}</strong><div>Version {p.version}</div>{p.version !== sharedVersions.get(p.workflow)!.version && p.projects.map(project => <div key={project.projectId}><Link to={projectTo(project)}>{project.name}</Link></div>)}</> },
-      { key: 'handling', label: 'If checks fail', render: p => p.sentence },
-      { key: 'stop', label: 'When it stops', render: p => p.stopRule },
-    ]} /> : null}
-    <p>{data.releaseHold}</p>
-    {deployments.length > 0 ? <ListTable label="Release settings" rows={deployments} rowKey={d => d.deploymentId!} columns={[
-      { key: 'deployment', label: 'Deployment', phone: 'name', render: d => { const p = data.projects.find(p => p.projectId === d.projectId)!; return <Link to={`/projects/${p.slug}/deployments/${d.name}`}>{p.name} / {d.displayLabel}</Link> } },
-      { key: 'setting', label: 'Accepted updates', render: d => `${d.setting.days}, ${d.setting.from}–${d.setting.to} (${d.setting.zone})` },
-    ]} /> : null}
-  </>
-}
-
 export default function JanitorSettings() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   return <div><PageHead page="janitorSettings" />
     <ReadStatus q={q} what="janitor settings" /><StaleNote q={q} />
-    {q.data && <><Section title="What to keep updated"><Choices data={q.data} current={q.current} reload={q.reload} /></Section>
-      <Section title="How it handles problems"><Problems data={q.data} /></Section></>}
+    {q.data && <Section title="What to keep updated"><Choices data={q.data} current={q.current} reload={q.reload} /></Section>}
   </div>
 }

@@ -40,9 +40,12 @@ func TestStockStandingMeaningsNameTheModelJudgement(t *testing.T) {
 	checked := 0
 	for name, doc := range docs {
 		covers := judged(doc)
-		for _, called := range doc.Calls() {
-			if docs[called] != nil && judged(docs[called]) {
-				covers = true
+		for _, stage := range doc.Spec.Stages {
+			for _, step := range append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...) {
+				called, _ := step.With["workflow"].(string)
+				if step.Uses == "workflow/call" && docs[called] != nil && judged(docs[called]) {
+					covers = true
+				}
 			}
 		}
 		for _, stage := range doc.Spec.Stages {

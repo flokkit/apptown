@@ -27,16 +27,6 @@ type janitorChoice struct {
 	Reason string       `json:"reason"`
 }
 
-type janitorProcedure struct {
-	Title        string `json:"title"`
-	Workflow     string `json:"workflow"`
-	Version      int    `json:"version"`
-	RepairRounds int    `json:"-"`
-	StopRule     string `json:"stopRule"`
-	Sentence     string `json:"sentence"`
-	Problem      string `json:"problem"`
-}
-
 type janitorState struct {
 	Word    string `json:"word"`
 	Unknown bool   `json:"unknown"`
@@ -62,9 +52,7 @@ type JanitorProject struct {
 	Level       string                               `json:"level"`
 	Choice      *janitorChoice                       `json:"choice,omitempty"`
 	Queues      []QueueStatus                        `json:"queues"`
-	Scans       janitorScans                         `json:"scans"`
 	Problem     string                               `json:"-"`
-	Procedures  []janitorProcedure                   `json:"procedures"`
 }
 
 // JanitorProjects reads all caller-visible projects through the same queue and
@@ -113,7 +101,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *Stand
 	eligibility, _ := s.janitorEligibility(ctx, projects, rule)
 	out := make([]JanitorProject, 0, len(labels))
 	for _, p := range labels {
-		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}, Procedures: []janitorProcedure{}}
+		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}}
 		if rule != nil {
 			item.Enabled = rule.Enabled
 			item.Level = rule.Choices.Dependencies
@@ -147,9 +135,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *Stand
 			item.Problem = err.Error()
 			scans = MainScans{Reason: err.Error()}
 		}
-		janitorProcedures(&item, definitions)
 		item.State = janitorProjectState(item, scans)
-		item.Scans = scans.janitorSummary()
 		out = append(out, item)
 	}
 	return out, rule, unknown, nil
@@ -157,7 +143,6 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *Stand
 
 type adoptedProcedure struct {
 	name    string
-	version int
 	doc     *schema.Doc
 	problem string
 }
@@ -191,39 +176,13 @@ func parseProcedures(facts ProcedureFacts) []adoptedProcedure {
 		if err == nil {
 			doc, err = schema.ParseWorkflowStored([]byte(wf.YAML))
 		}
-		item := adoptedProcedure{name: wf.Name, version: wf.Version, doc: doc}
+		item := adoptedProcedure{name: wf.Name, doc: doc}
 		if err != nil {
 			item.problem = err.Error()
 		}
 		out = append(out, item)
 	}
 	return out
-}
-
-func janitorProcedures(p *JanitorProject, definitions []adoptedProcedure) {
-	queues := map[string]string{}
-	for _, d := range definitions {
-		if d.doc == nil {
-			p.Problem = d.problem
-			continue
-		}
-		if _, ok := d.doc.Standing(); ok {
-			queues[d.name] = d.doc.Metadata.DisplayTitle()
-			for _, name := range d.doc.Calls() {
-				queues[name] = d.doc.Metadata.DisplayTitle()
-			}
-		}
-	}
-	for _, d := range definitions {
-		title, ok := queues[d.name]
-		if !ok || d.doc == nil || d.doc.RepairRounds() == 0 {
-			continue
-		}
-		rounds := d.doc.RepairRounds()
-		p.Procedures = append(p.Procedures, janitorProcedure{Workflow: d.name, Title: d.doc.Metadata.DisplayTitle(), Version: d.version, RepairRounds: rounds,
-			StopRule: fmt.Sprintf("%s stop after %d failed tries.", title, queueStopAfter),
-			Sentence: fmt.Sprintf("Makes the declared change; if a check fails, up to %d repair sessions; then asks a person.", rounds)})
-	}
 }
 
 // janitorProjectState classifies the completed read, including procedure problems.
@@ -234,7 +193,7 @@ func janitorProjectState(p JanitorProject, scans MainScans) janitorState {
 		switch q.State {
 		case "updating", "landing":
 			active = true
-		case "stopped", "stuck", "waiting":
+		case "stopped", "decide":
 			attention = true
 		}
 	}

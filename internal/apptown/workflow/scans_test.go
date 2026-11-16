@@ -427,21 +427,6 @@ func TestUnscannedRunningImagesUseSingularAndPlural(t *testing.T) {
 	}
 }
 
-func TestJanitorSummaryRetainsScanTime(t *testing.T) {
-	t.Parallel()
-	finding := func(fp string) conformance.Finding { return conformance.Finding{Fingerprint: fp} }
-	at := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	scans := MainScans{Known: true, Stale: true, NoRepository: true, LastScan: at,
-		Source:     []conformance.ScanObservation{{Findings: []conformance.Finding{finding("shared"), finding("source")}}},
-		Running:    []runningScan{{ScanObservation: conformance.ScanObservation{Findings: []conformance.Finding{finding("shared"), finding("running")}}, ProjectFindings: []conformance.Finding{finding("shared")}, UnclassifiedFindings: []conformance.Finding{finding("running")}}},
-		Historical: []conformance.ScanObservation{{Findings: []conformance.Finding{finding("old")}}},
-	}
-	got := scans.janitorSummary()
-	if got.LastScan != at {
-		t.Fatalf("summary: %+v", got)
-	}
-}
-
 func classifyTestScans(main string, running []RunningImages, observations []conformance.ScanObservation, now time.Time) MainScans {
 	heads := []conformance.ScanHead{}
 	for i := range observations {

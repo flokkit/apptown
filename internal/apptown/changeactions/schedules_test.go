@@ -421,7 +421,7 @@ func TestAnUnreadableWorkflowIsShownAsUnknownNotAsNoSchedule(t *testing.T) {
 		t.Fatalf("an unreadable workflow: %+v", s)
 	}
 	view, err := w.schedules.Of(t.Context(), w.project, base)
-	if err != nil || !strings.HasPrefix(view.Janitor().RunNow, "Not known:") || view.Janitor().ScheduleProblem == "" {
+	if err != nil || view.Janitor().ScheduleProblem == "" {
 		t.Fatalf("%+v %v", view, err)
 	}
 	w.schedules.FireDueSchedules(t.Context(), base)

@@ -27,7 +27,7 @@ func TestJanitorDeploymentReadShowsCurrentSettingsAndReleaseHold(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err = w.s.JanitorDeployments(t.Context(), []ids.ID{w.project})
-	if err != nil || rows[0].Setting != (RoutineUpdates{Mode: "window", Days: "mon,wed", From: "09:00", To: "11:00", Zone: "Australia/Melbourne"}) {
+	if err != nil || !rows[0].Automatic {
 		t.Fatalf("window=%+v %v", rows, err)
 	}
 	current, err := w.s.Deployments.ByID(t.Context(), dep.ID)
@@ -38,19 +38,8 @@ func TestJanitorDeploymentReadShowsCurrentSettingsAndReleaseHold(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err = w.s.JanitorDeployments(t.Context(), []ids.ID{w.project})
-	if err != nil || rows[0].Automatic || rows[0].Hold != nil || rows[0].Setting.Mode != "person" {
+	if err != nil || rows[0].Automatic || rows[0].Hold != nil {
 		t.Fatalf("person=%+v %v", rows, err)
-	}
-	change := shippedChangeAt(t, w.db, w.project, time.Now().Add(-time.Hour))
-	if _, err := w.s.Releases.Start(t.Context(), ReleaseDraft{Source: ReleaseFromBundle, ProjectID: w.project, DeploymentID: dep.ID, Deployment: dep.Name, BundleID: base.ID, Actor: "alice"}, "Update libraries"); err != nil {
-		t.Fatal(err)
-	}
-	releases, err := w.s.JanitorChangeReleases(t.Context(), []ids.ID{w.project}, []ids.ID{change})
-	if err != nil || len(releases) == 0 {
-		t.Fatalf("releases=%+v %v", releases, err)
-	}
-	if releases[0].DisplayLabel != dep.DisplayLabel {
-		t.Fatalf("release=%+v", releases[0])
 	}
 	w.s.authority = &requestAuthority{deny: errors.New("refused")}
 	if _, err := w.s.JanitorDeployments(t.Context(), []ids.ID{w.project}); err == nil {

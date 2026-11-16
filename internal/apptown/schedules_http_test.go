@@ -117,24 +117,6 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 	if len(got.Projects) != 2 || got.Choices == nil || got.Choices.RuleID != rule.RuleID {
 		t.Fatalf("view=%s", w.Body)
 	}
-	var shape struct {
-		Projects []struct {
-			Scans map[string]json.RawMessage `json:"scans"`
-		} `json:"projects"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &shape); err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range shape.Projects {
-		if len(p.Scans) != 1 {
-			t.Fatalf("fleet scan payload: %v", p.Scans)
-		}
-		for _, key := range []string{"lastScan"} {
-			if _, ok := p.Scans[key]; !ok {
-				t.Fatalf("fleet scans missing %s: %v", key, p.Scans)
-			}
-		}
-	}
 	found := false
 	for _, p := range got.Projects {
 		if p.ProjectID == idstest.N(1) {
@@ -258,24 +240,7 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 		t.Fatal(err)
 	}
 	h := a.Handler()
-	scanNow := func() string {
-		w := authzCall(h, "boss", "GET", "/api/v1/janitor", "")
-		var got httpapi.JanitorView
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &got) != nil {
-			t.Fatalf("janitor page: %d %s", w.Code, w.Body)
-		}
-		for _, p := range got.Projects {
-			if p.ProjectID == covered {
-				return p.RunNow
-			}
-		}
-		t.Fatalf("project missing: %s", w.Body)
-		return ""
-	}
 	const run = "/api/v1/projects/janitor-scan-now/schedules/janitor-scan/run"
-	if got := scanNow(); got != "waits for Janitor choices" {
-		t.Fatalf("scan without a janitor approval: %q", got)
-	}
 	if w := authzCall(h, "boss", "POST", run, ""); w.Code != 422 {
 		t.Fatalf("fired without a standing approval: %d %s", w.Code, w.Body)
 	}
@@ -285,9 +250,6 @@ func TestScanNowFiresTheJanitorScanScheduleForAPersonWhoMayOpenWork(t *testing.T
 	}
 	if _, err := a.standingRules.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
-	}
-	if got := scanNow(); got != "" {
-		t.Fatalf("an eligible scan: %q", got)
 	}
 	a.addGrant("user", "outsider", "", string(access.CapChangeInvokeLane), access.ScopeProject, covered.String(), "boss", "")
 	if w := authzCall(h, "outsider", "POST", run, ""); w.Code != 403 {

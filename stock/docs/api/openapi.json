@@ -3672,29 +3672,6 @@
         ],
         "type": "object"
       },
-      "JanitorChangeRelease": {
-        "properties": {
-          "changeId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "displayLabel": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "changeId",
-          "state",
-          "displayLabel"
-        ],
-        "type": "object"
-      },
       "JanitorChoices": {
         "properties": {
           "baseImages": {
@@ -3761,9 +3738,6 @@
               "string",
               "null"
             ]
-          },
-          "setting": {
-            "$ref": "#/components/schemas/RoutineUpdates"
           }
         },
         "required": [
@@ -3771,7 +3745,6 @@
           "deploymentId",
           "name",
           "displayLabel",
-          "setting",
           "automatic"
         ],
         "type": "object"
@@ -3799,12 +3772,6 @@
           "history": {
             "$ref": "#/components/schemas/JanitorHistory"
           },
-          "releases": {
-            "items": {
-              "$ref": "#/components/schemas/JanitorChangeRelease"
-            },
-            "type": "array"
-          },
           "since": {
             "format": "date-time",
             "type": "string"
@@ -3816,7 +3783,6 @@
         },
         "required": [
           "history",
-          "releases",
           "since",
           "until"
         ],
@@ -3871,12 +3837,6 @@
           "name": {
             "type": "string"
           },
-          "procedures": {
-            "items": {
-              "$ref": "#/components/schemas/janitorProcedure"
-            },
-            "type": "array"
-          },
           "projectId": {
             "format": "uuid",
             "type": [
@@ -3889,12 +3849,6 @@
               "$ref": "#/components/schemas/QueueStatus"
             },
             "type": "array"
-          },
-          "runNow": {
-            "type": "string"
-          },
-          "scans": {
-            "$ref": "#/components/schemas/janitorScans"
           },
           "scheduleProblem": {
             "type": "string"
@@ -3913,9 +3867,6 @@
           "name",
           "level",
           "queues",
-          "scans",
-          "procedures",
-          "runNow",
           "scheduleProblem"
         ],
         "type": "object"
@@ -4029,9 +3980,6 @@
             },
             "type": "array"
           },
-          "releaseHold": {
-            "type": "string"
-          },
           "unknown": {
             "items": {
               "format": "uuid",
@@ -4047,8 +3995,7 @@
           "unknown",
           "choices",
           "projects",
-          "deployments",
-          "releaseHold"
+          "deployments"
         ],
         "type": "object"
       },
@@ -5530,6 +5477,16 @@
           },
           "changeNumber": {
             "type": "integer"
+          },
+          "decide": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/queueDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "failed": {
             "type": "integer"
@@ -8222,49 +8179,6 @@
         ],
         "type": "object"
       },
-      "janitorProcedure": {
-        "properties": {
-          "problem": {
-            "type": "string"
-          },
-          "sentence": {
-            "type": "string"
-          },
-          "stopRule": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer"
-          },
-          "workflow": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "title",
-          "workflow",
-          "version",
-          "stopRule",
-          "sentence",
-          "problem"
-        ],
-        "type": "object"
-      },
-      "janitorScans": {
-        "properties": {
-          "lastScan": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "lastScan"
-        ],
-        "type": "object"
-      },
       "janitorState": {
         "properties": {
           "help": {
@@ -8359,6 +8273,25 @@
         "required": [
           "enabled",
           "level"
+        ],
+        "type": "object"
+      },
+      "queueDecision": {
+        "properties": {
+          "act": {
+            "type": "string"
+          },
+          "stepId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "act",
+          "stepId"
         ],
         "type": "object"
       },

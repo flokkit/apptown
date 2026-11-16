@@ -174,7 +174,11 @@ func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome)
 			}
 		}
 		if result.agentID.IsZero() && (outcome.Status == StatusFail || outcome.Status == StatusError || outcome.Status == StatusNeedsHuman) {
-			err = workflowsql.New(tx.SQL()).HoldQueueAttempt(ctx, workflowsql.HoldQueueAttemptParams{ID: finished.Run.ChangeID, Reason: finished.Step.Name + ": " + evidenceReason(finished.Step.Evidence)})
+			hold := "held"
+			if outcome.Status == StatusError {
+				hold = "faulted"
+			}
+			err = workflowsql.New(tx.SQL()).HoldQueueAttempt(ctx, workflowsql.HoldQueueAttemptParams{Outcome: hold, ID: finished.Run.ChangeID, Reason: finished.Step.Name + ": " + evidenceReason(finished.Step.Evidence)})
 			result.held = finished.Run
 		}
 		return result, err

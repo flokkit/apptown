@@ -429,13 +429,3 @@ func unansweredScanners(observations []conformance.ScanObservation) ([]string, b
 	}
 	return missing, complete
 }
-
-// janitorScans carries only the scan facts shown in the fleet view.
-type janitorScans struct {
-	LastScan time.Time `json:"lastScan"`
-}
-
-func (s MainScans) janitorSummary() janitorScans {
-	out := janitorScans{LastScan: s.LastScan}
-	return out
-}

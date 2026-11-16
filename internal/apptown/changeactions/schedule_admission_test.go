@@ -103,7 +103,7 @@ spec:
 				}
 				found := false
 				for _, item := range snapshot.Items {
-					found = found || strings.Contains(item.Title, "Team care stopped after 3 failed tries")
+					found = found || strings.Contains(item.Title, "Team care AppTown could not finish this update")
 				}
 				if !found {
 					t.Fatal(snapshot.Items)
@@ -116,14 +116,6 @@ spec:
 			schedule := got.Schedules[0]
 			if schedule.Problem != "" {
 				t.Fatal(schedule.Problem)
-			}
-			page := got.Janitor()
-			if state == "discovery stopped" {
-				if page.RunNow != schedule.Waiting {
-					t.Fatal(page)
-				}
-			} else if page.RunNow != schedule.Waiting {
-				t.Fatal(page)
 			}
 			if state == "stopped" || state == "off" || state == "no rule" {
 				if !schedule.Next.IsZero() {

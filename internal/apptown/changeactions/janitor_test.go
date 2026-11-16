@@ -95,8 +95,10 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rows[w.project.ID].Janitor().RunNow != "supplied eligibility refusal" {
-		t.Fatalf("supplied eligibility lost: %+v", rows)
+	for _, schedule := range rows[w.project.ID].Schedules {
+		if schedule.Waiting != "supplied eligibility refusal" {
+			t.Fatalf("supplied eligibility lost: %+v", schedule)
+		}
 	}
 	person, err := identity.New(w.schedules.DB, identity.Config{}).EnsurePerson(t.Context(), "bls")
 	if err != nil {
@@ -327,7 +329,7 @@ func TestScheduleOnlyReadsDoNotResolveUnscheduledDefinitions(t *testing.T) {
 	rows, err := w.schedules.ForJanitor(call, []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Facts: facts, Queues: queues}}, time.Now())
 	got := rows[w.project.ID]
 
-	if err != nil || !strings.Contains(got.Janitor().RunNow, "could not be read") {
+	if err != nil || !strings.Contains(got.Janitor().ScheduleProblem, "could not be read") {
 		t.Fatalf("publication read: %+v %v", got, err)
 	}
 }
