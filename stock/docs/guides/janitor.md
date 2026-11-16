@@ -33,8 +33,8 @@ janitor never pins one.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need. Repairs may update declarations in
 `.apptown/app.yaml` required by the new pack's checks. Dependency updates and
-security fixes change only `staticServer:` in that file, when base image updates
-are on. Static projects missing that pin receive it through a dependency update.
+security fixes change only an existing `staticServer:` in that file, when base
+image updates are on; they never add a missing one.
 
 In Janitor settings, choose dependencies **Off**, **Patch and minor** or
 **Including major**, plus **Security fixes**, **Base images**, **Toolchain patches

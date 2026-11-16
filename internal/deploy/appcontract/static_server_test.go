@@ -22,7 +22,7 @@ func TestStaticServerIsAProjectPinForCaddyTwoAlpine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := StaticServerImage(c.StaticServer); err == nil || err.Error() != "This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line. Or enable Janitor dependency updates and base-image updates so its next dependency update adds the pin." {
+	if _, err := StaticServerImage(c.StaticServer); err == nil || err.Error() != "This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line." {
 		t.Fatal(err)
 	}
 }

@@ -46,7 +46,7 @@ func TestRoutineImageMoveMustEqualTheRegistryTagAndDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestStaticServerAdditionIsAnImageInput(t *testing.T) {
+func TestStaticServerIsAnImageInputThatUpdatesNeverAdd(t *testing.T) {
 	t.Parallel()
 	digest := "sha256:" + strings.Repeat("a", 64)
 	tree := t.TempDir()
@@ -60,17 +60,10 @@ func TestStaticServerAdditionIsAnImageInput(t *testing.T) {
 	if err != nil || inputs["staticServer"] != "caddy:2.9-alpine@"+digest {
 		t.Fatalf("static server was not recorded: %v %v", inputs, err)
 	}
+	// An update moves an existing pin; one that adds a pin,
+	// even the registry's own answer, is outside the update's bounds.
 	r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "caddy:2.9-alpine", Digest: digest}}}
-	for _, next := range []string{r.answer.Image(), "nginx:2-alpine@" + digest} {
-		err := CompareUpdateInputs(t.Context(), map[string]any{}, map[string]any{"staticServer": next}, true, false, ImageUpdates{Resolver: r, Scope: imageline.Minor})
-		if (err == nil) != (next == r.answer.Image()) {
-			t.Fatal(err)
-		}
-	}
-	if r.scope != imageline.Line {
-		t.Fatal(r.scope)
-	}
-	if err := CompareUpdateInputs(t.Context(), map[string]any{}, map[string]any{"staticServer": r.answer.Image()}, false, false, ImageUpdates{Resolver: r}); err == nil {
-		t.Fatal("base images off allowed pin")
+	if err := CompareUpdateInputs(t.Context(), map[string]any{}, map[string]any{"staticServer": r.answer.Image()}, true, false, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "never adds") {
+		t.Fatalf("an update added the static server pin: %v", err)
 	}
 }

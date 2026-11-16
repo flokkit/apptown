@@ -38,7 +38,7 @@ func (c *Contract) HasStaticParts() bool {
 // declaration remains possible for readers that do not serve the app.
 func StaticServerImage(image string) (string, error) {
 	if image == "" {
-		return "", fmt.Errorf("This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line. Or enable Janitor dependency updates and base-image updates so its next dependency update adds the pin.")
+		return "", fmt.Errorf("This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line.")
 	}
 	if err := ValidateStaticServer(image); err != nil {
 		return "", err

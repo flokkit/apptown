@@ -300,7 +300,7 @@ func TestRoutineImageLookupFailureRemainsUnknown(t *testing.T) {
 	t.Parallel()
 	data, repo, source := routineRepository(t)
 	routineGit(t, repo, "checkout", "main")
-	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("app:\n  web: {static: ., public: true}\n"))
+	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("staticServer: caddy:2.8-alpine@sha256:"+strings.Repeat("b", 64)+"\napp:\n  web: {static: ., public: true}\n"))
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "static app")
 	source.ChangeBaseSHA = routineGit(t, repo, "rev-parse", "HEAD")
@@ -308,7 +308,7 @@ func TestRoutineImageLookupFailureRemainsUnknown(t *testing.T) {
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("staticServer: caddy:2.9-alpine@sha256:"+strings.Repeat("a", 64)+"\napp:\n  web: {static: ., public: true}\n"))
 	routineGit(t, repo, "add", ".")
-	routineGit(t, repo, "commit", "-m", "pin server")
+	routineGit(t, repo, "commit", "-m", "move server")
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{err: fmt.Errorf("registry offline")})
 	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", BaseImages: true})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "registry offline") {

@@ -31,10 +31,9 @@ spec:
               When false, leave every FROM and staticServer unchanged. When true, use
               apptown image newest for each external FROM and staticServer, as the
               janitor skill says. Move to exactly its answer; on refusal leave that
-              image unchanged and report why. For static parts missing staticServer,
-              add the answer to apptown image newest caddy:2-alpine --scope line. Do not change toolchain versions
+              image unchanged and report why. Do not change toolchain versions
               (mise, .tool-versions, version files). The only permitted change in
-              .apptown/app.yaml is staticServer, as the janitor skill says. Change application code only where a moved package
+              .apptown/app.yaml is moving an existing staticServer, as the janitor skill says. Change application code only where a moved package
               needs it, as little as possible. Direct dependencies take stable releases
               only, never a pre-release (alpha, beta, rc, dev, canary). An indirect
               package may be a pre-release when a stable direct dependency's own
