@@ -80,7 +80,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 	routineGit(t, repo, "checkout", "change")
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
 	if err != nil || result.Classification != "routine-dependency" || result.Base != main || len(result.ChangedFiles) != 2 {
 		t.Fatalf("wrong caught-up source: %+v %v", result, err)
 	}
@@ -88,7 +88,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "mixed change")
 
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
 	if err != nil || result.Classification != "routine-dependency" || len(result.ChangedFiles) != 3 {
 		t.Fatalf("mixed diff concealed: %+v %v", result, err)
 	}
@@ -104,7 +104,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		routineGit(t, repo, "commit", "-m", "moved")
 		return ds, targets, err
 	}
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "moved") {
 		t.Fatalf("moved source qualified: %+v %v", result, err)
 	}
@@ -125,7 +125,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		t.Fatal("dirty source executed validator")
 		return execution.Outcome{}
 	}
-	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "dirty") {
 		t.Fatalf("dirty source qualified: %+v %v", result, err)
 	}
@@ -141,7 +141,7 @@ func TestRoutineReportsAllMixedFiles(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "mixed source")
 	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine"})
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,18 +158,18 @@ func TestRoutineEmptySourceRequiresSeparatelyCheckedAdoption(t *testing.T) {
 		t.Fatal("empty source ran validation container")
 		return execution.Outcome{}
 	}})
-	ordinary, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	ordinary, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "off", Packs: true})
 	if err != nil || ordinary.Classification != "requires-person" {
 		t.Fatalf("empty source became sufficient: %+v %v", ordinary, err)
 	}
-	adoption, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	adoption, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.JanitorChoices{Dependencies: "off", Packs: true})
 	if err != nil || adoption.Classification != "routine-adoption" || len(adoption.ChangedFiles) != 0 || adoption.Candidate == "" {
 		t.Fatalf("exact empty Git observation: %+v %v", adoption, err)
 	}
 	routineWrite(t, filepath.Join(repo, "unexpected.txt"), []byte("unclassified change"))
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "unrelated")
-	mixed, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	mixed, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.JanitorChoices{Dependencies: "off", Packs: true})
 	if err != nil || mixed.Classification != "routine-adoption" || len(mixed.ChangedFiles) != 1 {
 		t.Fatalf("adoption erased unrelated source: %+v %v", mixed, err)
 	}
@@ -230,7 +230,7 @@ func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
 				routineGit(t, repo, "add", ".")
 				routineGit(t, repo, "commit", "-m", change)
 				inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-				got, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: level})
+				got, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: level})
 				want := "requires-person"
 				if change == "major" {
 					want = "routine-dependency"
@@ -240,6 +240,20 @@ func TestUpdateLevelsBoundMajorsAndProtectBuildInputs(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestStandingAssessmentRefusesSecurityTargetsWhenSecurityFixesAreOff(t *testing.T) {
+	data, _, source := routineRepository(t)
+	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+	declarations := inspector.fixes
+	inspector.fixes = func(ctx context.Context, s workflow.Source) ([]fix.Declaration, []check.Finding, error) {
+		ds, _, err := declarations(ctx, s)
+		return ds, []check.Finding{{Package: &check.PackageRef{Name: "tiny", Ecosystem: "npm"}, Identifiers: []string{"CVE-test"}}}, err
+	}
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
+	if err != nil || result.Classification != "requires-person" || !strings.Contains(result.Reason, "security") {
+		t.Fatalf("security fixes off: %+v %v", result, err)
 	}
 }
 
@@ -268,7 +282,7 @@ func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testin
 				}
 				return ds, targets, err
 			}
-			result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true})
+			result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true, BaseImages: true, ToolchainPatches: true})
 			want := "requires-person"
 			if security {
 				want = "routine-dependency"

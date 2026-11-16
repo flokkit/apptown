@@ -42,6 +42,7 @@ func (s StandingProcedures) StandingProcedures(ctx context.Context, q database.Q
 		err := resolved[i].Err
 		if err == nil {
 			proc.Acceptance, err = standingPurpose(resolved[i].Workflow, true)
+			proc.Trigger = proc.Acceptance.Trigger
 		}
 		if err == nil {
 			err = landing.Err
@@ -61,6 +62,17 @@ func standingPurpose(w *adoption.ResolvedWorkflow, working bool) (workflow.Stand
 	}
 	if w.Doc.Spec.Role != role {
 		return out, fault.New(fault.Conflict, "standing consent requires a workflow with the "+role+" role")
+	}
+	trigger := ""
+	if working {
+		t, ok := w.Doc.Standing()
+		if !ok {
+			return out, fault.New(fault.Conflict, "the workflow has no standing trigger")
+		}
+		trigger = "schedule"
+		if t.Publication {
+			trigger = "publication"
+		}
 	}
 	var approvals []schema.Step
 	atFinal := false
@@ -86,32 +98,7 @@ func standingPurpose(w *adoption.ResolvedWorkflow, working bool) (workflow.Stand
 	if cfg.Standing == nil {
 		return out, fault.New(fault.Conflict, fmt.Sprintf("%s v%d / %s requires a person's decision for each change", w.Name, w.Version, approvals[0].Name))
 	}
-	return workflow.StandingPurpose{Workflow: w.Name, Version: int64(w.Version), Step: approvals[0].Name, Means: cfg.Standing.Means, Approvers: cfg.Approvers}, nil
-}
-
-// InstanceStandingProcedure pins the library declarations without selecting a
-// project's adopted version. Eligibility later compares its adopted meanings.
-func (s StandingProcedures) InstanceStandingProcedure(name string, library []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
-	var out workflow.StandingProcedure
-	purposes := []*workflow.StandingPurpose{&out.Acceptance, &out.Landing}
-	for i, n := range []string{name, "land"} {
-		var resolved *adoption.ResolvedWorkflow
-		for _, w := range library {
-			if w.Name == n {
-				resolved = w
-				break
-			}
-		}
-		if resolved == nil {
-			return out, fault.New(fault.NotFound, "published standing procedure is unavailable: "+n)
-		}
-		var err error
-		*purposes[i], err = standingPurpose(resolved, i == 0)
-		if err != nil {
-			return out, err
-		}
-	}
-	return out, nil
+	return workflow.StandingPurpose{Trigger: trigger, Workflow: w.Name, Version: int64(w.Version), Step: approvals[0].Name, Means: cfg.Standing.Means, Approvers: cfg.Approvers}, nil
 }
 
 // StandingTargetProcedure reads the candidate's frozen procedures; publishing a
@@ -140,6 +127,7 @@ func (s StandingProcedures) StandingTargetProcedure(ctx context.Context, q datab
 		}
 		if i == 0 {
 			out.Acceptance = purpose
+			out.Trigger = purpose.Trigger
 		} else {
 			out.Landing = purpose
 		}

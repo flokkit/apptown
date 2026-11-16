@@ -263,7 +263,7 @@ it('says what a check is for: declared first, built-in words next, nothing inven
 it('names the actual grant used by acceptance independently of the original firing', () => {
  const s = { type: 'approval', name: 'accept', status: 'pass', config: {}, overrideBy: '', evidence: { approver: 'the janitor', decision: 'approve', comment: 'the janitor, under standing approval hidden-rule (rev 5), granted by Nina', decisions: [{ approver: 'the janitor', via: 'standing', decision: 'approve', standing: { rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'later-rule', revision: 5, issuer: { name: 'Nina', principal: 'nina', via: 'session' } } }] } } as unknown as Step
  const receipt = receiptOf(s)
- expect(receipt.sentence).toBe('Approved by the janitor, under the Dependency updates approval for all projects (revision 5), granted by Nina.')
- expect(receipt.by).toContain('(revision 5), granted by Nina')
+ expect(receipt.sentence).toBe('Approved by the janitor, under the janitor choices (rev 5), set by Nina · Dependency updates.')
+ expect(receipt.by).toContain('(rev 5), set by Nina')
  expect(receipt.sentence).not.toContain('hidden-rule')
 })

@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"reflect"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
@@ -10,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/wiregen"
-	"reflect"
 )
 
 // The Work routes' responses: Changes, runs, chats and the activity pages.
@@ -31,22 +32,15 @@ func init() {
 		wiregen.Named{Name: "StandingProjectState", Value: projectStandingState{}},
 		wiregen.Named{Name: "StandingProjectAct", Value: projectStandingChoice{}},
 		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},
-		wiregen.Named{Name: "StandingCategories", Value: workflow.StandingCategories{}},
-		wiregen.Named{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
-		wiregen.Named{Name: "StandingProject", Value: workflow.StandingProject{}},
-		wiregen.Named{Name: "StandingDefinition", Value: workflow.StandingDefinition{}},
 		wiregen.Named{Name: "StandingPurpose", Value: workflow.StandingPurpose{}},
 		wiregen.Named{Name: "StandingProcedure", Value: workflow.StandingProcedure{}},
-		wiregen.Named{Name: "StandingProjectMeaning", Value: reflect.Zero(reflect.TypeOf(workflow.StandingQuestion{}.Projects).Elem()).Interface()},
-		wiregen.Named{Name: "StandingQuestion", Value: workflow.StandingQuestion{}},
-		wiregen.Named{Name: "StandingCommand", Value: workflow.StandingCommand{}},
+		wiregen.Named{Name: "JanitorChoices", Value: workflow.JanitorChoices{}},
+		wiregen.Named{Name: "JanitorChoicesCommand", Value: workflow.JanitorChoicesCommand{}},
 		wiregen.Named{Name: "StandingRevision", Value: workflow.StandingRevision{}},
 		wiregen.Named{Name: "StandingAssessment", Value: workflow.StandingAssessment{}},
 		wiregen.Named{Name: "StandingInspection", Value: workflow.StandingInspection{}},
 		wiregen.Named{Name: "StandingValidation", Value: workflow.StandingValidation{}},
-		wiregen.Named{Name: "StandingStatus", Value: workflow.StandingStatus{}},
 		wiregen.Named{Name: "StandingActor", Value: access.Actor{}},
-		wiregen.Named{Name: "StandingDisable", Value: StandingDisable{}},
 		wiregen.Named{Name: "ChangeRun", Value: ChangeRun{}},
 		wiregen.Named{Name: "ScheduleList", Value: changeactions.ProjectSchedules{}},
 		wiregen.Named{Name: "ScheduleView", Value: changeactions.ProjectSchedule{}},

@@ -69,12 +69,8 @@ spec:
 			human := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "bls", Via: "session"}, Verified: true, Receipt: "bls"})
 			now := time.Date(2026, 11, 15, 0, 0, 0, 0, time.UTC)
 			if state != "no rule" {
-				in := workflow.StandingDefinition{Scope: "instance", Delivery: "full", Categories: workflow.StandingCategories{Dependencies: "routine"}}
-				q, err := w.schedules.Standing.Preview(human, in)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if _, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest}); err != nil {
+				in := workflow.JanitorChoices{Dependencies: "routine"}
+				if _, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/stock"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +18,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -202,18 +203,14 @@ func TestAgentUpdatesJudgeEveryChangedFile(t *testing.T) {
 			if _, err := directory.Grant(f.ctx, identity.Spec{SubjectType: "user", Subject: taskAppTownAdministrator, Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: f.projectID.String(), By: taskAppTownAdministrator}, ""); err != nil {
 				t.Fatal(err)
 			}
-			rules = workflow.NewStandingRules(f.db, workflow.StandingDependencies{Identity: directory, Authority: access.Checked{Authority: directory, Projects: project.New(f.db, directory)}, Procedures: ports, Publications: ports, Portfolio: ports, Presence: ports, Inspector: verification.NewRoutineInspector(f.dir, &scm.RepositoryLocks{}, verification.Executor{}).WithFixes(f.db, adoption.New(f.db, adoption.Dependencies{Ways: f.ways}))})
-			definition := workflow.StandingDefinition{Scope: "instance", Delivery: "full", Categories: workflow.StandingCategories{Dependencies: tc.level}}
+			rules = workflow.NewStandingRules(f.db, workflow.StandingDependencies{Identity: directory, Authority: access.Checked{Authority: directory, Projects: project.New(f.db, directory)}, Procedures: ports, Portfolio: ports, Presence: ports, Inspector: verification.NewRoutineInspector(f.dir, &scm.RepositoryLocks{}, verification.Executor{}).WithFixes(f.db, adoption.New(f.db, adoption.Dependencies{Ways: f.ways}))})
+			definition := workflow.JanitorChoices{Dependencies: tc.level}
 			person, err := directory.EnsurePerson(f.ctx, taskAppTownAdministrator)
 			if err != nil {
 				t.Fatal(err)
 			}
 			human := access.WithCaller(f.ctx, access.Caller{Verified: true, Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: taskAppTownAdministrator, Via: "session"}})
-			question, err := rules.Preview(human, definition)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := rules.Enable(human, workflow.StandingCommand{Definition: question.Definition, ShownDigest: question.Digest}); err != nil {
+			if _, err := rules.Save(human, workflow.JanitorChoicesCommand{Choices: definition}); err != nil {
 				t.Fatal(err)
 			}
 			answerCheck := func(task *workflow.Execution) {
@@ -516,17 +513,9 @@ func (p *agentUpdateStanding) standingProcedure(_ context.Context, _ database.Qu
 			means = step.With["standing"].(map[string]any)["means"].(string)
 		}
 	}
-	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked candidate", Approvers: []string{"role:project-approver"}}}, nil
+	return workflow.StandingProcedure{Trigger: "schedule", Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked candidate", Approvers: []string{"role:project-approver"}}}, nil
 }
-func (p *agentUpdateStanding) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
-	return p.standingProcedure(context.Background(), nil, p.project, name)
-}
-func (p *agentUpdateStanding) PublishedWorkflows(context.Context, database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
-	return []*adoption.ResolvedWorkflow{{Name: p.doc.Metadata.Name, Version: 1, Doc: p.doc}}, nil
-}
-func (p *agentUpdateStanding) StandingPortfolio(context.Context, database.Queryer, workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	return []workflow.StandingProjectPreview{{ProjectID: p.project, Deployments: []workflow.StandingEnvironment{}}}, nil
-}
+
 func (p *agentUpdateStanding) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	return "", nil
 }

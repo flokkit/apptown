@@ -174,7 +174,7 @@ export const PAGE_HELP = {
   },
   janitorSettings: {
     title: 'Janitor settings',
-    help: <p>What the janitor may change and land without asking, for which projects, and what it does when checks fail. Each project can also lower its update level or turn the janitor off on its own Janitor tab.</p>,
+    help: <p>Choose what to keep updated. Base images keep the same image and variant. Toolchain patches are for security fixes. Packs move to the newest published versions. {PRODUCT} checks each change against these choices and records what ran. Each project can choose its dependency level or turn the janitor off. Deployments keep their own automatic release settings.</p>,
     guide: 'janitor',
   },
 } satisfies Record<string, PageHelp>

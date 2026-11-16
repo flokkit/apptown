@@ -1,119 +1,51 @@
-# Janitor standing consent
+# Janitor choices
 
-A standing approval records a person's consent for bounded routine updates. It
-is separate from a vote on an individual Change. AppTown records the exact
-meaning, project UUIDs, workflow purposes, selected environment and target UUIDs,
-and the person who enabled it. Changes create new revisions; history is retained.
+Janitor settings records what to keep updated: dependencies (`off`, `routine`
+for patch and minor, or `aggressive` including major), security fixes, base images,
+toolchain patches for security fixes, and packs. Security fixes require dependency
+updates; toolchain patches require security fixes. Everything starts off.
 
-The janitor processes eligible dependency and pack updates under enabled standing consent.
-Saving a rule authorizes the declared workflows within its bounds; an individual
-Change still needs a fresh classification and all its required evidence.
-No rule is enabled by default.
+One current record in Workflow's standing-rule tables contains those choices,
+the verified person's principal, name and time. Saves append a revision at the
+expected head under a lock. Only a verified person acting directly with
+`instance:manage-standing-approval` may save. An agent cannot give consent.
+The choices contain no workflow names, versions or approval meanings. Each Change
+records its procedures, assessment, checks and vote, including its standing meaning.
 
-Instance consent covers present and future projects. Only an instance
-administrator acting as a verified person can enable it. Its preview shows the
-consent sentence, deployments that would receive automatic releases, projects
-with repositories. Projects whose main contract declares no tests are
-marked as checking only that the app starts. Dynamic project membership does
-not change the saved consent's meaning.
+Project choices remain `off`, `routine` or `aggressive`, with person, time and
+reason. A project-level off excludes all Janitor work. Instance dependencies off
+excludes dependency schedules and security fixes, while packs can remain on.
+With no project choice, schedules use the instance dependency level. A project's
+level never turns on an instance dependency choice that is off.
 
-Instance consent selects published standing schedules for dependency maintenance,
-and published standing publication triggers for Keep packs current. It pins their
-approval purposes, rather than a separate workflow or cron list. One generated
-sentence grants the schedules and repair limits each project's adopted packs
-declare, including changes when a project adopts a new pack version. It shows
-the current publication's titles, descriptions, cadence and repair sessions so a
-person can inspect those values. A project on an older version runs that version.
-Recorded revisions, sentences and digests remain unchanged.
+At each effect AppTown resolves the adopted working and landing procedures, or
+the frozen target for pack adoption. A working procedure needs a standing trigger:
+publication requires packs; schedule requires an effective dependency level.
+Current issuer account, approve and land permissions, approval selectors,
+independent-approval policy, repository reach and release health still apply.
+Changing a workflow's version or standing meaning does not invalidate choices.
+A save between acceptance and the merge claim refuses landing. The merge claim
+locks the rule head through commit; an already claimed effect may finish.
 
-Workflow owns queue state words, shared by Attention and both Janitor views.
-Stuck dates use the UTC day. The Janitor overview lists deployment holds and
-queue problems in Needs you; a hold does not hide queue activity.
-Standing approvals whose meaning changed appear once per rule in the overview
-summary, Needs you and Attention, linking to Janitor settings. Settings shows
-“Changed meaning; enable it again” with Preview and Enable beside Revoke.
-Settings shows “Not known” when an enabled approval cannot be assessed, unless
-its meaning changed on another project. Attention keeps that source unknown
-when any rule cannot be assessed. These reads use runtime standing eligibility
-across visible projects. A project shows “needs you” when a changed meaning
-leaves a standing workflow without an eligible approval; an eligible overlapping approval keeps it runnable.
+Packs reassess behind projects nightly at 04:30 UTC, on saving with packs on and
+on publication. The `packs-catch-up` job reads current choices and calls
+Verification's pack assessment. Identical queued candidates remain suppressed and
+stopped queues remain stopped. Projects without packs can acquire the platform pack.
+A person's adoption Change uses the candidate's frozen publication procedure;
+ordinary adoption checks its target without standing consent. A yes in advance
+requires unchanged code and every required step met.
 
-Queues take their names and titles from adopted standing triggers. Procedures
-show the repair limits of those workflows and the workflows they call. Pack
-maintenance selects its publication workflow and queue from the prepared target
-candidate, so an older adoption without a publication trigger can acquire one
-through a governed adoption Change.
+Supported instance restore turns the current choices off before recovery and
+preserves earlier revisions. Historical Change attribution reads its exact rule
+ID and revision. Current decisions never select from historical heads.
 
-
-Keep packs current reassesses behind active projects nightly at 04:30 UTC,
-as well as on enablement and publication. The `packs-catch-up` job reads the
-current rule and calls Verification's existing pack-assessment operation.
-Without an enabled rule it starts nothing. Projects with no packs can acquire
-the platform pack. Identical queued candidates remain suppressed and stopped
-queues remain stopped; nightly assessment does not grant another repair attempt.
-
-A person's adoption Change uses the same publication procedure selected from
-the candidate's exact workflow pins as automated pack work. A candidate without
-an adoption procedure is refused before a Change opens, with a request to include
-the platform pack. Ordinary adoption checks the recorded target in both its fix
-and routine steps, without queue bookkeeping or standing consent. Its checks can
-start the procedure's repair sessions. A yes in advance is asked and validated
-against that candidate procedure and the landing procedure its Change resolves.
-It counts only when no code changes and every required step passes outright.
-
-
-At every use AppTown reads the project's current adoption, approval purposes,
-issuer permissions, effective update level and release health. An agent updates every ecosystem it finds; adopted dependency guidance supplies
-conventions and file classification, without restricting eligibility. The project choice records `off`, `routine` or `aggressive`, with the project,
-person, time and reason, under the standing-approval capability. With no record,
-the instance level applies. Setting `off` stops both schedules. The project
-Janitor section shows the effective level beside “turn off” and the recorded choice.
-Preview states the instance level, identifies projects with a different level,
-and names parts whose adopted packs offer no major command.
-
-People can also save rules for exact projects and release destinations. Full
-delivery requires explicit environments, deployment authority and promotion
-consent where required. Changes to the selected release scope require renewed
-consent. “Accept and land only” cannot govern a project with a deployment that
-follows main.
-
-Only a verified person acting directly in their browser or personal command-line
-instrument can enable or revise consent. Management, approval, landing and
-release permissions remain distinct. Current project law and approval selectors
-apply; unsupported quorums and independent-approval requirements refuse setup.
-The working and landing workflow each declare one supported purpose with
-`standing: {class: routine-update, means: ...}` on their approval step. This
-declaration provides no authority and changes no ordinary human vote.
-
-A rule names routine (patch and minor) or aggressive (including major)
-dependencies and base-image updates of the same image and variant, security
-fixes within those limits, or governed routine way-of-working
-transitions. Dependency classification keeps the package set, sources and
-attributes equal and versions inside the selected bound. Application repairs
-are judged by the workflow's checks. A saved rule with different shown meaning
-becomes ineligible until a person previews and confirms the new meaning; its
-original history remains unchanged. Missing or nonpassing evidence is never success.
-
-The enabling principal is recorded by UUID. A renamed person retains identity;
-a new account with the old name cannot inherit consent. Current eligibility is
-shown separately from enabled state. Database or policy unavailability is an
-error, not an eligible rule. Disabling retains history and stops future claims;
-an external effect already claimed may finish. The final merge claim locks the
-rule head before reading current consent and keeps that lock until commit,
-serializing the claim with Disable. A manager can disable consent
-after the issuer loses deployment permission.
-
-Supported instance restore disables every enabled imported rule after schema
-migration and before application recovery. Original consent remains in history.
-Re-enabling requires a new local human confirmation. There is no standing-rule
-import endpoint.
-
-The CLI provides `apptown janitor list`, `preview`, `enable`, `disable` and
-`history`. Preview accepts a definition through `--file`; enable requires the
-exact returned `--confirm` digest. Revising requires `--rule` and `--revision`.
-Disable also requires the expected revision. Commands emit JSON and never start
-a release. If a save response is lost, inspect current rules before submitting
-another new rule; an unknown response is not proof the save failed.
+The API provides `GET /api/v1/janitor/choices`, `PUT /api/v1/janitor/choices`
+with `{choices, expectedRevision}`, `GET /api/v1/janitor/choices/history` and
+`POST /api/v1/janitor/assess` with `{run}`. The CLI provides `janitor choices`,
+`janitor set --dependencies LEVEL [--security-fixes] [--base-images]
+[--toolchain-patches] [--packs] --revision N`, `janitor history` and
+`janitor assess --run RUN`. A lost save reply requires reading current choices
+before another save.
 
 ## Janitor page
 
@@ -125,11 +57,10 @@ Project rows open the project's Janitor section; recent work opens the Change's
 Changes tab, and its release summary opens Details. Only successful releases
 count as released.
 
-`/janitor/settings` holds standing approvals and their preview, enable and
-revoke operations, project choices with person, time and reason, adopted repair
-limits and release holds. Automatic release destinations name only exceptions
-to all deployments; release settings list only time windows. Instance readers
-can read the rules; management retains its verified-person and capability checks.
+`/janitor/settings` shows the choices, who set them and when, project choices,
+automatic release destinations, adopted repair limits and release settings.
+Only a manager sees Save; it requires an edit and the expected revision.
+Concurrent settings changes require reading the current choices before saving.
 
 Workflow owns the instance project-state and landed-Change reads, fenced by the
 caller's readable project set before paging. Deployment owns the instance settings,
@@ -139,7 +70,7 @@ older history use landing time, with deterministic identity ordering for
 simultaneous landings. Package
 moves come from retained attempts; pack versions come from the Change's immutable
 adoption candidate. Original grant attribution reads the recorded rule revision,
-including for failed work whose Change is purged. Every attribution names the recorded rule’s kind and scope, its revision and issuer, with a link to Janitor. Project scopes name only projects the caller can read and count the other projects. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
+including for failed work whose Change is purged. Every attribution names the recorded choices, revision and issuer, with a link to Janitor. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
 
 The Janitor project set contains ordinary projects with no lifecycle row.
@@ -153,7 +84,7 @@ regardless of whether the project still schedules scans.
 
 ## Inspecting a candidate
 
-`apptown janitor assess RULE --run RUN` inspects an exact run without accepting,
+`apptown janitor assess --run RUN` inspects an exact run without accepting,
 landing or deploying it. The caller needs current read and check-execution
 permission. The rule must still be eligible for that project and workflow.
 Active writers, unsettled tasks, dirty or unpublished work, changed source and
@@ -161,7 +92,7 @@ changed consent refuse an assessment. Inspection never repairs or saves source.
 
 Dependency inspection compares toolchain and runtime inputs on the committed base
 and candidate, including mise declarations, version files, Dockerfile base
-operands and contract image/build inputs. External-image FROM operands may
+operands and contract image/build inputs. With base images on, external-image FROM operands may
 change version or digest while keeping the repository and tag variant unchanged.
 Flags, aliases, stage count and order, ARGs and parser directives stay unchanged.
 Stage references, scratch and operands containing `$` remain byte-identical.
@@ -171,7 +102,7 @@ skipped. Continuations on instructions such as LABEL and RUN do not prevent
 image updates. Files with multiline or backslashed FROM/ARG instructions,
 terminal runs of two or more backslashes, an escape parser directive, heredocs,
 control bytes or backticks are compared byte for byte. Exact three-part toolchain
-versions may move within their minor only for runs with security targets.
+versions may move within their minor only for runs with security targets and toolchain patches on.
 Other toolchain and build input changes require a person. It classifies
 every changed path using adopted dependency-file globs and the observed input
 paths. An empty candidate is not applicable. The classifier is `agent-update-v1`.
@@ -198,8 +129,7 @@ is excluded. A single-stage landing merges at completion, so its stage is
 included. The completion recheck uses the same pre-merge evidence. Post-merge
 steps still follow the final stage's own gate.
 
-The assessment records source commits, tree, rule and run revisions, and a digest
-of the classified paths. It re-observes the source before returning. Standing
+The assessment records source commits, tree, rule and run revisions, the choices and classified paths. It re-observes the source before returning. Standing
 processing uses a fresh assessment before casting a typed vote; assessment does
 not accept, land or deploy. Targeted fixes require security permission and the
 reporting scanner's parsed observation that the named target is gone. Missing,
@@ -353,7 +283,6 @@ and invalid cron expressions remain schedule problems. The scheduler reads each 
 aggressive level. Both are read in UTC. The scheduler's own admission read
 supplies the queue admission and the earliest next update firing. Busy queues retain their future firing time; stopped
 queues have none. Target-discovering schedules can still scan a stopped queue.
-Project-scoped rules also authorize their selected workflows' declared schedules.
 The effective level also supplies the routine check and standing assessment's bound.
 A vote records
 the assessed level; a changed level refuses acceptance or landing. Firing and

@@ -16,7 +16,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -56,7 +55,7 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 		t.Fatal(err)
 	}
 	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil, nil)
-	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Publications: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
+	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
 	var selected map[string]workflow.Runner
 	var automatic []string
 	if len(runners) > 0 {
@@ -517,17 +516,11 @@ func TestSchedulesRequireDeclarationInAdoptedVersion(t *testing.T) {
 type scheduleStandingProcedure struct{}
 
 func (scheduleStandingProcedure) standingProcedure(_ context.Context, _ database.Queryer, _ ids.ID, name string) (workflow.StandingProcedure, error) {
-	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: "the declared fix is within the bound and checks are met"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "approve", Means: "land the checked fix"}}, nil
-}
-func (p scheduleStandingProcedure) InstanceStandingProcedure(name string, _ []*adoption.ResolvedWorkflow) (workflow.StandingProcedure, error) {
-	return p.standingProcedure(context.Background(), nil, ids.Nil, name)
+	return workflow.StandingProcedure{Trigger: "schedule", Acceptance: workflow.StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: "the declared fix is within the bound and checks are met"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "approve", Means: "land the checked fix"}}, nil
 }
 
 type scheduleStandingPortfolio struct{ held bool }
 
-func (p *scheduleStandingPortfolio) StandingPortfolio(_ context.Context, _ database.Queryer, _ workflow.StandingCategories) ([]workflow.StandingProjectPreview, error) {
-	return []workflow.StandingProjectPreview{{ProjectID: ids.Nil}}, nil
-}
 func (p *scheduleStandingPortfolio) StandingHold(context.Context, database.Queryer, ids.ID) (string, error) {
 	if p.held {
 		return "release failed", nil
@@ -548,7 +541,11 @@ func TestStandingScheduleUsesDeclaredCronAndKeepsItsOriginalAuthorityAfterPurge(
 			t.Error(err)
 			return
 		}
-		var inputs map[string]string
+		var inputs struct {
+			Level            string `json:"level"`
+			BaseImages       bool   `json:"baseImages"`
+			ToolchainPatches bool   `json:"toolchainPatches"`
+		}
 		if err := json.Unmarshal([]byte(task.Run().InputsJSON), &inputs); err != nil {
 			t.Errorf("effective level missing: %s (%v)", task.Run().InputsJSON, err)
 		}
@@ -557,7 +554,7 @@ func TestStandingScheduleUsesDeclaredCronAndKeepsItsOriginalAuthorityAfterPurge(
 			return
 		}
 		task.Settle(workflow.EncodeOutcome(workflow.StatusFail, map[string]any{"reason": "the declared command failed before acceptance"}, nil))
-		started <- inputs["level"]
+		started <- inputs.Level
 	}})
 	body := `apiVersion: apptown.dev/v1
 kind: Workflow
@@ -597,7 +594,7 @@ spec:
 			t.Fatalf("standing schedule read: %+v %v", got, err)
 		}
 		s := got.Schedules[0]
-		if s.Problem != "" || s.Waiting != "waits for a standing approval" || !s.Next.IsZero() || s.Due {
+		if s.Problem != "" || s.Waiting != "waits for Janitor choices" || !s.Next.IsZero() || s.Due {
 			t.Fatalf("consent off is a normal wait: %+v", s)
 		}
 	}
@@ -625,15 +622,11 @@ spec:
 		t.Fatal(err)
 	}
 	human := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "bls", Via: "session"}, Verified: true})
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine"}, Delivery: "full"}
+	in := workflow.JanitorChoices{Dependencies: "routine"}
 	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"standing-clock","crons":{"routine":"* * * * *","aggressive":"* * * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
-	q, err := w.schedules.Standing.Preview(human, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rule, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest})
+	rule, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{Choices: in})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,12 +660,8 @@ spec:
 	if s := read.Schedules[0]; s.Waiting == "" || s.Problem != "" || !s.Next.IsZero() || s.Last == nil || s.Last.RuleID != rule.RuleID {
 		t.Fatalf("turning off keeps the recorded last firing: %+v", s)
 	}
-	in.Categories.Dependencies = "aggressive"
-	q, err = w.schedules.Standing.Preview(human, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.schedules.Standing.Enable(human, workflow.StandingCommand{RuleID: rule.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest}); err != nil {
+	in.Dependencies = "aggressive"
+	if _, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{ExpectedRevision: 1, Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	scope, err := w.work.PrepareStop(w.engine, w.project.ID)
@@ -718,22 +707,6 @@ type scheduleAbandonment struct{}
 
 func (scheduleAbandonment) RecordAbandonIn(context.Context, *database.Tx, workflow.AbandonEffects) error {
 	return nil
-}
-
-func (scheduleStandingProcedure) PublishedWorkflows(ctx context.Context, q database.Queryer) ([]*adoption.ResolvedWorkflow, error) {
-	catalog, err := wow.ReadWorkflowCatalogIn(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	var docs []*adoption.ResolvedWorkflow
-	for _, wf := range catalog.Workflows {
-		doc, err := schema.ParseWorkflowStored([]byte(wf.Yaml))
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, &adoption.ResolvedWorkflow{Name: wf.Name, Version: int(wf.LatestVersion), Doc: doc})
-	}
-	return docs, nil
 }
 
 func TestSourceScanReadUsesTheCarriedSchedules(t *testing.T) {

@@ -1,9 +1,10 @@
 package httpapi
 
 import (
+	"net/http"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
-	"net/http"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -61,7 +62,7 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 	}
 	view := ProjectScanView{Standing: projectStandingState{Enabled: standing.Enabled, Level: standing.Level}, HeldBack: held, Scans: scans, Recent: recent, Queues: queues}
 	if standing.Choice != nil {
-		view.Standing.Choice = &projectStandingChoice{Person: standing.Choice.Person, At: standing.Choice.At, Reason: standing.Choice.Reason}
+		view.Standing.Choice = &projectStandingChoice{Level: standing.Choice.Level, Person: standing.Choice.Person, At: standing.Choice.At, Reason: standing.Choice.Reason}
 	}
 	WriteJSON(w, 200, view)
 }
@@ -120,6 +121,7 @@ type projectStandingState struct {
 	Choice  *projectStandingChoice `json:"choice,omitempty"`
 }
 type projectStandingChoice struct {
+	Level  string       `json:"level"`
 	Person access.Actor `json:"person"`
 	At     string       `json:"at"`
 	Reason string       `json:"reason"`

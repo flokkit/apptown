@@ -100,7 +100,7 @@ func TestUnknownCoverageRetainsStaleConditionsWithoutRawErrors(t *testing.T) {
 	disks := &instanceSource{snapshot: Snapshot{Known: true, ObservedAt: observed, Items: []Item{{Key: "disk-a", Title: "disk low", ObservedAt: observed}}}, err: errors.New("secret-provider-address-and-token")}
 	svc := New(&authority{instance: true}, Sources{Disks: disks})
 	got, err := svc.Read(t.Context())
-	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 7 {
+	if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != observed || len(got.Sources) != 6 {
 		t.Fatalf("failed source: %+v %v", got, err)
 	}
 	for _, source := range got.Sources {
@@ -579,57 +579,6 @@ func TestRetainedKnownFailureIsStaleWithoutSerializingAsUnknown(t *testing.T) {
 			t.Fatalf("age conflated with unknown: %s", raw)
 		}
 	}
-}
-
-type scopedAuthority struct {
-	allow   map[access.Capability]bool
-	project ids.ID
-}
-
-func (a scopedAuthority) VisibleProjects(_ context.Context, cap access.Capability) ([]ids.ID, error) {
-	if a.allow[cap] {
-		return []ids.ID{a.project}, nil
-	}
-	return nil, nil
-}
-func (a scopedAuthority) Require(_ context.Context, p access.Permission) (access.Caller, error) {
-	if a.allow[p.Capability] {
-		return access.Caller{}, nil
-	}
-	return access.Caller{}, fault.New(fault.Forbidden, "denied")
-}
-
-func TestAttentionCollectsIntegrationsAndChecksUnderTheirOwnPermissions(t *testing.T) {
-	t.Parallel()
-	id := idstest.N(71)
-	integration := &instanceSource{snapshot: Snapshot{Known: true, Items: []Item{{Key: "registry", Title: "Registry failed", Href: "/integrations/registry"}}}}
-	checks := &batchChecks{}
-	deployments := &projectSource{}
-	auth := scopedAuthority{project: id, allow: map[access.Capability]bool{access.CapProjectRead: true, access.CapConformanceRead: true}}
-	janitor := &instanceSource{snapshot: Snapshot{Known: true}}
-	svc := New(auth, Sources{Integrations: integration, JanitorApprovals: janitor, Checks: checks, Deployments: deployments})
-	got, err := svc.Read(t.Context())
-	if err != nil || len(got.Items) != 2 || integration.calls != 1 || janitor.calls != 1 || len(checks.calls) != 1 || len(deployments.calls) != 0 {
-		t.Fatalf("new sources: %+v %v calls=%d/%v/%v", got, err, integration.calls, checks.calls, deployments.calls)
-	}
-	for _, s := range got.Sources {
-		if strings.HasPrefix(s.Key, "deployments") || strings.HasPrefix(s.Key, "protection") {
-			t.Fatalf("deployment coverage leaked: %+v", s)
-		}
-	}
-	auth.allow[access.CapProjectRead] = false
-	auth.allow[access.CapConformanceRead] = false
-	got, err = svc.Read(t.Context())
-	if err != nil || len(got.Items) != 0 || len(got.Sources) != 0 || integration.calls != 1 || janitor.calls != 1 || len(checks.calls) != 1 {
-		t.Fatalf("revoked new sources: %+v %v", got, err)
-	}
-}
-
-type batchChecks struct{ calls []ids.ID }
-
-func (s *batchChecks) Snapshot(_ context.Context, projects []ids.ID) (Snapshot, error) {
-	s.calls = append(s.calls, projects...)
-	return Snapshot{Known: true, Items: []Item{{Key: "confirmed", Title: "Calendar checks", Count: 2}}}, nil
 }
 
 func TestDefaultNextStepNamesAnActionForAnyReader(t *testing.T) {

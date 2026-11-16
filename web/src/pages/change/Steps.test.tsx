@@ -235,6 +235,6 @@ it.each([false, true])('shows how a scan ran only with the technical switch (%s)
 it('shows the person and revision behind a janitor vote without exposing its internal rule identity', () => {
  const step = { id: STEP, runId: RUN, stage: 'accept', name: 'accept', type: 'approval', status: 'pass', overrideBy: '', config: {}, evidence: { approver: 'the janitor', decision: 'approve', comment: 'the janitor under standing approval hidden-rule', decisions: [{ approver: 'the janitor', via: 'standing', decision: 'approve', standing: { rule: { kind: 'Dependency updates', scope: 'all projects' }, ruleId: 'hidden-rule', revision: 5, issuer: { name: 'Nina' } } }] } } as unknown as Step
  const html = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><StepCard step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>)
- expect(html).toContain('Dependency updates approval for all projects (revision 5), granted by Nina')
+ expect(html).toContain('the janitor, under the janitor choices (rev 5), set by Nina · Dependency updates')
  expect(html).not.toContain('hidden-rule')
 })

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -23,6 +22,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -449,12 +450,10 @@ var cliOperations = map[string]described{
 	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
 	"GET /api/v1/janitor":                                           {status: 200, response: httpapi.JanitorView{}},
 	"GET /api/v1/janitor/history":                                   {query: []string{"before", "offset", "period"}, status: 200, response: httpapi.JanitorHistoryView{}},
-	"GET /api/v1/standing-approvals":                                {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
-	"GET /api/v1/standing-approvals/{id}/history":                   {status: 200, response: []workflow.StandingRevision{}},
-	"POST /api/v1/standing-approvals/preview":                       {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},
-	"POST /api/v1/standing-approvals":                               {request: workflow.StandingCommand{}, status: 200, response: workflow.StandingRevision{}},
-	"POST /api/v1/standing-approvals/{id}/assess":                   {request: httpapi.StandingAssess{}, status: 200, response: workflow.StandingAssessment{}},
-	"POST /api/v1/standing-approvals/{id}/disable":                  {request: httpapi.StandingDisable{}, status: 200, response: workflow.StandingRevision{}},
+	"GET /api/v1/janitor/choices":                                   {status: 200, response: (*workflow.StandingRevision)(nil)},
+	"PUT /api/v1/janitor/choices":                                   {strict: true, request: workflow.JanitorChoicesCommand{}, status: 200, response: workflow.StandingRevision{}},
+	"GET /api/v1/janitor/choices/history":                           {status: 200, response: []workflow.StandingRevision{}},
+	"POST /api/v1/janitor/assess":                                   {strict: true, request: httpapi.StandingAssess{}, status: 200, response: workflow.StandingAssessment{}},
 	"GET /api/v1/projects/{slug}/release/default":                   {status: 200, response: deployment.ReleaseDefault{}},
 	"GET /api/v1/projects/{slug}/targets":                           {status: 200, response: httpapi.ProjectTargets{}},
 	"GET /api/v1/projects/{slug}/release/plan":                      {status: 200, response: httpapi.ReleasePlan{}},
@@ -641,10 +640,6 @@ func apiDescription() (map[string]any, error) {
 	schemas.Map(json.RawMessage{}, map[string]any{})
 	// Keep the API component name when only the owner's Go visibility changes.
 	if _, err := schemas.Named("RunningScan", reflect.Zero(reflect.TypeOf(workflow.MainScans{}.Running).Elem()).Interface()); err != nil {
-		return nil, err
-	}
-
-	if _, err := schemas.Named("StandingProjectMeaning", reflect.Zero(reflect.TypeOf(workflow.StandingQuestion{}.Projects).Elem()).Interface()); err != nil {
 		return nil, err
 	}
 
@@ -835,10 +830,7 @@ func apiDescription() (map[string]any, error) {
 // it refuses in words. Nested types must be explicitly request-only; an
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
-	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
-	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
-	{Name: "StandingProject", Value: workflow.StandingProject{}},
-	{Name: "StandingDefinition", Value: workflow.StandingDefinition{}},
+	{Name: "JanitorChoices", Value: workflow.JanitorChoices{}},
 
 	{Name: "ProjectCreationService", Value: projectlifecycle.CreationService{}},
 	{Name: "ProjectCreationUpstream", Value: projectlifecycle.CreationUpstream{}},
@@ -1153,7 +1145,7 @@ func TestEveryRouteAndToolDeclaresItsFeatureTier(t *testing.T) {
 		}
 	}
 	for _, r := range appRoutes(nil) {
-		if (r.pattern == "POST /api/v1/changes/{id}/check" || r.pattern == "POST /api/v1/steps/{id}/run" || r.pattern == "POST /api/v1/standing-approvals/preview") && catalogue[r.area] != "always" {
+		if (r.pattern == "POST /api/v1/changes/{id}/check" || r.pattern == "POST /api/v1/steps/{id}/run") && catalogue[r.area] != "always" {
 			t.Errorf("workflow boundary %s became switchable", r.pattern)
 		}
 		if catalogue[r.area] == "" {

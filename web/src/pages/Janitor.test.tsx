@@ -9,7 +9,6 @@ import { settled } from '../settled'
 import { StaleScope } from '../ReadGate'
 import Janitor from './Janitor'
 import JanitorSettings from './janitor/Settings'
-import { dependencyDefinition, packDefinition } from './janitor/RuleConsent'
 import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -19,11 +18,11 @@ const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, level: 'routine', state: { word: 'up to date', unknown: false, help: '' },
  queues: [queue('security'), queue('updates'), queue('packs')], scans: { lastScan: at },
  procedures: [{ title: 'Declared dependency care', workflow: 'janitor-update', version: 7, stopRule: 'Weekly updates stop after 3 failed tries; security fixes can still run.', sentence: 'Up to 4 repair sessions; then asks Sam.', problem: '' }], scheduleProblem: '', runNow: '' })
-const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: packs ? 'pack-rule' : 'dependency-rule', revision: 3, enabled, issuer: actor, enabledAt: at, changedBy: actor, changedAt: at, reason: '', question: { definition: packs ? packDefinition : dependencyDefinition(), shown: 'The exact approval meaning.', digest: 'meaning', projects: [] } })
+const rule = (packs = false, enabled = true): StandingRevision => ({ ruleId: 'choices', revision: 3, enabled, issuer: actor, at, choices: { dependencies: enabled ? 'aggressive' : 'off', securityFixes: enabled, baseImages: enabled, toolchainPatches: enabled, packs } })
 function fixture(): JanitorView {
  const stopped = project('Stopped'); stopped.queues[1] = queue('updates', true); stopped.state.word = 'needs you'
  const off = { ...project('Off'), level: 'off', state: { word: 'off', unknown: false, help: '' }, choice: { level: 'off', person: actor, at, reason: 'Waiting for a release' } }
- return { unknownRules: [], changedRules: [], rules: [rule(), rule(true)], projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, automatic: true, hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
+ return { unknown: [], choices: rule(true), projects: [stopped, project('Held'), off], releaseHold: 'Stops after a failed release and never releases over a rollback.', deployments: [{ projectId: 'Held', deploymentId: 'dep', name: 'production', displayLabel: 'Customer office', setting: { mode: 'automatic' }, automatic: true, hold: { deploymentId: 'dep', deployment: 'production', displayLabel: 'Customer office', releaseNumber: 9, reason: 'release failed' } }] }
 }
 const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'landed', projectId: 'Held', project: 'Held app', title: 'Update library', queue: 'updates', landedAt: at, packages: [{ ecosystem: 'npm', package: 'library', from: '1.0.0', to: '1.1.0' }], packVersions: [] }], more: false }, releases: [{ changeId: 'landed', state: 'released', displayLabel: 'Customer office' }], since: at, until: at })
 const cleanup: (() => void)[] = []
@@ -40,28 +39,7 @@ async function mount(fetcher: (url: string, init?: RequestInit) => Promise<Respo
 const json = (value: unknown) => new Response(JSON.stringify(value))
 
 
-it('previews and enables the shown pack meaning, then revokes its exact revision', async () => {
- let data: JanitorView = { ...fixture(), rules: [] }
- const calls: [string, unknown][] = []
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') {
-   const body = JSON.parse(String(init.body)); calls.push([url, body])
-   if (url.endsWith('/preview')) return json({ ...rule(true).question, definition: body, portfolio: [{ projectId: 'Held', project: 'Held', onlyChecksStarts: true, deployments: [] }] })
-   data = { ...data, rules: url.endsWith('/disable') ? [] : [rule(true)] }; return json({})
-  }
-  return json(url.includes('/history') ? history() : data)
- }, true, undefined, true)
- await settled(client)
- const packs = el.querySelector('table[aria-label="Janitor approvals"] tbody tr:last-child')!
- await act(async () => packs.querySelector('button')!.click())
- expect(calls[0][1]).toMatchObject({ categories: { waysOfWorking: true, dependencies: '' } }); expect(calls[0][1]).not.toHaveProperty('schedules')
- expect(el.textContent).toContain('ProjectsHeld')
- const button = (word: string) => [...el.querySelectorAll('button')].find(b => b.textContent === word)!
- await act(async () => button('Enable').click()); await settled(client)
- expect(calls[1][1]).toMatchObject({ shownDigest: 'meaning', expectedRevision: 0 })
- await act(async () => button('Revoke').click()); await settled(client)
- expect(calls[2]).toEqual(['/api/v1/standing-approvals/pack-rule/disable', { expectedRevision: 3 }])
-})
+
 
 it('pages older history using the returned boundary and offset', async () => {
  const requests: string[] = []
@@ -74,104 +52,18 @@ it('pages older history using the returned boundary and offset', async () => {
  expect(requests.some(url => url.includes('period=older') && url.includes('offset=20'))).toBe(true)
 })
 
-it('keeps release destinations inside the enabled approval’s exact scope', async () => {
- const data = fixture()
- const exact = rule(); exact.question.definition = { ...exact.question.definition, scope: '', projects: [{ projectId: 'Held', workflow: 'janitor-update', environments: [] }] }
- data.rules = [exact]
- const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), true, undefined, true)
- await settled(client)
- const approval = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
- expect(approval.textContent).not.toContain('Customer office')
- expect(approval.textContent).toContain('None')
-})
 
-it('enables against the revision that was previewed when a poll brings a newer grant', async () => {
- let current = rule(true, false)
- const commands: unknown[] = []
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') {
-   const body = JSON.parse(String(init.body))
-   if (url.endsWith('/preview')) return json({ ...current.question, definition: body })
-   commands.push(body)
-   return new Response(JSON.stringify({ error: 'The approval changed. Preview it again.' }), { status: 409 })
-  }
-  return json(url.includes('/history') ? history() : { ...fixture(), rules: [current] })
- }, true, undefined, true)
- await settled(client)
- const button = (word: string) => [...el.querySelectorAll('button')].find(b => b.textContent === word)!
- await act(async () => button('Preview').click())
- current = { ...current, revision: 4 }
- await act(async () => { await client.invalidateQueries({ queryKey: ['get', 'janitor'] }) })
- await settled(client)
- await act(async () => button('Enable').click())
- expect(commands[0]).toMatchObject({ ruleId: 'pack-rule', expectedRevision: 3, shownDigest: 'meaning' })
- await vi.waitFor(() => expect(el.textContent).toContain('The approval changed. Preview it again.'))
-})
 
-it('previews a changed dependency level against the existing disabled rule', async () => {
- const commands: unknown[] = []
- const data = { ...fixture(), rules: [rule(false, false)] }
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') { const body = JSON.parse(String(init.body)); commands.push(body); return json({ ...rule().question, definition: body, portfolio: [{ projectId: 'Held', project: 'Go code', overridesInstance: true, level: 'routine', deployments: [] }] }) }
-  return json(url.includes('/history') ? history() : data)
- }, true, undefined, true)
- await settled(client)
- const select = el.querySelector<HTMLSelectElement>('select[aria-label="Dependency update level"]')!
- await act(async () => { select.value = 'aggressive'; select.dispatchEvent(new Event('change', { bubbles: true })) })
- await act(async () => el.querySelector<HTMLButtonElement>('table[aria-label="Janitor approvals"] tbody tr button')!.click())
- expect(commands[0]).toMatchObject({ categories: { dependencies: 'aggressive', waysOfWorking: false } })
- expect(el.textContent).toContain('Projects')
- expect(el.textContent).toContain('Go code · routine patch and minor updates')
- expect(el.textContent).not.toContain('major versions are not offered')
-})
 
-it('reads current rules after a lost save reply before offering another enable', async () => {
- let saved = false, reads = 0, saves = 0
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') {
-   const body = JSON.parse(String(init.body))
-   if (url.endsWith('/preview')) return json({ ...rule(true).question, definition: body })
-   saved = true; saves++; throw new TypeError('The save reply was lost')
-  }
-  if (url.includes('/history')) return json(history())
-  reads++; return json({ ...fixture(), rules: saved ? [rule(true)] : [] })
- }, true, undefined, true)
- await settled(client)
- await act(async () => el.querySelector<HTMLButtonElement>('table[aria-label="Janitor approvals"] tbody tr:last-child button')!.click())
- await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Enable')!.click())
- await settled(client)
- expect(saves).toBe(1)
- expect(reads).toBeGreaterThan(1)
- expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Revoke')).toBe(true)
- expect([...el.querySelectorAll('button')].some(b => b.textContent === 'Enable')).toBe(false)
-})
+
+
+
+
 
 // Queue policy is shared; only differing adopted versions identify projects.
-it('omits identical project lists from shared queue policy and shows both off-rule preview doors', async () => {
- const data = { ...fixture(), rules: [rule(false, false), rule(true, false)] }
- const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data), true, undefined, true)
- await settled(client)
- const policies = el.querySelector('table[aria-label="Repair limits"]')!
- expect(policies.querySelectorAll('tbody tr')).toHaveLength(1)
- expect(policies.querySelectorAll('a')).toHaveLength(0)
- for (const row of el.querySelectorAll('table[aria-label="Janitor approvals"] tbody tr')) {
-  expect([...row.querySelectorAll('button')].find(b => b.textContent === 'Preview')?.disabled).toBe(false)
- }
-})
 
-it('preserves an exact project pack approval when previewing its categories', async () => {
- const exact = rule(true, false)
- exact.question.definition = { ...exact.question.definition, scope: '', projects: [{ projectId: 'Held', workflow: 'keep-packs', environments: [] }] }
- let posted: unknown
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') { posted = JSON.parse(String(init.body)); return json({ ...exact.question, definition: posted }) }
-  return json(url.includes('/history') ? history() : { ...fixture(), rules: [exact] })
- }, true, undefined, true)
- await settled(client)
- const row = [...el.querySelectorAll('table[aria-label="Janitor approvals"] tbody tr')].find(r => r.textContent?.includes('Keep packs current'))!
- await act(async () => row.querySelector<HTMLButtonElement>('button')!.click())
- expect(posted).toMatchObject({ scope: '', categories: { waysOfWorking: true, dependencies: '' }, projects: [{ projectId: 'Held', workflow: 'keep-packs' }] })
-})
+
+
 
 it('shows only decisions on the overview and opens evidence by row and release link', async () => {
  const data = fixture(); data.projects[0].queues[1].changeId = 'stuck-change'; data.projects[0].queues[1].reason = 'Checks failed\nLong evidence'
@@ -232,7 +124,7 @@ it('keeps approvals and exception-only deployments in settings', async () => {
  data.deployments[0].setting={mode:'window', days:'Mon', from:'09:00', to:'17:00', zone:'UTC'}
  const {client, el}=await mount(async () => json(data), true, undefined, true)
  await settled(client)
- expect(el.textContent).toContain('Revoke')
+ expect(el.textContent).toContain('What to keep updated')
  expect(el.textContent).toContain('All deployments except Held app / Manual copy')
  const settings=el.querySelector('table[aria-label="Release settings"]')!
  expect(settings.textContent).toContain('Mon, 09:00–17:00 (UTC)')
@@ -249,13 +141,13 @@ it('never claims automatic acceptance for a person-controlled deployment', async
  data.deployments[0] = { ...data.deployments[0], setting: { mode: 'person' }, automatic: false, hold: undefined }
  const { client, el } = await mount(async () => json(data), true, undefined, true)
  await settled(client)
- expect(el.querySelector('table[aria-label="Janitor approvals"] tbody tr')?.textContent).toContain('None')
+ expect(el.textContent).toContain('Automatic releasesNone')
  expect(el.textContent).not.toContain('All deployments accept updates automatically.')
  expect(el.querySelector('table[aria-label="Release settings"]')).toBeNull()
 })
 
 it('lists time windows even without an enabled release approval', async () => {
- const data = fixture(); data.rules = []
+ const data = fixture(); data.choices = null
  data.deployments[0].setting = { mode: 'window', days: 'Mon', from: '09:00', to: '17:00', zone: 'UTC' }
  const { client, el } = await mount(async () => json(data), true, undefined, true)
  await settled(client)
@@ -265,21 +157,14 @@ it('lists time windows even without an enabled release approval', async () => {
  expect(settings?.textContent).toContain('Mon, 09:00–17:00 (UTC)')
 })
 
-it('keeps project dependency scope separate from instance pack scope', async () => {
- const data = fixture(), exact = rule()
- exact.question.definition = { ...exact.question.definition, scope: '', projects: [{ projectId: 'Held', workflow: 'janitor-update', environments: [] }] }
- data.rules = [rule(true), exact, rule(false, false)]
- const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
- await settled(client)
- expect(el.querySelector('.page-head-line')?.textContent).toBe('pack updates · all projects; Dependency updates (routine, patch and minor), security fixes · Held app')
-})
+
 
 it('groups instance dependency and pack approvals under all projects', async () => {
  const data = fixture()
- data.rules[0].question.definition = dependencyDefinition('aggressive')
+ data.choices = rule(true)
  const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
  await settled(client)
- expect(el.querySelector('.page-head-line')?.textContent).toBe('Dependency updates (aggressive, including major), security fixes, pack updates · all projects')
+ expect(el.querySelector('.page-head-line')?.textContent).toBe('Dependencies including major, security fixes, base images, toolchain patches, packs')
   expect(el.querySelector('.page-head-actions a.primary')?.getAttribute('href')).toBe('/janitor/settings')
 })
 
@@ -351,55 +236,44 @@ it('retries the exact stuck change and reports the refusal on its Needs-you row'
 })
 
 
-it('shows one changed approval for two refused projects in the summary and Needs you', async () => {
- const data = fixture(); data.changedRules = [data.rules[0].ruleId!]
- data.projects = [project('one'), project('two')]; data.deployments = []
- for (const p of data.projects) p.state.word = 'needs you'
- const { client, el } = await mount(async url => json(url.includes('/history') ? history() : data))
- await settled(client)
- expect(el.querySelector('.page-head-line')?.textContent).toContain('Dependency updates approval changed meaning; enable it again in Settings')
- const rows = el.querySelectorAll('table[aria-label="Needs you"] tbody tr')
- expect(rows).toHaveLength(1)
- expect(rows[0].textContent).toBe('All projectsDependency updates approvalchanged meaning; enable it again in Settings')
- expect(rows[0].querySelector('a')?.getAttribute('href')).toBe('/janitor/settings')
- expect(el.querySelector('table[aria-label="Projects’ janitor state"]')?.textContent).not.toContain('up to date')
-})
 
-it('previews and enables a changed approval beside Revoke with its current revision', async () => {
- const data = fixture(); data.changedRules = [data.rules[0].ruleId!]
- const posts: unknown[] = []
- const { client, el } = await mount(async (url, init) => {
-  if (init?.method === 'POST') {
-   const body = JSON.parse(String(init.body)); posts.push(body)
-   return json(url.endsWith('/preview') ? { ...rule().question, definition: body } : {})
-  }
+
+
+
+
+
+
+
+it('shows choices and attribution, saves only edits at the expected revision', async () => {
+ const calls: [string, unknown][]=[]
+ const data=fixture()
+ const {client,el}=await mount(async(url,init)=>{
+  if(init?.method==='PUT'){const body=JSON.parse(String(init.body));calls.push([url,body]);data.choices={...data.choices!,choices:body.choices,revision:4};return json(data.choices)}
   return json(data)
- }, true, undefined, true)
+ },true,undefined,true)
  await settled(client)
- const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
- expect(row.textContent).toContain('Changed meaning; enable it again')
- expect(row.querySelector('select')).not.toBeNull()
- expect(row.textContent).toContain('Revoke')
- await act(async () => [...row.querySelectorAll('button')].find(b => b.textContent === 'Preview')!.click())
- await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Enable')!.click())
- expect(posts[1]).toMatchObject({ ruleId: 'dependency-rule', expectedRevision: 3, shownDigest: 'meaning' })
+ expect(el.textContent).toContain('Set by Sam')
+ expect(el.textContent).toContain('All projects, including new ones')
+ expect(el.textContent).toContain('Off app · Turned off for this project · Sam')
+ for(const word of ['Preview','Enable','Revoke','Changed meaning']) expect(el.textContent).not.toContain(word)
+ const save=[...el.querySelectorAll('button')].find(b=>b.textContent==='Save')!
+ expect(save.disabled).toBe(true)
+ const select=el.querySelector('select')!
+ await act(async()=>{select.value='routine';select.dispatchEvent(new Event('change',{bubbles:true}))})
+ expect(save.disabled).toBe(false)
+ await act(async()=>save.click())
+ expect(calls).toEqual([['/api/v1/janitor/choices',{choices:{...data.choices!.choices,dependencies:'routine'},expectedRevision:3}]])
 })
-
-it('shows an unassessed enabled approval as Not known', async () => {
- const data = fixture(); data.unknownRules = [data.rules[0].ruleId!]
- const { client, el } = await mount(async () => json(data), true, undefined, true)
+it('hides Save from readers and prevents a stale editor overwriting newer choices',async()=>{
+ let data=fixture()
+ const {client,el}=await mount(async()=>json(data),true,undefined,true)
  await settled(client)
- const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
- expect(row.querySelector('.badge')?.textContent).toBe('Not known')
- expect(row.textContent).toContain('Revoke')
- expect([...row.querySelectorAll('button')].some(b => b.textContent === 'Preview')).toBe(false)
-})
-
-it('shows changed meaning when the same approval is also unassessed', async () => {
- const data = fixture(); data.unknownRules = data.changedRules = [data.rules[0].ruleId!]
- const { client, el } = await mount(async () => json(data), true, undefined, true)
- await settled(client)
- const row = el.querySelector('table[aria-label="Janitor approvals"] tbody tr')!
- expect(row.querySelector('.badge')?.textContent).toBe('Changed meaning; enable it again')
- expect([...row.querySelectorAll('button')].some(b => b.textContent === 'Preview')).toBe(true)
+ const select=el.querySelector('select')!
+ await act(async()=>{select.value='routine';select.dispatchEvent(new Event('change',{bubbles:true}))})
+ data={...data,choices:{...data.choices!,revision:4}}
+ await act(async()=>{await client.invalidateQueries({queryKey:['get','janitor']})});await settled(client)
+ expect([...el.querySelectorAll('button')].find(b=>b.textContent==='Save')?.disabled).toBe(true)
+ expect(el.textContent).toContain('The choices changed')
+ const reader=await mount(async()=>json(data),false,undefined,true);await settled(reader.client)
+ expect([...reader.el.querySelectorAll('button')].some(b=>b.textContent==='Save')).toBe(false)
 })

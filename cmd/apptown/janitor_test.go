@@ -1,80 +1,61 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestJanitorRequiresExplicitShownConfirmationAndDoesNotRelease(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "consent.json")
-	if err := os.WriteFile(file, []byte(`{"delivery":"full","projects":[]}`), 0600); err != nil {
+func TestJanitorSetSendsChoicesAndExpectedRevision(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method != "PUT" || path != "/janitor/choices" {
+			t.Fatalf("%s %s", method, path)
+		}
+		return 200, `{}`
+	})
+	if _, err := run(t, "janitor", "set", "--dependencies", "aggressive", "--security-fixes", "--base-images", "--toolchain-patches", "--packs", "--revision", "3"); err != nil {
 		t.Fatal(err)
 	}
-	seen := jsonAppTown(t, func(method, path string) (int, string) {
-		if method != "POST" || !strings.HasPrefix(path, "/standing-approvals") {
-			t.Fatalf("unexpected effect: %s %s", method, path)
-		}
-		return 200, `{"digest":"exact-shown","shown":"bounded delivery consent"}`
-	})
-	if _, err := run(t, "janitor", "enable", "--file", file); err == nil || len(*seen) != 0 {
-		t.Fatalf("enable inferred confirmation: %v %+v", err, *seen)
+	if len(*seen) != 1 || (*seen)[0].Body["expectedRevision"] != float64(3) {
+		t.Fatal(*seen)
 	}
-	if _, err := run(t, "janitor", "preview", "--file", file); err != nil || len(*seen) != 1 || (*seen)[0].Path != "/standing-approvals/preview" {
-		t.Fatalf("preview: %v %+v", err, *seen)
+	choices := (*seen)[0].Body["choices"].(map[string]any)
+	if choices["dependencies"] != "aggressive" || choices["packs"] != true || choices["baseImages"] != true || choices["toolchainPatches"] != true || choices["securityFixes"] != true {
+		t.Fatal(choices)
 	}
-	if _, err := run(t, "janitor", "enable", "--file", file, "--confirm", "exact-shown"); err != nil || len(*seen) != 2 {
-		t.Fatalf("explicit enable: %v %+v", err, *seen)
-	}
-	if (*seen)[1].Body["shownDigest"] != "exact-shown" || (*seen)[1].Body["expectedRevision"] != float64(0) {
-		t.Fatalf("lost confirmation/revision: %+v", (*seen)[1])
+	if _, err := run(t, "janitor", "set", "--dependencies", "off"); err == nil || len(*seen) != 1 {
+		t.Fatalf("revision inferred: %v", err)
 	}
 }
-func TestJanitorRefusalNeverPrintsSavedConsent(t *testing.T) {
-	seen := jsonAppTown(t, func(_, _ string) (int, string) { return 409, `{"error":"standing approval changed"}` })
-	out, err := run(t, "janitor", "disable", "rule-id", "--revision", "2")
-	if err == nil || !strings.Contains(err.Error(), "changed") || out != "" || len(*seen) != 1 {
-		t.Fatalf("false successful disable: %q %v %+v", out, err, *seen)
-	}
-}
-
 func TestJanitorReadsUseTheShippedContract(t *testing.T) {
 	seen := jsonAppTown(t, func(method, path string) (int, string) {
 		if method != "GET" {
-			t.Fatalf("read caused effect: %s %s", method, path)
+			t.Fatal(method)
 		}
 		return 200, `[]`
 	})
-	for _, args := range [][]string{{"janitor", "list", "--project", "00000000-0001-7000-8000-000000000000"}, {"janitor", "history", "00000000-0002-7000-8000-000000000000"}} {
-		if _, err := run(t, args...); err != nil {
+	for _, verb := range []string{"choices", "history"} {
+		if _, err := run(t, "janitor", verb); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if len(*seen) != 2 {
-		t.Fatalf("reads: %+v", seen)
+	if len(*seen) != 2 || (*seen)[0].Path != "/janitor/choices" || (*seen)[1].Path != "/janitor/choices/history" {
+		t.Fatal(*seen)
 	}
 }
-
-func TestJanitorAssessmentNamesOnlyTheRuleAndRun(t *testing.T) {
+func TestJanitorAssessmentNamesOnlyTheRun(t *testing.T) {
 	seen := jsonAppTown(t, func(method, path string) (int, string) {
-		if method != "POST" || path != "/standing-approvals/rule/assess" {
-			t.Fatalf("unexpected assessment effect %s %s", method, path)
+		if method != "POST" || path != "/janitor/assess" {
+			t.Fatalf("%s %s", method, path)
 		}
-		return 200, `{"processingAvailable":false,"inspection":{"classification":"routine-dependency"}}`
+		return 200, `{}`
 	})
-	if _, err := run(t, "janitor", "assess", "rule"); err == nil || len(*seen) != 0 {
-		t.Fatalf("missing run admitted: %v", err)
+	if _, err := run(t, "janitor", "assess", "--run", "exact-run"); err != nil {
+		t.Fatal(err)
 	}
-	out, err := run(t, "janitor", "assess", "rule", "--run", "exact-run")
-	if err != nil || len(*seen) != 1 {
-		t.Fatalf("assessment %q %v", out, err)
-	}
-	if len((*seen)[0].Body) != 1 || (*seen)[0].Body["runId"] != "exact-run" || !strings.Contains(out, `"processingAvailable": false`) {
-		t.Fatalf("unexpected evidence or approval claim: %q %+v", out, *seen)
+	if len(*seen) != 1 || len((*seen)[0].Body) != 1 || (*seen)[0].Body["run"] != "exact-run" {
+		t.Fatal(*seen)
 	}
 }
-
 func TestJanitorAttemptsReadsTheNamedProjectAndQueue(t *testing.T) {
 	seen := jsonAppTown(t, func(method, path string) (int, string) {
 		if method != "GET" || path != "/projects/my-app/janitor/attempts" {

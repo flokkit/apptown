@@ -26,7 +26,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"projectScans.SetChoice":        TestJanitorSettingsHTTPChecksCurrentProjectAuthority,
 	"attention.Read":                TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,
 
-	"standingApprovals.Assess": TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
+	"standingApprovals.Assess": TestJanitorChoicesHTTPRequiresAuthorityAndExpectedRevision,
 	"external.Save":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
 	"external.Enabled":         TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
 	"external.Test":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
@@ -35,11 +35,9 @@ var policyEvidence = map[string]func(*testing.T){
 	"external.Bind":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
 	"external.Revoke":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
 
-	"standingApprovals.List":            TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
-	"standingApprovals.Preview":         TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
-	"standingApprovals.Enable":          TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
-	"standingApprovals.History":         TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
-	"standingApprovals.Disable":         TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
+	"standingApprovals.List":            TestJanitorChoicesHTTPRequiresAuthorityAndExpectedRevision,
+	"standingApprovals.Save":            TestJanitorChoicesHTTPRequiresAuthorityAndExpectedRevision,
+	"standingApprovals.History":         TestJanitorChoicesHTTPRequiresAuthorityAndExpectedRevision,
 	"deployment.ApproveRelease":         TestReleaseApprovalRequiresCurrentIndependentHumanAssent,
 	"deployment.CancelRelease":          TestReleaseApprovalRequiresCurrentIndependentHumanAssent,
 	"deployment.RequestDefaultRelease":  TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration,

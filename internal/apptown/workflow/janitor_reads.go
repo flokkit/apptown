@@ -67,83 +67,35 @@ type JanitorProject struct {
 	Procedures  []janitorProcedure                   `json:"procedures"`
 }
 
-// janitorRules is the read-only home for consent. Managing consent still uses
-// Preview, Enable and Disable, with their existing verified-person checks.
-func (s StandingRules) janitorRules(ctx context.Context) ([]StandingRevision, error) {
-	if err := s.require(ctx, access.CapProjectRead, access.Resource{Type: "instance"}); err != nil {
-		return nil, err
-	}
-	rows, err := workflowsql.New(s.db.SQL()).CurrentStandingRules(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := []StandingRevision{}
-	for _, row := range rows {
-		rule, err := readStandingRevision(row)
-		if err != nil {
-			return nil, err
-		}
-		if err := func() error {
-			if rule.Question.Definition.Scope == "instance" {
-				return nil
-			}
-			return s.readable(ctx, s.db, rule.Question.Definition)
-		}(); err != nil {
-			if standingRefusal(err) {
-				continue
-			}
-			return nil, err
-		}
-		// The saved preview describes the grant, not today's portfolio.
-		rule.Question.Portfolio = nil
-		out = append(out, rule)
-	}
-	return out, nil
-}
-
-func ruleCovers(rule StandingRevision, pid ids.ID) bool {
-	if rule.Question.Definition.Scope == "instance" {
-		return true
-	}
-	for _, p := range rule.Question.Definition.Projects {
-		if p.ProjectID == pid {
-			return true
-		}
-	}
-	return false
-}
-
 // JanitorProjects reads all caller-visible projects through the same queue and
 // scan owners used by the project view. A failed scan or eligibility read stays
 // unknown on its row; a database failure in queue or consent reads fails the
 // read as a whole. Changed and unknown rule IDs retain both observations when
 // different projects give different answers.
-func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []StandingRevision, []ids.ID, []ids.ID, error) {
+func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, *StandingRevision, []ids.ID, error) {
 	visible, err := s.authority.VisibleProjects(ctx, actionReadProject)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	labels, err := workflowsql.New(s.db.SQL()).JanitorProjectLabels(ctx, visible)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
-	rules, err := s.standing.janitorRules(ctx)
+	rule, err := s.standing.janitorChoices(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
-	changed := []ids.ID{}
 	unknown := []ids.ID{}
 	seenUnknown := map[ids.ID]bool{}
-	seenChanged := map[ids.ID]bool{}
 	choices, err := workflowsql.New(s.db.SQL()).JanitorProjectChoices(ctx, visible)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	byProject := map[ids.ID]janitorChoice{}
 	for _, row := range choices {
 		var c janitorChoice
 		if err := json.Unmarshal(row.RecordJson, &c); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		byProject[row.ProjectID] = c
 	}
@@ -152,23 +104,19 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 	for _, p := range labels {
 		facts, err := s.procedureFacts(ctx, p.ID)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		factsByProject[p.ID] = facts
 		projects = append(projects, JanitorProject{ProjectID: p.ID, Facts: facts})
 	}
 	// Eligibility failures stay attached to each workflow, like scan failures.
-	eligibility, _ := s.janitorEligibility(ctx, projects, rules)
+	eligibility, _ := s.janitorEligibility(ctx, projects, rule)
 	out := make([]JanitorProject, 0, len(labels))
 	for _, p := range labels {
 		item := JanitorProject{ProjectID: p.ID, Slug: p.Slug, Name: p.Name, Queues: []QueueStatus{}, Procedures: []janitorProcedure{}}
-		for _, rule := range rules {
-			if rule.Enabled && ruleCovers(rule, p.ID) {
-				item.Enabled = true
-				if item.Level == "" {
-					item.Level = rule.Question.Definition.Categories.Dependencies
-				}
-			}
+		if rule != nil {
+			item.Enabled = rule.Enabled
+			item.Level = rule.Choices.Dependencies
 		}
 		if choice, ok := byProject[p.ID]; ok {
 			item.Choice = &choice
@@ -178,7 +126,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 		definitions := parseProcedures(facts)
 		item.Queues, err = s.queues(ctx, p.ID, definitions)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, err
 		}
 		item.Facts = facts
 		item.Eligibility = eligibility[p.ID]
@@ -192,12 +140,7 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 					seenUnknown[id] = true
 				}
 			}
-			for _, id := range result.MeaningChanged {
-				if !seenChanged[id] {
-					changed = append(changed, id)
-					seenChanged[id] = true
-				}
-			}
+
 		}
 		scans, err := s.latestMainScans(ctx, p.ID, 0, func() (bool, error) { return s.scanSchedules.ScansSourceFrom(ctx, p.ID, facts) })
 		if err != nil {
@@ -206,19 +149,10 @@ func (s *Service) JanitorProjects(ctx context.Context) ([]JanitorProject, []Stan
 		}
 		janitorProcedures(&item, definitions)
 		item.State = janitorProjectState(item, scans)
-		for _, result := range item.Eligibility {
-			if result.Rule.RuleID.IsZero() && len(result.MeaningChanged) > 0 {
-				for _, r := range rules {
-					if r.RuleID == result.MeaningChanged[0] {
-						item.State = janitorState{Word: "needs you", Help: r.ChangedMeaningSentence()}
-					}
-				}
-			}
-		}
 		item.Scans = scans.janitorSummary()
 		out = append(out, item)
 	}
-	return out, rules, changed, unknown, nil
+	return out, rule, unknown, nil
 }
 
 type adoptedProcedure struct {
@@ -305,7 +239,7 @@ func janitorProjectState(p JanitorProject, scans MainScans) janitorState {
 		}
 	}
 	switch {
-	case p.Level == "off" || !p.Enabled:
+	case p.Choice != nil && p.Choice.Level == "off" || !p.Enabled:
 		state.Word = "off"
 	case scans.NoRepository:
 		state.Word = "no repository"

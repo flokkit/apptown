@@ -527,6 +527,6 @@ func newDockerFake() *dockerfake.Daemon {
 
 type fixtureUpdateBound struct{ f *taskAppTown }
 
-func (b fixtureUpdateBound) UpdateBoundForRun(context.Context, ids.ID) (string, error) {
-	return b.f.bound, nil
+func (b fixtureUpdateBound) UpdateChoicesForRun(context.Context, ids.ID) (workflow.JanitorChoices, error) {
+	return workflow.JanitorChoices{Dependencies: b.f.bound, BaseImages: true, ToolchainPatches: true, SecurityFixes: true}, nil
 }

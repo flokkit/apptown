@@ -32,7 +32,9 @@ spec:
               change .apptown/app.yaml. Fix image targets by moving FROM to the
               smallest release of the same image and variant within the level whose
               image no longer has the finding, following the janitor skill.
-              For a finding in the toolchain itself (Go stdlib or a runtime), use
+              Base image updates: ${{inputs.baseImages}}. When false, leave FROM unchanged.
+              Toolchain patches: ${{inputs.toolchainPatches}}. Only when true,
+              for a finding in the toolchain itself (Go stdlib or a runtime), use
               the smallest patch release within its minor that fixes it, in every
               declaration: mise or version file, go.mod toolchain line and build
               image. Otherwise keep toolchain versions unchanged.

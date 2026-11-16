@@ -1122,6 +1122,19 @@ export type JanitorChoice = {
   reason: string
 }
 
+export type JanitorChoices = {
+  dependencies: string
+  securityFixes: boolean
+  baseImages: boolean
+  toolchainPatches: boolean
+  packs: boolean
+}
+
+export type JanitorChoicesCommand = {
+  choices: JanitorChoices
+  expectedRevision: number
+}
+
 export type JanitorHistoryView = {
   history: JanitorHistory
   releases: JanitorChangeRelease[]
@@ -1172,9 +1185,8 @@ export type JanitorStart = {
 }
 
 export type JanitorView = {
-  unknownRules: (string | null)[]
-  changedRules: (string | null)[]
-  rules: StandingRevision[]
+  unknown: (string | null)[]
+  choices: StandingRevision | null
   projects: JanitorProject[]
   deployments: JanitorDeployment[]
   releaseHold: string
@@ -2159,7 +2171,7 @@ export type StandingAssessment = {
   adoption?: RoutineAdoptionTarget | null
   ruleId: string | null
   ruleRevision: number
-  questionDigest: string
+  choices: JanitorChoices
   projectId: string | null
   changeId: string | null
   runId: string | null
@@ -2169,41 +2181,6 @@ export type StandingAssessment = {
   adoptionRevision: number
   inspection: StandingInspection
   processingAvailable: boolean
-}
-
-export type StandingCategories = {
-  dependencies: string
-  securityFixes: boolean
-  waysOfWorking: boolean
-}
-
-export type StandingCommand = {
-  ruleId: string | null
-  expectedRevision: number
-  definition: StandingDefinition
-  shownDigest: string
-}
-
-export type StandingDefinition = {
-  scope?: string
-  administrative: boolean
-  projects: StandingProject[]
-  categories: StandingCategories
-  delivery: string
-}
-
-export type StandingDisable = {
-  expectedRevision: number
-}
-
-export type StandingEnvironment = {
-  projectId?: string | null
-  project?: string
-  deployment?: string
-  setting?: string
-  deploymentId: string | null
-  targetId: string | null
-  promotion: boolean
 }
 
 export type StandingInspection = {
@@ -2218,25 +2195,16 @@ export type StandingInspection = {
 }
 
 export type StandingProcedure = {
+  trigger: string
   acceptance: StandingPurpose
   landing: StandingPurpose
 }
 
-export type StandingProject = {
-  workflow: string
-  projectId: string | null
-  environments: StandingEnvironment[]
-}
-
 export type StandingProjectAct = {
+  level: string
   person: StandingActor
   at: string
   reason: string
-}
-
-export type StandingProjectMeaning = {
-  projectId: string | null
-  procedure: StandingProcedure
 }
 
 export type StandingProjectState = {
@@ -2253,31 +2221,13 @@ export type StandingPurpose = {
   approvers: string[]
 }
 
-export type StandingQuestion = {
-  portfolio?: StandingProjectPreview[]
-  definition: StandingDefinition
-  projects: StandingProjectMeaning[]
-  shown: string
-  digest: string
-}
-
 export type StandingRevision = {
   ruleId: string | null
   revision: number
   enabled: boolean
-  question: StandingQuestion
+  choices: JanitorChoices
   issuer: StandingActor
-  enabledAt: string
-  changedBy: StandingActor
-  changedAt: string
-  reason: string
-}
-
-export type StandingStatus = {
-  rule: StandingRevision
-  eligible: boolean
-  reason: string
-  processingAvailable: boolean
+  at: string
 }
 
 export type StandingValidation = {
@@ -4764,17 +4714,6 @@ export type ServiceKindEntry = {
 export type NeedSelection = {
   capability: string
   params: Record<string, unknown>
-}
-
-export type StandingProjectPreview = {
-  level: string
-  overridesInstance: boolean
-  followsMain: StandingEnvironment[]
-  problem?: string
-  projectId: string | null
-  project: string
-  onlyChecksStarts: boolean
-  deployments: StandingEnvironment[]
 }
 
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"

@@ -3,17 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
-	"net/url"
-	"os"
 )
 
-// Janitor commands read scans and manage consent. Preview and explicit confirmation are
-// separate requests so a script cannot silently agree to newly changed meaning.
+// Janitor commands read scans and manage choices.
 func cmdJanitor(args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess|attempts|run> [options]")
+		return usagef("usage: apptown janitor <choices|set|history|assess|attempts|run> [options]")
 	}
 	if args[0] == "run" {
 		fs := newFlags("janitor run")
@@ -65,79 +64,45 @@ func cmdJanitor(args []string) error {
 	}
 	verb := args[0]
 	fs := newFlags("janitor " + verb)
-	file := fs.String("file", "", "JSON standing-rule definition to preview or confirm")
-	confirm := fs.String("confirm", "", "exact meaning digest returned by preview")
-	rule := fs.String("rule", "", "existing rule UUID when revising")
-	revision := fs.Int64("revision", 0, "expected current revision for revision or disable")
-	project := fs.String("project", "", "exact project UUID to list (omitted: administrative view)")
+	dependencies := fs.String("dependencies", "", "off, routine or aggressive")
+	security := fs.Bool("security-fixes", false, "keep security fixes updated")
+	images := fs.Bool("base-images", false, "keep base images updated")
+	toolchain := fs.Bool("toolchain-patches", false, "toolchain patches for security fixes")
+	packs := fs.Bool("packs", false, "keep packs updated")
+	revision := fs.Int64("revision", -1, "expected current revision (0 for first save)")
 	var runID string
-	fs.StringVar(&runID, "run", "", "exact run UUID to inspect without accepting or landing")
-	args = parseArgs(fs, args[1:])
+	fs.StringVar(&runID, "run", "", "exact run UUID")
+	rest := parseArgs(fs, args[1:])
+	if len(rest) != 0 {
+		return usagef("unexpected arguments for janitor %s", verb)
+	}
 	var out json.RawMessage
 	switch verb {
-	case "list":
-		if len(args) != 0 {
-			return usagef("usage: apptown janitor list [--project UUID]")
-		}
-		path := "/standing-approvals"
-		if *project != "" {
-			path += "?projectId=" + url.QueryEscape(*project)
-		}
-		if err := api.get(path, &out); err != nil {
-			return err
-		}
-	case "assess":
-		if len(args) != 1 || runID == "" {
-			return usagef("usage: apptown janitor assess <rule UUID> --run UUID")
-		}
-		if err := api.post("/standing-approvals/"+url.PathEscape(args[0])+"/assess", map[string]string{"runId": runID}, &out); err != nil {
+	case "choices":
+		if err := api.get("/janitor/choices", &out); err != nil {
 			return err
 		}
 	case "history":
-		if len(args) != 1 {
-			return usagef("usage: apptown janitor history <rule UUID>")
-		}
-		if err := api.get("/standing-approvals/"+url.PathEscape(args[0])+"/history", &out); err != nil {
+		if err := api.get("/janitor/choices/history", &out); err != nil {
 			return err
 		}
-	case "disable":
-		if len(args) != 1 || *revision <= 0 {
-			return usagef("usage: apptown janitor disable <rule UUID> --revision N")
+	case "assess":
+		if runID == "" {
+			return usagef("usage: apptown janitor assess --run RUN")
 		}
-		if err := api.post("/standing-approvals/"+url.PathEscape(args[0])+"/disable", map[string]any{"expectedRevision": *revision}, &out); err != nil {
+		if err := api.post("/janitor/assess", map[string]string{"run": runID}, &out); err != nil {
 			return err
 		}
-	case "preview", "enable":
-		if len(args) != 0 || *file == "" {
-			return usagef("usage: apptown janitor %s --file definition.json [--confirm digest] [--rule UUID --revision N]", verb)
+	case "set":
+		if *revision < 0 || (*dependencies != "off" && *dependencies != "routine" && *dependencies != "aggressive") {
+			return usagef("usage: apptown janitor set --dependencies LEVEL [--security-fixes] [--base-images] [--toolchain-patches] [--packs] --revision N")
 		}
-		body, err := os.ReadFile(*file)
+		body := map[string]any{"choices": map[string]any{"dependencies": *dependencies, "securityFixes": *security, "baseImages": *images, "toolchainPatches": *toolchain, "packs": *packs}, "expectedRevision": *revision}
+		raw, err := api.request("PUT", "/janitor/choices", body)
 		if err != nil {
 			return err
 		}
-		var definition map[string]json.RawMessage
-		if err = json.Unmarshal(body, &definition); err != nil || definition == nil {
-			return fmt.Errorf("the standing-rule definition must be a JSON object")
-		}
-		if verb == "preview" {
-			if err = api.post("/standing-approvals/preview", definition, &out); err != nil {
-				return err
-			}
-		} else {
-			if *confirm == "" {
-				return usagef("preview the definition and supply its exact --confirm digest; no standing consent was saved")
-			}
-			if (*rule == "") != (*revision == 0) {
-				return usagef("revising consent needs both --rule and --revision")
-			}
-			command := map[string]any{"definition": definition, "shownDigest": *confirm, "expectedRevision": *revision}
-			if *rule != "" {
-				command["ruleId"] = *rule
-			}
-			if err = api.post("/standing-approvals", command, &out); err != nil {
-				return err
-			}
-		}
+		out = raw
 	default:
 		return usagef("unknown janitor command %q", verb)
 	}

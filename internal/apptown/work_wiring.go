@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/flokkit/apptown/internal/version"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -279,13 +280,6 @@ func (r releaseData) BeforeRelease(ctx context.Context, projectID ids.ID, deploy
 		return nil, err
 	}
 	return dataReleaseWitness{w}, nil
-}
-
-type standingDestinations struct{}
-
-func (standingDestinations) StandingDestination(ctx context.Context, q database.Queryer, projectID ids.ID, in workflow.StandingEnvironment) (workflow.StandingDestination, error) {
-	s, err := deployment.ReadStandingConsentSelection(ctx, q, projectID, in.DeploymentID, in.TargetID)
-	return workflow.StandingDestination{Resource: s.Resource, PromotionResource: s.PromotionResource, PromotionRequired: s.PromotionRequired}, err
 }
 
 type dataReleaseWitness struct{ copyWitness }

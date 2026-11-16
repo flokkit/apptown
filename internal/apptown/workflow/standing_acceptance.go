@@ -202,17 +202,17 @@ func (s *Service) processStanding(ctx context.Context, runID, stepID ids.ID, rev
 			if err != nil {
 				return false, err
 			}
-			proc, e := s.standing.eligibleForIn(ctx, tx, fresh, current.ProjectID, current.WorkflowName, current.AdoptionID)
+			_, e := s.standing.eligibleForIn(ctx, tx, fresh, current.ProjectID, current.WorkflowName, current.AdoptionID)
 			if e != nil {
 				if !standingRefusal(e) {
 					return false, e
 				}
 				decision.Reason = e.Error()
-			} else if fresh.Revision != rule.Revision || proc.Acceptance.Means != cfg.Standing.Means {
+			} else if fresh.Revision != rule.Revision {
 				decision.Reason = "the standing approval changed during assessment"
 			}
 			if decision.Reason == "" {
-				level, err := s.standing.effectiveLevelIn(ctx, tx, fresh.Question.Definition, current.ProjectID)
+				level, err := s.standing.effectiveLevelIn(ctx, tx, fresh.Choices, current.ProjectID)
 				if err != nil {
 					return false, err
 				}

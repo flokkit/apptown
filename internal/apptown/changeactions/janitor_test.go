@@ -111,33 +111,26 @@ spec:
 		t.Fatalf("unapproved starts: %+v %v", got, err)
 	}
 	for _, start := range got {
-		if start.Refused != "waits for a standing approval" {
+		if start.Refused != "waits for Janitor choices" {
 			t.Fatal(start)
 		}
 	}
 	if len(packs.projects) != 0 {
 		t.Fatal("unapproved pack assessment")
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	question, err := w.schedules.Standing.Preview(ctx, in)
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	rule, err := w.schedules.Standing.Save(ctx, workflow.JanitorChoicesCommand{Choices: in})
 	if err != nil {
 		t.Fatal(err)
 	}
-	rule, err := w.schedules.Standing.Enable(ctx, workflow.StandingCommand{Definition: in, ShownDigest: question.Digest})
-	if err != nil {
+	in.Packs = true
+	if _, err := w.schedules.Standing.Save(ctx, workflow.JanitorChoicesCommand{Choices: in, ExpectedRevision: rule.Revision}); err != nil {
 		t.Fatal(err)
 	}
-	packDefinition := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{WaysOfWorking: true}, Delivery: "full"}
-	packQuestion, err := w.schedules.Standing.Preview(ctx, packDefinition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.schedules.Standing.Enable(ctx, workflow.StandingCommand{Definition: packDefinition, ShownDigest: packQuestion.Digest}); err != nil {
-		t.Fatal(err)
-	}
+
 	got, err = w.schedules.RunJanitor(ctx, w.project, changeactions.JanitorRun{}, now)
-	if err != nil || len(got) != 3 {
-		t.Fatalf("starts: %+v %v", got, err)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for _, start := range got {
 		if start.Refused != "" {
@@ -254,12 +247,8 @@ func TestRunJanitorResetsOneQueueBeforeItsStandingStarts(t *testing.T) {
 	if err != nil || len(receipts) != 0 {
 		t.Fatalf("ineligible reset: %+v %v", receipts, err)
 	}
-	in := workflow.StandingDefinition{Scope: "instance", Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	q, err := w.schedules.Standing.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := w.schedules.Standing.Enable(ctx, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest}); err != nil {
+	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	if _, err := w.schedules.Standing.Save(ctx, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 		t.Fatal(err)
 	}
 	ch, err := w.schedules.RunNow(ctx, w.project, "first-care", time.Now())

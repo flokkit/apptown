@@ -80,7 +80,7 @@ ENTRYPOINT ["/nextup"]
 		{"directive", "# syntax=docker/dockerfile:1\nFROM node:22", "# syntax=docker/dockerfile:2\nFROM node:22", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := CompareUpdateInputs(map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, false)
+			err := CompareUpdateInputs(map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, true, false)
 			if (err == nil) != tc.allowed {
 				t.Fatalf("allowed=%t: %v", tc.allowed, err)
 			}
@@ -116,7 +116,7 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 					}
 					before := put("1.27.3")
 					next := put(after)
-					err := CompareUpdateInputs(before, next, security)
+					err := CompareUpdateInputs(before, next, true, security)
 					if (err == nil) != (security && after == "1.27.4") {
 						t.Fatalf("security=%t: %v", security, err)
 					}
@@ -124,10 +124,24 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 			}
 		}
 	}
-	if CompareUpdateInputs(map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true) == nil {
+	if CompareUpdateInputs(map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, true) == nil {
 		t.Fatal("minor toolchain versions moved")
 	}
-	if CompareUpdateInputs(map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true) == nil {
+	if CompareUpdateInputs(map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true, true) == nil {
 		t.Fatal("env changes passed")
+	}
+}
+
+func TestBaseImageChoiceGuardsFromVersionMoves(t *testing.T) {
+	before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-alpine\n"))}
+	after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.2-alpine\n"))}
+	if err := CompareUpdateInputs(before, after, false, false); err == nil {
+		t.Fatal("base images off allowed a FROM version move")
+	}
+	if err := CompareUpdateInputs(before, after, true, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := CompareUpdateInputs(map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false); err == nil {
+		t.Fatal("toolchain patches off allowed a patch")
 	}
 }

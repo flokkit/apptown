@@ -712,12 +712,9 @@ try {
           await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
           // Approvals live on the Janitor settings page, not the overview.
           if (screen === 'janitor-settings') {
-            const approvals = page.getByRole('table', { name: 'Janitor approvals', exact: true });
-            for (const name of ['Dependency updates', 'Keep packs current']) {
-              const row = approvals.getByRole('row').filter({ hasText: name }).filter({ hasText: 'All projects, including new ones' });
-              await row.getByRole('button', { name: 'Preview', exact: true }).waitFor({ state: 'visible' });
-              if (await row.getByRole('button', { name: 'Preview', exact: true }).isDisabled()) throw new Error(name + ': owner cannot preview an off rule');
-            }
+            await page.getByLabel('Dependencies', {exact: true}).waitFor({ state: 'visible' });
+            await page.getByRole('button', {name: 'Save', exact:true}).waitFor({state:'visible'});
+            if (/Preview|Revoke|Changed meaning/.test(words)) throw new Error('retired Janitor consent flow');
 
           }
           if (screen === 'target' && await page.locator('.capacity-strip-track').count() !== 3) throw new Error('target capacity strip is missing');

@@ -134,7 +134,7 @@ function JanitorChoice({ slug, data, current, reload }: { slug: string; data: Pr
   const [reason, setReason] = useState<string | null>(null)
   const action = useAction(reload)
   const [level, setLevel] = useState('routine')
-  const off = data.standing?.level === 'off'
+  const off = data.standing?.choice?.level === 'off'
   return <>
     {data.heldBack?.map(hold => <div key={hold.deploymentId}>
       <p><strong>Stopped: release {hold.releaseNumber} to {hold.displayLabel} {hold.reason === 'release failed' ? 'failed' : hold.reason}.</strong></p>

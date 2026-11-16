@@ -26,7 +26,8 @@ spec:
               means patch and minor releases (a 0.x package stays within its minor);
               aggressive means the newest releases, including major versions. Cover every
               ecosystem and every workspace or sub-project in the repository, following
-              the dependency guidance for each. Move each Dockerfile FROM to the
+              the dependency guidance for each. Base image updates: ${{inputs.baseImages}}.
+              When false, leave every FROM unchanged. When true, move each Dockerfile FROM to the
               newest build or release of the same image and variant within the level,
               following the janitor skill. Do not change toolchain versions
               (mise, .tool-versions, version files) or .apptown/app.yaml. Change application code only where a moved package

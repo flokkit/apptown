@@ -3,12 +3,10 @@ package workflow
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/access"
 
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -20,44 +18,28 @@ type standingRuleIdentity = struct {
 }
 
 func standingRuleIdentityIn(ctx context.Context, db database.Queryer, authority access.Authorizer, rule StandingRevision) (*standingRuleIdentity, error) {
-	out := &standingRuleIdentity{Kind: "Dependency updates", Scope: "all projects"}
-	if rule.Question.Definition.Categories.WaysOfWorking {
-		out.Kind = "Keep packs current"
-	}
-	if rule.Question.Definition.Scope != "instance" {
-		names := []string{}
-		hidden := 0
-		rules := StandingRules{deps: StandingDependencies{Authority: authority}}
-		for _, selected := range rule.Question.Definition.Projects {
-			// Use the standing-rule read check on each project before naming it.
-			definition := rule.Question.Definition
-			definition.Projects = []StandingProject{selected}
-			if err := rules.readable(ctx, db, definition); err != nil {
-				if !standingRefusal(err) {
-					return nil, err
-				}
-				hidden++
-				continue
-			}
-			p, err := project.ByIDIn(ctx, db, selected.ProjectID)
-			if err != nil {
-				return nil, err
-			}
-			names = append(names, p.Name)
+	parts := []string{}
+	c := rule.Choices
+	if c.Dependencies != "off" {
+		level := "patch and minor"
+		if c.Dependencies == "aggressive" {
+			level = "including major"
 		}
-		out.Scope = strings.Join(names, ", ")
-		if hidden > 0 {
-			noun := "projects"
-			if hidden == 1 {
-				noun = "project"
-			}
-			if len(names) > 0 {
-				out.Scope += fmt.Sprintf(" and %d other %s", hidden, noun)
-			} else {
-				out.Scope = fmt.Sprintf("%d other %s", hidden, noun)
-			}
+		parts = append(parts, "Dependencies "+level)
+	}
+	for _, item := range []struct {
+		on   bool
+		name string
+	}{{c.SecurityFixes, "security fixes"}, {c.BaseImages, "base images"}, {c.ToolchainPatches, "toolchain patches"}, {c.Packs, "packs"}} {
+		if item.on {
+			parts = append(parts, item.name)
 		}
 	}
+	kind := strings.Join(parts, ", ")
+	if kind == "" {
+		kind = "Turned off"
+	}
+	out := &standingRuleIdentity{Kind: kind, Scope: "all projects"}
 	return out, nil
 }
 

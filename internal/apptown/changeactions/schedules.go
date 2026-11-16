@@ -144,7 +144,7 @@ func (s Schedules) resolve(ctx context.Context, c *firing) (bool, error) {
 		return true, nil
 	}
 	if s.Standing == nil {
-		c.waiting = "waits for a standing approval"
+		c.waiting = "waits for Janitor choices"
 		return false, nil
 	}
 	results, err := s.Standing.StandingEligibility(ctx, []workflow.ProjectWorkflows{{ProjectID: c.projectID, Workflows: []string{c.workflow}}})
@@ -213,7 +213,7 @@ func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedB
 		return fired{}, err
 	}
 	outcome, changeID := workflow.ScheduleFailed, ids.Nil
-	item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: c.projectID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow, Inputs: json.RawMessage(fmt.Sprintf(`{"level":%q}`, c.level))})
+	item, run, err := s.Actions.work.CreateAndRun(asSchedule(ctx, c.projectID), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: c.projectID, Type: "scheduled", Title: title, Queue: c.trigger.Queue, Schedule: c.workflow, RuleID: c.rule.RuleID, RuleRevision: c.rule.Revision}, Workflow: c.workflow, Inputs: json.RawMessage(fmt.Sprintf(`{"level":%q,"baseImages":%t,"toolchainPatches":%t}`, c.level, c.rule.Choices.BaseImages, c.rule.Choices.ToolchainPatches))})
 	// A change committed before preparation or dispatch failed is kept in the
 	// result, so the caller can name it and its requester.
 	out := fired{change: item, run: run}

@@ -4829,13 +4829,9 @@ app:
 			Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access,
 			Procedures: cameraStandingProcedure{}, Now: a.cfg.clock.Now,
 		})
-		in := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "design-review"}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
+		in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
 		person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "session"}})
-		q, err := consent.Preview(person, in)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := consent.Enable(person, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest}); err != nil {
+		if _, err := consent.Save(person, workflow.JanitorChoicesCommand{Choices: in}); err != nil {
 			t.Fatal(err)
 		}
 		failed, err := a.conformance.BeginReview(testConformanceContext("sam"), conformance.ReviewRequest{Trigger: "manual"})
@@ -4857,12 +4853,16 @@ app:
 	if _, _, err := a.Ways.PublishWorkflow(personForJanitor, janitorBody, "sam"); err != nil {
 		t.Fatal(err)
 	}
-	janitorDefinition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "camera-janitor", Environments: []workflow.StandingEnvironment{{DeploymentID: prod.ID, TargetID: prod.TargetID}}}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "full"}
-	janitorQuestion, err := a.standingRules.Preview(personForJanitor, janitorDefinition)
+	janitorDefinition := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	currentChoices, err := a.standingRules.Current(personForJanitor)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.standingRules.Enable(personForJanitor, workflow.StandingCommand{Definition: janitorDefinition, ShownDigest: janitorQuestion.Digest}); err != nil {
+	var currentRevision int64
+	if currentChoices != nil {
+		currentRevision = currentChoices.Revision
+	}
+	if _, err := a.standingRules.Save(personForJanitor, workflow.JanitorChoicesCommand{Choices: janitorDefinition, ExpectedRevision: currentRevision}); err != nil {
 		t.Fatal(err)
 	}
 	janitorFailedRelease, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, BundleID: last.BundleID, ProjectID: project.ID, DeploymentID: prod.ID, Deployment: prod.Name, Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "Update could not start")
@@ -5591,7 +5591,7 @@ var cameraOtherContainers = []string{"uptime-monitor", "backup-agent", "log-ship
 type cameraStandingProcedure struct{}
 
 func (cameraStandingProcedure) standingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
-	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "design-review", Version: 1, Step: "accept", Means: "accept small dependency fixes after checks pass"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
+	return workflow.StandingProcedure{Trigger: "schedule", Acceptance: workflow.StandingPurpose{Workflow: "design-review", Version: 1, Step: "accept", Means: "accept small dependency fixes after checks pass"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
 
 // fieldnotesRecording contains only the supplied change view's request,
@@ -6386,26 +6386,16 @@ func cameraJanitorProjects(t *testing.T, a *App, scene *tourScene) {
 		t.Fatalf("camera janitor landing: %+v %v", landed, err)
 	}
 	person := verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "header", Credential: identity.HeaderCredential("sam")})
-	deps, err := a.Deployment.Deployments.ForProject(t.Context(), p.ID)
+	definition := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
+	savedChoices, err := a.standingRules.Current(person)
 	if err != nil {
 		t.Fatal(err)
 	}
-	environments := []workflow.StandingEnvironment{}
-	for _, dep := range deps {
-		if dep.Feed == "main" {
-			environments = append(environments, workflow.StandingEnvironment{DeploymentID: dep.ID, TargetID: dep.TargetID})
-		}
+	var expected int64
+	if savedChoices != nil {
+		expected = savedChoices.Revision
 	}
-	delivery := "full"
-	if len(environments) == 0 {
-		delivery = "land-only"
-	}
-	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "camera-janitor", Environments: environments}}, Categories: workflow.StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: delivery}
-	question, err := a.standingRules.Preview(person, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.standingRules.Enable(person, workflow.StandingCommand{Definition: definition, ShownDigest: question.Digest}); err != nil {
+	if _, err := a.standingRules.Save(person, workflow.JanitorChoicesCommand{Choices: definition, ExpectedRevision: expected}); err != nil {
 		t.Fatal(err)
 	}
 	cameraJanitorQueue(t, a, p.ID)

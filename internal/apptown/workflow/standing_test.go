@@ -2,30 +2,22 @@ package workflow
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type standingProcedureFixture struct {
-	docs          []*schema.Doc
 	means         string
+	trigger       string
 	projectMeans  map[ids.ID]string
 	projectErrors map[ids.ID]error
 	err           error
@@ -39,82 +31,41 @@ func (f *standingProcedureFixture) standingProcedure(_ context.Context, _ databa
 	if current, ok := f.projectMeans[pid]; ok {
 		means = current
 	}
-	return StandingProcedure{Acceptance: StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land this qualified candidate", Approvers: []string{"role:project-approver"}}}, f.err
+	trigger := f.trigger
+	if trigger == "" {
+		trigger = "schedule"
+	}
+	return StandingProcedure{Trigger: trigger, Acceptance: StandingPurpose{Workflow: name, Version: 1, Step: "accept", Means: means, Approvers: []string{"role:project-approver"}}, Landing: StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land this qualified candidate", Approvers: []string{"role:project-approver"}}}, f.err
 }
-func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *standingProcedureFixture, context.Context, StandingDefinition) {
+func standingFixture(t *testing.T) (*stepAuthorityTestRig, StandingRules, *standingProcedureFixture, context.Context, JanitorChoices) {
 	t.Helper()
 	a := stepAuthorityFixture(t, ApprovalConfig{})
 	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), By: "boss"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	p := &standingProcedureFixture{means: "accept bounded routine updates after all checks pass"}
-	s := NewStandingRules(a.DB, StandingDependencies{Authority: a.Authorizer, Identity: a.Access, Procedures: p, Publications: p})
-	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "owner"))
-	in := StandingDefinition{Projects: []StandingProject{{ProjectID: a.ProjectID, Workflow: "quick-change"}}, Categories: StandingCategories{Dependencies: "routine", SecurityFixes: true}, Delivery: "land-only"}
+	s := NewStandingRules(a.DB, StandingDependencies{Authority: a.Authorizer, Identity: a.Access, Procedures: p, Portfolio: &standingPortfolioFixture{}})
+	ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+	in := JanitorChoices{Dependencies: "routine", SecurityFixes: true, BaseImages: true, ToolchainPatches: true}
 	return a, s, p, ctx, in
 }
-func enableStanding(t *testing.T, s StandingRules, ctx context.Context, in StandingDefinition) StandingRevision {
+func enableStanding(t *testing.T, s StandingRules, ctx context.Context, in JanitorChoices) StandingRevision {
 	t.Helper()
-	q, err := s.Preview(ctx, in)
+	old, err := latestStanding(ctx, s.db)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := s.Enable(ctx, StandingCommand{Definition: in, ShownDigest: q.Digest})
+	var rev int64
+	if old != nil {
+		rev = old.Revision
+	}
+	r, err := s.Save(ctx, JanitorChoicesCommand{Choices: in, ExpectedRevision: rev})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return r
 }
-func TestStandingConsentRetainsMeaningAndRefusesStaleEdits(t *testing.T) {
-	a, s, p, ctx, in := standingFixture(t)
-	r := enableStanding(t, s, ctx, in)
-	if !r.Enabled || r.Issuer.Principal.IsZero() || r.Issuer.Name != "owner" {
-		t.Fatalf("wrong consent attribution: %+v", r)
-	}
-	q, err := s.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p.means = "different meaning"
-	if _, err = s.Enable(ctx, StandingCommand{RuleID: r.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest}); fault.KindOf(err) != fault.Conflict {
-		t.Fatalf("stale shown meaning accepted: %v", err)
-	}
-	q, err = s.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dbtest.FailNextStatement(t, a.DB, "-- name: InsertStandingRevision :exec")
-	if _, err = s.Enable(ctx, StandingCommand{RuleID: r.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest}); err == nil {
-		t.Fatal("failed history write reported success")
-	}
-	h, err := s.History(ctx, r.RuleID)
-	if err != nil || len(h) != 1 || h[0].Question.Shown != r.Question.Shown {
-		t.Fatalf("failed edit changed immutable history: %+v %v", h, err)
-	}
-	dbtest.FailNextStatement(t, a.DB, "-- name: AppendReceipt :execrows")
-	if _, err = s.Enable(ctx, StandingCommand{RuleID: r.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest}); err == nil {
-		t.Fatal("failed audit receipt reported success")
-	}
-	h, err = s.History(ctx, r.RuleID)
-	if err != nil || len(h) != 1 || h[0].Question.Shown != r.Question.Shown {
-		t.Fatalf("failed receipt changed head/history: %+v %v", h, err)
-	}
-	updated, err := s.Enable(ctx, StandingCommand{RuleID: r.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest})
-	if err != nil || updated.Revision != 2 {
-		t.Fatalf("valid revision: %+v %v", updated, err)
-	}
-	if _, err = s.Disable(ctx, r.RuleID, 1); fault.KindOf(err) != fault.Conflict {
-		t.Fatalf("stale disable accepted: %v", err)
-	}
-	disabled, err := s.Disable(ctx, r.RuleID, 2)
-	if err != nil || disabled.Enabled || disabled.Revision != 3 {
-		t.Fatalf("disable: %+v %v", disabled, err)
-	}
-	h, err = s.History(ctx, r.RuleID)
-	if err != nil || len(h) != 3 || h[0].Question.Shown != r.Question.Shown || h[2].Issuer.Principal != r.Issuer.Principal {
-		t.Fatalf("history changed: %+v %v", h, err)
-	}
-}
+
 func TestStandingConsentRequiresDirectVerifiedHumanEvenForAdministrator(t *testing.T) {
 	a, s, _, _, in := standingFixture(t)
 	base := testAdmittedPrincipal(t, a.Access, "boss")
@@ -139,75 +90,21 @@ func TestStandingConsentRequiresDirectVerifiedHumanEvenForAdministrator(t *testi
 				pr.ID = ids.Nil
 			}
 			c := access.WithCaller(t.Context(), access.Caller{Principal: pr, Verified: verified})
-			if _, err := s.Preview(c, in); err == nil {
+			if _, err := s.Save(c, JanitorChoicesCommand{Choices: in}); err == nil {
 				t.Fatal("instrument supplied standing human assent")
 			}
 		})
 	}
 }
-func TestStandingConsentRefusesIndependentAndUnavailablePolicy(t *testing.T) {
-	a, s, p, ctx, in := standingFixture(t)
-	projects := project.New(a.DB, identity.Scoped(a.Access, "project"))
-	if err := projects.SetIndependentApproval(ctx, a.ProjectID, true); err != nil {
-		t.Fatal(err)
-	}
-	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	if _, err := s.Preview(boss, in); fault.KindOf(err) != fault.Conflict {
-		t.Fatalf("zero-change setup bypassed independent policy: %v", err)
-	}
-	if err := projects.SetIndependentApproval(ctx, a.ProjectID, false); err != nil {
-		t.Fatal(err)
-	}
-	p.err = errors.New("policy storage unavailable")
-	if _, err := s.Preview(ctx, in); !errors.Is(err, p.err) {
-		t.Fatalf("unavailable policy hidden: %v", err)
-	}
-}
-func TestStandingConsentConcurrentEditsKeepOneExpectedHead(t *testing.T) {
-	_, s, _, ctx, in := standingFixture(t)
-	r := enableStanding(t, s, ctx, in)
-	q, err := s.Preview(ctx, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var wg sync.WaitGroup
-	results := make(chan error, 2)
-	for range 2 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, err := s.Enable(ctx, StandingCommand{RuleID: r.RuleID, ExpectedRevision: 1, Definition: in, ShownDigest: q.Digest})
-			results <- err
-		}()
-	}
-	wg.Wait()
-	close(results)
-	success, conflict := 0, 0
-	for err := range results {
-		if err == nil {
-			success++
-		} else if fault.KindOf(err) == fault.Conflict {
-			conflict++
-		} else {
-			t.Fatal(err)
-		}
-	}
-	if success != 1 || conflict != 1 {
-		t.Fatalf("concurrent edits: success %d conflict %d", success, conflict)
-	}
-	h, err := s.History(ctx, r.RuleID)
-	if err != nil || len(h) != 2 {
-		t.Fatalf("unexpected history: %d %v", len(h), err)
-	}
-}
+
 func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T) {
 	a, s, _, ctx, in := standingFixture(t)
-	r := enableStanding(t, s, ctx, in)
+	enableStanding(t, s, ctx, in)
 	dbtest.FailNextStatement(t, a.DB, "-- name: InsertStandingRevision :exec")
 	if err := DisableRestoredStandingRules(ctx, a.DB, time.Now()); err == nil {
 		t.Fatal("restore ignored required disabling write")
 	}
-	h, err := s.History(ctx, r.RuleID)
+	h, err := s.History(ctx)
 	if err != nil || len(h) != 1 || !h[0].Enabled {
 		t.Fatalf("failed restore disabling partly committed: %+v %v", h, err)
 	}
@@ -216,154 +113,15 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	h, err = s.History(ctx, r.RuleID)
-	if err != nil || len(h) != 2 || h[1].Enabled || h[1].ChangedBy.Name != "restore" || h[0].Question.Shown != h[1].Question.Shown || h[0].Issuer.Principal != h[1].Issuer.Principal {
+	h, err = s.History(ctx)
+	if err != nil || len(h) != 2 || h[1].Enabled || h[1].Issuer.Name != "restore" || h[0].Issuer.Principal != h[1].Issuer.Principal {
 		t.Fatalf("restored consent/history: %+v %v", h, err)
 	}
 }
-func TestStandingDefinitionNeverSelectsImplicitOrForeignIdentity(t *testing.T) {
-	var removed StandingCategories
-	if err := json.Unmarshal([]byte(`{"baseImages":true}`), &removed); err != nil {
-		t.Fatal(err)
-	}
-	valid := StandingDefinition{Projects: []StandingProject{{ProjectID: idstest.N(1), Workflow: "quick-change", Environments: []StandingEnvironment{{DeploymentID: idstest.N(2), TargetID: idstest.N(3)}}}}, Categories: StandingCategories{Dependencies: "routine"}, Delivery: "full"}
-	for i, change := range []func(*StandingDefinition){func(d *StandingDefinition) { d.Projects[0].Environments = nil }, func(d *StandingDefinition) { d.Projects[0].Environments[0].TargetID = ids.Nil }, func(d *StandingDefinition) { d.Delivery = "land-only" }, func(d *StandingDefinition) { d.Categories.Dependencies = "major" }, func(d *StandingDefinition) { d.Categories = StandingCategories{SecurityFixes: true} }, func(d *StandingDefinition) { d.Categories = removed }, func(d *StandingDefinition) { d.Projects = append(d.Projects, d.Projects[0]) }, func(d *StandingDefinition) { d.Projects[0].Workflow = "" }} {
-		t.Run(fmt.Sprint(i), func(t *testing.T) {
-			d := valid
-			d.Projects = append([]StandingProject(nil), valid.Projects...)
-			d.Projects[0].Environments = append([]StandingEnvironment(nil), valid.Projects[0].Environments...)
-			change(&d)
-			if _, err := normalizeStanding(d); err == nil {
-				t.Fatal("invalid or implicit selection admitted")
-			}
-		})
-	}
-}
 
-type standingDestinationFixture struct {
-	project   ids.ID
-	promotion bool
-}
+type standingInspectorFunc func(context.Context, Source, JanitorChoices) (StandingInspection, error)
 
-func (f standingDestinationFixture) StandingDestination(_ context.Context, _ database.Queryer, _ ids.ID, _ StandingEnvironment) (StandingDestination, error) {
-	r := access.Resource{Type: "project", ID: f.project.String(), ProjectID: f.project}
-	pr := r
-	pr.Type = "release-target"
-	pr.ID = "customer"
-	return StandingDestination{Resource: r, PromotionResource: pr, PromotionRequired: f.promotion}, nil
-}
-func TestStandingDeliveryRequiresCapturedPromotionAndCurrentIssuerGrant(t *testing.T) {
-	a, s, _, ctx, in := standingFixture(t)
-	s.deps.Destinations = standingDestinationFixture{project: a.ProjectID, promotion: true}
-	in.Delivery = "full"
-	in.Projects[0].Environments = []StandingEnvironment{{DeploymentID: idstest.N(51), TargetID: idstest.N(52)}}
-	if _, err := s.Preview(ctx, in); fault.KindOf(err) != fault.Conflict {
-		t.Fatalf("promotion purpose silently added: %v", err)
-	}
-	in.Projects[0].Environments[0].Promotion = true
-	if _, err := s.Preview(ctx, in); err == nil {
-		t.Fatal("missing promotion grant accepted")
-	}
-	grant, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "owner", Capability: string(access.CapReleasePromote), Scope: access.ScopeProject, ScopeID: a.ProjectID.String(), By: "boss"}, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r := enableStanding(t, s, ctx, in)
-	statuses, err := s.List(ctx, a.ProjectID)
-	if err != nil || len(statuses) != 1 || !statuses[0].Eligible || !statuses[0].ProcessingAvailable {
-		t.Fatalf("saved consent eligibility: %+v %v", statuses, err)
-	}
-	if _, err = a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
-		t.Fatal(err)
-	}
-	statuses, err = s.List(ctx, a.ProjectID)
-	if err != nil || len(statuses) != 1 || statuses[0].Eligible {
-		t.Fatalf("revoked issuer grant still eligible: %+v %v", statuses, err)
-	}
-	if _, err = s.Disable(ctx, r.RuleID, r.Revision); err != nil {
-		t.Fatalf("manager could not disable after issuer lost deployment grant: %v", err)
-	}
-}
-
-func TestAdministrativeStandingConsentCapturesExactSetAndDoesNotLeakHistory(t *testing.T) {
-	a, s, _, _, in := standingFixture(t)
-	boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-	in.Administrative = true
-	in.Projects = append(in.Projects, StandingProject{ProjectID: a.OtherProjectID, Workflow: "quick-change"})
-	r := enableStanding(t, s, boss, in)
-	if len(r.Question.Definition.Projects) != 2 {
-		t.Fatal("administrative set was not captured")
-	}
-	outsider := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "outsider"))
-	if _, err := s.History(outsider, r.RuleID); err == nil {
-		t.Fatal("one-project reader saw another project's consent")
-	}
-	later := workflowTestProject(t, a.DB, "later", "Later", "")
-	statuses, err := s.List(boss, later)
-	if err != nil || len(statuses) != 0 {
-		t.Fatalf("captured administrative set expanded to a new project: %+v %v", statuses, err)
-	}
-}
-func TestStandingConsentCurrentEligibilityUsesEnabledIssuerIdentity(t *testing.T) {
-	a, s, _, ctx, in := standingFixture(t)
-	r := enableStanding(t, s, ctx, in)
-	bossPrincipal := testAdmittedPrincipal(t, a.Access, "boss")
-	boss := stepVerifiedContext(t.Context(), bossPrincipal)
-	disabled := true
-	if err := a.Access.SaveUser(boss, identity.AccountChange{Username: "owner", Disabled: &disabled}, bossPrincipal); err != nil {
-		t.Fatal(err)
-	}
-	statuses, err := s.List(boss, a.ProjectID)
-	if err != nil || len(statuses) != 1 || statuses[0].Eligible {
-		t.Fatalf("disabled issuer still eligible: %+v %v", statuses, err)
-	}
-	_, _, refused, err := standingEligibilityOne(s, boss, a.ProjectID, "quick-change")
-	if err != nil || refused != "'s account is disabled or does not exist" {
-		t.Fatalf("disabled issuer wording changed: %q %v", refused, err)
-	}
-
-	if _, err := s.Disable(boss, r.RuleID, r.Revision); err != nil {
-		t.Fatalf("administrator could not disable former issuer's consent: %v", err)
-	}
-}
-
-func TestStandingRevocationAcceptsEitherManagementScopeWithoutAssent(t *testing.T) {
-	for _, administrative := range []bool{false, true} {
-		t.Run(fmt.Sprint(administrative), func(t *testing.T) {
-			a, s, _, _, in := standingFixture(t)
-			boss := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-			in.Administrative = administrative
-			if administrative {
-				in.Projects = append(in.Projects, StandingProject{ProjectID: a.OtherProjectID, Workflow: "quick-change"})
-			}
-			r := enableStanding(t, s, boss, in)
-			manager := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "outsider"))
-			grant := func(cap access.Capability, scope access.ScopeKind, id string) {
-				t.Helper()
-				if _, err := a.Access.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "outsider", Capability: string(cap), Scope: scope, ScopeID: id, By: "boss"}, ""); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if administrative {
-				grant(access.CapProjectStandingApproval, access.ScopeProject, a.ProjectID.String())
-				if _, err := s.Disable(manager, r.RuleID, r.Revision); err == nil {
-					t.Fatal("partial project management revoked captured set")
-				}
-				grant(access.CapProjectStandingApproval, access.ScopeProject, a.OtherProjectID.String())
-			} else {
-				grant(access.CapInstanceStandingApproval, access.ScopeInstance, "")
-			}
-			disabled, err := s.Disable(manager, r.RuleID, r.Revision)
-			if err != nil || disabled.Enabled {
-				t.Fatalf("management-only revocation: %+v %v", disabled, err)
-			}
-		})
-	}
-}
-
-type standingInspectorFunc func(context.Context, Source, StandingCategories) (StandingInspection, error)
-
-func (f standingInspectorFunc) InspectRoutine(ctx context.Context, s Source, b StandingCategories) (StandingInspection, error) {
+func (f standingInspectorFunc) InspectRoutine(ctx context.Context, s Source, b JanitorChoices) (StandingInspection, error) {
 	return f(ctx, s, b)
 }
 
@@ -388,11 +146,10 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	if err := project.New(a.DB, nil).SetDefaultBranch(ctx, a.ProjectID, "main"); err != nil {
 		t.Fatal(err)
 	}
-	in.Projects[0].Workflow = "test"
 	rule := enableStanding(t, s, ctx, in)
 	s.deps.Presence = standingPresenceFixture{clear: true}
 	calls := 0
-	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds StandingCategories) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds JanitorChoices) (StandingInspection, error) {
 		calls++
 		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds.Dependencies != "routine" {
 			t.Fatalf("wrong admitted inspection %+v %+v", source, bounds)
@@ -400,10 +157,10 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 		return StandingInspection{Classification: "routine-dependency", Candidate: "exact-candidate"}, nil
 	})
 	outsider := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "outsider"))
-	if _, err := s.Assess(outsider, rule.RuleID, a.RunID); err == nil || calls != 0 {
+	if _, err := s.Assess(outsider, a.RunID); err == nil || calls != 0 {
 		t.Fatalf("unauthorized inspection ran: %v calls=%d", err, calls)
 	}
-	result, err := s.Assess(ctx, rule.RuleID, a.RunID)
+	result, err := s.Assess(ctx, a.RunID)
 	if err != nil || calls != 1 || !result.ProcessingAvailable || result.RuleRevision != rule.Revision {
 		t.Fatalf("authorized inspection: %+v %v calls=%d", result, err, calls)
 	}
@@ -415,106 +172,37 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 		}
 		return checked.Require(ctx, p)
 	})
-	if _, e := s.Assess(ctx, rule.RuleID, a.RunID); e == nil || calls != 1 {
+	if _, e := s.Assess(ctx, a.RunID); e == nil || calls != 1 {
 		t.Fatalf("read permission substituted for check execution: %v calls=%d", e, calls)
 	}
 	s.deps.Authority = checked
 	s.deps.Presence = standingPresenceFixture{clear: false}
-	if _, err = s.Assess(ctx, rule.RuleID, a.RunID); err == nil || calls != 1 {
+	if _, err = s.Assess(ctx, a.RunID); err == nil || calls != 1 {
 		t.Fatalf("live writer inspected: %v calls=%d", err, calls)
 	}
 	s.deps.Presence = standingPresenceFixture{clear: true}
 
-	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, JanitorChoices) (StandingInspection, error) {
 		calls++
-		q, e := s.Preview(ctx, in)
-		if e != nil {
-			t.Fatal(e)
-		}
-		updated, e := s.Enable(ctx, StandingCommand{RuleID: rule.RuleID, ExpectedRevision: rule.Revision, Definition: in, ShownDigest: q.Digest})
+		updated, e := s.Save(ctx, JanitorChoicesCommand{Choices: in, ExpectedRevision: rule.Revision})
 		if e != nil {
 			t.Fatal(e)
 		}
 		rule = updated
 		return StandingInspection{Classification: "routine-dependency"}, nil
 	})
-	if _, e := s.Assess(ctx, rule.RuleID, a.RunID); e == nil || calls != 2 {
+	if _, e := s.Assess(ctx, a.RunID); e == nil || calls != 2 {
 		t.Fatalf("revised rule reused an older classification: %v calls=%d", e, calls)
 	}
-	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, JanitorChoices) (StandingInspection, error) {
 		calls++
-		if _, e := s.Disable(ctx, rule.RuleID, rule.Revision); e != nil {
+		if _, e := s.Save(ctx, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off"}, ExpectedRevision: rule.Revision}); e != nil {
 			t.Fatal(e)
 		}
 		return StandingInspection{Classification: "routine-dependency"}, nil
 	})
-	if _, err = s.Assess(ctx, rule.RuleID, a.RunID); err == nil || calls != 3 {
+	if _, err = s.Assess(ctx, a.RunID); err == nil || calls != 3 {
 		t.Fatalf("revoked rule produced usable classification: %v calls=%d", err, calls)
-	}
-}
-
-func TestStandingMixedCategoryMeaningRequiresNewHumanConfirmation(t *testing.T) {
-	a, s, _, ctx, definition := standingFixture(t)
-	question, err := s.Preview(ctx, definition)
-	if err != nil {
-		t.Fatal(err)
-	}
-	const precise = "Mixed supported updates require every component to belong to an enabled category and pass its complete independent check. Any unsupported component requires a person. "
-	if !strings.Contains(question.Shown, precise) {
-		t.Fatal("new question does not state complete mixed-category coverage")
-	}
-	// Reproduce the exact previous owner wording, retaining its valid old digest.
-	// The immutable owner revision writer models a pre-upgrade stored rule; the
-	// current Enable door correctly cannot accept this no-longer-shown meaning.
-	oldQuestion := question
-	oldQuestion.Shown = strings.Replace(oldQuestion.Shown, precise, "", 1)
-	oldQuestion.Shown = strings.Replace(oldQuestion.Shown, "weaker checks, unsupported changes and storage-engine transitions", "weaker checks, unsupported or mixed changes and storage-engine transitions", 1)
-	oldQuestion.Digest = ""
-	raw, err := json.Marshal(oldQuestion)
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest := sha256.Sum256(raw)
-	oldQuestion.Digest = hex.EncodeToString(digest[:])
-	actor, err := s.human(ctx, a.DB)
-	if err != nil {
-		t.Fatal(err)
-	}
-	old := StandingRevision{RuleID: ids.New(time.Now()), Revision: 1, Enabled: true, Question: oldQuestion, Issuer: actor, EnabledAt: time.Now(), ChangedAt: time.Now(), ChangedBy: actor, Reason: "explicit human consent"}
-	if err = a.DB.InTx(ctx, func(tx *database.Tx) error { return writeStandingRevision(ctx, tx, old, true) }); err != nil {
-		t.Fatal(err)
-	}
-	statuses, err := s.List(ctx, a.ProjectID)
-	if err != nil || len(statuses) != 1 || statuses[0].Eligible || !strings.Contains(statuses[0].Reason, "new human confirmation") {
-		t.Fatalf("old stored meaning silently reinterpreted: %+v %v", statuses, err)
-	}
-	if _, err = s.Enable(ctx, StandingCommand{RuleID: old.RuleID, ExpectedRevision: 1, Definition: definition, ShownDigest: oldQuestion.Digest}); err == nil {
-		t.Fatal("old shown meaning enabled new coverage")
-	}
-	confirmed, err := s.Enable(ctx, StandingCommand{RuleID: old.RuleID, ExpectedRevision: 1, Definition: definition, ShownDigest: question.Digest})
-	if err != nil {
-		t.Fatal(err)
-	}
-	statuses, err = s.List(ctx, a.ProjectID)
-	if err != nil || len(statuses) != 1 || !statuses[0].Eligible || statuses[0].Rule.Revision != confirmed.Revision {
-		t.Fatalf("new explicit confirmation not eligible: %+v %v", statuses, err)
-	}
-	history, err := s.History(ctx, old.RuleID)
-	if err != nil || len(history) != 2 {
-		t.Fatalf("history: %+v %v", history, err)
-	}
-	for _, r := range history {
-		if r.Revision == 1 && (r.Question.Shown != oldQuestion.Shown || r.Question.Digest != oldQuestion.Digest) {
-			t.Fatal("old meaning was rewritten")
-		}
-	}
-}
-
-func TestProjectPackConsentIsSeparateFromDependencyConsent(t *testing.T) {
-	_, s, _, ctx, in := standingFixture(t)
-	in.Categories.WaysOfWorking = true
-	if _, err := s.Preview(ctx, in); err == nil {
-		t.Fatal("pack consent also authorized dependencies")
 	}
 }
 
@@ -525,4 +213,27 @@ func (f *standingProcedureFixture) StandingProcedures(ctx context.Context, q dat
 		out[name] = StandingProcedureResult{Procedure: proc, Err: err}
 	}
 	return out, nil
+}
+
+func TestJanitorChoicesRequireExpectedRevisionAndKeepThePerson(t *testing.T) {
+	_, s, _, ctx, in := standingFixture(t)
+	r, err := s.Save(ctx, JanitorChoicesCommand{Choices: in})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Save(ctx, JanitorChoicesCommand{Choices: in}); fault.KindOf(err) != fault.Conflict {
+		t.Fatalf("stale save: %v", err)
+	}
+	r2, err := s.Save(ctx, JanitorChoicesCommand{Choices: JanitorChoices{Dependencies: "off", Packs: true}, ExpectedRevision: r.Revision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.Current(ctx)
+	if err != nil || current == nil || current.RuleID != r.RuleID || current.Revision != 2 || current.Issuer.Principal != r.Issuer.Principal || current.At.IsZero() {
+		t.Fatalf("current: %+v %v", current, err)
+	}
+	history, err := s.History(ctx)
+	if err != nil || len(history) != 2 || history[0].Choices != in || history[1].Choices != r2.Choices {
+		t.Fatalf("history: %+v %v", history, err)
+	}
 }

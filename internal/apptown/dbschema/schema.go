@@ -6,9 +6,14 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"time"
+
+	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/lib/pq"
 
@@ -869,6 +874,137 @@ WHERE NOT (o.receipt ? 'expectedScanners');
 	{n: 241, note: "classify agent dependency proposals and remove executable fix declarations", stmts: []string{
 		`ALTER TABLE automated_changes ADD COLUMN files JSONB NOT NULL DEFAULT '[]'`,
 		`UPDATE guidance_block_versions SET fixes_json=COALESCE((SELECT jsonb_agg(value - 'list' - 'run' - 'runMajor' - 'runFor' - 'appliesTo' ORDER BY ord) FROM jsonb_array_elements(fixes_json) WITH ORDINALITY AS f(value,ord)), '[]'::jsonb)`,
+	}},
+	{n: 242, note: "record Janitor choices and combine saved approvals", data: func(ctx context.Context, tx *database.Tx) error {
+		// Frozen conversion: historical procedures become choices, never runtime readers.
+		type choices struct {
+			Dependencies     string `json:"dependencies"`
+			SecurityFixes    bool   `json:"securityFixes"`
+			BaseImages       bool   `json:"baseImages"`
+			ToolchainPatches bool   `json:"toolchainPatches"`
+			Packs            bool   `json:"packs"`
+		}
+		type record struct {
+			RuleID   ids.ID          `json:"ruleId"`
+			Revision int64           `json:"revision"`
+			Enabled  bool            `json:"enabled"`
+			Choices  choices         `json:"choices"`
+			Issuer   json.RawMessage `json:"issuer"`
+			At       time.Time       `json:"at"`
+		}
+		type oldRecord struct {
+			Question struct {
+				Definition struct {
+					Scope      string `json:"scope"`
+					Categories struct {
+						Dependencies  string `json:"dependencies"`
+						SecurityFixes bool   `json:"securityFixes"`
+						WaysOfWorking bool   `json:"waysOfWorking"`
+					} `json:"categories"`
+				} `json:"definition"`
+			} `json:"question"`
+			Issuer    json.RawMessage `json:"issuer"`
+			ChangedAt time.Time       `json:"changedAt"`
+		}
+		rows, err := tx.SQL().QueryContext(ctx, `SELECT r.rule_id,r.revision,r.enabled,r.record_json,h.current_revision=r.revision FROM standing_rule_revisions r JOIN standing_rules h ON h.id=r.rule_id ORDER BY r.rule_id,r.revision`)
+		if err != nil {
+			return err
+		}
+		var records, heads []record
+		union := choices{Dependencies: "off"}
+		var issuer, packIssuer json.RawMessage
+		for rows.Next() {
+			var r record
+			var raw []byte
+			var head bool
+			if err = rows.Scan(&r.RuleID, &r.Revision, &r.Enabled, &raw, &head); err != nil {
+				rows.Close()
+				return err
+			}
+			var old oldRecord
+			if err = json.Unmarshal(raw, &old); err != nil {
+				rows.Close()
+				return err
+			}
+			r.Issuer, r.At = old.Issuer, old.ChangedAt
+			r.Choices.Dependencies = "off"
+			c := old.Question.Definition.Categories
+			if r.Enabled && old.Question.Definition.Scope == "instance" {
+				if c.WaysOfWorking {
+					r.Choices.Packs = true
+				} else if c.Dependencies == "routine" || c.Dependencies == "aggressive" {
+					r.Choices = choices{Dependencies: c.Dependencies, SecurityFixes: c.SecurityFixes, BaseImages: true, ToolchainPatches: c.SecurityFixes}
+				} else {
+					r.Enabled = false
+				}
+			} else {
+				r.Enabled = false
+			}
+			records = append(records, r)
+			if head && r.Enabled {
+				heads = append(heads, r)
+				if r.Choices.Dependencies != "off" {
+					if union.Dependencies != "aggressive" {
+						union.Dependencies = r.Choices.Dependencies
+					}
+					issuer = r.Issuer
+				}
+				union.SecurityFixes = union.SecurityFixes || r.Choices.SecurityFixes
+				union.BaseImages = union.BaseImages || r.Choices.BaseImages
+				union.ToolchainPatches = union.ToolchainPatches || r.Choices.ToolchainPatches
+				union.Packs = union.Packs || r.Choices.Packs
+				if r.Choices.Packs {
+					packIssuer = r.Issuer
+				}
+			}
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
+		}
+		for _, r := range records {
+			raw, err := json.Marshal(r)
+			if err != nil {
+				return err
+			}
+			if _, err = tx.SQL().ExecContext(ctx, `UPDATE standing_rule_revisions SET enabled=$3,record_json=$4 WHERE rule_id=$1 AND revision=$2`, r.RuleID, r.Revision, r.Enabled, string(raw)); err != nil {
+				return err
+			}
+		}
+		if len(heads) == 0 {
+			return nil
+		}
+		now := clock.Or(nil)().UTC()
+		for _, r := range heads {
+			r.Revision++
+			r.Enabled = false
+			r.Choices = choices{Dependencies: "off"}
+			r.At = now
+			raw, err := json.Marshal(r)
+			if err != nil {
+				return err
+			}
+			if _, err = tx.SQL().ExecContext(ctx, `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,$2,false,$3)`, r.RuleID, r.Revision, string(raw)); err != nil {
+				return err
+			}
+			if _, err = tx.SQL().ExecContext(ctx, `UPDATE standing_rules SET current_revision=$2 WHERE id=$1`, r.RuleID, r.Revision); err != nil {
+				return err
+			}
+		}
+		if len(issuer) == 0 {
+			issuer = packIssuer
+		}
+		r := record{RuleID: ids.New(now), Revision: 1, Enabled: true, Choices: union, Issuer: issuer, At: now}
+		raw, err := json.Marshal(r)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.SQL().ExecContext(ctx, `INSERT INTO standing_rules(id,current_revision) VALUES($1,1)`, r.RuleID); err != nil {
+			return err
+		}
+		_, err = tx.SQL().ExecContext(ctx, `INSERT INTO standing_rule_revisions(rule_id,revision,enabled,record_json) VALUES($1,1,true,$2)`, r.RuleID, string(raw))
+		return err
 	}},
 }
 
