@@ -8,8 +8,8 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// StartRebuild starts a build-only system run for a release whose original
-// images Deployment has confirmed missing. It cannot release or supply assent.
+// StartRebuild starts the system image-build run for a recorded release.
+// It cannot release or supply assent.
 // The request identity makes redelivery reuse the same pinned run.
 func (s *Service) StartRebuild(ctx context.Context, projectID, releaseID ids.ID, commit string, from int64) (ids.ID, error) {
 	caller, ok := access.CallerFrom(ctx)

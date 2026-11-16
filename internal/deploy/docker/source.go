@@ -266,8 +266,8 @@ func StaticServerCommand(port int) []string {
 // image with the command that serves it on port (StaticServerCommand): the
 // image describes itself, so every target runs it the same way and none adds
 // a command (a target that ran the file server's stock configuration would
-// serve its default page). The build only copies files, so
-// it needs no emulation for another platform.
+// serve its default page). The static-server tool version is Caddy on Alpine;
+// this recipe already assumes Caddy and takes Alpine package fixes each build.
 func StaticSiteDockerfile(server string, port int) string {
 	var cmd strings.Builder
 	enc := json.NewEncoder(&cmd)
@@ -275,5 +275,5 @@ func StaticSiteDockerfile(server string, port int) string {
 	if err := enc.Encode(StaticServerCommand(port)); err != nil {
 		panic(err) // a []string always encodes
 	}
-	return "FROM " + server + "\nCOPY . /srv\nCMD " + strings.TrimSuffix(cmd.String(), "\n") + "\n"
+	return "FROM " + server + "\nRUN --mount=type=secret,id=apptown-trust eval \"$(cat /run/secrets/apptown-trust 2>/dev/null)\"; apk upgrade --no-cache\nCOPY . /srv\nCMD " + strings.TrimSuffix(cmd.String(), "\n") + "\n"
 }

@@ -141,3 +141,23 @@ func TestAnAbsoluteScanHasOneBaselineOption(t *testing.T) {
 		}
 	}
 }
+
+func TestRebuildNamesScansInItsStage(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		kind, condition string
+		valid           bool
+	}{
+		{"scan", "[one]", true},
+		{"script", "[one]", false},
+		{"scan", "[missing]", false},
+		{"scan", "one", false},
+		{"scan", "[]", false},
+	} {
+		src := workflowWithStep(tc.kind, "{}") + "        - name: rebuild\n          uses: rebuild\n          with: {whenFailed: " + tc.condition + "}\n"
+		_, err := ParseWorkflow([]byte(src))
+		if (err == nil) != tc.valid {
+			t.Errorf("%s %s: %v", tc.kind, tc.condition, err)
+		}
+	}
+}

@@ -53,91 +53,98 @@ func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, 
 			if err != nil {
 				return err
 			}
-			attrs, err := json.Marshal(dep.releaseAttributes())
-			if err != nil {
-				return err
-			}
-			target, err := s.Targets.ByID(ctx, dep.TargetID)
-			if err != nil {
-				return err
-			}
-			lockedTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, target.Name))
-			if err != nil {
-				return err
-			}
-			if lockedTarget.ID != dep.TargetID {
-				return errTargetSettingsMoved
-			}
-			binding, err := providerBindingOf(lockedTarget)
-			if err != nil {
-				return err
-			}
-			address, err := s.admitAddressIn(ctx, tx, dep, lockedTarget, nil, nil, setter)
-			if err != nil {
-				return err
-			}
-			var ingress *json.RawMessage
-			if address != nil {
-				raw, err := addressSnapshotJSON(address)
-				if err != nil {
-					return err
-				}
-				ingress = &raw
-			}
-			var authority *json.RawMessage
-			if len(dep.feedAuthority) > 0 {
-				raw := json.RawMessage(dep.feedAuthority)
-				authority = &raw
-			}
-			if _, err := q.InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: dep.TargetID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: authority, RequirePromotion: dep.Protected()}); err != nil {
-				return err
-			}
-			if _, err := q.LinkLandingRequest(ctx, deploymentsql.LinkLandingRequestParams{ReleaseID: rel.ID, FeedRevision: sql.NullInt64{Int64: dep.FeedRevision, Valid: true}, LandingApprovers: approvers}); err != nil {
-				return err
-			}
-			if err := appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("follows main, set by %s; landing approvers: %s", setter, approvers), s.now()); err != nil {
-				return err
-			}
-			if routine {
-				n, err := q.MarkRoutineRelease(ctx, rel.ID)
-				if err != nil {
-					return err
-				}
-				if n != 1 {
-					return fmt.Errorf("routine release provenance was not recorded")
-				}
-			}
-			state, err := s.admitApprovalIn(ctx, tx, dep, rel)
-			if err != nil {
-				return err
-			}
-			if state == releaseWaiting {
-				return nil
-			}
-			after := time.Time{}
-			if routine {
-				wait, next, reason, err := s.routineReleaseIn(ctx, tx, dep)
-				if err != nil {
-					return err
-				}
-				if wait {
-					if _, err = q.WaitRoutineRelease(ctx, rel.ID); err != nil {
-						return err
-					}
-					return appendReleaseEvent(ctx, tx, rel.ID, reason, s.now())
-				}
-				after = next
-				if next.After(s.now()) {
-					if err := appendReleaseEvent(ctx, tx, rel.ID, "waiting for the release window at "+next.Format(time.RFC3339), s.now()); err != nil {
-						return err
-					}
-				}
-			}
-			return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID, after)
+			return s.admitAutomaticReleaseIn(ctx, tx, dep, rel, setter, approvers, fmt.Sprintf("follows main, set by %s; landing approvers: %s", setter, approvers), routine)
 		})
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// admitAutomaticReleaseIn shares feed authority, approval and routine scheduling
+// between landing releases and requests to refresh the running image.
+func (s *Service) admitAutomaticReleaseIn(ctx context.Context, tx *database.Tx, dep *Deployment, rel NumberedRelease, setter, approvers, reason string, routine bool) error {
+	q := deploymentsql.New(tx.SQL())
+	attrs, err := json.Marshal(dep.releaseAttributes())
+	if err != nil {
+		return err
+	}
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return err
+	}
+	lockedTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, target.Name))
+	if err != nil {
+		return err
+	}
+	if lockedTarget.ID != dep.TargetID {
+		return errTargetSettingsMoved
+	}
+	binding, err := providerBindingOf(lockedTarget)
+	if err != nil {
+		return err
+	}
+	address, err := s.admitAddressIn(ctx, tx, dep, lockedTarget, nil, nil, setter)
+	if err != nil {
+		return err
+	}
+	var ingress *json.RawMessage
+	if address != nil {
+		raw, err := addressSnapshotJSON(address)
+		if err != nil {
+			return err
+		}
+		ingress = &raw
+	}
+	var authority *json.RawMessage
+	if len(dep.feedAuthority) > 0 {
+		raw := json.RawMessage(dep.feedAuthority)
+		authority = &raw
+	}
+	if _, err := q.InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: dep.TargetID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: authority, RequirePromotion: dep.Protected()}); err != nil {
+		return err
+	}
+	if _, err := q.LinkLandingRequest(ctx, deploymentsql.LinkLandingRequestParams{ReleaseID: rel.ID, FeedRevision: sql.NullInt64{Int64: dep.FeedRevision, Valid: true}, LandingApprovers: approvers}); err != nil {
+		return err
+	}
+	if err := appendReleaseEvent(ctx, tx, rel.ID, reason, s.now()); err != nil {
+		return err
+	}
+	if routine {
+		n, err := q.MarkRoutineRelease(ctx, rel.ID)
+		if err != nil {
+			return err
+		}
+		if n != 1 {
+			return fmt.Errorf("routine release provenance was not recorded")
+		}
+	}
+	state, err := s.admitApprovalIn(ctx, tx, dep, rel)
+	if err != nil {
+		return err
+	}
+	if state == releaseWaiting {
+		return nil
+	}
+	after := time.Time{}
+	if routine {
+		wait, next, reason, err := s.routineReleaseIn(ctx, tx, dep)
+		if err != nil {
+			return err
+		}
+		if wait {
+			if _, err = q.WaitRoutineRelease(ctx, rel.ID); err != nil {
+				return err
+			}
+			return appendReleaseEvent(ctx, tx, rel.ID, reason, s.now())
+		}
+		after = next
+		if next.After(s.now()) {
+			if err := appendReleaseEvent(ctx, tx, rel.ID, "waiting for the release window at "+next.Format(time.RFC3339), s.now()); err != nil {
+				return err
+			}
+		}
+	}
+	return s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID, after)
 }

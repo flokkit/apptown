@@ -198,6 +198,23 @@ Ruby and Maven guidance describes commands for every workspace and sub-project.
 A project without a declaration for its ecosystem still updates; its changed
 files are labelled other and judged with the complete diff.
 
+The security workflow also declares `uses: rebuild` with
+`whenFailed: [scan-running]`. It waits for those scans to finish and reads
+this run's current-attempt observations. Verification applies `scanGate` and
+the named scan's `failOn`, then compares each fingerprint with the newest
+usable bundle observation of the same digest and scanner. A finding absent
+from that baseline is due. No usable baseline is unknown and is due; an
+erroring running scan supplies no findings for rebuilding.
+
+The step asks Deployment's `RequestRebuild` for each due deployment following
+main with a running image. Deployment owns authority, approval, routine holds,
+windows and release exclusion. The step passes with requested release numbers
+and their findings, or is not applicable with a reason. Findings already seen
+at build do not cause daily rebuilds. If the rebuilt bundle scan errors, a
+later successful running scan can request another rebuild of the same commit.
+The next usable bundle scan bounds that repetition. Omitting the authored
+step from an adopted workflow disables this remedy without an engine switch.
+
 The producer starts the queue attempt and retains its targets before its session.
 Routine runs after the producer and before tests, start-up and scans. Routine
 permits patch and minor releases, keeping 0.x packages within their minor;

@@ -166,7 +166,8 @@ func TestStockSendBackInstructionsNameTheButton(t *testing.T) {
 	}
 }
 
-// The platform schedule observes only; repair and acceptance are separate work.
+// The platform schedule observes source and running images, requests fresh
+// images, and leaves source repair and acceptance to their declared steps.
 func TestPlatformPackSuppliesSecurityFixesAndWeeklyUpdates(t *testing.T) {
 	packs, err := ReadStockPacks(stock.FS)
 	if err != nil {
@@ -197,10 +198,17 @@ func TestPlatformPackSuppliesSecurityFixesAndWeeklyUpdates(t *testing.T) {
 		if schedule == nil || schedule.Cron != "0 5 * * *" || schedule.Queue != "security" {
 			t.Fatalf("observing schedule: %+v", schedule)
 		}
-		if len(doc.Spec.Stages) != 1 || len(doc.Spec.Stages[0].OnEnter) != 0 || len(doc.Spec.Stages[0].Steps) != 4 {
+		if len(doc.Spec.Stages) != 1 || len(doc.Spec.Stages[0].OnEnter) != 0 || len(doc.Spec.Stages[0].Steps) != 5 {
 			t.Fatalf("observing stages: %+v", doc.Spec.Stages)
 		}
-		call, accept := doc.Spec.Stages[0].Steps[2], doc.Spec.Stages[0].Steps[3]
+		rebuild, call, accept := doc.Spec.Stages[0].Steps[2], doc.Spec.Stages[0].Steps[3], doc.Spec.Stages[0].Steps[4]
+		if rebuild.Uses != "rebuild" {
+			t.Fatalf("no running-image remedy: %+v", rebuild)
+		}
+		names, ok := rebuild.With["whenFailed"].([]any)
+		if !ok || len(names) != 1 || names[0] != "scan-running" {
+			t.Fatalf("rebuild condition: %+v", rebuild.With)
+		}
 		if call.Uses != "workflow/call" || call.With["findings"] != "fixable" || accept.Uses != "approval" {
 			t.Fatalf("security fixing and acceptance: %+v", doc.Spec.Stages[0].Steps)
 		}

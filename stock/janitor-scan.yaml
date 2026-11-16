@@ -20,6 +20,9 @@ spec:
         - name: scan-running
           uses: scan
           with: {on: running}
+        - name: rebuild
+          uses: rebuild
+          with: {whenFailed: [scan-running]}
         - name: fix
           uses: workflow/call
           with:

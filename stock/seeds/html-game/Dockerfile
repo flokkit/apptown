@@ -4,7 +4,7 @@
 # the next load — a silent server invites browsers' heuristic caching.
 # Caddy runs as an unprivileged user on 8080.
 FROM caddy:2-alpine
-RUN adduser -D -u 10001 app
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apk upgrade --no-cache && adduser -D -u 10001 app
 COPY . /srv
 RUN printf ':8080 {\n\troot * /srv\n\theader Cache-Control no-cache\n\tfile_server\n}\n' > /etc/caddy/Caddyfile
 USER app

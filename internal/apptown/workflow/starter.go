@@ -130,8 +130,13 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 		return PreparedRun{}, err
 	}
 	if !req.rebuildReleaseID.IsZero() {
-		if len(def.Spec.Stages) != 1 || len(def.Spec.Stages[0].OnEnter) != 0 || len(def.Spec.Stages[0].Steps) != 1 || def.Spec.Stages[0].Steps[0].Uses != "build" || def.Spec.Role == "landing" {
-			return PreparedRun{}, fmt.Errorf("the rebuild workflow must contain one build step and cannot land a change")
+		if len(def.Spec.Stages) != 1 || len(def.Spec.Stages[0].OnEnter) != 0 || len(def.Spec.Stages[0].Steps) == 0 || def.Spec.Stages[0].Steps[0].Uses != "build" || def.Spec.Role == "landing" {
+			return PreparedRun{}, fmt.Errorf("the rebuild workflow needs one build followed only by bundle scans and cannot land a change")
+		}
+		for _, step := range def.Spec.Stages[0].Steps[1:] {
+			if step.Uses != "scan" || step.With["on"] != "bundle" {
+				return PreparedRun{}, fmt.Errorf("the rebuild workflow permits only bundle scans after its build")
+			}
 		}
 	}
 	if def.System && !req.allowsSystemWorkflow() {

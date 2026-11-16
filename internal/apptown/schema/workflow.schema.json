@@ -264,6 +264,9 @@
           "const": "none"
         }
       },
+      "rebuild": {
+        "whenFailed": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      },
       "workflow/call": {
         "whenFailed": {
           "type": "array",

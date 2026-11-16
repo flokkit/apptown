@@ -268,3 +268,17 @@ func TestDispatchTransitionCancelsItsLockWait(t *testing.T) {
 	}
 	wantEventCount(t, owner.db, 0, ofKind("step.resumed"))
 }
+
+func TestRebuildWaitsForNamedRunningScanToSettle(t *testing.T) {
+	t.Parallel()
+	scan := &Step{ID: idstest.N(900), Name: "scan-running:trivy", Type: "scan", Status: StatusRunning}
+	rebuild := &Step{ID: idstest.N(901), Name: "rebuild", Type: "rebuild", Config: []byte(`{"whenFailed":["scan-running"]}`)}
+	stage := &schema.Stage{}
+	for _, state := range []StepState{StatusPending, StatusRunning, StatusFail, StatusError, StatusPass, StatusNotApplicable} {
+		scan.Status = state
+		ready, err := dispatchReadySteps(stage, []*Step{scan, rebuild}, rebuild)
+		if err != nil || ready != (state != StatusPending && state != StatusRunning) {
+			t.Fatalf("scan %s: ready=%t, %v", state, ready, err)
+		}
+	}
+}

@@ -62,6 +62,9 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 		t.Fatalf("request: %+v %+v %v", images, files, err)
 	}
 	export := "/apptown/state/static/part-site"
+	if strings.Contains(script, "--cache-from") || strings.Contains(script, "--cache-to") {
+		t.Fatalf("release builds must not import or export layer caches:\n%s", script)
+	}
 	lines := strings.Split(script, "\n")
 	at := func(prefix string) int {
 		for i, l := range lines {
