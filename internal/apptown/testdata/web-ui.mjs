@@ -713,7 +713,9 @@ try {
           // Approvals live on the Janitor settings page, not the overview.
           if (screen === 'janitor-settings') {
             await page.getByLabel('Dependencies', {exact: true}).waitFor({ state: 'visible' });
-            await page.getByRole('button', {name: 'Save', exact:true}).waitFor({state:'visible'});
+            // Settings save as they change: switches, no Save button.
+            await page.getByRole('switch', {name: 'Security fixes', exact: true}).waitFor({ state: 'visible' });
+            if (await page.getByRole('button', {name: 'Save', exact: true}).count()) throw new Error('janitor-settings: a Save button came back');
             if (/Preview|Revoke|Changed meaning/.test(words)) throw new Error('retired Janitor consent flow');
 
           }
