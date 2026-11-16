@@ -165,7 +165,12 @@ operands and contract image/build inputs. External-image FROM operands may
 change version or digest while keeping the repository and tag variant unchanged.
 Flags, aliases, stage count and order, ARGs and parser directives stay unchanged.
 Stage references, scratch and operands containing `$` remain byte-identical.
-Complex Dockerfiles are compared byte for byte. Exact three-part toolchain
+Docker instructions are read across single-backslash continuations, including
+trailing spaces or tabs; comment and blank lines inside a continuation are
+skipped. Continuations on instructions such as LABEL and RUN do not prevent
+image updates. Files with multiline or backslashed FROM/ARG instructions,
+terminal runs of two or more backslashes, an escape parser directive, heredocs,
+control bytes or backticks are compared byte for byte. Exact three-part toolchain
 versions may move within their minor only for runs with security targets.
 Other toolchain and build input changes require a person. It classifies
 every changed path using adopted dependency-file globs and the observed input

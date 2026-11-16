@@ -11,11 +11,53 @@ import (
 // Only external image versions and digests may move. Stage and build inputs
 // must survive exactly, including aliases that also name registry images.
 func TestUpdateInputsBoundDockerfileOperands(t *testing.T) {
+	t.Parallel()
+	const nextup = `FROM node:24.22.2-alpine AS frontend
+WORKDIR /src/frontend
+ARG NPM_CONFIG_REGISTRY
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+COPY openapi.yaml /src/openapi.yaml
+RUN npm run build
+
+FROM golang:1.27.3-alpine3.24 AS build
+WORKDIR /src
+ARG GOPROXY
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=frontend /src/frontend/dist ./frontend/dist
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /nextup .
+
+# Distroless has no package manager; update this tag/digest when scans find fixes.
+FROM gcr.io/distroless/static-debian12:nonroot
+LABEL org.opencontainers.image.title="nextup" \
+      org.opencontainers.image.description="A private kanban board shared by a person and their assistant."
+COPY --from=build /nextup /nextup
+USER 65532:65532
+EXPOSE 8080
+ENTRYPOINT ["/nextup"]
+`
 	digest := "@sha256:" + strings.Repeat("a", 64)
 	for _, tc := range []struct {
 		name, before, after string
 		allowed             bool
 	}{
+		{"split FROM keyword", "FROM\\\n alpine:3", "FROM\\\n busybox:3", false},
+		{"split ARG keyword", "FROM alpine:3\nARG\\\n VALUE=old", "FROM alpine:3\nARG\\\n VALUE=new", false},
+		{"LABEL patch", nextup, strings.Replace(nextup, "golang:1.27.3", "golang:1.27.4", 1), true},
+		{"LABEL digest", nextup, strings.Replace(nextup, "node:24.22.2-alpine", "node:24.22.2-alpine"+digest, 1), true},
+		{"continued RUN hides FROM", "FROM alpine:3.24\nRUN a \\\nFROM node:22", "FROM alpine:3.25\nRUN a \\\nFROM other:22", true},
+		{"continued RUN skips comments and blanks", "FROM alpine:3.24\nRUN a \\\n# comment\n\nFROM node:22", "FROM alpine:3.25\nRUN a \\\n# comment\n\nFROM other:22", true},
+		{"continuation trailing whitespace", "FROM alpine:3.24\nRUN a \\ \t\nFROM node:22", "FROM alpine:3.25\nRUN a \\ \t\nFROM other:22", true},
+		{"escaped backslash before FROM", "FROM alpine:3.24\nRUN echo \\\\\nFROM golang:1.27.3-alpine3.24 AS build\nRUN go version", "FROM alpine:3.24\nRUN echo \\\\\nFROM other:1.27.3-alpine3.24 AS build\nRUN go version", false},
+		{"escaped backslash before ARG", "FROM alpine:3.24\nRUN echo \\\\\nARG VALUE=old", "FROM alpine:3.24\nRUN echo \\\\\nARG VALUE=new", false},
+		{"multiline ARG", "FROM node:22\nARG VALUE=\\\n old", "FROM node:23\nARG VALUE=\\\n old", false},
+		{"backslash in ARG", "FROM node:22\nARG VALUE=a\\b", "FROM node:23\nARG VALUE=a\\b", false},
+		{"backslash in FROM", "FROM ${NODE\\NAME}\nRUN echo a", "FROM ${NODE\\NAME}\nRUN echo b", false},
+		{"escape directive", "# EsCaPe = \\\nFROM node:22", "# EsCaPe = \\\nFROM node:23", false},
+		{"backtick", "FROM node:22\nRUN echo `date`", "FROM node:23\nRUN echo `date`", false},
 		{"node slim", "FROM node:22-slim", "FROM node:22.2-slim" + digest, true},
 		{"alpine", "FROM alpine:3.22", "FROM alpine:3.23", true},
 		{"digest removed", "FROM node:22-alpine" + digest, "FROM node:22-alpine", true},

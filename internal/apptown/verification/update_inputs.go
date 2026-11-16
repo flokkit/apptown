@@ -95,8 +95,10 @@ func UpdateInputs(tree string) (map[string]any, error) {
 	return out, err
 }
 
-// Complex Dockerfiles retain their complete bytes; only simple FROM operands
-// have a bounded relaxation. ARGs and parser directives remain exact inputs.
+// Only single-line, backslash-free FROM operands have a bounded relaxation.
+// Other instructions may continue across lines; ambiguous escapes, multiline
+// FROM/ARG, escape directives and heredocs keep the complete file exact.
+// ARGs and other parser directives remain exact inputs.
 type dockerInputs struct {
 	Exact  string
 	Lines  []string
@@ -114,7 +116,7 @@ var patchVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func dockerBaseInputs(raw []byte) dockerInputs {
 	exact := dockerInputs{Exact: string(raw)}
-	if bytes.ContainsAny(raw, "\\\x00\r`") || bytes.Contains(raw, []byte("<<")) {
+	if bytes.ContainsAny(raw, "\x00\r`") || bytes.Contains(raw, []byte("<<")) {
 		return exact
 	}
 	for _, c := range raw {
@@ -124,13 +126,48 @@ func dockerBaseInputs(raw []byte) dockerInputs {
 	}
 	out := dockerInputs{}
 	aliases := map[string]bool{}
-	for _, line := range strings.Split(string(raw), "\n") {
+	lines := strings.Split(string(raw), "\n")
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
 		trimmed := strings.TrimSpace(line)
-		fields := strings.Fields(trimmed)
+		if strings.HasPrefix(trimmed, "#") {
+			key, _, directive := strings.Cut(strings.TrimSpace(strings.TrimPrefix(trimmed, "#")), "=")
+			if directive && strings.EqualFold(strings.TrimSpace(key), "escape") {
+				return exact
+			}
+			if directive {
+				out.Lines = append(out.Lines, line)
+			}
+			continue
+		}
+		multiline := false
+		for {
+			end := strings.TrimRight(line, " \t")
+			if strings.HasSuffix(end, `\\`) {
+				// An escaped terminal backslash must never hide the next FROM/ARG.
+				return exact
+			}
+			if !strings.HasSuffix(end, `\`) {
+				break
+			}
+			multiline = true
+			line = strings.TrimSuffix(end, `\`)
+			for i++; i < len(lines); i++ {
+				next := strings.TrimSpace(lines[i])
+				if next != "" && !strings.HasPrefix(next, "#") {
+					line += lines[i]
+					break
+				}
+			}
+		}
+		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}
-		if strings.EqualFold(fields[0], "ARG") || strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, "=") {
+		if (strings.EqualFold(fields[0], "FROM") || strings.EqualFold(fields[0], "ARG")) && (multiline || strings.Contains(line, `\`)) {
+			return exact
+		}
+		if strings.EqualFold(fields[0], "ARG") {
 			out.Lines = append(out.Lines, line)
 		}
 		if !strings.EqualFold(fields[0], "FROM") {
