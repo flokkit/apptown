@@ -34,7 +34,8 @@
 .record-table td > button.record-name:hover { text-decoration: underline; }
 .record-table .number { text-align: right; font-variant-numeric: tabular-nums; }
 .record-table .technical { font-family: var(--font-mono); }
-.record-table td :is(button, a.btn) { font-size: inherit; line-height: 1; box-sizing: border-box; height: var(--row-action-size); padding-block: 0; min-height: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* Text buttons in a row sit at text height; a switch or a help "?" keeps its own size. */
+.record-table td :is(button, a.btn):not(.setting-switch, .page-help-q) { font-size: inherit; line-height: 1; box-sizing: border-box; height: var(--row-action-size); padding-block: 0; min-height: 0; display: inline-flex; align-items: center; justify-content: center; }
 .record-table .record-action .row { flex-wrap: nowrap; }
 .record-table button.link { padding-inline: 0; }
 .record-table .record-action { text-align: right; overflow-wrap: normal; }
