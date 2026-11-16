@@ -10,6 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
+	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/stock"
 	"io"
 	"io/fs"
 	"log"
@@ -2117,6 +2124,230 @@ func TestOnlyAConfirmedMissingHubImageStartsAPinnedRebuild(t *testing.T) {
 			final, err := w.a.Deployment.Releases.ByID(t.Context(), rel.ID)
 			if err != nil || final.State != deployment.Released || final.BundleID != bundle.ID || final.RebuiltFrom == 0 || final.RebuiltCommit != original.ContractRevision {
 				t.Fatalf("rebuilt release: %+v %v", final, err)
+			}
+		})
+	}
+}
+
+// Stock composition reaches a fresh build of the serving commit, resumes the
+// release despite advisory scan failures, and bounds retries by usable evidence.
+func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T) {
+	for _, verdict := range []string{"fail", "error", "manual"} {
+		t.Run(verdict, func(t *testing.T) {
+			w := newReleaseWorld(t, nil)
+			w.mainOn(t, w.lab)
+			run, step := w.landingRun(t)
+			executeBootFixture(t, w.a, w.a.asEngine(t.Context()), step)
+			original, err := w.a.Deployment.Bundles.OfRun(t.Context(), idstest.N(1), run.ID)
+			if err != nil || original == nil {
+				t.Fatalf("original bundle: %+v %v", original, err)
+			}
+			// Retained owner observations supply the original image's clean
+			// build-time baseline. No deployment or workflow tables are seeded.
+			if err := w.a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+				for _, images := range []map[string]string{original.Parts, original.Init} {
+					for part, digest := range images {
+						o := conformance.ScanObservation{ProjectID: original.ProjectID, RunID: original.BuiltFrom.RunID, StepID: original.BuiltFrom.StepID, Attempt: original.BuiltFrom.Attempt, Subject: conformance.ScanSubject{On: "bundle", BundleID: original.ID, Part: part, Digest: digest}, Scanner: "trivy", Verdict: "pass", ObservedAt: time.Now()}
+						if err := conformance.RecordScanObservationIn(t.Context(), tx, o); err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			first, err := w.promote(t, original.ID, "main", w.lab)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dep, err := w.a.Deployment.Deployments.ByName(t.Context(), first.ProjectID, "main")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := w.a.Deployment.SetFeed(verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, w.a.DB, "boss"), Kind: "user", Name: "boss", Via: "header", Credential: identity.HeaderCredential("boss")}), first.ProjectID, "main", deployment.FeedSettings{Revision: dep.FeedRevision, Feed: "main"}); err != nil {
+				t.Fatal(err)
+			}
+			if err := w.a.Projects.SetDefaultBranch(t.Context(), first.ProjectID, "main"); err != nil {
+				t.Fatal(err)
+			}
+			repo := w.a.projectRepoPath("p")
+			if _, err := gitexec.Run(t.Context(), repo, "branch", "-M", "main"); err != nil {
+				t.Fatal(err)
+			}
+			var definitions []workflow.PreparedRun
+			for _, name := range []string{"janitor-scan", "janitor-fix", "rebuild"} {
+				body, err := stock.FS.ReadFile(name + ".yaml")
+				if err != nil {
+					t.Fatal(err)
+				}
+				doc, err := schema.ParseWorkflow(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				definitions = append(definitions, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: name, Version: 1}, System: doc.Metadata.System, Spec: doc.Spec})
+			}
+			defineWorkflows(t, w.a, definitions...)
+			finding := conformance.Finding{Finding: check.Finding{Fingerprint: "CVE-new", Title: "new package advisory", Severity: "high"}}
+			rebuildWork(t, w.a, func(deps *workflow.Dependencies) {
+				deps.Git = workflow.GitWorkspace{DataDir: w.a.cfg.dataDir}
+				deps.Runners["scan"] = func(task *workflow.Execution) {
+					if _, err := task.Claim(); err != nil {
+						t.Error(err)
+						return
+					}
+					var cfg struct {
+						On string `json:"on"`
+					}
+					if err := json.Unmarshal(task.Step().Config, &cfg); err != nil {
+						t.Error(err)
+						return
+					}
+					status := workflow.StatusPass
+					var subjects []conformance.ScanSubject
+					switch cfg.On {
+					case "running":
+						rows, err := w.a.Deployment.RunningImages(task.Context(), first.ProjectID)
+						if err != nil {
+							t.Error(err)
+							return
+						}
+						for _, row := range rows {
+							for part, digest := range row.Images {
+								subjects = append(subjects, conformance.ScanSubject{On: "running", DeploymentID: row.DeploymentID, Deployment: row.Deployment, BundleID: row.BundleID, Part: part, Digest: digest})
+							}
+						}
+						status = workflow.StatusFail
+					case "bundle":
+						b, err := w.a.Deployment.Bundles.OfRun(task.Context(), first.ProjectID, task.Run().ID)
+						if err != nil || b == nil {
+							t.Errorf("built bundle: %+v %v", b, err)
+							return
+						}
+						for part, digest := range b.Parts {
+							subjects = append(subjects, conformance.ScanSubject{On: "bundle", BundleID: b.ID, Part: part, Digest: digest})
+						}
+						for part, digest := range b.Init {
+							subjects = append(subjects, conformance.ScanSubject{On: "bundle", BundleID: b.ID, Part: "init/" + part, Digest: digest})
+						}
+						status = workflow.StatusFail
+						if verdict == "error" {
+							status = workflow.StatusError
+						}
+					}
+					if err := task.InAttempt("scan", func(tx *database.Tx, attempt int64) error {
+						for _, subject := range subjects {
+							fs := []conformance.Finding{finding}
+							if status == workflow.StatusError {
+								fs = nil
+							}
+							o := conformance.ScanObservation{ProjectID: first.ProjectID, RunID: task.Run().ID, StepID: task.Step().ID, Attempt: attempt, Subject: subject, Scanner: "trivy", Verdict: status.String(), ObservedAt: time.Now(), Findings: fs}
+							if err := conformance.RecordScanObservationIn(task.Context(), tx, o); err != nil {
+								return err
+							}
+						}
+						return nil
+					}); err != nil {
+						t.Error(err)
+						return
+					}
+					task.Settle(workflow.EncodeOutcome(status, map[string]string{"reason": "scanner answered"}, nil))
+				}
+				deps.Runners["workflow/call"] = func(task *workflow.Execution) {
+					if _, err := task.Claim(); err != nil {
+						t.Error(err)
+						return
+					}
+					task.Settle(workflow.EncodeOutcome(workflow.StatusNotApplicable, map[string]string{"reason": "no source edit"}, nil))
+				}
+			})
+			scan := func(n int) *workflow.Step {
+				change := createReadTestChange(t, w.a, first.ProjectID, fmt.Sprintf("security scan %d", n))
+				r, err := w.a.Work.StartRun(asLander(t, w.a), workflow.StartChangeRun{ChangeID: change, Workflow: "janitor-scan"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				w.a.Work.Wait()
+				steps, err := w.a.Work.RunSteps(w.a.asEngine(t.Context()), r.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, s := range steps {
+					if s.Type == verification.RebuildKind {
+						return s
+					}
+				}
+				t.Fatalf("stock workflow did not materialize rebuild: %+v", steps)
+				return nil
+			}
+			if verdict == "manual" {
+				dep, err := w.a.Deployment.Deployments.ByName(t.Context(), first.ProjectID, "main")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := w.a.Deployment.SetFeed(verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, w.a.DB, "boss"), Kind: "user", Name: "boss", Via: "header", Credential: identity.HeaderCredential("boss")}), first.ProjectID, "main", deployment.FeedSettings{Revision: dep.FeedRevision, Feed: "manual"}); err != nil {
+					t.Fatal(err)
+				}
+				skipped := scan(1)
+				last, err := w.a.Deployment.Releases.Last(t.Context(), first.ProjectID, "main")
+				if skipped.Status != workflow.StatusNotApplicable || err != nil || last.ID != first.ID {
+					t.Fatalf("manual feed rebuilt: %s %+v %v", skipped.Status, last, err)
+				}
+				return
+			}
+			requested := scan(1)
+			if requested.Status != workflow.StatusPass || !strings.Contains(string(requested.Evidence), "CVE-new") {
+				t.Fatalf("new finding did not request rebuild: %s %s", requested.Status, requested.Evidence)
+			}
+			rel, err := w.a.Deployment.Releases.Last(t.Context(), first.ProjectID, "main")
+			if err != nil || rel.ID == first.ID || rel.CommitSHA != first.CommitSHA {
+				t.Fatalf("fresh release of serving commit: %+v %v", rel, err)
+			}
+			if err := w.a.Deployment.ExecuteRelease(w.a.asEngine(t.Context()), rel.ID); err != nil {
+				t.Fatal(err)
+			}
+			w.a.Work.Wait()
+			runs, err := w.a.Work.Runs(w.a.asEngine(t.Context()), workflow.RunQuery{ProjectID: first.ProjectID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rebuilt ids.ID
+			for _, r := range runs {
+				candidate, err := workflow.ReadRunIn(t.Context(), w.a.DB, r.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if candidate.RebuildReleaseID == rel.ID {
+					if !rebuilt.IsZero() {
+						t.Fatal("request started two rebuild runs")
+					}
+					rebuilt = candidate.ID
+					if candidate.Status != workflow.RunDone {
+						t.Fatalf("advisory scan %s blocked rebuild: %+v", verdict, candidate)
+					}
+				}
+			}
+			if rebuilt.IsZero() {
+				t.Fatal("no rebuild run")
+			}
+			if _, err := workflowFollowUps(w.a).Complete(context.Background(), completionKey(rebuilt, workflow.CompletionRelease), nil); err != nil {
+				t.Fatal(err)
+			}
+			resumed, err := w.a.Deployment.Releases.ByID(t.Context(), rel.ID)
+			if err != nil || resumed.State != deployment.Released || resumed.BundleID == original.ID {
+				t.Fatalf("scan %s blocked release: %+v %v", verdict, resumed, err)
+			}
+			second := scan(2)
+			want := workflow.StatusNotApplicable
+			if verdict == "error" {
+				want = workflow.StatusPass
+			}
+			if second.Status != want {
+				t.Fatalf("next scan after %s: %s %s", verdict, second.Status, second.Evidence)
+			}
+			last, err := w.a.Deployment.Releases.Last(t.Context(), first.ProjectID, "main")
+			if err != nil || (last.ID != rel.ID) != (verdict == "error") {
+				t.Fatalf("second rebuild after %s: %+v %v", verdict, last, err)
 			}
 		})
 	}

@@ -60,6 +60,9 @@ To rehearse that yourself, `apptown dev up` runs the whole app in containers
 on your Docker. A static site built by a `Dockerfile` is the exception: use
 its own dev server.
 
+A static site's Caddy file-server image takes current Alpine packages at each
+build, before AppTown copies the site into it.
+
 ## Your own containers
 
 When the work is about containers themselves, or a misbehaving service

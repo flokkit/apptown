@@ -335,6 +335,21 @@ Readable registry tags (`change-<id>-<image>`, `release-<n>-<image>`) are
 for people; the digest is the record. The operating details, refusals and
 rollout procedure are in [workers](../operations/workers.md#releases-built-on-the-worker).
 
+`RequestRebuild` creates an automatic release of a deployment's serving
+release commit and bundle. It refuses feeds other than main and another release
+in flight, including one waiting for approval. In one transaction it captures
+the feed's authority and revision, applies the same approval and routine
+admission as landing releases, marks the request rebuilding and queues eligible
+work. Holds, person-only settings and release windows still apply.
+
+The ordinary release job starts the same pinned `rebuild` system run used
+when an image is missing. Its event records the requester's reason. The run
+builds a fresh bundle and scans it; its gate requires only the build, so scan
+findings and errors do not stop release completion. `ResumeRebuiltRelease`
+rechecks authority and placement and applies approval for the new image.
+Two builds of one commit may contain different packages; the image digest
+records what ran. Rollback reuses the stored image while it remains available.
+
 ## Uncertain outcomes and restart
 
 Provider effects occur outside SQL transactions. An attempt admission

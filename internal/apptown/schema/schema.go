@@ -323,7 +323,7 @@ func (d *Doc) validate(strict bool) error {
 			}
 		}
 		for _, s := range all {
-			if s.Uses != "workflow/call" {
+			if s.Uses != "workflow/call" && s.Uses != "rebuild" {
 				continue
 			}
 			if v, ok := s.With["findings"]; ok && v != "fixable" {
@@ -338,12 +338,19 @@ func (d *Doc) validate(strict bool) error {
 				if err := yaml.Unmarshal(raw, &names); err != nil || len(names) == 0 {
 					return fmt.Errorf("step %s: whenFailed needs step names", s.Name)
 				}
-				if s.With["findings"] != "fixable" {
+				if s.Uses == "workflow/call" && s.With["findings"] != "fixable" {
 					return fmt.Errorf("step %s: whenFailed needs findings: fixable", s.Name)
 				}
 				for _, name := range names {
 					if !seenStep[name] || name == s.Name {
 						return fmt.Errorf("step %s: whenFailed names unknown step %s", s.Name, name)
+					}
+					if s.Uses == "rebuild" {
+						for _, target := range all {
+							if target.Name == name && target.Uses != "scan" {
+								return fmt.Errorf("step %s: whenFailed needs scan steps, got %s", s.Name, name)
+							}
+						}
 					}
 				}
 			}

@@ -227,7 +227,7 @@ func observedSteps(stage *schema.Stage, steps []*Step) (map[ids.ID]bool, error) 
 		}
 	}
 	for _, caller := range steps {
-		if caller.Type != "workflow/call" {
+		if caller.Type != "workflow/call" && caller.Type != "rebuild" {
 			continue
 		}
 		var cfg struct {

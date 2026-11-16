@@ -11,10 +11,13 @@ import (
 	"io/fs"
 	"maps"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -218,4 +221,58 @@ func keys(m map[string]string) []string {
 		ks = append(ks, k)
 	}
 	return ks
+}
+
+// The generated static recipe's Alpine upgrade reaches a repository signed by
+// an inspecting CA only through the build secret, which leaves no roots behind.
+// Not parallel: it installs the process's trust.
+func TestIntegrationTheStaticImageUpgradesThroughTheBuildTrustSecret(t *testing.T) {
+	company := trusttest.New(t, "Static package repository CA")
+	upstream, err := url.Parse("https://dl-cdn.alpinelinux.org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httputil.NewSingleHostReverseProxy(upstream)
+	var fetched atomic.Int64
+	endpoint := fmt.Sprintf("https://host.docker.internal:%d", company.Serve(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fetched.Add(1)
+		r.Host = upstream.Host
+		proxy.ServeHTTP(w, r)
+	})))
+	dk := Scope{Client: CLI{Binary: "docker"}}
+	ctx := t.Context()
+	build := func(body, tag string) ([]byte, error) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("hello"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return dk.Build(ctx, "--no-cache", "--add-host", "host.docker.internal:host-gateway", "-t", tag, dir)
+	}
+	base := "apptown-static-trust-base:" + strings.ToLower(ids.New(time.Now()).String())
+	tag := "apptown-static-trust:" + strings.ToLower(ids.New(time.Now()).String())
+	t.Cleanup(func() { _, _ = dk.Run(context.Background(), "rmi", "-f", tag, base) })
+	// Keep the signed Alpine repositories and their version, changing only the
+	// HTTPS endpoint to the test's inspecting proxy.
+	body := "FROM " + stock.Images().StaticServer + "\nRUN sed -i 's@https://dl-cdn.alpinelinux.org@" + endpoint + "@g' /etc/apk/repositories\n"
+	if out, err := build(body, base); err != nil {
+		t.Fatalf("package endpoint base: %v\n%s", err, out)
+	}
+	if out, err := build(StaticSiteDockerfile(base, 8080), tag); err == nil {
+		t.Fatalf("upgrade trusted the private CA without the secret:\n%s", out)
+	}
+	trusttest.Install(t, company.Bundle(t), trust.Bundle{})
+	if out, err := build(StaticSiteDockerfile(base, 8080), tag); err != nil {
+		t.Fatalf("static upgrade with trust: %v\n%s", err, out)
+	}
+	if fetched.Load() == 0 {
+		t.Fatal("static recipe did not fetch current packages")
+	}
+	pemLine := strings.Split(strings.TrimSpace(string(company.PEM())), "\n")[1]
+	out, err := dk.Run(ctx, "run", "--rm", "--entrypoint", "sh", tag, "-c", `test ! -e /run/secrets/apptown-trust && test ! -e /tmp/apptown-trust && ! grep -q '`+pemLine+`' /etc/ssl/certs/ca-certificates.crt`)
+	if err != nil {
+		t.Fatalf("build trust remained in static image: %v\n%s", err, out)
+	}
 }

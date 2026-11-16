@@ -135,7 +135,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		if err != nil {
 			return err
 		}
-		return s.startMissingImageRebuild(ctx, rel, b)
+		reason := rel.Notes
+		if reason == "" {
+			reason = "original image is gone"
+		}
+		return s.startImageRebuild(ctx, rel, b, reason)
 	}
 	_, err = s.executeRequestedRelease(ctx, rel, placement, nil)
 	return err
@@ -263,7 +267,7 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 			return result, fail(err)
 		}
 		if needed {
-			if err := s.startMissingImageRebuild(ctx, rel, bundle); err != nil {
+			if err := s.startImageRebuild(ctx, rel, bundle, "original image is gone"); err != nil {
 				return result, fail(err)
 			}
 			return result, nil

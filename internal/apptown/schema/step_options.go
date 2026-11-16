@@ -25,6 +25,7 @@ var StepTypes = map[string]stepType{
 	"artifact/require":     {Authored: true, Options: []string{"kind", "name"}},
 	"adr/require":          {Authored: true, Options: []string{"status", "tags"}},
 	"preview":              {Authored: true, Options: []string{"services"}},
+	"rebuild":              {Authored: true, Options: []string{"whenFailed"}},
 	"build":                {Authored: true, Options: []string{}},
 	"tests":                {Authored: true, Options: []string{"require", "timeoutMinutes", "appliesTo"}, Check: true, CheckExecutor: true},
 	"scan":                 {Authored: true, Options: []string{"on", "scanner", "baseline", "failOn", "timeoutMinutes"}, Check: true, CheckExecutor: true},

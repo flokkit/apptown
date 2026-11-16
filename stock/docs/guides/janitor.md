@@ -43,6 +43,35 @@ A project's own Janitor section controls its update level. Turning it off stops
 both dependency and pack updates there. The choice records who changed it, when
 and why; it appears with the choices as well as beside the project.
 
+## Fresh images for security fixes
+
+The stock policy is that a running image has no OS-package vulnerability for
+which a fixed package is published. The image scan judges that outcome.
+With Security fixes on, the Janitor also requests a rebuild when a running
+scan reports a finding absent from that image digest's usable build-time scan.
+It applies recorded exceptions and the scan's severity threshold first.
+A missing or erroring build-time scan leaves the baseline unknown, so the
+Janitor can request a rebuild. A running scan error triggers no rebuild.
+
+A rebuild releases the running release's same commit, taking current packages
+through the Dockerfile's final-stage upgrade. It applies only to deployments
+following main with a recorded running image and no release in progress.
+Ordinary release approvals, holds and windows still apply. Manual and promotion
+feeds receive no automatic rebuild. A project's own security workflow can
+leave out the `rebuild` step.
+
+A finding already reported at build does not trigger another rebuild: the
+recipe could not clear it. This includes fixes needed inside a compiled binary
+or a Dockerfile missing its upgrade. Source and base-image fixes still use the
+agent's normal fix workflow. If a rebuilt image's bundle scan cannot judge it,
+while the next running scan works, the unknown baseline can cause another
+rebuild each such day. These are ordinary recorded releases. Repetition stops
+when a usable bundle scan reports the remaining finding.
+
+Two builds of the same commit can contain different packages. The released
+image digest records what ran. Rollback reuses that release's stored image;
+only a missing image requires rebuilding it.
+
 ## When something goes wrong
 
 A failed check starts the adopted workflow's declared repair sessions. Work that

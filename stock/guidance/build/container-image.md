@@ -43,7 +43,8 @@ on UBI minimal). An upgrade in a build stage does not reach the final image.
 A base with no package manager (`scratch`, distroless, chiselled) gets fixes
 from a newer tag; a project kept fresh by a digest updater says so in a
 comment beside the final `FROM`. A language library is fixed in the app's
-manifest.
+manifest. The Janitor rebuilds for new fixable image findings, so this upgrade
+is how current OS fixes reach unchanged source.
 
 **Extra certificate authorities.** AppTown gives a build the build secret
 `apptown-trust` and the running app the variable `APPTOWN_TRUST`; each is a

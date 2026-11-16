@@ -933,6 +933,7 @@ func TestJourneyLedgerComplete(t *testing.T) {
 		"routine":              "unit:workflowexec.TestRoutineJudgesTheIndependentListingAndLeavesCodeToChecks",
 		"tests":                "unit:TestDetectTestCommand; proven live both directions (pass receipt + sabotaged tree blocked landing)",
 		"reconcile":            "unit:TestReconcilePreflight (up-to-date, catch-up, conflict); land preflight",
+		"rebuild":              "unit:TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan (shipped janitor-scan)",
 	}
 	for st, typ := range schema.StepTypes {
 		if !typ.Authored {

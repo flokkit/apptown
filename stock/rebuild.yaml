@@ -3,7 +3,7 @@ kind: Workflow
 metadata:
   name: rebuild
   system: true
-  description: Build a new release image from a recorded commit when the original image is gone.
+  description: Build a new release image from a recorded commit to refresh packages or replace a missing image.
 spec:
   kind: pipeline
   role: record
@@ -13,3 +13,7 @@ spec:
       steps:
         - name: build
           uses: build
+        - name: scan-bundle
+          uses: scan
+          with: {on: bundle}
+      gate: {require: [build]}

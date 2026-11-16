@@ -74,9 +74,9 @@ func (s *Service) releaseNeedsRebuild(ctx context.Context, b *ReleaseBundle, t *
 	return missing, nil
 }
 
-func (s *Service) startMissingImageRebuild(ctx context.Context, rel *Release, b *ReleaseBundle) error {
+func (s *Service) startImageRebuild(ctx context.Context, rel *Release, b *ReleaseBundle, reason string) error {
 	if s.imageRebuilder == nil {
-		return fmt.Errorf("the original image is gone and rebuild execution is unavailable")
+		return fmt.Errorf("rebuild execution is unavailable")
 	}
 	from := rel.Number
 	if !rel.RollbackOf.IsZero() {
@@ -97,7 +97,7 @@ func (s *Service) startMissingImageRebuild(ctx context.Context, rel *Release, b 
 		return err
 	}
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
-		return appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("original image is gone; rebuilding release %d from commit %s in run %s, not recovering the original image", from, b.ContractRevision, run), s.now())
+		return appendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("%s; rebuilding release %d from commit %s in run %s, not recovering the original image", reason, from, b.ContractRevision, run), s.now())
 	})
 }
 

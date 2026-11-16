@@ -67,6 +67,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[workflowexec.TestsKind] = commands.RunTests
 	runners[verification.GuidanceKind] = a.guidance.RunGuidanceConformance
 	runners[verification.ScanKind] = a.scanSteps.RunScan
+	runners[verification.RebuildKind] = (verification.Rebuilds{DB: a.DB, Deployment: a.Deployment, Conformance: a.conformance}).Run
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
 	return workflow.Dependencies{JanitorDefinitions: a.Adoption, StandingAcceptance: standingAcceptanceRequests{}, Standing: &a.standingRules, Fixes: a.Adoption, Retention: automatedRetention{}, RunningImages: scanSubjects{a.Deployment}, ScanSchedules: changeactions.Schedules{Adoption: a.Adoption, DB: a.DB}, Jobs: jobQueue{},
