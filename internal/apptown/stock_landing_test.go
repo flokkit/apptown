@@ -109,6 +109,22 @@ func TestStockLandingUsesFeedAuthorityAndSurvivesReleaseRefusals(t *testing.T) {
 			rebuildWork(t, a, func(d *workflow.Dependencies) {
 				build := d.Runners["build"]
 				d.Runners["build"] = func(e *workflow.Execution) { build(e); moveClock(a, 2*time.Second) }
+				scan := d.Runners["scan"]
+				d.Runners["scan"] = func(e *workflow.Execution) {
+					if e.Step().Name != "scan-bundle" || scenario == "unconfirmed" {
+						scan(e)
+						return
+					}
+					if _, err := e.Claim(); err != nil {
+						t.Error(err)
+						return
+					}
+					status := workflow.StatusFail
+					if scenario == "revoked setter" {
+						status = workflow.StatusError
+					}
+					e.Settle(workflow.StepOutcome{Status: status, Evidence: []byte(`{"reason":"images observed"}`)}, nil)
+				}
 			})
 			pid, _, _ := fleetRepo(t, a, "stock-release", map[string]string{".apptown/app.yaml": "app:\n  web:\n    image: example/web:1\n    ports: [\"8080\"]\n    public: true\n", "a.txt": "seed"})
 			project := a.projectByID(t.Context(), pid)
@@ -194,7 +210,13 @@ func TestStockLandingUsesFeedAuthorityAndSurvivesReleaseRefusals(t *testing.T) {
 						bundleScan = step
 					}
 				}
-				if bundleScan == nil || bundleScan.Status != workflow.StatusNotApplicable {
+				wantScan := workflow.StatusNotApplicable
+				if scenario == "confirmed" {
+					wantScan = workflow.StatusFail
+				} else if scenario == "revoked setter" {
+					wantScan = workflow.StatusError
+				}
+				if bundleScan == nil || bundleScan.Status != wantScan {
 					t.Fatalf("stock landing did not settle its bundle scan: %+v", bundleScan)
 				}
 				stored, err := a.Work.Change(approverCtx, ch.ID)

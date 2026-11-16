@@ -17,6 +17,7 @@ import (
 // standingEvidence reads the captured procedure rather than just its current
 // stage. Observing steps outside the root's gate retain their own verdicts.
 // A call's complete procedure is evidence, including checks outside its gate.
+// A landing supplies only pre-merge evidence, even when rechecked at completion.
 func standingEvidence(ctx context.Context, q database.Queryer, run *Run, called bool, depth int) (string, error) {
 	if depth > maxCallDepth {
 		return "the call tree exceeds the supported depth", nil
@@ -29,7 +30,13 @@ func standingEvidence(ctx context.Context, q database.Queryer, run *Run, called 
 	if err != nil {
 		return "", err
 	}
-	for _, stage := range spec.Stages {
+	for i, stage := range spec.Stages {
+		// nextStage merges a multi-stage landing when it enters the final
+		// stage; that post-merge work has its own gate. A single-stage
+		// landing merges at completion, so its checks remain evidence.
+		if spec.Role == "landing" && len(spec.Stages) > 1 && i == len(spec.Stages)-1 {
+			break
+		}
 		checks, err := readStageChecks(ctx, q, run.ID, stage.Name)
 		if err != nil {
 			return "", err
@@ -97,8 +104,8 @@ func standingEvidence(ctx context.Context, q database.Queryer, run *Run, called 
 				return why, nil
 			}
 		}
-		// A landing has stages after its approving stage. They have not executed.
-		if stage.Name == run.CurrentStage {
+		// Other runs supply evidence through their current stage.
+		if spec.Role != "landing" && stage.Name == run.CurrentStage {
 			break
 		}
 	}
