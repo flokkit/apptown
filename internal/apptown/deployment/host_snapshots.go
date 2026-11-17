@@ -43,8 +43,9 @@ type hostReading struct {
 }
 
 type HostSnapshots struct {
-	db  *database.DB
-	now func() time.Time
+	db       *database.DB
+	now      func() time.Time
+	capacity *CapacityObserver
 }
 
 func NewHostSnapshots(db *database.DB, now func() time.Time) *HostSnapshots {
@@ -88,6 +89,14 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if err != nil {
 		return nil, started, err
 	}
+	if s.capacity != nil {
+		c, e := s.capacity.load(ctx, t)
+		if e != nil {
+			return nil, started, e
+		}
+		q.Use = q.Use || c.AttemptedAt.IsZero() || s.now().Sub(c.AttemptedAt) >= capacityInterval || row > c.HostActCounter
+		q.ReaderImage = s.capacity.readerImage()
+	}
 	started = s.now()
 	facts, readErr := docker.ReadHost(ctx, dk, q)
 	if errors.Is(ctx.Err(), context.Canceled) {
@@ -102,7 +111,7 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if current.SettingsRevision != t.SettingsRevision || current.Status == TargetRetired {
 		return nil, started, nil
 	}
-	prior.AttemptedAt, prior.Took, prior.Instance, prior.Also = started, s.now().Sub(started), dk.Instance, also
+	prior.AttemptedAt, prior.Instance, prior.Also = started, dk.Instance, also
 	if facts.Host.Reason != "" {
 		if prior.HostFailures == 0 && !prior.HostDown {
 			prior.UnreachableSince = started
@@ -133,9 +142,14 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if mergeHostSection(&prior.Images, facts.Images) {
 		successes++
 	}
-	if mergeHostSection(&prior.Use, facts.Use) {
-		successes++
+	if q.Use {
+		if facts.Use.Reason != "" && prior.Use.Value != nil {
+			prior.Use.Reason = facts.Use.Reason
+		} else if mergeHostSection(&prior.Use, facts.Use) {
+			successes++
+		}
 	}
+
 	prior.ContainerFailure = ""
 	if facts.Containers.Reason != "" {
 		prior.ContainerFailure = safeReason(readErr)
@@ -189,11 +203,27 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 			}
 		}
 	}
-	raw, err := json.Marshal(prior)
-	if err != nil {
-		return nil, started, err
+	if q.Use && s.capacity != nil {
+		capacity, e := s.capacity.fixed(finish, t, facts, "A fixed host: it does not grow.")
+		if e = s.capacity.publish(finish, t, capacity, e, row); e != nil {
+			return nil, started, e
+		}
 	}
-	_, err = queries.FinishHostSnapshot(finish, deploymentsql.FinishHostSnapshotParams{Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10), ActCounter: row, Payload: raw, Complete: readErr == nil})
+	// Stage the persisted reading, then include that write's time before it
+	// becomes visible. Both writes commit together, with one published duration.
+	err = s.db.InTx(finish, func(tx *database.Tx) error {
+		for range 2 {
+			prior.Took = s.now().Sub(started)
+			raw, e := json.Marshal(prior)
+			if e != nil {
+				return e
+			}
+			if _, e = deploymentsql.New(tx.SQL()).FinishHostSnapshot(finish, deploymentsql.FinishHostSnapshotParams{Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10), ActCounter: row, Payload: raw, Complete: readErr == nil}); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
 	return facts.Containers.Value, started, err
 }
 
@@ -240,8 +270,8 @@ func (s *HostSnapshots) inventory(r hostReading) (inventoryObservation, error) {
 			out.FailedAt = r.AttemptedAt
 		}
 	}
-	out.Stale = out.Unknown || s.now().Sub(out.ObservedAt) > liveFresh
-	out.Unknown = out.Unknown || s.now().Sub(out.ObservedAt) > liveUnknown
+	out.Stale = out.Unknown || r.stale(s.now(), out.ObservedAt) || out.Reason != ""
+	out.Unknown = out.Unknown || s.now().Sub(out.ObservedAt) > hostInventoryRetention
 	if out.Unknown {
 		out.Reason = "Waiting for a complete host inventory reading."
 		return out, nil
@@ -289,3 +319,15 @@ func (s *Service) HostReachability(ctx context.Context, targetID ids.ID) (HostRe
 	}
 	return HostReachability{Down: r.HostDown, Since: r.UnreachableSince, Error: r.UnreachableError, Deployments: standing}, err
 }
+
+// The next lap starts when scheduled or when this lap finishes, whichever is
+// later. Its expected duration and ten seconds of margin bound freshness.
+func (r hostReading) stale(now, evidence time.Time) bool {
+	due := r.AttemptedAt.Add(r.Took)
+	if r.NextAt.After(due) {
+		due = r.NextAt
+	}
+	return evidence.IsZero() || evidence.Before(r.AttemptedAt) || now.After(due.Add(r.Took+10*time.Second))
+}
+
+const hostInventoryRetention = 6 * time.Hour

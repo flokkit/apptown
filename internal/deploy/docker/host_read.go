@@ -59,7 +59,12 @@ type HostContainer struct {
 type HostPort struct{ HostIP, HostPort string }
 type HostMount struct{ Type, Name, Destination string }
 type hostResources struct{ Volumes, Networks []deploy.Resource }
-type hostUse struct{ Disk diskspace.Space }
+type hostUse struct {
+	Containers                                 map[string]Usage
+	Kernel                                     map[string][]byte
+	Disk                                       diskspace.Space
+	ContainersReason, KernelReason, DiskReason string
+}
 
 // HostFacts is a single collection with independently successful sections.
 type HostFacts struct {
@@ -71,7 +76,7 @@ type HostFacts struct {
 }
 
 // HostQuery selects sections. Container names skip the fleet listing for acts.
-// Use currently collects disk; cgroup use is added with the capacity consumer.
+// Use collects named container stats, kernel counters and the data-root disk.
 type HostQuery struct {
 	Host, Containers, Resources, Images, Use bool
 	Names                                    []string
@@ -166,18 +171,45 @@ func ReadHost(ctx context.Context, dk Scope, q HostQuery) (HostFacts, error) {
 		}
 	}
 	if q.Use {
+		firstError := len(errs)
 		var use hostUse
+		var names []string
+		var used map[string]Usage
 		var err error
+		if f.Containers.Value == nil {
+			err = errors.New("the running containers were not read")
+		} else {
+			for _, c := range *f.Containers.Value {
+				if c.State.Running {
+					names = append(names, c.Name)
+				}
+			}
+			used, err = ContainerUsage(ctx, dk, names)
+		}
+		use.Containers, use.ContainersReason = used, record(err)
+		var parts map[string][]byte
+		var space diskspace.Space
+		if f.Host.Value == nil {
+			err = errors.New("the daemon's totals or data folder are not known")
+		} else {
+			parts, err = diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
+				b, e := dk.Run(ctx, args...)
+				return string(b), "", e
+			}, q.ReaderImage, f.Host.Value.DockerRootDir, now, dk.NoStreams)
+		}
+		use.Kernel, use.KernelReason = parts, record(err)
 		if f.Host.Value == nil {
 			err = errors.New("the data root was not read")
 		} else {
-			use.Disk, err = ReadDisk(ctx, dk, q.ReaderImage, f.Host.Value.DockerRootDir)
+			space, err = readDisk(ctx, dk, q.ReaderImage, f.Host.Value.DockerRootDir)
 		}
-		f.Use.Reason = record(err)
-		if err == nil {
-			f.Use.Value, f.Use.ObservedAt = &use, now()
+		use.Disk, use.DiskReason = space, record(err)
+		f.Use.Value, f.Use.ObservedAt = &use, now()
+		if err := errors.Join(errs[firstError:]...); err != nil {
+			f.Use.Reason = err.Error()
 		}
 	}
+
 	return f, errors.Join(errs...)
 }
 

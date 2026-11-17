@@ -4907,21 +4907,7 @@ app:
 	}
 	// Page reads use recorded background evidence. Collect the disposable
 	// hosts before the camera checks their capacity and inventory.
-	// Seeding the cloud connection also syncs the built-in target. Read its
-	// current revision so the observer does not discard an obsolete request.
-	productionHost, err = a.Deployment.Targets.ByID(ctx, productionHost.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := a.capacityObserver.Run(ctx, productionHost.ID, productionHost.SettingsRevision); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
-		t.Logf("preview capacity remains unknown: %v", err)
-	}
-	if err := a.capacityObserver.Run(ctx, gardenShed.ID, gardenShed.SettingsRevision); err != nil {
-		t.Logf("the garden shed's capacity remains unknown: %v", err)
-	}
+	readHostsForTest(t, a)
 	// The local audit also covers installations that cannot run project chats.
 	// Rebuild admission after the tour, whose recorded chats need a local runtime.
 	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {

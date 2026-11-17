@@ -30,6 +30,7 @@ import (
 // boot and reaper tests assert the recorded sequence: the argv order IS the
 // behaviour.
 type fakeDocker struct {
+	images            *dockerfake.Daemon
 	disk              diskDaemon
 	command           dockerClientFunc
 	mu                sync.Mutex
@@ -56,7 +57,7 @@ type fakeDocker struct {
 }
 
 func newFakeDocker() *fakeDocker {
-	return &fakeDocker{port: 43210, started: map[string]bool{}, objects: map[string]bool{}, labels: map[string]map[string]string{}}
+	return &fakeDocker{images: dockerfake.New(), port: 43210, started: map[string]bool{}, objects: map[string]bool{}, labels: map[string]map[string]string{}}
 }
 
 func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
@@ -92,18 +93,6 @@ func (f *fakeDocker) Run(ctx context.Context, host string, req docker.Command) (
 			return nil, errors.Join(err, writeErr)
 		}
 		return out, err
-	}
-	// Release admission asks which recorded images the daemon holds before
-	// any pull. This daemon holds every one it is asked about, so a test's
-	// release goes on to its scripted pulls; a test about missing images
-	// scripts its own transport.
-	if len(req.Args) >= 4 && req.Args[0] == "image" && req.Args[1] == "inspect" && req.Args[2] == "--format" && strings.HasPrefix(req.Args[3], "{{json .RepoTags}}") && req.Stdout != nil {
-		for _, ref := range req.Args[4:] {
-			if _, err := fmt.Fprintf(req.Stdout, "[%q]\t[]\t%q\n", ref, dockerfake.ImageID(ref)); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
 	}
 	if req.Stdin != nil || req.Stdout != nil {
 		return nil, errors.New("fake Docker streaming requires an explicit reply")
@@ -179,6 +168,10 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		}
 	}
 	f.calls = append(f.calls, append([]string(nil), args...))
+	if args[0] == "pull" || args[0] == "build" || args[0] == "buildx" || args[0] == "image" {
+		_, _ = f.images.Run(context.Background(), "", docker.Command{Args: args})
+	}
+
 	if len(args) > 0 {
 		switch args[0] {
 		case "run":
@@ -258,6 +251,9 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 	f.mu.Unlock()
 	if f.reply != nil {
 		if out, err, ok := f.reply(args); ok {
+			if err == nil && len(args) > 3 && args[0] == "image" && args[1] == "inspect" && args[3] == "{{.Id}}" && strings.HasPrefix(out, "sha256:") {
+				_, _ = f.images.Run(context.Background(), "", docker.Command{Args: []string{"image", "inspect", "--format", "{{.Id}}", strings.TrimSpace(out)}})
+			}
 			return f.printID(args, []byte(out), err), err
 		}
 	}
@@ -446,6 +442,9 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		}
 		return nil, nil
 	case "image":
+		if len(args) > 1 && args[1] == "ls" {
+			return f.images.Run(context.Background(), "", docker.Command{Args: args})
+		}
 		if slices.Contains(args, "{{json .}}") {
 			return json.Marshal(map[string]any{"Id": dockerfake.ImageID(args[len(args)-1])})
 		}

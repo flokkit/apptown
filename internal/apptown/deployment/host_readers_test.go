@@ -137,3 +137,142 @@ func TestHostReadersStartOnCadenceAndStoreTheSameDeadline(t *testing.T) {
 		})
 	}
 }
+
+// Slow sequential laps stay current through the next publication; an omitted
+// lap expires without a running collector. Sweep evidence has its own clock.
+func TestHostReadingDeadlineFollowsTwoSlowPublications(t *testing.T) {
+	w := newDiagnosticsWorld(t)
+	synctest.Test(t, func(t *testing.T) {
+		defer func() {
+			if err := w.s.db.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
+		start, base := time.Now(), w.at
+		w.s.setClock(func() time.Time { return base.Add(time.Since(start)) })
+		snapshots := NewHostSnapshots(w.s.db, w.s.now)
+		reader := HostReaders{Snapshots: snapshots, Targets: NewTargets(w.s.db, nil), Hosts: w.s.hosts, Providers: w.s.providers}
+		if err := w.s.ObserveRuntime(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		records, err := w.s.listRecords(t.Context(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		count := 0
+		starts := make(chan struct{}, 3)
+		w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
+			if args[0] == "info" {
+				count++
+				starts <- struct{}{}
+				if count > 2 {
+					<-ctx.Done()
+					return nil, ctx.Err(), true
+				}
+			}
+			if args[0] == "ps" {
+				<-time.After(2 * time.Second)
+			}
+			if args[0] == "image" && args[1] == "ls" {
+				<-time.After(35 * time.Second)
+			}
+			return nil, nil, false
+		})
+		done := make(chan struct{})
+		go func() { defer close(done); reader.Run(ctx) }()
+		defer func() { cancel(); <-done }()
+		<-starts
+		<-time.After(37 * time.Second)
+		synctest.Wait()
+		<-starts
+		first, err := snapshots.reading(t.Context(), w.remote)
+		if err != nil || first.Took != 37*time.Second || !first.NextAt.Equal(base.Add(20*time.Second)) {
+			t.Fatalf("first publication: %+v %v", first, err)
+		}
+		check := func(stale bool) {
+			t.Helper()
+			d, e := w.s.Diagnostics(t.Context(), w.project, "main")
+			if e != nil || d.Reading.Stale != stale || d.Reading.Unknown != stale {
+				t.Fatalf("diagnostics at %s: %+v %v", time.Since(start), d.Reading, e)
+			}
+			r, e := snapshots.reading(t.Context(), w.remote)
+			if e != nil {
+				t.Fatal(e)
+			}
+			inv, e := snapshots.inventory(r)
+			if e != nil || inv.Stale != stale || inv.Unknown {
+				t.Fatalf("inventory at %s: %+v %v", time.Since(start), inv, e)
+			}
+		}
+		<-time.After(36 * time.Second)
+		synctest.Wait()
+		check(false)
+		// Fresh host laps cannot extend a sweep's independently collected evidence.
+		found := false
+		for _, r := range records {
+			if r.deployment.ID == w.main.ID {
+				found = true
+				v := w.s.observations.read(r, w.s.now())
+				if !v.Stale || v.State != RuntimeUnknown {
+					t.Fatalf("old sweep renewed by host: %+v", v)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("missing sweep deployment")
+		}
+		<-time.After(time.Second)
+		synctest.Wait()
+		<-starts
+		check(false)
+		second, e := snapshots.reading(t.Context(), w.remote)
+		if e != nil || second.Took != 37*time.Second || !second.AttemptedAt.Equal(base.Add(37*time.Second)) {
+			t.Fatalf("second publication: %+v %v", second, e)
+		}
+		// If the second publication had been omitted, the first expires at 84 s.
+		<-time.After(10*time.Second + time.Nanosecond)
+		synctest.Wait()
+		if !first.stale(w.s.now(), first.Containers.ObservedAt) {
+			t.Fatal("omitted second lap did not expire")
+		}
+		check(false)
+		<-time.After(27 * time.Second)
+		synctest.Wait()
+		check(false)
+		<-time.After(10 * time.Second)
+		synctest.Wait()
+		check(true)
+	})
+}
+
+func TestFailedContainerLapKeepsItsEvidenceAge(t *testing.T) {
+	t.Parallel()
+	w := newDiagnosticsWorld(t)
+	snapshots := NewHostSnapshots(w.s.db, w.s.now)
+	reader := HostReaders{Snapshots: snapshots, Targets: NewTargets(w.s.db, nil), Hosts: w.s.hosts, Providers: w.s.providers}
+	if err := reader.lap(t.Context(), w.remote.ID, w.s.now().Add(hostReadInterval)); err != nil {
+		t.Fatal(err)
+	}
+	first, err := snapshots.reading(t.Context(), w.remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.advance(time.Minute)
+	w.failContainerListing(context.DeadlineExceeded)
+	if err := reader.lap(t.Context(), w.remote.ID, w.s.now().Add(hostReadInterval)); err != nil {
+		t.Fatal(err)
+	}
+	r, err := snapshots.reading(t.Context(), w.remote)
+	if err != nil || !r.Containers.ObservedAt.Equal(first.Containers.ObservedAt) {
+		t.Fatalf("failed section renewed: %+v %v", r, err)
+	}
+	inv, err := snapshots.inventory(r)
+	if err != nil || !inv.Stale || !inv.ObservedAt.Equal(first.Containers.ObservedAt) {
+		t.Fatalf("inventory renewed: %+v %v", inv, err)
+	}
+	d, err := w.s.Diagnostics(t.Context(), w.project, "main")
+	if err != nil || !d.Reading.Stale || !d.Reading.Unknown || !d.Reading.ObservedAt.Equal(first.Containers.ObservedAt) {
+		t.Fatalf("diagnostics renewed: %+v %v", d.Reading, err)
+	}
+}

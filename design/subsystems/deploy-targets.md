@@ -259,9 +259,12 @@ the loop resolves current target settings. It reads host, containers, volumes
 and networks, and recorded images sequentially. Laps start twenty seconds
 apart, measured before settings and scope preparation. The stored `NextAt`
 uses that deadline. A longer lap starts the next immediately, without overlap.
-Only this loop stores the host reading. Capacity, detail, protection,
-preview, runtime and health readers collect independently. A failed section
-retains its last successful value and time; a section never read stays unknown. A missing-resource claim is set only by a collection
+Recorded images are matched locally against one complete Docker image listing,
+including digest-only names and dangling image IDs. An unread listing cannot
+establish missing images. Only this loop stores the host reading. Detail,
+protection, preview, runtime and health readers collect independently. A failed
+section retains its last successful value and time; a section never read stays
+unknown. A missing-resource claim is set only by a collection
 where all four inventory sections succeed, against records read in that same
 collection. A record made later is never compared against that collection.
 
@@ -281,11 +284,23 @@ run independently and never store host evidence. Attached hosts allow three
 foreground commands alongside the loop's single command, under the shared
 ten-session cap.
 
-Durable jobs check other providers' inventory, every target's capacity and the
+The Docker lap also samples container use, kernel counters and the data-root disk
+when its capacity attempt is five minutes old or the host act counter is newer
+than that sample. It computes capacity from those facts and the running
+containers' inspected limits, using the same computation and publication as
+Portainer. Intervening laps keep the use section's original time.
+
+Host inventory and deployment diagnostics become old after
+`max(NextAt, AttemptedAt + Took) + Took + 10 seconds`. `Took` covers collection
+through publication. A failed container section keeps its evidence age.
+Inventory retains old evidence for six hours. The independent runtime sweep
+and readiness probes keep their own 45-second freshness rule.
+
+Durable jobs check other providers' inventory and capacity, and the
 controller/worker filesystems every five minutes, even with no readers. Startup
 queues that pass and starts the Docker reader loops. After an act finishes,
-AppTown also queues capacity and every standing deployment's detail and protection
-checks on that target. Non-Docker inventory is invalidated and queued at that
+AppTown queues capacity for other providers and the acted deployment's detail
+and protection checks. Non-Docker inventory is invalidated and queued at that
 point; Docker inventory remains with its sole reader loop. Infrastructure pages and
 Attention show recorded evidence and its age; a page never contacts a provider
 or host or requests a check. The Docker Infrastructure row shows how long ago
@@ -335,8 +350,8 @@ use.
 
 Each successful capacity figure retains its own time. Machine totals (memory,
 CPU count and disk size) stay valid for seven days. Live use, free disk, tenant
-use, inventory and protection are fresh for fifteen minutes, then shown as
-“last seen” with their age; after six hours they are unknown. Configured target
+use, other providers' inventory and protection are fresh for fifteen minutes,
+then shown as “last seen” with their age; after six hours they are unknown. Configured target
 kind and region are target records, rather than probe results; changing target
 settings invalidates prior observations. A failed check keeps successful values
 and their times and records the failed attempt and its safe reason separately.

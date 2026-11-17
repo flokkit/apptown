@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/ids"
@@ -36,15 +37,17 @@ type CapacitySnapshot struct {
 
 // CapacityObserver owns one persisted reading per target configuration.
 type CapacityObserver struct {
-	db     *database.DB
-	now    func() time.Time
-	target func(context.Context, ids.ID) (*Target, error)
-	read   func(context.Context, *Target) (TargetCapacity, error)
-	hosts  *Hosts
+	db          *database.DB
+	now         func() time.Time
+	target      func(context.Context, ids.ID) (*Target, error)
+	read        func(context.Context, *Target) (TargetCapacity, error)
+	hosts       *Hosts
+	fixed       func(context.Context, *Target, docker.HostFacts, string) (TargetCapacity, error)
+	readerImage func() string
 }
 
 func NewCapacityObserver(service *Service) *CapacityObserver {
-	return &CapacityObserver{db: service.db, now: service.now, target: service.Targets.ByID, read: service.targetCapacity, hosts: service.hosts}
+	return &CapacityObserver{db: service.db, now: service.now, target: service.Targets.ByID, read: service.targetCapacity, hosts: service.hosts, fixed: service.fixedHostCapacity, readerImage: func() string { return service.env.ToolVersions().Images.DF }}
 }
 
 // Snapshot takes the current authorized target record. A changed configuration
@@ -67,6 +70,7 @@ func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (Capaci
 }
 
 type capacityRecord struct {
+	HostActCounter        int64
 	LastFailedAt          time.Time
 	LastFailure           string
 	Capacity              TargetCapacity
@@ -126,12 +130,20 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 	if ctx.Err() != nil {
 		checkErr = ctx.Err()
 	}
-	prior, err := o.load(finish, target)
+	return o.publish(finish, target, reading, checkErr, 0)
+}
+
+const capacityInterval = 5 * time.Minute
+
+// publish shares the capacity merge and persistence for both collectors.
+func (o *CapacityObserver) publish(ctx context.Context, target *Target, reading TargetCapacity, checkErr error, actCounter int64) error {
+	prior, err := o.load(ctx, target)
 	if err != nil {
 		return err
 	}
 	now := o.now()
 	prior.AttemptedAt = now
+	prior.HostActCounter = actCounter
 	reason := ""
 	if checkErr != nil {
 		reason = "The host capacity check failed."
@@ -170,7 +182,7 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 	if err != nil {
 		return err
 	}
-	err = deploymentsql.New(o.db.SQL()).StoreReading(finish, deploymentsql.StoreReadingParams{ID: ids.New(now), Subject: id.String(), Kind: "capacity", Identity: fmt.Sprint(revision), Payload: raw})
+	err = deploymentsql.New(o.db.SQL()).StoreReading(ctx, deploymentsql.StoreReadingParams{ID: ids.New(now), Subject: target.ID.String(), Kind: "capacity", Identity: fmt.Sprint(target.SettingsRevision), Payload: raw})
 	return errors.Join(checkErr, err)
 }
 

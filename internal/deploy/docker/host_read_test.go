@@ -37,7 +37,7 @@ func TestReadHostCollectsAllContainersInOneInspection(t *testing.T) {
 	for _, c := range d.Commands() {
 		commands = append(commands, c[0])
 	}
-	want := []string{"info", "ps", "inspect", "volume", "network", "image", "ps", "exec", "cp", "exec"}
+	want := []string{"info", "ps", "inspect", "volume", "network", "image", "stats", "ps", "exec", "cp", "exec", "ps", "exec", "cp", "exec"}
 	if !reflect.DeepEqual(commands, want) {
 		t.Fatalf("commands %v, want %v", d.Commands(), want)
 	}

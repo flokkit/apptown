@@ -347,8 +347,12 @@ func TestRunDeploySequence(t *testing.T) {
 	}
 	for _, kind := range []string{deployment.DetailObservationJob, "protection-observation", deployment.CapacityObservationJob} {
 		rows := operationJobs(t, a, kind)
-		if len(rows) != 1 {
-			t.Fatalf("Docker act did not queue post-act %s: %+v", kind, rows)
+		want := 1
+		if kind == deployment.CapacityObservationJob {
+			want = 0
+		}
+		if len(rows) != want {
+			t.Fatalf("Docker act queued wrong post-act %s: %+v", kind, rows)
 		}
 	}
 	if !strings.Contains(runs[3].call, "-p 127.0.0.1:"+strconv.Itoa(env.HostPort)+":8080") {

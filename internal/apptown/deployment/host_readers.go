@@ -19,6 +19,7 @@ type HostReaders struct {
 	Hosts     *Hosts
 	Providers *Providers
 	Inventory *Inventory
+	Capacity  *CapacityObserver
 	Interval  time.Duration
 	// Jobs queues the repair of a standing deployment whose container a lap
 	// found gone (unique while queued; the repair's attempt key keeps a later
@@ -137,7 +138,9 @@ func (r HostReaders) lap(ctx context.Context, id ids.ID, nextAt time.Time) error
 	if t.Origin == OriginBuiltIn && r.Providers.databaseContainer != "" {
 		also = []string{r.Providers.databaseContainer}
 	}
-	fresh, started, err := r.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory, nextAt)
+	snapshots := *r.Snapshots
+	snapshots.capacity = r.Capacity
+	fresh, started, err := snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory, nextAt)
 	if err != nil || fresh == nil || r.Jobs == nil {
 		return err
 	}

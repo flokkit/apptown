@@ -1,28 +1,19 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/hostmem"
 )
 
-// Every Docker host uses the daemon's standing disk reader, including the
-// built-in host. No reading of apptownd's own machine is substituted.
-func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cpus int, root string) (*Figure, *Figure) {
+// hostUse interprets kernel counters against the daemon's totals.
+func hostUse(parts map[string][]byte, err error, memory int64, cpus int) (*Figure, *Figure) {
 	mem, cpu := unknown("the daemon's totals or data folder are not known"), unknown("the daemon's totals or data folder are not known")
-	if root == "" || memory <= 0 || cpus <= 0 {
+	if memory <= 0 || cpus <= 0 {
 		return &mem, &cpu
 	}
-	image := s.env.ToolVersions().Images.DF
-	parts, err := diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
-		b, err := dk.Run(ctx, args...)
-		return string(b), "", err
-	}, image, root, s.now, dk.NoStreams)
 	if err != nil {
 		m := unknownErr(err)
 		c := unknownErr(err)

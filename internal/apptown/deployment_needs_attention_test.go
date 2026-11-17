@@ -312,9 +312,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	if _, err := source.Snapshot(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	for minute := 1; minute <= 16; minute++ {
 		a.cfg.clock.mu.Lock()
 		a.cfg.clock.ahead += time.Minute
@@ -324,9 +322,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 			t.Fatalf("minute %d before job: %+v err=%v", minute, got, err)
 		}
 		if minute%5 == 0 {
-			if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-				t.Fatal(err)
-			}
+			readHostsForTest(t, a)
 		}
 		got, err = source.Snapshot(t.Context())
 		if err != nil || len(got.Items) != 0 || got.Stale {
@@ -350,9 +346,12 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+	done, err := a.hostSnapshots.BeforeAct(t.Context(), target.ID)
+	if err != nil {
 		t.Fatal(err)
 	}
+	done()
+	readHostsForTest(t, a)
 	if freshFailure, err := source.Snapshot(t.Context()); err != nil || len(freshFailure.Items) != 0 {
 		t.Fatalf("one failed check discarded fresh evidence: %+v %v", freshFailure, err)
 	}
@@ -367,9 +366,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 		t.Fatalf("failed check lost machine size or live evidence: %+v %v", capacity, err)
 	}
 	daemon.SetReply(nil)
-	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	recovered, err := a.Deployment.Capacity(t.Context(), target.Name)
 	if err != nil {
 		t.Fatal(err)
@@ -404,9 +401,7 @@ func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
 	a := testApp(t, Config{DockerClient: daemon})
 	target := attachTarget(t, a, "remote", "host.example.test")
 	observer := deployment.NewCapacityObserver(a.Deployment)
-	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-		t.Fatal(err)
-	}
+	readHostsForTest(t, a)
 	good, err := a.Deployment.Capacity(t.Context(), target.Name)
 	if err != nil || good.ReadAt.IsZero() || good.Disk == nil {
 		t.Fatalf("fixture has no successful capacity reading: %+v %v", good, err)
@@ -419,9 +414,7 @@ func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
 		a.cfg.clock.mu.Lock()
 		a.cfg.clock.ahead += step
 		a.cfg.clock.mu.Unlock()
-		if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-			t.Fatal(err)
-		}
+		readHostsForTest(t, a)
 		page, err := a.Deployment.Capacity(t.Context(), target.Name)
 		// The page keeps the good check's time (its figures may be stamped a
 		// moment after the check began), never an offline attempt's.
@@ -429,10 +422,21 @@ func TestOfflineHostKeepsLastGoodTimeInCapacityAndAttention(t *testing.T) {
 			t.Errorf("offline page lost successful time: page=%v good=%v err=%q stale=%v %v", page.ReadAt, good.ReadAt, page.Error, page.Stale, err)
 		}
 		got, err := source.Snapshot(t.Context())
-		if err != nil || len(got.Items) != 1 {
+		if err != nil || len(got.Items) == 0 {
 			t.Fatalf("offline Attention: %+v %v", got, err)
 		}
 		item := got.Items[0]
+		found := false
+		for _, candidate := range got.Items {
+			if strings.HasPrefix(candidate.Key, target.ID.String()+"/") {
+				item = candidate
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("remote capacity failure omitted: %+v", got.Items)
+		}
 		// The cause is the host not answering, not its disk.
 		if !item.ObservedAt.Equal(good.Disk.ReadAt) || !strings.Contains(item.Detail, page.Error) || strings.Contains(item.Detail, "disk check failed") || !item.Stale {
 			t.Errorf("Attention lost failure or successful time: %+v", item)

@@ -307,26 +307,81 @@ func TestHostSnapshotsMissingClaimsUseCollectedRecords(t *testing.T) {
 	check("new preview", 1, false, false, false)
 }
 
-// The inventory pass does not run the disk reader before use has a consumer.
-func TestHostReaderCollectsOnlyInventorySections(t *testing.T) {
+// Capacity samples belong to the lap, on the five-minute cadence and after
+// acts. Inventory-only laps cannot renew retained use or capacity timestamps.
+func TestHostReaderSamplesCapacityOnlyWhenDue(t *testing.T) {
 	t.Parallel()
 	svc, db, daemon, _, target := healthWorld(t)
-	s := NewHostSnapshots(db, nil)
-	worker := HostReaders{Snapshots: s, Targets: svc.Targets, Hosts: svc.hosts, Providers: svc.providers, Inventory: svc.Inventory}
-	if err := worker.lap(t.Context(), target.ID, worker.Snapshots.now().Add(hostReadInterval)); err != nil {
-		t.Fatal(err)
+	now := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	svc.setClock(func() time.Time { return now })
+	snapshots := NewHostSnapshots(db, svc.now)
+	observer := NewCapacityObserver(svc)
+	worker := HostReaders{Snapshots: snapshots, Targets: svc.Targets, Hosts: svc.hosts, Providers: svc.providers, Inventory: svc.Inventory, Capacity: observer}
+	lap := func() {
+		t.Helper()
+		if err := worker.lap(t.Context(), target.ID, now.Add(hostReadInterval)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	r, err := s.reading(t.Context(), target)
+	for _, args := range [][]string{
+		{"run", "--name", "running", "--memory", "1048576", "--cpus", "0.5", "app:test"},
+		{"run", "--name", "stopped", "--memory", "1073741824", "--cpus", "8", "app:test"},
+		{"stop", "stopped"},
+	} {
+		if _, e := daemon.Run(t.Context(), "", docker.Command{Args: args}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	lap()
+	first, err := snapshots.reading(t.Context(), target)
+	if err != nil || first.Use.Value == nil {
+		t.Fatalf("first lap did not sample use: %+v %v", first, err)
+	}
+	capacity, err := observer.load(t.Context(), target)
+	if err != nil || capacity.AttemptedAt.IsZero() || capacity.Capacity.Memory == nil {
+		t.Fatalf("lap did not publish capacity: %+v %v", capacity, err)
+	}
+	if capacity.Capacity.Memory.Promised.Sum.Other.Value != 1048576 || capacity.Capacity.CPU.Promised.Sum.Other.Value != 0.5 {
+		t.Fatalf("stopped containers counted as promises: %+v %+v", capacity.Capacity.Memory.Promised, capacity.Capacity.CPU.Promised)
+	}
+	for _, age := range []time.Duration{20 * time.Second, capacityInterval - time.Nanosecond} {
+		now = first.AttemptedAt.Add(age)
+		before := len(daemon.Commands())
+		lap()
+		r, e := snapshots.reading(t.Context(), target)
+		c, ce := observer.load(t.Context(), target)
+		if e != nil || ce != nil || !r.Use.ObservedAt.Equal(first.Use.ObservedAt) || !c.AttemptedAt.Equal(capacity.AttemptedAt) || !reflect.DeepEqual(c.Capacity, capacity.Capacity) {
+			t.Fatalf("intervening lap renewed use: %+v %+v %v %v", r.Use, c, e, ce)
+		}
+		for _, cmd := range daemon.Commands()[before:] {
+			if cmd[0] == "stats" || cmd[0] == "exec" {
+				t.Fatalf("intervening lap sampled use: %v", cmd)
+			}
+		}
+	}
+	now = first.AttemptedAt.Add(capacityInterval)
+	lap()
+	c, err := observer.load(t.Context(), target)
+	if err != nil || !c.AttemptedAt.Equal(now) {
+		t.Fatalf("five-minute sample omitted: %+v %v", c, err)
+	}
+	now = now.Add(hostReadInterval)
+	done, err := snapshots.BeforeAct(t.Context(), target.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Host.Value == nil || r.Containers.Value == nil || r.Resources.Value == nil || r.Images.Value == nil || r.Use.Value != nil || !r.Use.ObservedAt.IsZero() || r.Use.Reason != "" {
-		t.Fatalf("inventory pass read wrong sections: %+v", r)
+	lap()
+	c, err = observer.load(t.Context(), target)
+	if err != nil || !c.AttemptedAt.Equal(now) {
+		t.Fatalf("act did not sample: %+v %v", c, err)
 	}
-	for _, c := range daemon.Commands() {
-		if c[0] == "exec" || c[0] == "cp" || c[0] == "run" {
-			t.Fatalf("inventory ran the disk reader: %v", daemon.Commands())
-		}
+	// An act ending after a sample must be seen by the following lap too.
+	done()
+	now = now.Add(hostReadInterval)
+	lap()
+	c, err = observer.load(t.Context(), target)
+	if err != nil || !c.AttemptedAt.Equal(now) {
+		t.Fatalf("act completion lost: %+v %v", c, err)
 	}
 }
 
@@ -516,5 +571,46 @@ func TestHostSnapshotsLapDuringActLeavesReadingInvalidated(t *testing.T) {
 	reading, err := s.reading(t.Context(), target)
 	if err != nil || !reading.Invalidated {
 		t.Fatalf("a lap begun during the act left the reading current after it: %+v %v", reading, err)
+	}
+}
+
+func TestHostReadingDurationIncludesPersistenceBeforePublication(t *testing.T) {
+	t.Parallel()
+	_, db, daemon, _, target := healthWorld(t)
+	began := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	now := began
+	snapshots := NewHostSnapshots(db, func() time.Time { return now })
+	daemon.SetReply(func(args []string) ([]byte, error, bool) {
+		if args[0] == "info" {
+			now = now.Add(28 * time.Second)
+		}
+		return nil, nil, false
+	})
+	writes := 0
+	stop := db.ObserveStatements("-- name: FinishHostSnapshot", func([]any) {
+		writes++
+		if writes == 1 {
+			now = now.Add(9 * time.Second)
+		}
+	})
+	defer stop()
+	if _, _, err := snapshots.collect(t.Context(), target, docker.Scope{Client: daemon, Now: snapshots.now}, docker.HostQuery{Host: true, Containers: true}, nil, nil, began.Add(hostReadInterval)); err != nil {
+		t.Fatal(err)
+	}
+	r, err := snapshots.reading(t.Context(), target)
+	if err != nil || r.Took != 37*time.Second {
+		t.Fatalf("publication omitted persistence time: %+v %v", r, err)
+	}
+	// The first write is uncommitted. If final publication fails, readers keep
+	// the previous complete reading rather than seeing an intermediate duration.
+	now = now.Add(time.Minute)
+	restore := db.FailStatementAfter("-- name: FinishHostSnapshot", 1)
+	defer restore()
+	if _, _, err := snapshots.collect(t.Context(), target, docker.Scope{Client: daemon, Now: snapshots.now}, docker.HostQuery{Host: true, Containers: true}, nil, nil, now.Add(hostReadInterval)); err == nil {
+		t.Fatal("publication failure was hidden")
+	}
+	kept, err := snapshots.reading(t.Context(), target)
+	if err != nil || kept.AttemptedAt != r.AttemptedAt || kept.Took != r.Took {
+		t.Fatalf("failed publication exposed staged duration: %+v %v", kept, err)
 	}
 }

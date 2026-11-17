@@ -3,7 +3,7 @@ package docker
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -36,12 +36,8 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 				t.Errorf("network listing must be scoped: %s", line)
 			}
 			return []byte("apptown-net-dep-k1\tdep-k1\t\tinst-a\napptown-net-dep-k2\tdep-k2\t\tinst-b\n"), nil
-		case strings.HasPrefix(line, "image inspect"):
-			return inspectAnswer(req,
-				[]string{`["reg/shop:latest","reg/shop:alias"]` + "\t" + `["reg/shop@sha256:aaa"]` + "\t" + `"sha256:1"`,
-					`["reg/shop:old"]` + "\t" + `["reg/shop@sha256:bbb"]` + "\t" + `"sha256:2"`,
-					`["` + Current.BuildTag("shop") + `:latest"]` + "\t[]\t" + `"sha256:3"`},
-				"Error response from daemon: No such image: reg/gone@sha256:ccc")
+		case strings.HasPrefix(line, "image ls"):
+			return []byte(imageRow("reg/shop", "latest", "sha256:aaa", "sha256:1") + "\n" + imageRow("reg/shop", "old", "sha256:bbb", "sha256:2") + "\n" + imageRow(Current.BuildTag("shop"), "latest", "<none>", "sha256:3")), nil
 		}
 		return nil, nil
 	}}
@@ -111,7 +107,7 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 
 func TestInventoryNeverPublishesAPartialSuccessfulListing(t *testing.T) {
 	t.Parallel()
-	for _, command := range []string{"info", "ps -a", "volume ls", "network ls", "image inspect"} {
+	for _, command := range []string{"info", "ps -a", "volume ls", "network ls", "image ls"} {
 		t.Run(command, func(t *testing.T) {
 			out, err := inventoryFixture(t, command)
 			if err == nil || out != nil {
@@ -200,98 +196,45 @@ func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
 	}
 }
 
-// inspectAnswer answers a `docker image inspect` as Docker does: a line on
-// stdout for each image it has, an error line on stderr for each it lacks,
-// and a failed exit when there was any.
-func inspectAnswer(req Command, found []string, errs ...string) ([]byte, error) {
-	if req.Stdout == nil || req.Stderr == nil {
-		return nil, errors.New("inspect read without separate streams")
-	}
-	for _, l := range found {
-		_, _ = io.WriteString(req.Stdout, l+"\n")
-	}
-	for _, l := range errs {
-		_, _ = io.WriteString(req.Stderr, l+"\n")
-	}
-	if len(errs) > 0 {
-		return nil, errors.New("exit status 1")
-	}
-	return nil, nil
+func imageRow(repo, tag, digest, id string) string {
+	return fmt.Sprintf(`{"Repository":%q,"Tag":%q,"Digest":%q,"ID":%q}`, repo, tag, digest, id)
 }
 
-func inspectInventory(t *testing.T, recorded []string, found []string, errs ...string) ([]deploy.Resource, error) {
-	t.Helper()
+// Tags, digest-only rows and dangling IDs all confirm recorded names locally.
+// The number of recorded refs never increases the number of daemon commands.
+func TestInventoryMatchesRecordedImagesWithOneListing(t *testing.T) {
+	t.Parallel()
+	refs := []string{"docker.io/library/caddy:2", "busybox@sha256:digest", "sha256:dangling", "local-build"}
+	for i := 0; i < 200; i++ {
+		refs = append(refs, fmt.Sprintf("gone-%d", i))
+	}
 	client := &fakeClient{reply: func(req Command) ([]byte, error) {
-		switch line := strings.Join(req.Args, " "); {
-		case strings.HasPrefix(line, "info "):
-			return []byte("daemon-a"), nil
-		case strings.HasPrefix(line, "image inspect"):
-			return inspectAnswer(req, found, errs...)
-		case strings.HasPrefix(line, "image ls"):
-			// Docker's containerd store lists no image without a tag.
-			return []byte("busybox\tlatest\tsha256:other\n"), nil
+		if !slices.Equal(req.Args, []string{"image", "ls", "--all", "--digests", "--no-trunc", "--format", "{{json .}}"}) {
+			t.Fatalf("unexpected command %v", req.Args)
 		}
-		return nil, nil
+		return []byte(strings.Join([]string{imageRow("caddy", "2", "<none>", "sha256:tag"), imageRow("busybox", "<none>", "sha256:digest", "sha256:busy"), imageRow("<none>", "<none>", "<none>", "sha256:dangling"), imageRow("local-build", "latest", "<none>", "sha256:local")}, "\n")), nil
 	}}
-	return Inventory{
-		Scope:  func(context.Context) (Scope, error) { return Scope{Client: client}, nil },
-		Images: func(context.Context) ([]string, error) { return recorded, nil },
-	}.Inventory(t.Context())
-}
-
-// A recorded image pulled by digest alone is there though no listing shows
-// it: the inventory asks Docker for the recorded reference.
-//
-// Kills: reading images from `docker image ls`.
-func TestInventoryConfirmsARecordedDigestOnlyImage(t *testing.T) {
-	t.Parallel()
-	ref := "busybox@sha256:bdf5"
-	out, err := inspectInventory(t, []string{ref}, []string{`[]` + "\t" + `["` + ref + `"]` + "\t" + `"sha256:ad4f"`})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 || out[0].Kind != "image" || out[0].ID != ref || out[0].Status != "present" {
-		t.Fatalf("the digest-only image read as %+v", out)
+	got, err := recordedImages(t.Context(), Scope{Client: client}, refs)
+	want := slices.Clone(refs[:4])
+	slices.Sort(want)
+	if err != nil || !slices.Equal(got, want) || len(client.args) != 1 {
+		t.Fatalf("images=%v commands=%v err=%v", got, client.args, err)
 	}
 }
 
-// Docker answers in its familiar spelling (no docker.io/library/, a bare
-// name as :latest), present or missing; a recorded ref is compared in it.
-func TestInventoryReadsDockersFamiliarSpelling(t *testing.T) {
-	t.Parallel()
-	out, err := inspectInventory(t, []string{"docker.io/library/caddy:2-alpine", "apptown-build-gone"},
-		[]string{`["caddy:2-alpine"]` + "\t" + `["caddy@sha256:24ec"]` + "\t" + `"sha256:c7d6"`},
-		"Error response from daemon: No such image: apptown-build-gone:latest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(out) != 1 || out[0].ID != "docker.io/library/caddy:2-alpine" {
-		t.Fatalf("got %+v", out)
-	}
-}
-
-// Unknown is never missing: what Docker did not plainly answer fails the
-// read, and the cache keeps the last good list under the error.
 func TestInventoryNeverReadsAnUnansweredImageAsMissing(t *testing.T) {
 	t.Parallel()
-	ref := "reg/app@sha256:aaa"
-	for name, c := range map[string]struct {
-		found []string
-		errs  []string
+	for _, answer := range []struct {
+		out string
+		err error
 	}{
-		"a failure that is not no such image": {errs: []string{"permission denied while trying to connect to the Docker daemon socket"}},
-		"an answer that cannot be read":       {found: []string{"not json"}},
-		"a failed exit with nothing said":     {errs: []string{""}},
-		// A tag never confirms a digest: the image answered only by its tag.
-		"neither answered by its name nor said missing": {found: []string{`["reg/app:latest"]` + "\t" + `["reg/app@sha256:bbb"]` + "\t" + `"sha256:1"`}},
+		{err: errors.New("permission denied")}, {out: "not json"}, {out: `{"ID":"sha256:1"}`},
 	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			out, err := inspectInventory(t, []string{ref}, c.found, c.errs...)
-			if err == nil || out != nil {
-				t.Fatalf("read as %+v, %v", out, err)
-			}
-		})
+		client := &fakeClient{reply: func(Command) ([]byte, error) { return []byte(answer.out), answer.err }}
+		got, err := recordedImages(t.Context(), Scope{Client: client}, []string{"app:latest"})
+		if err == nil || got != nil {
+			t.Fatalf("unread listing became %v, %v", got, err)
+		}
 	}
 }
 

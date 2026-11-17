@@ -9,7 +9,7 @@ func TestRunningUsageSkipsOnlyExplicitNoStats(t *testing.T) {
 	scope := Scope{Client: &fakeClient{reply: func(Command) ([]byte, error) {
 		return []byte("running\t12MiB / 1GiB\t2.00%\nstopped\t-- / --\t--\n--\t-- / --\t--\nempty\t0B / 1GiB\t0.00%\n"), nil
 	}}}
-	got, err := RunningUsage(t.Context(), scope)
+	got, err := ContainerUsage(t.Context(), scope, []string{"running", "stopped", "empty"})
 	if err != nil || len(got) != 2 || got["running"].MemoryBytes != 12<<20 {
 		t.Fatalf("no-stats row failed other containers: %v %v", got, err)
 	}
