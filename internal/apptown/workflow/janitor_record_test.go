@@ -266,3 +266,75 @@ func TestJanitorBootRecordsProjectWithoutAdoption(t *testing.T) {
 		t.Fatalf("queue %+v: %v", queue, err)
 	}
 }
+
+// The stored queues are written only by recordJanitorIn, from each change and
+// run write path. After a mix of those operations every stored queue must equal
+// a fresh derivation from the rows, so a write path that skips the writer fails
+// here instead of leaving the record stale. Scans have their own writers (scan
+// attempts and boot) and are not compared.
+//
+// Kills: dropping the writer call from change creation (step 1) or from the
+// change transition (the ship).
+func TestJanitorStoredQueuesEqualAFreshDerivationAcrossChangeAndRunEvents(t *testing.T) {
+	s, ch, _, _, _ := automatedFixture(t)
+	matches := func(step string) {
+		t.Helper()
+		for _, queue := range []string{"security", "updates"} {
+			stored, err := s.StoredQueue(t.Context(), ch.ProjectID, queue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			derived, err := queueStateIn(t.Context(), s.db, ch.ProjectID, queue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stored.StateSince = time.Time{}
+			if !reflect.DeepEqual(stored, derived) {
+				t.Fatalf("after %s, %s queue stored %+v; derived %+v", step, queue, stored, derived)
+			}
+		}
+	}
+	system := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule"}})
+	updates, err := database.Transact(system, s.db, func(tx *database.Tx) (CreatedChange, error) {
+		return CreateChangeIn(system, tx, ChangeDraft{ProjectID: ch.ProjectID, Title: "Update project", Queue: "updates"}, "apptown-system", time.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches("creation")
+
+	run := admitAutomatedRun(t, s, ch)
+	matches("run admission")
+	steps, err := s.RunSteps(t.Context(), run.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempts := newStepAttempts(s.db, func(string) bool { return true })
+	claim, err := attempts.start(t.Context(), steps[0], "scan", ch.ProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	matches("step start")
+	if err := attempts.finish(t.Context(), claim, StepOutcome{Status: StatusPass}); err != nil {
+		t.Fatal(err)
+	}
+	matches("step finish")
+	if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
+		return TransitionRunIn(t.Context(), tx, run, RunDone, "", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	matches("run done")
+
+	if _, err := s.Abandon(t.Context(), StopWork{ChangeID: updates.Change.ID, Reason: "nothing to update"}); err != nil {
+		t.Fatal(err)
+	}
+	matches("abandonment")
+	if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
+		_, err := TransitionChangeIn(t.Context(), tx, ch.ProjectID, ch.ID, ChangeMove{Action: ShipChange}, time.Now())
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	matches("ship")
+}

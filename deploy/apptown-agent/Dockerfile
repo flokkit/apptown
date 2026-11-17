@@ -36,7 +36,7 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
       git curl ca-certificates ripgrep fd-find jq file \
       python3 python3-venv build-essential pkg-config \
       libpq-dev libyaml-dev libffi-dev libssl-dev zlib1g-dev \
-      tmux \
+      tmux procps \
       chromium-headless-shell fonts-liberation \
       socat libnss3-tools \
     && rm -rf /var/lib/apt/lists/* \

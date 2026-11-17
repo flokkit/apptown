@@ -76,7 +76,8 @@ func TestTheAgentImageShipsNoGoToolchain(t *testing.T) {
 
 // Agents verify their work with the ordinary shell tools, so the final stage
 // installs them: a missing one sends an agent looking for a workaround and
-// filing a complaint (#93, `file` for a file-signature check).
+// filing a complaint (#93, `file` for a file-signature check; #129, `pkill`
+// from procps to stop a browser it started).
 //
 // Kills: dropping any of these from the final stage's apt-get install.
 func TestTheAgentImageCarriesTheShellToolsAgentsUse(t *testing.T) {
@@ -103,7 +104,7 @@ func TestTheAgentImageCarriesTheShellToolsAgentsUse(t *testing.T) {
 			installed[pkg] = true
 		}
 	}
-	for _, tool := range []string{"git", "curl", "ripgrep", "fd-find", "jq", "file"} {
+	for _, tool := range []string{"git", "curl", "ripgrep", "fd-find", "jq", "file", "procps"} {
 		if !installed[tool] {
 			t.Errorf("the agent image's final stage does not install %s", tool)
 		}

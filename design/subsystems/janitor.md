@@ -108,6 +108,9 @@ operands and contract image/build inputs. With base images on, external-image FR
 change version or digest while keeping the repository and tag variant unchanged.
 Routine moves use the longest numeric toolchain declaration whose shared
 version components agree with the current tag, including shortened tags.
+A mise vendor version (`temurin-21.0.5+11.0.LTS`, `corretto-21.0.5.11.1`)
+declares only its major: the rest is the vendor's build numbering, which image
+tags spell differently.
 Without one, the dependency level supplies the scope. Candidates stay on that
 line without downgrading; an uncached registry HEAD proves their tag and digest
 through the same mirror and transport as newest lookups. The newest reading is

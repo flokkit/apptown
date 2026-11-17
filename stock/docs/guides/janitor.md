@@ -23,7 +23,8 @@ changes a moved package needs. When it cannot decide, the Change waits for a
 person. With Base images on, the agent updates Dockerfile base images on the declared toolchain line. An image tag
 and a numeric declaration agree when their shared version components match:
 `node:24-slim` beside `node = "24.22.2"` stays on 24.22.2; Python 3.12 stays
-on 3.12. The longest agreeing declaration wins. Images with no agreeing numeric
+on 3.12. A vendor version such as `java = "temurin-21.0.5+11.0.LTS"` declares
+its major, so `eclipse-temurin:21-jre` stays on 21. The longest agreeing declaration wins. Images with no agreeing numeric
 declaration keep the selected level’s scope. AppTown
 checks that each external image keeps its name and tag variant. Stage references,
 `scratch` and variable operands stay unchanged. Toolchains stay unchanged except

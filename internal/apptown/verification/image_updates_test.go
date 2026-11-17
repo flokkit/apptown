@@ -97,6 +97,13 @@ func TestDeclaredToolchainsBoundImageMovesThroughUpdateInputs(t *testing.T) {
 		{"coincident version", "mise.toml", "[tools]\npython = \"3.12\"", "rabbitmq:3.12", "rabbitmq:3.12.9", "rabbitmq:3.12.10", "rabbitmq:3.12", imageline.Line, true},
 		{"unrelated", "mise.toml", "[tools]\npython = \"3.12\"", "node:24-alpine", "node:26.13.1-alpine", "node:26.13.1-alpine", "node:24-alpine", imageline.Major, true},
 		{"longest", "mise.toml", "[tools]\nnode = \"24\"\nother = \"24.22.2\"", "node:24-slim", "node:24.22.2-slim", "node:24.22.2-slim", "node:24.22.2-slim", imageline.Line, true},
+		// mise vendor versions declare their major (#124: the stock Java toolchain).
+		{"temurin vendor refresh", "mise.toml", "[tools]\njava = \"temurin-21.0.5+11.0.LTS\"", "eclipse-temurin:21-jre-noble", "eclipse-temurin:21-jre-noble", "eclipse-temurin:21-jre-noble", "eclipse-temurin:21-jre-noble", imageline.Line, true},
+		{"temurin vendor off line", "mise.toml", "[tools]\njava = \"temurin-21.0.5+11.0.LTS\"", "eclipse-temurin:21-jre-noble", "eclipse-temurin:26-jre-noble", "eclipse-temurin:26-jre-noble", "eclipse-temurin:21-jre-noble", imageline.Line, false},
+		{"corretto vendor off line", "mise.toml", "[tools]\njava = \"corretto-21.0.5.11.1\"", "amazoncorretto:21-alpine", "amazoncorretto:26-alpine", "amazoncorretto:26-alpine", "amazoncorretto:21-alpine", imageline.Line, false},
+		{"zulu vendor off line", "mise.toml", "[tools]\njava = \"zulu-21.38.21\"", "azul/zulu-openjdk:21-jre", "azul/zulu-openjdk:26-jre", "azul/zulu-openjdk:26-jre", "azul/zulu-openjdk:21-jre", imageline.Line, false},
+		{"openjdk vendor off line", ".tool-versions", "java openjdk-21.0.2\n", "openjdk:21-jdk", "openjdk:26-jdk", "openjdk:26-jdk", "openjdk:21-jdk", imageline.Line, false},
+		{"multi-word vendor off line", "mise.toml", "[tools]\njava = \"oracle-graalvm-21.0.5\"", "container-registry.oracle.com/graalvm/jdk:21", "container-registry.oracle.com/graalvm/jdk:26", "container-registry.oracle.com/graalvm/jdk:26", "container-registry.oracle.com/graalvm/jdk:21", imageline.Line, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tree := t.TempDir()
