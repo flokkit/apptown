@@ -273,11 +273,8 @@ func main() {
 		log.Fatalf("open db: %v", err)
 	}
 
-	if restored != nil {
-
-		if err := workflow.DisableRestoredStandingRules(ctx, db, clock.Or(nil)()); err != nil {
-			log.Fatalf("disable restored standing approvals: %v", err)
-		}
+	if err := workflow.StartJanitorChoices(ctx, db, clock.Or(nil)(), restored != nil); err != nil {
+		log.Fatalf("Janitor choices: %v", err)
 	}
 
 	if o.holdsDatabase() {

@@ -7,12 +7,11 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// PackRuleIn selects current human authority for starting an assessment. Project
+// PackRuleIn selects current issuer authority for starting an assessment. Project
 // eligibility and approval meanings are checked again before opening any Change.
 func (s StandingRules) PackRuleIn(ctx context.Context, q database.Queryer) (StandingRevision, error) {
 	rule, err := latestStanding(ctx, q)
@@ -22,7 +21,7 @@ func (s StandingRules) PackRuleIn(ctx context.Context, q database.Queryer) (Stan
 	if rule == nil || !rule.Enabled || !rule.Choices.Packs {
 		return StandingRevision{}, nil
 	}
-	if _, err := s.deps.Identity.StandingIssuerAllowsIn(ctx, q, rule.Issuer.Principal); err != nil {
+	if _, err := s.standingIssuerIn(ctx, q, *rule); err != nil {
 		if standingRefusal(err) {
 			return StandingRevision{}, nil
 		}
@@ -34,8 +33,9 @@ func (s StandingRules) PackRuleIn(ctx context.Context, q database.Queryer) (Stan
 // PackReviewAuthority rechecks the enabled revision before an assessment starts.
 // The transaction is the publication's or Enable's transaction.
 type packReviewAuthority struct {
-	tx   *database.Tx
-	rule StandingRevision
+	rules StandingRules
+	tx    *database.Tx
+	rule  StandingRevision
 }
 
 func (a packReviewAuthority) RequirePackReview(ctx context.Context) error {
@@ -46,7 +46,8 @@ func (a packReviewAuthority) RequirePackReview(ctx context.Context) error {
 	if !current.Enabled || current.Revision != a.rule.Revision || !current.Choices.Packs {
 		return errStandingRevision
 	}
-	return identity.RequireEnabledIn(ctx, a.tx, access.Principal{Kind: "user", ID: current.Issuer.Principal})
+	_, err = a.rules.standingIssuerIn(ctx, a.tx, current)
+	return err
 }
 
 // OpenPackUplift is the trusted what-if follow-up. Its rule and project are
@@ -129,5 +130,5 @@ func (e *Execution) CheckAdoptionTarget() (adoption.RoutineTarget, error) {
 
 // PackReviewAuthorityIn binds assessment admission to the consent transaction.
 func (s StandingRules) PackReviewAuthorityIn(tx *database.Tx, rule StandingRevision) packReviewAuthority {
-	return packReviewAuthority{tx: tx, rule: rule}
+	return packReviewAuthority{rules: s, tx: tx, rule: rule}
 }

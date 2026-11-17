@@ -64,39 +64,59 @@ func writeStandingRevision(ctx context.Context, tx *database.Tx, r StandingRevis
 	return nil
 }
 
-// DisableRestoredStandingRules runs after schema migration and before App
-// construction/recovery, under the daemon's exclusive database hold. Historical
-// consent is retained; only enabled heads acquire a disabled restore revision.
-// Repeating a loaded restore continuation therefore does not duplicate history.
-func DisableRestoredStandingRules(ctx context.Context, db *database.DB, at time.Time) error {
+// StartJanitorChoices runs at daemon start, after schema migration and before
+// App construction/recovery, under the daemon's exclusive database hold. An
+// instance with no choices record gets AppTown's enabled first revision; any
+// existing record is left intact. After a restore, an enabled head then gets a
+// disabled restore revision, so a restored copy does not act on its own, with
+// historical consent retained. Both run in one transaction serialized with
+// Save; repeating a start (or a loaded restore continuation) adds nothing.
+func StartJanitorChoices(ctx context.Context, db *database.DB, at time.Time, restored bool) error {
 	_, err := database.Transact(ctx, db, func(tx *database.Tx) (struct{}, error) {
-		q := workflowsql.New(tx.SQL())
-		r, err := latestStanding(ctx, tx)
-		if err != nil {
+		if err := defaultJanitorChoicesIn(ctx, tx, at); err != nil {
 			return struct{}{}, err
 		}
-		if r == nil || !r.Enabled {
+		if !restored {
 			return struct{}{}, nil
 		}
-		head, err := q.LockStandingRule(ctx, r.RuleID)
-		if err != nil {
-			return struct{}{}, err
-		}
-		if head != r.Revision {
-			return struct{}{}, errStandingRevision
-		}
-		r.Revision++
-		r.Enabled = false
-		r.Choices = JanitorChoices{Dependencies: "off"}
-		r.Issuer = access.Actor{Name: "restore", Principal: r.Issuer.Principal, Via: access.SystemInstrument}
-		r.At = at
-		if err = writeStandingRevision(ctx, tx, *r, false); err != nil {
-			return struct{}{}, err
-		}
-
-		return struct{}{}, nil
+		return struct{}{}, disableRestoredIn(ctx, tx, at)
 	})
 	return err
+}
+
+func defaultJanitorChoicesIn(ctx context.Context, tx *database.Tx, at time.Time) error {
+	if err := workflowsql.New(tx.SQL()).LockJanitorChoices(ctx); err != nil {
+		return err
+	}
+	old, err := latestStanding(ctx, tx)
+	if err != nil || old != nil {
+		return err
+	}
+	r := StandingRevision{RuleID: ids.New(at), Revision: 1, Enabled: true, Choices: defaultJanitorChoices, Issuer: appTownIssuer, At: at}
+	return writeStandingRevision(ctx, tx, r, true)
+}
+
+func disableRestoredIn(ctx context.Context, tx *database.Tx, at time.Time) error {
+	r, err := latestStanding(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if r == nil || !r.Enabled {
+		return nil
+	}
+	head, err := workflowsql.New(tx.SQL()).LockStandingRule(ctx, r.RuleID)
+	if err != nil {
+		return err
+	}
+	if head != r.Revision {
+		return errStandingRevision
+	}
+	r.Revision++
+	r.Enabled = false
+	r.Choices = JanitorChoices{Dependencies: "off"}
+	r.Issuer = access.Actor{Name: "restore", Principal: r.Issuer.Principal, Via: access.SystemInstrument}
+	r.At = at
+	return writeStandingRevision(ctx, tx, *r, false)
 }
 
 func latestStanding(ctx context.Context, q database.Queryer) (*StandingRevision, error) {

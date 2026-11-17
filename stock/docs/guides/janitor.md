@@ -1,11 +1,14 @@
 # Janitor
 
 Maintenance’s Needs you tab says how many projects need you or how many it keeps up to
-date. When no choices are set, or every choice is off, it says “Janitor is off”.
+date. When every choice is off, it says “Janitor is off”.
 Open Settings › General for a project’s Janitor choice and Run now.
 Open its record under Maintenance › Standards for scans and findings. Open a Change for its
-files and evidence. Settings contains What to keep updated. Nothing runs until
-a person saves choices.
+files and evidence. Settings contains What to keep updated. The Janitor starts on:
+patch and minor dependency updates, security fixes, base images, toolchain patches
+for security fixes and packs. The choices show “Set by AppTown” until you change
+them. Turn choices off in Maintenance settings, or turn the Janitor off for one
+project in Settings › General.
 
 ## What it may change
 

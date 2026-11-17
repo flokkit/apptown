@@ -390,125 +390,160 @@ func TestStandingProcessingAcceptsCheckedCodeAndRefusesCurrentHold(t *testing.T)
 }
 
 func TestStandingCarryRequiresEveryLandingCheckAndCurrentProjectConsent(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		verdict     CheckVerdict
-		hold, off   bool
-		want        bool
-		singleStage bool
-	}{
-		{"all checks met", VerdictPass, false, false, true, false},
-		{"already failing on main", VerdictFail, false, false, false, false},
-		{"waived landing check", VerdictExcepted, false, false, false, false},
-		{"single stage/all checks met", VerdictPass, false, false, true, true},
-		{"single stage/already failing on main", VerdictFail, false, false, false, true},
-		{"single stage/waived landing check", VerdictExcepted, false, false, false, true},
-		{"held after acceptance", VerdictPass, true, false, false, false},
-		{"turned off after acceptance", VerdictPass, false, true, false, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			a, rules, _, _, _ := standingFixture(t)
-			ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
-			portfolio := &standingPortfolioFixture{}
-			rules.deps.Portfolio = portfolio
-			in := JanitorChoices{Dependencies: "routine"}
-			rule := enableStanding(t, rules, ctx, in)
-			authority := &standingVote{Level: "routine", RuleID: rule.RuleID, Revision: rule.Revision, Issuer: rule.Issuer, Means: "accept bounded routine updates after all checks pass", AssessmentDigest: "checked-source"}
-			work, err := readRun(ctx, a.DB, a.RunID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			accept, err := readStep(ctx, a.DB, a.StepID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = database.Transact(ctx, a.DB, func(tx *database.Tx) (reworkedResult, error) {
-				return (reworkStore{db: a.DB}).approveIn(ctx, tx, work, accept, ApprovalVote{Approver: "the janitor", Principal: rule.Issuer.Principal, Via: "standing", Decision: VoteApprove, Standing: authority, AlsoApproves: []string{"land this qualified candidate"}})
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-			completion := completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) error { return nil })
-			if err := (advanceStore{db: a.DB, stages: a.Work.stages, completion: completion}).complete(ctx, work); err != nil {
-				t.Fatal(err)
-			}
-			spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
-				{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}},
-				{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I approve the landing", "standing": map[string]any{"class": "routine-update", "means": "land this qualified candidate"}}}}},
-				{Name: "ship", Steps: []schema.Step{{Name: "record", Uses: "script"}}},
-			}}
-			if tc.singleStage {
-				// A single-stage landing merges at completion, after both checks and approval.
-				spec.Stages[1].Steps = append(spec.Stages[0].Steps, spec.Stages[1].Steps...)
-				spec.Stages = spec.Stages[1:2]
-			}
-			admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
-			landing, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: a.ChangeID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: work.ID, requestedBy: "apptown-system"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := admissions.records.prepared(ctx, landing.ID); err != nil {
-				t.Fatal(err)
-			}
-			steps, err := readSteps(ctx, a.DB, landing.ID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			attempt, err := (newStepAttempts(a.DB, func(string) bool { return true })).start(ctx, steps[0], "tests", ids.Nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			outcome, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "landing-check", Verdict: tc.verdict, Preexisting: true}}}).Outcome(StatusPass, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := (newStepAttempts(a.DB, func(string) bool { return true })).finish(ctx, attempt, outcome); err != nil {
-				t.Fatal(err)
-			}
-			current, err := readRun(ctx, a.DB, landing.ID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !tc.singleStage {
-				if _, err := (advanceStore{db: a.DB, stages: NewStages(nil, func(string) bool { return false })}).transition(ctx, current, "approval", "apptown-system"); err != nil {
-					t.Fatal(err)
+	for _, seeded := range []bool{false, true} {
+		prefix := "person/"
+		if seeded {
+			prefix = "AppTown/"
+		}
+		for _, tc := range []struct {
+			name        string
+			verdict     CheckVerdict
+			hold, off   bool
+			want        bool
+			singleStage bool
+		}{
+			{"all checks met", VerdictPass, false, false, true, false},
+			{"already failing on main", VerdictFail, false, false, false, false},
+			{"waived landing check", VerdictExcepted, false, false, false, false},
+			{"single stage/all checks met", VerdictPass, false, false, true, true},
+			{"single stage/already failing on main", VerdictFail, false, false, false, true},
+			{"single stage/waived landing check", VerdictExcepted, false, false, false, true},
+			{"held after acceptance", VerdictPass, true, false, false, false},
+			{"turned off after acceptance", VerdictPass, false, true, false, false},
+		} {
+			t.Run(prefix+tc.name, func(t *testing.T) {
+				a, rules, _, _, _ := standingFixture(t)
+				ctx := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "boss"))
+				portfolio := &standingPortfolioFixture{}
+				rules.deps.Portfolio = portfolio
+				in := JanitorChoices{Dependencies: "routine"}
+				var rule StandingRevision
+				if seeded {
+					if err := StartJanitorChoices(ctx, a.DB, rules.now(), false); err != nil {
+						t.Fatal(err)
+					}
+					current, err := rules.Current(ctx)
+					if err != nil || current == nil {
+						t.Fatalf("default: %+v %v", current, err)
+					}
+					rule = *current
+				} else {
+					rule = enableStanding(t, rules, ctx, in)
 				}
-				current, err = readRun(ctx, a.DB, landing.ID)
+				authority := &standingVote{Level: "routine", RuleID: rule.RuleID, Revision: rule.Revision, Issuer: rule.Issuer, Means: "accept bounded routine updates after all checks pass", AssessmentDigest: "checked-source"}
+				work, err := readRun(ctx, a.DB, a.RunID)
 				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			store := landings{db: a.DB, standing: &rules, eligible: anyoneMayApprove}
-			if _, err := store.apply(ctx, work.ID, current.ID); err != nil {
-				t.Fatal(err)
-			}
-			if tc.hold {
-				portfolio.hold = "release failed"
-			}
-			if tc.off {
-				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
+				accept, err := readStep(ctx, a.DB, a.StepID)
+				if err != nil {
 					t.Fatal(err)
 				}
-			}
-			cast, err := store.carry(ctx, current)
-			if err != nil || cast != tc.want {
-				t.Fatalf("carried=%t want=%t: %v", cast, tc.want, err)
-			}
-			if tc.want {
-				by, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (string, error) { return approvedByIn(ctx, tx, current) })
-				if err != nil || by != "the janitor, under the janitor choices (rev 1), set by boss" {
-					t.Fatalf("standing landing attribution: %q %v", by, err)
-				}
-				// The same current-rule read runs again at the merge claim.
-				if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
+				_, err = database.Transact(ctx, a.DB, func(tx *database.Tx) (reworkedResult, error) {
+					return (reworkStore{db: a.DB}).approveIn(ctx, tx, work, accept, ApprovalVote{Approver: "the janitor", Principal: rule.Issuer.Principal, Via: "standing", Decision: VoteApprove, Standing: authority, AlsoApproves: []string{"land this qualified candidate"}})
+				})
+				if err != nil {
 					t.Fatal(err)
 				}
-				why, err := standingMergeRefusalIn(ctx, a.DB, current, &rules)
-				if err != nil || !strings.Contains(why, "turned off") {
-					t.Fatalf("merge claim ignored the off level: %q %v", why, err)
+				completion := completionRecorderFunc(func(context.Context, *database.Tx, CompletedRun) error { return nil })
+				if err := (advanceStore{db: a.DB, stages: a.Work.stages, completion: completion}).complete(ctx, work); err != nil {
+					t.Fatal(err)
 				}
-			}
-		})
+				spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
+					{Name: "checks", Steps: []schema.Step{{Name: "tests", Uses: "tests"}}},
+					{Name: "approval", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"means": "I approve the landing", "standing": map[string]any{"class": "routine-update", "means": "land this qualified candidate"}}}}},
+					{Name: "ship", Steps: []schema.Step{{Name: "record", Uses: "script"}}},
+				}}
+				if tc.singleStage {
+					// A single-stage landing merges at completion, after both checks and approval.
+					spec.Stages[1].Steps = append(spec.Stages[0].Steps, spec.Stages[1].Steps...)
+					spec.Stages = spec.Stages[1:2]
+				}
+				admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
+				landing, err := admissions.records.create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: a.ChangeID, WorkflowName: "land", InputsJSON: "{}", acceptedRunID: work.ID, requestedBy: "apptown-system"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := admissions.records.prepared(ctx, landing.ID); err != nil {
+					t.Fatal(err)
+				}
+				steps, err := readSteps(ctx, a.DB, landing.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				attempt, err := (newStepAttempts(a.DB, func(string) bool { return true })).start(ctx, steps[0], "tests", ids.Nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				outcome, err := (CheckEvidence{Checks: []CheckReceipt{{Check: "landing-check", Verdict: tc.verdict, Preexisting: true}}}).Outcome(StatusPass, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := (newStepAttempts(a.DB, func(string) bool { return true })).finish(ctx, attempt, outcome); err != nil {
+					t.Fatal(err)
+				}
+				current, err := readRun(ctx, a.DB, landing.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !tc.singleStage {
+					if _, err := (advanceStore{db: a.DB, stages: NewStages(nil, func(string) bool { return false })}).transition(ctx, current, "approval", "apptown-system"); err != nil {
+						t.Fatal(err)
+					}
+					current, err = readRun(ctx, a.DB, landing.ID)
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				store := landings{db: a.DB, standing: &rules, eligible: (commandAuthority{db: a.DB, checked: a.Authorizer}).mayApprove}
+				if _, err := store.apply(ctx, work.ID, current.ID); err != nil {
+					t.Fatal(err)
+				}
+				if tc.hold {
+					portfolio.hold = "release failed"
+				}
+				if tc.off {
+					if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				cast, err := store.carry(ctx, current)
+				if err != nil || cast != tc.want {
+					t.Fatalf("carried=%t want=%t: %v", cast, tc.want, err)
+				}
+				if tc.want {
+					accepted, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (acceptance, error) { return acceptanceIn(ctx, tx, work.ID) })
+					if err != nil || accepted.Who != rule.Issuer || accepted.Standing == nil || accepted.Standing.Issuer != rule.Issuer {
+						t.Fatalf("standing acceptance: %+v %v", accepted, err)
+					}
+					landed, err := readSteps(ctx, a.DB, current.ID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, step := range landed {
+						if step.Type != "approval" {
+							continue
+						}
+						evidence, err := ReadApprovalEvidence(step.Evidence)
+						if err != nil || len(evidence.Decisions) != 1 || evidence.Decisions[0].Standing == nil || evidence.Decisions[0].Standing.Issuer != rule.Issuer {
+							t.Fatalf("landing provenance: %s %v", step.Evidence, err)
+						}
+					}
+					by, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (string, error) { return approvedByIn(ctx, tx, current) })
+					if err != nil || by != "the janitor, under the janitor choices (rev 1), set by "+rule.Issuer.Name {
+						t.Fatalf("standing landing attribution: %q %v", by, err)
+					}
+					// The same current-rule read runs again at the merge claim.
+					if err := rules.SetProjectChoice(ctx, a.ProjectID, "off"); err != nil {
+						t.Fatal(err)
+					}
+					why, err := standingMergeRefusalIn(ctx, a.DB, current, &rules)
+					if err != nil || !strings.Contains(why, "turned off") {
+						t.Fatalf("merge claim ignored the off level: %q %v", why, err)
+					}
+				}
+			})
+		}
 	}
 }
 

@@ -20,7 +20,8 @@ const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(v
 
 export function summary(data: JanitorView, items: Need[]) {
  const c = data.choices?.choices
- if (!c || c.dependencies === 'off' && !c.securityFixes && !c.baseImages && !c.toolchainPatches && !c.packs) return 'Janitor is off'
+ if (!c) return ''
+ if (c.dependencies === 'off' && !c.securityFixes && !c.baseImages && !c.toolchainPatches && !c.packs) return 'Janitor is off'
  const count = new Set(items.map(n => n.project.projectId)).size
  if (count) return count === 1 ? '1 project needs you' : `${count} projects need you`
  const kept = data.projects.filter(p => p.queues.length > 0 && p.state.word !== 'off' && p.state.word !== 'no repository').length

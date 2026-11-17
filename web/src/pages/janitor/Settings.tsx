@@ -12,15 +12,15 @@ import type { JanitorView, JanitorProject, JanitorChoices } from '../../wire.gen
 
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}/settings/general#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
-const allOff: JanitorChoices = { dependencies: 'off', securityFixes: false, baseImages: false, toolchainPatches: false, packs: false }
 
 function Choices({ data, current, reload }: { data: JanitorView; current: boolean; reload: () => Promise<void> }) {
   const canSave = useHolds('instance:manage-standing-approval')
   const saved = data.choices
   const action = useAction()
-  const choices = saved?.choices ?? allOff
+  if (!saved) return null
+  const choices = saved.choices
   const set = (choices: JanitorChoices) => void action.run(async () => {
-    try { await put('/janitor/choices', { choices, expectedRevision: saved?.revision ?? 0 }) }
+    try { await put('/janitor/choices', { choices, expectedRevision: saved.revision }) }
     finally { await reload() }
   })
   const exceptions = data.deployments.filter(d => !d.automatic || data.projects.find(p => p.projectId === d.projectId)?.choice?.level === 'off')
@@ -33,7 +33,7 @@ function Choices({ data, current, reload }: { data: JanitorView; current: boolea
       <span>Projects</span><div>All projects, including new ones · <Link to="/projects">change per project in its settings</Link>{data.projects.filter(p => p.choice).map(p => <div key={p.projectId}><Link to={projectTo(p)}>{p.name}</Link> · {janitorLevelName(p.choice!.level)} · {p.choice!.person.name}, {date(p.choice!.at)}</div>)}</div>
       <span>Automatic releases</span><div>{!data.deployments.length ? 'None' : exceptions.length === data.deployments.length ? 'None' : exceptions.length ? `All deployments except ${exceptions.map(d => `${data.projects.find(p => p.projectId === d.projectId)?.name} / ${d.displayLabel}`).join(', ')}` : 'All deployments'} · <Link to="/deployments">change per deployment in its settings</Link></div>
     </div>
-    <p>{saved ? `Set by ${saved.issuer.name}, ${date(saved.at)}` : 'Nobody has set these choices'}</p>
+    <p>{`Set by ${saved.issuer.name}, ${date(saved.at)}`}</p>
     {action.err && <div role="alert" className="error">{action.err}</div>}
   </>
 }

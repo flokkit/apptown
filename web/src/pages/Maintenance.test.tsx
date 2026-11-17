@@ -127,10 +127,9 @@ it('never claims automatic acceptance for a person-controlled deployment', async
  expect(el.querySelector('table[aria-label="Release settings"]')).toBeNull()
 })
 
-it.each(['absent','all off','keeping','keeping one'])('states the top line for %s choices', async mode => {
+it.each(['all off','keeping','keeping one'])('states the top line for %s choices', async mode => {
  const data=fixture(); data.deployments=[]; data.projects=[project('one'),project('two'),{...project('off'),state:{word:'off',unknown:false,help:''}},{...project('no-repo'),state:{word:'no repository',unknown:false,help:''}}]
  if(mode==='keeping one') data.projects=[project('one')]
- if(mode==='absent') data.choices=null
  if(mode==='all off') data.choices=rule(false,false)
  const {client,el}=await mount(async url=>json(url.includes('/history')?history():data)); await settled(client)
  expect(el.querySelector('.page-head-line')?.textContent).toBe(mode==='keeping'?'Keeping 2 projects up to date':mode==='keeping one'?'Keeping 1 project up to date':'Janitor is off')
@@ -144,7 +143,7 @@ it('keeps loading, empty, failed and stale answers distinct', async () => {
  await act(async () => { await new Promise(r => setTimeout(r, 10)) })
  expect(el.textContent).toContain('Loading…')
  expect(el.textContent).not.toContain('No projects yet')
- await act(async()=>complete(json({choices:null,projects:[],deployments:[],unknown:[]}))); await settled(client)
+ await act(async()=>complete(json({choices:rule(false,false),projects:[],deployments:[],unknown:[]}))); await settled(client)
  expect(el.textContent).toContain('Nothing needs you.')
  expect(el.textContent).toContain('Janitor is off')
  expect(el.querySelector('.page-head-line')?.textContent).toBe('Janitor is off')
@@ -182,6 +181,7 @@ it('retries the exact stopped change and reports the refusal on its Needs-you ro
 it('saves each switch and select change once at the read revision and refreshes attribution', async () => {
  const calls: unknown[]=[]
  const data=fixture()
+ data.choices={...rule(true),revision:1,issuer:{name:'AppTown',principal:'system',via:'apptown'},choices:{...rule(true).choices,dependencies:'routine'}}
  const {client,el}=await mount(async(_url,init)=>{
   if(init?.method==='PUT') {
    const body=JSON.parse(String(init.body)); calls.push(body)
@@ -190,18 +190,20 @@ it('saves each switch and select change once at the read revision and refreshes 
   return json(data)
  },true,undefined,true)
  await settled(client)
- expect(el.textContent).toContain('Set by Sam')
+ expect(el.textContent).toContain('Set by AppTown')
+ expect(el.querySelector('select')?.value).toBe('routine')
+ expect([...el.querySelectorAll('[role="switch"]')].every(b=>b.getAttribute('aria-checked')==='true')).toBe(true)
  expect([...el.querySelectorAll('button')].some(b=>b.textContent==='Save')).toBe(false)
  const security=el.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Security fixes"]')!
  await act(async()=>security.click()); await settled(client)
- expect(calls).toEqual([{choices:{...rule(true).choices,securityFixes:false,toolchainPatches:false},expectedRevision:3}])
+ expect(calls).toEqual([{choices:{...rule(true).choices,dependencies:'routine',securityFixes:false,toolchainPatches:false},expectedRevision:1}])
  expect(security.getAttribute('aria-checked')).toBe('false')
  expect(el.querySelector<HTMLLabelElement>(`label[for="${security.id}"]`)?.textContent).toBe('Security fixes')
  expect(el.textContent).toContain('Set by Priya')
  const select=el.querySelector('select')!
  await act(async()=>{select.value='off';select.dispatchEvent(new Event('change',{bubbles:true}))}); await settled(client)
  expect(calls).toHaveLength(2)
- expect(calls[1]).toEqual({choices:{...data.choices!.choices,dependencies:'off',securityFixes:false,toolchainPatches:false},expectedRevision:4})
+ expect(calls[1]).toEqual({choices:{...data.choices!.choices,dependencies:'off',securityFixes:false,toolchainPatches:false},expectedRevision:2})
 })
 it('shows the conflict and current value without resubmitting a lost race',async()=>{
  const data=fixture(); let writes=0
@@ -282,4 +284,14 @@ it('links both settings notes and names the project exception at its settings', 
  const off = el.querySelector('a[href="/projects/Off/settings/general#janitor"]')!
  expect(off.textContent).toBe('Off app')
  expect(off.parentElement?.textContent).toContain('Off app · Off · Sam')
+})
+
+it('renders no invented choices when the saved record is absent', async () => {
+ const data=fixture(); data.choices=null
+ const {client,el}=await mount(async()=>json(data),true,undefined,true)
+ await settled(client)
+ expect(el.querySelector('select')).toBeNull()
+ expect(el.querySelector('[role="switch"]')).toBeNull()
+ expect(el.textContent).not.toContain('Nobody has set these choices')
+ expect(el.textContent).not.toContain('Janitor is off')
 })
