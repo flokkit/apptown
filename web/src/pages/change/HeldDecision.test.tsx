@@ -19,7 +19,7 @@ describe('held runs offer recovery rather than an approval', () => {
     checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'fieldnotes', state: 'waiting on you', statusLabel: 'waiting for you',
     stateDetail: 'review-change (fail): reviewer rejected: The page never loaded.',
     next: [{ act: 'send-back' }, { act: 'abandon' }],
-    detail: {
+    detail: { stages: ['apply'],
       run: { id: 'run', status: 'running', currentStage: 'apply' }, next: [
         { act: 'override', stepId: 'review' }, { act: 'retry', stepId: 'review' }, { act: 'rework', stepId: 'agent' },
       ],
@@ -80,7 +80,7 @@ describe('held runs offer recovery rather than an approval', () => {
     v.next = []
     v.detail!.next = []
     expect(heldLabels(v)).toEqual([])
-    expect(markup(v).querySelector('button')).toBeNull()
+    expect(markup(v).querySelector('.ch-decision-choices button')).toBeNull()
   })
   it('uses the existing primary when more than one forward act is eligible', () => {
     const v = held(0)
@@ -159,7 +159,7 @@ it.each([false, true])('retains the complete reviewer text and leads with struct
   const text = 'The preview looked styled and the page loaded.\n\nThe adoption is incomplete. Every project needs the new rule.'
   const v = {
     checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { state: 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }],
-    detail: { run: { currentStage: 'apply', status: 'running' }, next: [], events: [], steps: [
+    detail: { stages: ['apply'], run: { currentStage: 'apply', status: 'running' }, next: [], events: [], steps: [
       { id: 'review', name: 'review-change', type: 'agent/review', stage: 'apply', status: 'fail', config: {}, evidence: { reason: `reviewer rejected: ${text}`, summary: text, ...(findings ? { findings: ['Two projects lack the rule.'] } : {}) } },
     ] },
   } as unknown as ChangeView
@@ -172,7 +172,7 @@ it.each([false, true])('retains the complete reviewer text and leads with struct
 })
 
 it.each(['landing', 'finished'])('omits Stop this attempt when it is not an act in this state (%s)', state => {
-  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { state: state === 'landing' ? 'landing' : 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }], detail: {
+  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review-change failed', tone: 'bad', run: 'run', step: 'review', checks: 1, who: [], you: 'yes' }, change: { state: state === 'landing' ? 'landing' : 'in_progress' }, state: 'waiting on you', next: [{ act: 'abandon' }], detail: { stages: ['apply'],
     run: { currentStage: 'apply', status: state === 'finished' ? 'pass' : 'running' }, next: [], events: [], steps: [
       { type: 'agent/review', name: 'review-change', stage: 'apply', status: 'fail', evidence: { reason: 'An objection.' } },
     ],

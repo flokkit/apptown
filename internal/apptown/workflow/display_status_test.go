@@ -154,3 +154,56 @@ func TestPendingApprovalLabelUsesReadiness(t *testing.T) {
 	}
 	read(status.DisplayWaitingForApproval)
 }
+
+func TestProgressPreservesSettledResultsAndUncertainty(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		step Step
+		want string
+	}{
+		{"not applicable", Step{Status: StatusNotApplicable}, "not_applicable"},
+		{"skipped", Step{Status: StatusSkipped}, "skipped"},
+		{"held check", Step{Type: "script", Status: StatusFail}, "failed"},
+		{"needs a person", Step{Status: StatusNeedsHuman}, "failed"},
+		{"observation unreadable", Step{Observation: true, Type: "scan", Status: StatusFail, CheckReading: &checkReading{Unreadable: "missing"}}, "unknown"},
+		{"held build", Step{Type: "build", Status: StatusFail}, "failed"},
+		{"build error", Step{Type: "build", Status: StatusError}, "unknown"},
+		{"observation findings", Step{Observation: true, Type: "scan", Status: StatusFail}, "done"},
+		{"observation outage", Step{Observation: true, Type: "scan", Status: StatusError}, "unknown"},
+		{"undecided", Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &checkReading{Undecided: []string{"Performance"}}}, "unknown"},
+		{"blocking receipt", Step{Type: "script", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Verdict: VerdictFail}}}}}, "failed"},
+		{"non-gating passed blocking receipt", Step{Observation: true, Type: "script", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Verdict: VerdictFail}}}}}, "failed"},
+		{"check errors", Step{Type: "script", Status: StatusPass, CheckReading: &checkReading{CheckErrors: 1}}, "unknown"},
+		{"unreadable", Step{Type: "scan", Status: StatusPass, CheckReading: &checkReading{Unreadable: "missing"}}, "unknown"},
+		{"test counts missing", Step{Type: "tests", Status: StatusPass}, "unknown"},
+		{"skipped tests", Step{Type: "tests", Status: StatusPass, Evidence: []byte(`{"testCounts":{"skipped":1}}`)}, "unknown"},
+		{"override", Step{Status: StatusFail, OverrideBy: "sam"}, "unknown"},
+		{"ended", Step{Status: StatusRunning, runEnded: true}, "unknown"},
+		{"running", Step{Status: StatusRunning}, "running"},
+		{"pending", Step{Status: StatusPending}, "waiting"},
+		{"passed", Step{Status: StatusPass}, "done"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.step.CheckReading != nil {
+				for i := range tc.step.CheckReading.Checks {
+					tc.step.CheckReading.Checks[i].StatusLabel = tc.step.CheckReading.Checks[i].CheckReceipt.display()
+				}
+			}
+			raw, err := json.Marshal(tc.step)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct{ Progress string }
+			if err := json.Unmarshal(raw, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if wire.Progress != tc.want {
+				t.Fatalf("JSON progress %s want %s", wire.Progress, tc.want)
+			}
+			if got := tc.step.progress(); got != tc.want {
+				t.Fatalf("progress=%s want %s", got, tc.want)
+			}
+		})
+	}
+}

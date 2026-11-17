@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { Disclosure } from './Popover'
+import { Disclosure, Popover } from './Popover'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -43,4 +43,21 @@ it('takes focus on click and returns it to the button on Escape', () => {
   act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
   expect(m.panel()).toBeNull()
   expect(document.activeElement).toBe(m.trigger)
+})
+
+it.each([
+  [undefined, 400, 200],
+  ['end', 400, 200],
+  ['start', 400, 400],
+  ['start', 900, 616],
+] as const)('positions %s alignment at %s within the viewport', (align, left, expected) => {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return this.classList.contains('popover') ? new DOMRect(0, 0, 400, 100) : new DOMRect(left, 100, 200, 40)
+  })
+  const el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  const anchor = { current: document.createElement('button') }
+  try {
+    act(() => root.render(<Popover anchor={anchor} onClose={() => {}} id="placement-test" align={align}><span>Progress</span></Popover>))
+    expect((document.getElementById('placement-test') as HTMLElement).style.left).toBe(`${expected}px`)
+  } finally { act(() => root.unmount()); el.remove(); vi.restoreAllMocks() }
 })

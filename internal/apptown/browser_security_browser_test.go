@@ -4010,6 +4010,30 @@ func TestWebUICapture(t *testing.T) {
 		moveClock(a, cameraCheckTime(spec))
 		return out, code
 	})
+	// The camera's landing keeps bundle findings as a non-gating observation.
+	// Clone the definition so the public tour retains its own workflow.
+	var cameraLanding workflow.PreparedRun
+	if err := json.Unmarshal([]byte(mustJSON(tourWorkflow)), &cameraLanding); err != nil {
+		t.Fatal(err)
+	}
+	tourWorkflow := cameraLanding
+	tourWorkflow.Spec.Stages[1].Steps = append(tourWorkflow.Spec.Stages[1].Steps, schema.Step{Name: "scan-bundle", Uses: "scan", With: map[string]any{"on": "bundle"}})
+	tourWorkflow.Spec.Stages[1].Gate = &schema.Gate{Require: []string{"build-exists"}}
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		original := deps.Runners["scan"]
+		deps.Runners["scan"] = func(e *workflow.Execution) {
+			if e.Step().Name != "scan-bundle" {
+				original(e)
+				return
+			}
+			if _, err := e.Claim(); err != nil {
+				t.Error(err)
+				return
+			}
+			// This executor is the scene's released-image scanner boundary.
+			e.Settle(workflow.StepOutcome{Status: workflow.StatusFail, Evidence: []byte(`{"reason":"The released image contains three vulnerable packages.","findings":{"total":3,"actionable":3}}`)}, nil)
+		}
+	})
 	defineWorkflows(t, a, tourWorkflow)
 	phases.mark("app and stock")
 	const password = "design-local-password"
@@ -5039,15 +5063,15 @@ spec:
 	scene.call("sam", "GET", "/api/v1/packs", nil)
 	// Hold one executor attempt for the camera, as the tour's progress scene
 	// does. Completed script checks above it still execute the project's scripts.
-	progressWorkflow := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "camera-progress", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
+	progressWorkflow := workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "camera-progress", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "gates", Steps: []schema.Step{
 		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
 		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
 		{Name: "check-layout", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
 		{Name: "guidance-conformance", Uses: "guidance/conformance"},
 	}}}}}
 	defineWorkflows(t, a, tourWorkflow, reviewWorkflow, evalWorkflow, progressWorkflow)
-	// The first run of the workflow finishes, so its steps have times on
-	// the timing page; the second is held at check-layout.
+	// The first working run finishes with timed checks; the landing
+	// remains in the gates stage at check-layout.
 	var layoutRuns atomic.Int32
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		original := deps.Runners["script"]
@@ -5065,7 +5089,17 @@ spec:
 	scene.call("sam", "POST", "/api/v1/changes/"+springNotice.ID.String()+"/runs", map[string]string{"workflow": "camera-progress"})
 	a.Work.Wait()
 	scene.later(25 * time.Minute)
-	progressChange := scene.open("sam", "club-newsletter", "Check the club notice", "Check the notice against the club’s standards.")
+	progressWorkflow.Spec.Role = "landing"
+	progressWorkflow.Spec.Stages[0].Steps = append(progressWorkflow.Spec.Stages[0].Steps, schema.Step{Name: "accept", Uses: "approval"})
+	progressWorkflow.Spec.Stages = append(progressWorkflow.Spec.Stages, schema.Stage{Name: "ship", Steps: []schema.Step{{Name: "build", Uses: "build"}}})
+	defineWorkflows(t, a, tourWorkflow, reviewWorkflow, evalWorkflow, progressWorkflow)
+	// Other camera stories land work on the tour's projects. Keep this
+	// deliberately unfinished landing in its own project.
+	scene.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": "club-notices", "name": "Club Notices"})
+	scene.call("sam", "POST", "/api/v1/projects/club-notices/repo", map[string]string{"defaultBranch": "main"})
+	progressChange := scene.open("sam", "club-notices", "Publish the club notice with the updated meeting point and ride times", "Publish the club notice with the updated meeting point and ride times. Keep the notice readable on phones.")
+	scene.write(progressChange, newsletterStart)
+	scene.commit(progressChange, "sam", "Publish the club notice")
 	scene.call("sam", "POST", "/api/v1/changes/"+progressChange.ID.String()+"/runs", map[string]string{"workflow": "camera-progress"})
 	a.Work.Wait()
 	// Evals start their lanes on the workflow owner they were built with;

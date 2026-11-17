@@ -8,7 +8,7 @@ import { STATUS_LIGHT, Status } from './Status'
 // Read the generated unions so this test cannot silently omit a new enum member.
 describe('server display vocabulary', () => {
   const wire = readFileSync('src/wire.gen.ts', 'utf8') as string
-  const labels = new Set([...wire.matchAll(/\b(?:statusLabel|stateLabel|copyLabel|readinessLabel|restoreLabel|overrideLabel|mergeLabel|observation): (\w+)/g)].map(m => m[1]).filter(name => name !== 'string'))
+  const labels = new Set([...wire.matchAll(/\b(?:statusLabel|stateLabel|copyLabel|readinessLabel|restoreLabel|overrideLabel|mergeLabel|observation): (\w+)/g)].map(m => m[1]).filter(name => name !== 'string' && name !== 'boolean'))
   labels.add('DepartureLabel') // The departures contract names this field "state".
   for (const name of labels) {
     it(`maps every ${name} label to a vocabulary light`, () => {

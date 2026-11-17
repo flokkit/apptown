@@ -79,3 +79,47 @@ func (c CheckReceipt) display() status.DisplayStatus {
 		return status.DisplayUnknown
 	}
 }
+
+// progress classifies settled evidence before activity: a held failure is
+// still failed even when the run is waiting on that step.
+func (s Step) progress() string {
+	if s.Status == StatusNotApplicable {
+		return "not_applicable"
+	}
+	if s.Status == StatusSkipped {
+		return "skipped"
+	}
+	r := s.CheckReading
+	if r == nil && carriesCheckEvidence(s.Type) {
+		r = readingOf(s.Evidence)
+	}
+	if isCheck(s.Type) && s.Observation {
+		if s.Status == StatusError || r != nil && (r.Unreadable != "" || r.CheckErrors > 0 || len(r.Undecided) > 0) {
+			return "unknown"
+		}
+		if s.Status == StatusFail {
+			return "done"
+		}
+	}
+	label := s.displayLabel()
+	if label == status.DisplayFailed || s.OverrideBy == "" && (s.Status == StatusFail || s.Status == StatusNeedsHuman) {
+		return "failed"
+	}
+	if s.Status == StatusPass && r != nil {
+		for _, c := range r.Checks {
+			if c.Verdict == VerdictFail && (c.Gates == nil || *c.Gates) {
+				return "failed"
+			}
+		}
+	}
+	if label == status.DisplayUnknown || label == status.DisplayExcepted || label == status.DisplayStopped || s.Status == StatusError || s.Status == StatusPass && isCheck(s.Type) && s.evidenceAttention() {
+		return "unknown"
+	}
+	if s.Status == StatusRunning {
+		return "running"
+	}
+	if s.Status == StatusPending {
+		return "waiting"
+	}
+	return "done"
+}

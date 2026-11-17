@@ -6,7 +6,7 @@ import { InlineHelp } from '../../InlineHelp'
 import { CheckSummary } from './Overview'
 import { AddsSection, ContractAttention, contractUnread } from '../../DecisionForm'
 import type { ChangeAdds } from '../../wire.gen'
-const step = (status: string, extra = {}) => ({ id: status, isCheck: true, checkAttention: !['pass','not_applicable'].includes(status), type: 'script', name: 'Build app', status, statusLabel: status, evidence: {}, ...extra } as Step)
+const step = (status: string, extra = {}) => ({ observation: false, id: status, isCheck: true, checkAttention: !['pass','not_applicable'].includes(status), type: 'script', name: 'Build app', status, statusLabel: status, evidence: {}, ...extra } as Step)
 const dom = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
 it('summarizes successful checks in one plain line', () => {
   const steps = [step('pass', { evidence: { command: 'npm test', log: 'All done' } })]

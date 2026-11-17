@@ -3,7 +3,7 @@ import { GoesTo } from './GoesTo'
 import { LivePanel } from './LivePanel'
 import { renderMd } from '../../md'
 import { NotesDiff } from './NotesDiff'
-import { Now, nowRunning } from './Now'
+import { nowRunning } from './Now'
 import { ContinueDecision, TurnDecision, viewerTurn } from './Turn'
 import { HeldDecision } from './HeldDecision'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -35,7 +35,7 @@ export function checkAttention(steps: Step[]) {
   return steps.filter(s => s.checkAttention)
 }
 
-export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = false, technical = false }: { steps: Step[]; checks: ChecksSummary; contractNeedsAttention?: boolean; technical?: boolean }) {
+export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = false, technical = false, project }: { project?: string; steps: Step[]; checks: ChecksSummary; contractNeedsAttention?: boolean; technical?: boolean }) {
   const attention = checkAttention(steps)
   if (!verdict.started) return <span>{verdict.text}</span>
   // A step that has not started is not running; after a failure in its
@@ -65,6 +65,7 @@ export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = 
         <TechnicalWords shown={technical}>{(s.type === 'script' || s.type === 'tests') && s.evidence.command}</TechnicalWords>
       </p>
     })}
+    {steps.filter(s => s.isCheck && s.observation && ['fail', 'error', 'needs_human'].includes(s.status)).map(s => <p key={s.id}>{stepTitle(s)}{s.type === 'scan' && s.config.on === 'bundle' && ' of the released image'}{s.type === 'scan' && s.evidence.findings ? ` found ${s.evidence.findings.total} findings` : s.status === 'error' ? ' could not run' : ' finished with a note'}{project && <> · <Link to={`/projects/${project}/security`}>Security →</Link></>}</p>)}
     {notes.map((c, i) => <p key={`note-${i}`}>Note: {c.detail || c.note || 'An advisory check needs review.'}</p>)}
     {contractNeedsAttention && <p className="ch-check-exception">Changes to the app contract need checking.</p>}
   </div>
@@ -138,7 +139,6 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     </div>{boot ? trailer(record('preview', boot.runId), `${boot.evidence.screenshots?.commit ? `built from ${boot.evidence.screenshots.commit.slice(0, 7)} · ` : ''}logs →`) : <span />}</div>
   </>
   return <div className="ch-overview">
-    <div hidden={!shown}><Now view={view} /></div>
     {ch.state !== 'shipped' && <TurnDecision approvalWaiting={!!approval && !!turn} active={!!turn} shown={shown && (!nowRunning(view) || !!turn)} ready={turn ? <div className="ch-accept-rows">
       <div className="ch-overview-line ch-request"><div className="ch-row-label">You asked</div><div className="ch-value">{ch.requestSummary || firstLine(ch.body || ch.title)} <Link className="ch-inline-link" to={ch.chatRequest ? `/changes/${ch.id}?tab=conversation` : record('request')}>full request →</Link></div></div>
       {!!briefParts?.length && <div className="ch-overview-line"><div className="ch-row-label">What it does</div><div className="ch-value">{briefParts.map((paragraph, i) => <p key={i}>{paragraph}</p>)}<StaleNote q={brief} /></div></div>}
@@ -151,7 +151,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
       {extraErr && <p className="error">The work this landing carries could not be read: {extraErr}</p>}
       {shortfall && <><p>The summary says this change falls short of the request: {shortfall}</p><p>Based on: “{ch.requestGapQuote}”</p></>}
       {unchecked && view.waitingOn.kind !== 'closed' && <p>The summary could not check all of the request: {unchecked}</p>}
-      {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview key={s.id} step={s} onChange={onChange} />)}
+      {steps.filter(s => s.type === 'workflow/call' && s.evidence.childRunId).map(s => <ChildOverview project={view.projectSlug} key={s.id} step={s} onChange={onChange} />)}
       {!approval && (landingEnded ? <><p>{view.waitingOn.says}</p><p>The last landing ended: {view.stateDetail}</p></> : <p>{view.waitingOn.says}{view.stateDetail && ` · ${view.stateDetail}`}</p>)}
       {approval && !turn && current && !extraErr && <ApproversCard stepId={approval.id!} />}
       {approval && (!current || extraErr) && <p>Reading the current change before you can accept.</p>}
@@ -191,7 +191,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
     <div className="ch-overview-line"><div className="ch-row-label">{summary ? 'What was made' : 'The helper says'}</div><div className="ch-value">{report?.length ? <ul>{report.map((line, i) => <li key={i}>{line}</li>)}</ul> : (agent || reply) ? <div className="ch-chat-excerpt md" dangerouslySetInnerHTML={{ __html: renderMd((agent || reply || '').trim().split(/\n\s*\n/)[0]) }} /> : <p className="muted">{transcript.err ? `The conversation could not be read: ${transcript.err}` : transcript.data?.unreadable ? 'Some of the conversation could not be read.' : !transcript.data ? 'Reading the conversation…' : 'No report from the helper'}</p>}
       {!summary && <StaleNote q={transcript} />}<TechnicalWords shown={technical}>{d && `${d.run.workflowName} v${d.run.workflowVersion} · run ${d.run.number}`} · {ch.branch} · {view.head}{steps.flatMap(s => s.type === 'agent/pi' && s.evidence.model ? [` · ${s.evidence.model}`] : []).join('')}{view.usage && ` · ${fmtPrice(view.usage.costMicros, view.usage.unpriced)}`}</TechnicalWords>
     </div>{!summary && reply ? trailer(`/changes/${ch.id}?tab=conversation`, 'full conversation →') : trailer(`/changes/${ch.id}?tab=changes`, shortDiffstat(view.diffstat) ? `${shortDiffstat(view.diffstat).replace(/^(.*) in (\d+ files?)$/, '$2 $1')} · code →` : 'Code →')}</div>
-    {!turn && <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>}
+    {!turn && <div className={`ch-overview-line${view.checks.tone === 'bad' ? ' ch-line-bad' : ''}`}><div className="ch-row-label">Checks</div><div className="ch-value"><CheckSummary project={view.projectSlug} checks={view.checks} technical={technical} steps={steps} contractNeedsAttention={contractUnread(adds)} /><TechnicalWords shown={technical}>{checks.filter(s => s.status !== 'not_applicable').map(s => s.name).join(' · ')}</TechnicalWords></div>{checked && trailer(record('checks'), 'details →')}</div>}
     {approval && !turn && <>
       <div className="ch-overview-line"><div className="ch-row-label">Goes to</div><div className="ch-value"><GoesTo view={view} labelled /></div><span /></div>
     </>}
@@ -205,7 +205,7 @@ export function ChangeOverview({ view, onChange, workTab: _workTab, steps, extra
 
 // Called workflows keep their own checks and meanings. Their required
 // decisions are visible on Overview as well as reachable in the run record.
-function ChildOverview({ step, onChange }: { step: Step; onChange: () => void }) {
+function ChildOverview({ step, onChange, project }: { project: string; step: Step; onChange: () => void }) {
   const childId = step.type === 'workflow/call' ? step.evidence.childRunId : undefined
   const trace = useGet<{ run: { currentStage: string; status: string }; steps: Step[]; checks: ChecksSummary }>(childId ? `/runs/${childId}/trace` : null, { poll: 3000 })
   const steps = trace.data?.steps ?? []
@@ -215,12 +215,12 @@ function ChildOverview({ step, onChange }: { step: Step; onChange: () => void })
   const adds = waiting ? (question.current ? question.data?.adds ?? undefined : undefined) : saved?.adds
   if (!childId) return null
   const busy = checksRunning(steps, trace.data?.run?.currentStage)
-  const failed = steps.some(s => s.stage === trace.data?.run?.currentStage && s.isCheck && ['fail', 'error', 'needs_human'].includes(s.status) && !s.overrideBy)
+  const failed = trace.data?.checks.tone === 'bad'
   return <div className="ch-child-overview">
     <h3>{step.name.replace(/[-_]/g, ' ')}</h3>
     {trace.err && <p className="error">The called workflow’s checks could not be read: {trace.err}</p>}
     {!trace.data && !trace.err && <p>Reading the called workflow’s checks…</p>}
-    {trace.data && <><CheckSummary checks={trace.data.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></>}
+    {trace.data && <><CheckSummary project={project} checks={trace.data.checks} steps={steps} contractNeedsAttention={contractUnread(adds)} /></>}
     {busy && !steps.some(s => s.type === 'workflow/call' && s.status === 'running') && <p>Checks are running; you can accept when they finish.</p>}
     {failed && <p>Checks need attention before you can accept.</p>}
     {trace.current && !busy && !failed && trace.data?.run?.status === 'running' && steps.filter(s => s.type === 'approval' && s.status === 'pending' && s.stage === trace.data?.run?.currentStage).map(s => s.type === 'approval' && <DecisionForm key={s.id} stepId={s.id!} means={s.config.means} instructions={s.config.instructions} onDone={onChange} approveLabel="Accept" rejectLabel="Send back with a note" />)}

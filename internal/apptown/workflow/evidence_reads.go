@@ -131,7 +131,26 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 	if err != nil {
 		return nil, err
 	}
+	declarations := map[string]map[string]string{}
+	for _, stage := range spec.Stages {
+		checks, err := readStageChecks(ctx, db, id, stage.Name)
+		if err != nil {
+			return nil, err
+		}
+		declarations[stage.Name] = map[string]string{}
+		for _, check := range checks {
+			declarations[stage.Name][check.Name] = check.Declaration
+		}
+	}
 	for _, step := range steps {
+		stage, _ := spec.Stage(step.Stage)
+		if stage != nil {
+			name := step.Name
+			if declaration, ok := declarations[step.Stage][name]; ok {
+				name = declaration
+			}
+			step.Observation = !gateRequires(stage, name)
+		}
 		step.runEnded = run.Status != RunRunning
 		if !step.runEnded && step.Stage == run.CurrentStage && step.Type == "approval" && step.Status == StatusPending {
 			stage, _ := spec.Stage(step.Stage)

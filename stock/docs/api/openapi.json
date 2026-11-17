@@ -7469,10 +7469,16 @@
           "name": {
             "type": "string"
           },
+          "observation": {
+            "type": "boolean"
+          },
           "overrideBy": {
             "type": "string"
           },
           "overrideReason": {
+            "type": "string"
+          },
+          "progress": {
             "type": "string"
           },
           "runId": {
@@ -7507,6 +7513,8 @@
           }
         },
         "required": [
+          "observation",
+          "progress",
           "isCheck",
           "checkAttention",
           "statusLabel",

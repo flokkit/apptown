@@ -56,7 +56,7 @@ it('holds acceptance during a check, while keeping pending later-stage work sepa
   const v = view()
   v.detail!.steps.push(step('scan', 'running')); v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', you: 'no' }
   const el = document.createElement('div'); el.innerHTML = render(v)
-  expect(el.querySelector('[aria-label="Now"]')).not.toBeNull()
+  expect(el.querySelector('[aria-label="Now"]')).toBeNull()
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
   expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
   expect(render(v)).not.toContain('>Accept and land<')
@@ -605,24 +605,20 @@ it.each(['no', 'partly', 'unknown', 'yes'])('keeps the request assessment in the
   else expect(html).not.toContain('The rest of the calendar was not read.')
 })
 
-// The shield gives the whole check verdict, while the Checks row retains
-// its evidence and turns red only for a failure.
+// The Checks row keeps the complete verdict and its evidence.
+// Only a gating failure makes that row red.
 it.each([
   ['pass', {}, 'ok', 'All checks passed'],
   ['fail', { reason: 'Build broke.' }, 'bad', 'Build failed'],
   ['pass', {}, 'unknown', 'Checks not all known'],
   ['running', {}, 'neutral', 'Checks running'],
-] as const)('shows the checks shield for %s / %s', (status, evidence, tone, text) => {
+] as const)('keeps the checks verdict on Overview for %s / %s', (status, evidence, tone, text) => {
   const v = view()
   v.checks = { tone, text, started: true }
   v.detail!.steps = [step('script', status, evidence, { name: 'Build', ...(tone === 'unknown' ? { statusLabel: 'unknown' } : {}) })]
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
-  const shield = el.querySelector('.ch-shield')!
-  expect(shield.classList.contains(tone)).toBe(true)
-  expect(shield.textContent).toBe(text)
-  expect(shield.querySelector('a, button')).toBeNull()
-  expect(shield.querySelector('svg')).not.toBeNull()
+  expect(el.querySelector('.ch-shield')).toBeNull()
   const row = [...el.querySelectorAll('.ch-change-card .ch-overview-line')].find(e => e.querySelector('.ch-row-label')?.textContent === 'Checks')!
   expect(row.classList.contains('ch-line-bad')).toBe(tone === 'bad')
 })
@@ -663,7 +659,7 @@ it('uses WaitingOn for decision status and hides Next steps during landing deplo
   v.detail!.next = []
   v.waitingOn = { ...v.waitingOn, kind: 'work', run: 'run', step: 'build', says: 'Landing: deploying — step 1 of 2', you: 'no' }
   let el = document.createElement('div'); el.innerHTML = render(v)
-  expect(el.querySelector('[aria-label="Now"]')).not.toBeNull()
+  expect(el.querySelector('[aria-label="Now"]')).toBeNull()
   expect(el.querySelector('#decision')?.hasAttribute('hidden')).toBe(true)
   expect(el.textContent).not.toContain('Checks are running; you can accept when they finish.')
   v.detail!.steps[0].status = 'error'
@@ -695,7 +691,7 @@ it.each([
   [undefined, 'unknown', 'unknown', 'Checks not all known'],
   [undefined, 'fail', 'bad', 'Ways of working failed'],
   [null, 'fail', 'bad', 'Ways of working failed'],
-] as const)('uses gates=%s for a %s check in the shield and Checks row', (gates, verdict, tone, text) => {
+] as const)('uses gates=%s for a %s check in the Checks row', (gates, verdict, tone, text) => {
   const v = view()
   v.checks = { tone, text, started: true }
   v.detail!.steps = [step('guidance/conformance', 'pass', {}, { checkAttention: gates !== false, checkReading: { checks: [
@@ -704,8 +700,8 @@ it.each([
   ] } })]
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StatePanel view={v} /><ChangeOverview view={v} current steps={v.detail!.steps} onChange={() => {}} workTab={() => '?tab=details'} /></QueryClientProvider></MemoryRouter>)
-  expect(el.querySelector('.ch-shield')?.classList.contains(tone)).toBe(true)
-  expect(el.querySelector('.ch-shield')?.textContent).toBe(text)
+  expect(el.querySelector('.ch-shield')).toBeNull()
+  expect(el.querySelector('.ch-shield')).toBeNull()
   const summary = el.querySelector('.ch-overview-line .ch-check-summary')!
   expect(summary.textContent).toContain('Use shorter sentences in the README.')
   if (gates === false) {
@@ -988,7 +984,7 @@ it('shows the server verdict in Overview and Evidence for a passed step with a b
  v.detail!.steps = [s]
  const el = document.createElement('div')
  el.innerHTML = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={featureClient()}><StatePanel view={v} /><CheckSummary checks={v.checks} steps={[s]} /><Evidence view={v} runs={[{run: {...v.detail!.run, status: 'done'}, steps: [s]}]} workTab={() => '#'} /></QueryClientProvider></MemoryRouter>)
- expect(el.querySelector('.ch-shield')?.textContent).toBe(v.checks.text)
+ expect(el.querySelector('.ch-shield')).toBeNull()
  expect(el.textContent?.split(v.checks.text).length).toBeGreaterThan(2)
  expect(el.textContent).not.toContain('All checks passed')
  expect(el.textContent).toContain('Remove personal data.')
@@ -1090,4 +1086,13 @@ it('shows who decides with no decision buttons for a viewer who cannot approve',
   expect(el.querySelector('#decision .ch-decision-choices button')).toBeNull()
   expect(el.querySelector('dialog')).toBeNull()
  } finally {act(() => root.unmount());client.clear()}
+})
+
+it('renders non-gating findings as a neutral note linking Security', () => {
+ const s = step('scan', 'fail', { findings: { total: 3, actionable: 3 } }, { isCheck: true, observation: true, checkAttention: false, config: { on: 'bundle' } })
+ const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<MemoryRouter><CheckSummary project="notes" checks={{tone:'ok', text:'All checks passed · 1 note', started:true}} steps={[s]} /></MemoryRouter>)
+ expect(el.textContent).toContain('Security scan of the released image found 3 findings')
+ expect(el.textContent).not.toContain('failed')
+ expect(el.querySelector('.ch-bad-text')).toBeNull()
+ expect(el.querySelector('a')?.getAttribute('href')).toBe('/projects/notes/security')
 })

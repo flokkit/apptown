@@ -5,7 +5,6 @@ import { ListTable } from '../../ListTable'
 import { WaitingStatus } from '../../Approvers'
 import './Head.css'
 import { Link } from 'react-router-dom'
-import { shortName } from '../newProject/draft'
 import { useFailureAdvice, recommendationWords } from './advice'
 
 import { useEffect, useRef, useState } from 'react'
@@ -49,7 +48,7 @@ export function changeTitle(ch: ChangeView['change']): string {
   const title = ch.title.trim()
   const request = ch.body?.trim() ?? ''
   const copied = title.replace(/[…]+$|\.\.\.$/g, '').trim()
-  return request && copied.length > 35 && request.startsWith(copied) ? shortName(request) || title : title
+  return request && copied.length > 35 && request.startsWith(copied) ? firstLine(request, Infinity) || title : title
 }
 
 export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: boolean }) {

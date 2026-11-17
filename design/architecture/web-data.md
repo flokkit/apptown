@@ -138,7 +138,8 @@ as fine and omits them; their reasons stay in Details. Overview, the checks shie
 the working run carried by a landing. Workflow also identifies verification
 steps; readers do not classify step types. The checks shield uses
 gating results: failed is red, unknown is amber, running is grey and passed is
-green, in that order. Only a check reading with `gates: false` is advisory.
+green, in that order. Only a step reading with `observation: true` is advisory; false or omitted means
+the step gates. Snapshots set this field from the stage gate.
 Advisory problems appear as plain notes below the Checks row’s pass and add a
 note count to the green shield; they do not make passing checks unknown.
 Conversation action summaries
@@ -312,15 +313,20 @@ between replies. Each summary opens only its own run. “Show helper actions” 
 all actions in record order; the browser remembers the choice for each viewer.
 The switch works when browser storage is unavailable. Full tool results remain
 reachable in the chat terminal and the change's recorded helper activity.
-While the current change run is working, Overview leads with Now: Work or
-Landing, the active step position, start time and ordered current-stage rows.
-The position uses WaitingOn’s run and step within that run’s current stage,
-matching the count in its deploy wording. While Now is shown and the reader has
-no decision, the Next steps card is hidden. Decision status uses WaitingOn.says.
-Running called workflows include their current stages. Consecutive scans, tests
-and conformance checks share a Checks row with their names; a running or failed
-check expands that group automatically. Each row keeps its status, plain title,
-short fact and duration or start time visible. Now is absent while idle.
+The change header shows two thin progress bars beside the state word whenever
+there is a run: the latest root run's stages above, the current stage's steps
+below. Running called workflows supply their current stage's steps. Finished
+runs show their last stage. Go supplies each step's progress classification;
+settled failures and unknown results take precedence over activity.
+Change pages may use this one hover/focus popover: hover, keyboard focus or tap
+on the bars opens the Work or Landing rows, with step position, start time,
+plain titles, short results and durations. The position uses WaitingOn's run
+and step within that run's current stage. Consecutive checks share a row until
+a result needs attention or is running. Failed reads retain the last reading
+with a stale note in the popover. Overview keeps decisions and held recovery;
+while the run works and the reader has no decision, Next steps is hidden.
+A check its stage gate does not require is an observation whose failure is a
+note on the change, with a link to Security, rather than the change failing.
 Acceptance completes the landing after its build. The change Overview's Release
 row reads the follows-main release requests associated with that landing.
 Each request keeps its deployment, release number, current state and failure

@@ -21,9 +21,13 @@ func isCheck(kind string) bool {
 }
 
 func (s Step) checkAttention() bool {
-	if !isCheck(s.Type) || s.Status == StatusNotApplicable {
+	if !isCheck(s.Type) || s.Observation || s.Status == StatusNotApplicable {
 		return false
 	}
+	return s.evidenceAttention()
+}
+
+func (s Step) evidenceAttention() bool {
 	if s.OverrideBy != "" || s.Status != StatusPass {
 		return true
 	}
@@ -58,6 +62,7 @@ func (s Step) checkAttention() bool {
 func summarizeChecks(steps []*Step) ChecksSummary {
 	out := ChecksSummary{Tone: "neutral", Text: "Not checked yet. Checks run when you press Check and land in the chat."}
 	failed, notes, passed := 0, 0, 0
+	notApplicable := map[string]bool{}
 	var skipped []string
 	seenSkipped := map[string]bool{}
 	var failedTitle string
@@ -69,7 +74,10 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 		if s.Status != StatusPending && s.Status != StatusSkipped {
 			out.Started = true
 		}
-		if s.Status == StatusNotApplicable || s.Status == StatusSkipped {
+		if s.Status == StatusNotApplicable {
+			notApplicable[checkTitle(workflowActivityStep{kind: s.Type, name: s.Name, evidence: s.Evidence})] = true
+		}
+		if s.Status == StatusSkipped {
 			title := checkTitle(workflowActivityStep{kind: s.Type, name: s.Name, evidence: s.Evidence})
 			if !seenSkipped[title] {
 				skipped = append(skipped, title)
@@ -79,6 +87,22 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 		r := s.CheckReading
 		if r == nil && carriesCheckEvidence(s.Type) {
 			r = readingOf(s.Evidence)
+		}
+		if s.Observation && s.Status != StatusPending && s.Status != StatusRunning && s.Status != StatusNotApplicable && s.Status != StatusSkipped {
+			observationNote := s.evidenceAttention()
+			if r != nil {
+				for _, c := range r.Checks {
+					if !c.Met() && c.Verdict != VerdictSkipped {
+						observationNote = true
+					}
+				}
+			}
+			if observationNote {
+				notes++
+			} else {
+				passed++
+			}
+			continue
 		}
 		blockingFailure := false
 		if r != nil {
@@ -138,8 +162,14 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 			out.Text += fmt.Sprintf(" · %d %s", notes, noun)
 		}
 	}
-	if len(skipped) > 0 {
-		counts := fmt.Sprintf("%d passed, %d skipped: %s", passed, len(skipped), strings.Join(skipped, ", "))
+	if len(skipped) > 0 || len(notApplicable) > 0 {
+		counts := fmt.Sprintf("%d passed", passed)
+		if len(notApplicable) > 0 {
+			counts += fmt.Sprintf(", %d not applicable", len(notApplicable))
+		}
+		if len(skipped) > 0 {
+			counts += fmt.Sprintf(", %d skipped: %s", len(skipped), strings.Join(skipped, ", "))
+		}
 		if out.Tone != "ok" {
 			out.Text += " · " + counts
 		} else {

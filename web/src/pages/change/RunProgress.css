@@ -1,0 +1,25 @@
+@layer pages {
+.ch-progress { display: inline-flex; max-width: 100%; }
+.ch-progress-trigger { display: grid; gap: var(--space-1); width: 10rem; max-width: 100%; padding: var(--space-2); background: transparent; border: 0; }
+.ch-progress-bar { display: flex; gap: var(--space-1); height: var(--space-1); }
+.ch-progress-segment { flex: 1; min-width: 0; background: var(--border-strong); border-radius: var(--radius-bar); }
+.ch-progress-segment.done { background: var(--ok); }
+.ch-progress-segment.failed { background: var(--bad); }
+.ch-progress-segment.unknown, .ch-progress-segment.skipped { background: var(--warn); }
+.ch-progress-segment.not_applicable { background: var(--muted); }
+.ch-progress-segment.current { background: var(--busy); animation: ch-progress-pulse 1.5s ease-in-out infinite; }
+@keyframes ch-progress-pulse { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .ch-progress-segment.current { animation: none; } }
+.ch-progress-popover { width: max-content; --popover-max-width: 40rem; overflow-wrap: anywhere; }
+.ch-now .ok { color: var(--ok); }
+.ch-now .bad { color: var(--bad); }
+.ch-now .warn { color: var(--warn); }
+.ch-now h3 { margin-top: 0; }
+.ch-now-steps { list-style: none; padding: 0; margin: var(--space-3) 0 0; }
+.ch-now-steps li { display: grid; grid-template-columns: var(--space-5) minmax(0, 10rem) minmax(0, 1fr) auto; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--border); align-items: start; }
+.ch-now-fact { min-width: 0; overflow-wrap: anywhere; }
+@media (width <= 600px) {
+  .ch-now-steps li { grid-template-columns: var(--space-5) minmax(0, 1fr); }
+  .ch-now-fact, .ch-now-steps time, .ch-now-steps li > :last-child { grid-column: 2; }
+}
+}
