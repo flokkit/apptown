@@ -444,6 +444,9 @@ change's folder, as the change's working copy.
 Queue transitions, adopted declarations and scan observations write the project's
 Janitor record under the project row lock. Fleet reads use that record; a missing
 record is not known yet. Startup interruption repair records every project once.
+Queue run events take the project lock before insertion: their foreign key locks
+the run, so taking the project lock afterward would reverse step transactions'
+project-before-run lock order. Non-queue events do not take this lock.
 The scan summary keeps the last recorded conclusion when main or running images
 change, until another scan arrives or the evidence becomes more than three days
 old. The project's Scans page still compares coverage against current software.
