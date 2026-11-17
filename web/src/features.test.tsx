@@ -69,8 +69,8 @@ it('hides disabled navigation while keeping the core project record reachable', 
  expect(project.el.querySelector('a[href="/projects/p/memory/decisions"]')?.textContent).toBe('Decisions')
  const home = await mount(<SidebarNav />)
  expect(home.el.querySelector('a[href="/evals"]')).toBeNull()
- expect(home.el.querySelector('a[href="/conformance"]')).toBeNull()
- expect(home.el.querySelector('a[href="/conformance/reviews"]')).not.toBeNull()
+ expect(home.el.querySelector('a[href="/maintenance/standards"]')).toBeNull()
+ expect(home.el.querySelector('a[href="/maintenance"]')).not.toBeNull()
 })
 
 // A switch whose area needs another that is off shows greyed and off, says

@@ -19,7 +19,7 @@ function ItemReason({ item }: { item: Item }) {
   return <div className={`small mt-1 remediation-page-item-reason-div ${item.state === 'stuck' ? 'remediation-stuck' : 'muted'}`}>
     {reason}
     {waiting?.changes?.map((change) => <span key={change.id}> · <Link to={`/changes/${change.id}`}>change {change.number}</Link></span>)}
-    {waiting?.remediationId && <span> · <Link to={`/conformance/remediations/${waiting.remediationId}`}>remediation {waiting.remediationNumber}</Link></span>}
+    {waiting?.remediationId && <span> · <Link to={`/maintenance/standards/remediations/${waiting.remediationId}`}>remediation {waiting.remediationNumber}</Link></span>}
   </div>
 }
 
@@ -45,7 +45,7 @@ export function RemediationPage({ id }: { id: string }) {
   return (
     <div>
       <StaleNote q={q} />
-      <PageHead page="conformance" title={<>Remediation #{m.number} <Status word={m.statusLabel} help={remediationDetail[m.status]} /></>} actions={<span className="row remediation-page-span">
+      <PageHead page="maintenance" title={<>Remediation #{m.number} <Status word={m.statusLabel} help={remediationDetail[m.status]} /></>} actions={<span className="row remediation-page-span">
         {m.status === 'running' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/pause`)}>Pause</button>}
         {m.status === 'paused' && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/resume`)}>Resume</button>}
         {(m.status === 'running' || m.status === 'paused') && <button disabled={busy} onClick={() => act(`/conformance/remediations/${m.id}/cancel`)}>Cancel</button>}
@@ -55,7 +55,7 @@ export function RemediationPage({ id }: { id: string }) {
       {Object.entries(byProject).map(([slug, items]) => (
         <div key={slug} className="card mb-3 remediation-page-card">
           <div className="remediation-page-div-3">
-            <Link to={`/conformance/projects/${slug}`} className="remediation-page-link text-name">{slug}</Link>
+            <Link to={`/maintenance/standards/projects/${slug}`} className="remediation-page-link text-name">{slug}</Link>
           </div>
           {items.map((it) => {
             const tries = data.attempts[it.id ?? ''] ?? []

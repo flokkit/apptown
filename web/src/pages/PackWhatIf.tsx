@@ -138,13 +138,13 @@ function Latest({ w }: { w: WhatIf }) {
   for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
   return (
     <div className="row pack-what-if-latest-div">
-      <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
+      <Link to={`/maintenance/standards/what-ifs/${w.id}`}>Open the what-if</Link>
       <Status word={w.statusLabel} help={w.statusHelp} />
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) =>
         <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} help={OUTCOME_WORDS[o]} /></span>)}
       {w.movesBackProjects > 0 && <span className="badge moves-back">{w.movesBackProjects} move rules back</span>}
-      <Link to="/conformance/what-ifs" className="muted">all what-ifs</Link>
+      <Link to="/maintenance/standards/what-ifs" className="muted">all what-ifs</Link>
     </div>
   )
 }

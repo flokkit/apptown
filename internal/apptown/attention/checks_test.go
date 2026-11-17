@@ -34,6 +34,9 @@ func TestAppChecksRenderOwnerSummaryFromOneBatch(t *testing.T) {
 	if err != nil || !got.Known || len(got.Items) != 1 || got.Items[0].Count != 2 || got.Items[0].Unknown || len(got.Coverage) != 0 || owner.calls != 1 || len(owner.selected) != 2 {
 		t.Fatalf("snapshot: %+v, owner=%+v, %v", got, owner, err)
 	}
+	if got.Items[0].Href != "/maintenance/standards/projects/calendar" {
+		t.Fatalf("project check link: %q", got.Items[0].Href)
+	}
 }
 
 // One confirmed problem is said in the singular.
@@ -49,8 +52,8 @@ func TestAppChecksCountConfirmedProblemsInWords(t *testing.T) {
 }
 
 // The source row says when the apps were judged, by its oldest judgement, and
-// opens Conformance, where those judgements are listed.
-func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensConformance(t *testing.T) {
+// opens Maintenance’s Standards tab, where those judgements are listed.
+func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensStandards(t *testing.T) {
 	t.Parallel()
 	older, newer := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
 	owner := &checkEvidence{standing: []conformance.ProjectStanding{
@@ -59,7 +62,7 @@ func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensConformance(t *testin
 		{ProjectID: idstest.N(3), Name: "Unrun", Slug: "unrun"},
 	}}
 	got, err := (Checks{Conformance: owner}).Snapshot(t.Context(), nil)
-	if err != nil || !got.ObservedAt.Equal(older) || got.Href != "/conformance" || got.Name != "App checks" {
+	if err != nil || !got.ObservedAt.Equal(older) || got.Href != "/maintenance/standards" || got.Name != "App checks" {
 		t.Fatalf("snapshot: %+v %v", got, err)
 	}
 }

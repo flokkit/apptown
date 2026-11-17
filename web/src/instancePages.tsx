@@ -1,3 +1,4 @@
+import { PRODUCT } from './brand'
 import type { ReactNode } from 'react'
 import { useGet } from './data'
 import type { AuthzHoldings } from './wire.gen'
@@ -7,8 +8,8 @@ import type { AuthzHoldings } from './wire.gen'
 // AppTown refuses them to anyone without it whatever the menu shows; this
 // only keeps the menu to pages that will open.
 export const INSTANCE_PAGES = {
- janitor: { cap: 'project:read', title: 'Janitor' },
- updates: {cap: "instance:updates", title: "Updates"},
+ maintenance: { cap: 'project:read', title: 'Maintenance' },
+ updates: {cap: "instance:updates", title: `${PRODUCT} updates`},
   people: { cap: 'institution:read-structure', title: 'People' },
   infrastructure: { cap: 'deployment:read', title: 'Infrastructure' },
   integrations: { cap: 'project:read', title: 'Integrations' },

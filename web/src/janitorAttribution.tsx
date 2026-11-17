@@ -6,5 +6,5 @@ export const janitorWords = (rule: Rule, revision: number, issuer: string) =>
   `the janitor, under the janitor choices (rev ${revision}), set by ${issuer} · ${rule.kind}`
 
 export function JanitorAttribution({ rule, revision, issuer }: { rule: Rule; revision: number; issuer: string }) {
-  return <Link to="/janitor">{janitorWords(rule, revision, issuer)}</Link>
+  return <Link to="/maintenance">{janitorWords(rule, revision, issuer)}</Link>
 }

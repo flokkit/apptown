@@ -122,7 +122,7 @@ it('shows distinct firing and acceptance rules with the same issuer and revision
  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /><StepCard step={step} onChange={() => {}} /></QueryClientProvider></MemoryRouter>)
  expect(html).toContain('the janitor, under the janitor choices (rev 1), set by Sam · Dependency updates')
  expect(html).toContain('the janitor, under the janitor choices (rev 1), set by Sam · Keep packs current')
- expect(html.match(/href="\/janitor"/g)?.length).toBeGreaterThanOrEqual(2)
+ expect(html.match(/href="\/maintenance"/g)?.length).toBeGreaterThanOrEqual(2)
  expect(html).not.toContain('dependency-rule')
  expect(html).not.toContain('pack-rule')
 })

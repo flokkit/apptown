@@ -41,7 +41,7 @@ export function ReviewsList() {
           {trend.map((r) => {
             const tot = r.findings + r.flagged
             return (
-              <Link key={r.id} to={`/conformance/reviews/${r.id}`} title={`#${r.number} · ${fmtWhen(r.finishedAt || r.startedAt)} · ${r.findings} findings · ${r.flagged} flagged · ${r.judged}/${r.total} judged`}
+              <Link key={r.id} to={`/maintenance/standards/reviews/${r.id}`} title={`#${r.number} · ${fmtWhen(r.finishedAt || r.startedAt)} · ${r.findings} findings · ${r.flagged} flagged · ${r.judged}/${r.total} judged`}
                 className={`review-trend-bar ${r.status === 'error' || r.findings ? 'bad' : r.flagged ? 'warn' : ''}`}
                 style={{ height: tot === 0 ? 3 : Math.max(6, (tot / max) * 40) }} />
             )
@@ -49,8 +49,8 @@ export function ReviewsList() {
         </div>
       </Section>}
       <Section title="Fleet reviews" count={rows.length} note={single > 0 ? `${single} single-project review${single === 1 ? '' : 's'} appear on their project or remediation page.` : undefined}>
-        <ListTable label="Fleet reviews" rows={rows.slice(0, limit)} rowKey={r => String(r.id)} rowTo={r => `/conformance/reviews/${r.id}`} columns={[
-          { key: 'review', label: 'Review', phone: 'name', render: r => <Link to={`/conformance/reviews/${r.id}`}>Review #{r.number}</Link> },
+        <ListTable label="Fleet reviews" rows={rows.slice(0, limit)} rowKey={r => String(r.id)} rowTo={r => `/maintenance/standards/reviews/${r.id}`} columns={[
+          { key: 'review', label: 'Review', phone: 'name', render: r => <Link to={`/maintenance/standards/reviews/${r.id}`}>Review #{r.number}</Link> },
           { key: 'result', label: 'Result', render: r => <span className="muted">{result(r)}</span> },
           { key: 'change', label: 'Since the last', render: r => r.delta && r.delta.comparedProjects > 0
             ? <span className="muted" title={`compared over ${r.delta.comparedProjects} projects with the review before it`}><span className={r.delta.fixed ? 'review-fixed' : undefined}>{r.delta.fixed} fixed</span>{' · '}<span className={r.delta.new ? 'review-new' : undefined}>{r.delta.new} new</span></span>

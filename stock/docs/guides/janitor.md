@@ -1,9 +1,9 @@
 # Janitor
 
-The Janitor page says how many projects need you or how many it keeps up to
+Maintenance’s Needs you tab says how many projects need you or how many it keeps up to
 date. When no choices are set, or every choice is off, it says “Janitor is off”.
 Open Settings › General for a project’s Janitor choice and Run now.
-Open its Conformance page for scans and findings. Open a Change for its
+Open its record under Maintenance › Standards for scans and findings. Open a Change for its
 files and evidence. Settings contains What to keep updated. Nothing runs until
 a person saves choices.
 
@@ -36,7 +36,7 @@ any application changes those updates need. Repairs may update declarations in
 security fixes change only an existing `staticServer:` in that file, when base
 image updates are on; they never add a missing one.
 
-In Janitor settings, choose dependencies **Off**, **Patch and minor** or
+In Maintenance settings, choose dependencies **Off**, **Patch and minor** or
 **Including major**, plus **Security fixes**, **Base images**, **Toolchain patches
 for security fixes** and **Packs**. Each switch or dependency choice saves immediately and records your name and
 time. A concurrent change shows a conflict and the current choices; it does
@@ -50,7 +50,7 @@ Turning choices off stops new claims; work that has already claimed permission m
 Settings › General has a Janitor section. Its Dependencies choice saves when you
 change it. Choose Same as everywhere to follow the shared choice, or Off, Patch
 and minor, or Including major for this project. Off stops both dependency and
-pack updates there. The choice records who changed it and when. Janitor settings
+pack updates there. The choice records who changed it and when. Maintenance settings
 names projects with their own choice and links to their settings.
 
 ## Fresh images for security fixes
@@ -136,7 +136,7 @@ code ends the hold. A deployment's own page controls its release setting and
 window in its Settings tab. Automatically and When a person says save on change.
 Choose In a release window, then set the window and press Save release window.
 Protected deployments still need a person's approval. Unknown scans appear in
-Attention and the Conformance project page. A project without Janitor queues is neither listed nor counted here. An unreadable update
+Attention and the project record under Maintenance › Standards. A project without Janitor queues is neither listed nor counted here. An unreadable update
 schedule on a project with queues offers **Run now** and reports why it cannot start.
 
 ## Running updates and history

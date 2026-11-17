@@ -76,7 +76,7 @@ export function IntegrationProjects() {
 
 export function CheckProjects() {
   const { reviewId, checkKey = '' } = useParams()
-  const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
+  const base = reviewId ? `/maintenance/standards/reviews/${reviewId}` : '/maintenance/standards'
   const q = useGet<ConformanceView>(reviewId ? `/conformance?review=${reviewId}` : '/conformance')
   const def = q.data?.checkDefs[checkKey]
   const checkName = def?.title || def?.check || checkKey
@@ -84,7 +84,7 @@ export function CheckProjects() {
   useEffect(() => {
     setPageContext({ names: {
       [`${base}/checks/${encodeURIComponent(checkKey)}`]: checkName,
-      ...(reviewId && reviewNumber ? { [`/conformance/reviews/${reviewId}`]: `Review #${reviewNumber}` } : {}),
+      ...(reviewId && reviewNumber ? { [`/maintenance/standards/reviews/${reviewId}`]: `Review #${reviewNumber}` } : {}),
     } })
     return () => setPageContext({})
   }, [base, checkKey, checkName, reviewId, reviewNumber])

@@ -107,12 +107,12 @@ it('keeps service project and deployment links on the dependent page and reports
 
 it('keeps check adopters behind a count link, including adopters without a result', async () => {
   const def = {key:'clear',title:'Clear text',block:'guide',version:1,check:'clear',expects:'Clear text',evaluator:'sh',judgedWhere:'at review',severity:'warn',scope:'main',adopters:projects.map(p=>p.slug),files:[]}
-  const {el,click} = await mount('/conformance/checks/clear', <>
-    <Route path="/conformance/checks/:checkKey" element={<HowJudged def={def} />} />
-    <Route path="/conformance/checks/:checkKey/projects" element={<CheckProjects />} />
+  const {el,click} = await mount('/maintenance/standards/checks/clear', <>
+    <Route path="/maintenance/standards/checks/:checkKey" element={<HowJudged def={def} />} />
+    <Route path="/maintenance/standards/checks/:checkKey/projects" element={<CheckProjects />} />
   </>, {'/conformance':{checkDefs:{clear:def},lens:{kind:'current'}}})
   expect(el.textContent).not.toContain('app-0')
   expect(el.querySelector('a[href$="/clear/projects"]')?.textContent).toBe('100 projects')
   await click('a[href$="/clear/projects"]')
-  expect(el.querySelectorAll('a[href^="/conformance/projects/app-"]')).toHaveLength(100)
+  expect(el.querySelectorAll('a[href^="/maintenance/standards/projects/app-"]')).toHaveLength(100)
 })

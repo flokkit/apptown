@@ -113,7 +113,7 @@ it.each([false, true])('keeps failed execution beside findings in list and proje
   const p = { notKnown: [{ detail: 'scanner: no Docker executor', evaluator: 'tool' }], slug: 'calendar', name: 'Calendar', standing: 'does-not-conform', statusLabel: 'failed', sentence: '2 findings · 1 could not run', lanes: { findings: 2, broken: 1, conforms: 0, excepted: 0, flagged: 0, unassessed: 0, na: 0 }, total: 3, adopted: [] }
   const view = { lens: { kind: 'current' }, reviews: [{ id: 'review', number: 1, trigger: 'manual' }], openRemediations: [], projects: [p], byProject: {}, exceptions: {}, adjudications: {}, checkDefs: {} } as unknown as ConformanceView
   // The findings count is the status; what could not run is said once, in the meta line.
-  for (const ui of [<ProjectsList view={view} base="/conformance" />, <ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />]) {
+  for (const ui of [<ProjectsList view={view} base="/maintenance/standards" />, <ConformanceProject view={view} slug="calendar" readOnly onRunOne={() => {}} />]) {
     const el = await show(ui, {}, narrow)
     expect(el.textContent!.split("1 check couldn't run")).toHaveLength(2)
     expect(el.textContent).toContain('2 findings')
@@ -145,7 +145,7 @@ it.each([false, true])('offers only uncovered fixes and keeps evidence and links
   expect(el.querySelector('a[href="/projects/calendar"]')).not.toBeNull()
   expect(el.textContent).toContain('README missing')
   expect(el.textContent).toContain('hygiene version 1 · clean')
-  expect(el.querySelector('a[href="/conformance/reviews/review"]')).not.toBeNull()
+  expect(el.querySelector('a[href="/maintenance/standards/reviews/review"]')).not.toBeNull()
   expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Open a change to fix')).toHaveLength(1)
 })
 

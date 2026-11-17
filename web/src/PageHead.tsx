@@ -23,6 +23,21 @@ export type PageHelp = {
 }
 
 export const PAGE_HELP = {
+  maintenance: {
+    title: 'Maintenance',
+    help: <>
+      <p>Needs you lists work waiting for a person. Standards checks adopted ways of working. Updates lists landed Janitor changes. Settings chooses what to keep updated.</p>
+      <p>Check whether each project still follows the ways of working it adopted, and fix what it doesn't.</p>
+      <p>A review reads each project's accepted code, its <code>main</code> branch, and changes nothing. A project's standing says what a person needs to do about it. A fix is made as a change in each project, reviewed like any other.</p>
+      <p>Move projects onto newer versions of the packs they adopted, after trying each version first.</p>
+      <p>A what-if runs a pack version's checks against projects as they stand, without changing them, and says per project what would newly fail, newly pass or stay the same. From its report you open adoption changes for the projects you choose; each is reviewed like any other change.</p>
+      <p>The janitor keeps projects' dependencies and packs up to date, and fixes security findings, without anyone asking. It makes each update as an ordinary change: the change is checked, and lands and releases on its own only when a person has granted that permission in Maintenance settings.</p>
+      <p><strong>Needs you</strong> lists work it could not finish. Open a project for its scans, findings and Run now.</p>
+      <p>Choose what to keep updated. Base images keep the same image and variant. Toolchain patches are for security fixes. Packs move to the newest published versions. {PRODUCT} checks each change against these choices and records what ran. Each project can choose its dependency level or turn the janitor off. Deployments keep their own automatic release settings.</p>
+      <p>Guides: <Link to="/docs/guides/conformance">Conformance</Link> · <Link to="/docs/guides/packs-and-what-if">Packs and what-if</Link></p>
+    </>,
+    guide: 'janitor',
+  },
  notifications: {title: 'Notifications', line: 'Attention items sent by webhook or email.', help: <p>Warnings arrive within about two minutes. Other items arrive in a daily digest at each channel’s UTC hour. Channels receive attention items from every project.</p>, guide: 'notifications'},
   waysOfWorking: {
     title: 'Ways of working',
@@ -37,18 +52,6 @@ export const PAGE_HELP = {
       </ul>
       <p>New projects start from a pack. Packs marked <span className="badge">yours</span> were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
     </>,
-    guide: 'packs-and-what-if',
-  },
-  conformance: {
-    title: 'Conformance',
-    line: 'Check whether each project still follows the ways of working it adopted, and fix what it doesn\'t.',
-    help: <p>A review reads each project's accepted code, its <code>main</code> branch, and changes nothing. A project's standing says what a person needs to do about it. A fix is made as a change in each project, reviewed like any other.</p>,
-    guide: 'conformance',
-  },
-  packUpgrades: {
-    title: 'Pack upgrades',
-    line: 'Move projects onto newer versions of the packs they adopted, after trying each version first.',
-    help: <p>A what-if runs a pack version's checks against projects as they stand, without changing them, and says per project what would newly fail, newly pass or stay the same. From its report you open adoption changes for the projects you choose; each is reviewed like any other change.</p>,
     guide: 'packs-and-what-if',
   },
   deployments: {
@@ -164,19 +167,6 @@ export const PAGE_HELP = {
     </>,
     guide: 'project-settings',
   },
-  janitor: {
-    title: 'Janitor',
-    help: <>
-      <p>The janitor keeps projects' dependencies and packs up to date, and fixes security findings, without anyone asking. It makes each update as an ordinary change: the change is checked, and lands and releases on its own only when a person has granted that permission in Janitor settings.</p>
-      <p><strong>Needs you</strong> lists work it could not finish. Open a project for its scans, findings and Run now.</p>
-    </>,
-    guide: 'janitor',
-  },
-  janitorSettings: {
-    title: 'Janitor settings',
-    help: <p>Choose what to keep updated. Base images keep the same image and variant. Toolchain patches are for security fixes. Packs move to the newest published versions. {PRODUCT} checks each change against these choices and records what ran. Each project can choose its dependency level or turn the janitor off. Deployments keep their own automatic release settings.</p>,
-    guide: 'janitor',
-  },
 } satisfies Record<string, PageHelp>
 
 export type HelpPage = keyof typeof PAGE_HELP
@@ -276,7 +266,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     </> },
   },
   // Each conformance page says what that page shows, not the area's summary.
-  conformance: {
+  maintenance: {
     Checks: { guide: 'conformance', body: <>
       <p>Every check the projects' adopted packs ask for, with how many projects pass, fail or could not be checked.</p>
       <p>Open a check to see each project's latest result for it.</p>
@@ -301,7 +291,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
 // that is about one thing of its own (a kind of integration) passes its own
 // help in place of the area's.
 // line is the page's one-sentence subtitle, kept with its title.
-export function PageHead({ page, actions, sub, help, line, title }: { page: HelpPage; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
+export function PageHead({ page, actions, sub, help, line, title, compact = false }: { page: HelpPage; compact?: boolean; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
   const h: PageHelp = PAGE_HELP[page]
   const beta = useContext(BetaPage)
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
@@ -310,9 +300,9 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
       <div className="page-head-row">
         {/* The title and its "?" stay together; actions wrap as a block. */}
         <span className="page-head-title">
-          <h1>{title ?? sub ?? h.title}</h1>
+          {!compact && <h1>{title ?? sub ?? h.title}</h1>}
           {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
-            : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
+            : !compact && <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
           {beta && <BetaChip />}
         </span>
         {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}

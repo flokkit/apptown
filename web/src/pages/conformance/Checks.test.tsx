@@ -10,7 +10,7 @@ vi.mock('./parts', async (original) => ({ ...await original<typeof import('./par
 it('shows findings and their Fix action on the row while results stay closed', () => {
  const v = { projectSlug: 'lunch', lane: 'findings', state: 'does-not-conform', statusLabel: 'failed', severity: 'block', block: 'docs', check: 'readme', detail: 'README missing' }
  const view = { openRemediations: [], lens: { kind: 'current' }, adjudications: {}, checkDefs: { readme: { key: 'readme', title: 'README', adopters: [], severity: 'block' }, quiet: { key: 'quiet', title: 'Quiet' } }, byCheck: { readme: [v], quiet: [{ ...v, lane: 'conforms', state: 'conforms', statusLabel: 'passed', projectSlug: 'quiet-project' }] } } as unknown as ConformanceView
- const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
+ const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/maintenance/standards" /></MemoryRouter>)
  expect(html).toContain('Fix everywhere')
  expect(html).toContain('1 finding')
  expect(html).not.toContain('README missing')
@@ -21,7 +21,7 @@ it('shows findings on a closed group of versions of the same check', () => {
  const passed = { projectSlug: 'one', lane: 'conforms', state: 'conforms', statusLabel: 'passed' }
  const failed = { projectSlug: 'two', lane: 'findings', state: 'does-not-conform', statusLabel: 'failed' }
  const view = { openRemediations: [], lens: { kind: 'current' }, adjudications: {}, checkDefs: { v1: { key: 'v1', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 1 }, v2: { key: 'v2', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 2 } }, byCheck: { v1: [passed], v2: [failed] } } as unknown as ConformanceView
- const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
+ const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/maintenance/standards" /></MemoryRouter>)
  // The row itself, before it is opened, says there is a finding.
  const row = html.slice(html.indexOf('<tbody>'), html.indexOf('</tr>', html.indexOf('<tbody>')))
  expect(row).toContain('1 finding')
@@ -35,6 +35,6 @@ it('says how many more checks the button shows beside the total', () => {
   const pass = { projectSlug: 'one', lane: 'conforms', state: 'conforms', statusLabel: 'passed' }
   const keys = Array.from({ length: 16 }, (_, i) => `c${String(i).padStart(2, '0')}`)
   const view = { openRemediations: [], lens: { kind: 'current' }, adjudications: {}, checkDefs: Object.fromEntries(keys.map(k => [k, { key: k, title: k, adopters: [] }])), byCheck: Object.fromEntries(keys.map(k => [k, [pass]])) } as unknown as ConformanceView
-  const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
+  const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/maintenance/standards" /></MemoryRouter>)
   expect(html).toContain('Show 6 more checks')
 })

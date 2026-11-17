@@ -99,6 +99,7 @@ const conformanceFixture = await build({
     import { MemoryRouter } from 'react-router-dom'
     import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
     import Conformance from './pages/Conformance'
+    import Maintenance from './pages/Maintenance'
     import { withFeatures } from './features.fixture'
     window.fetch = withFeatures(async path => {
       const data = String(path).endsWith('/conformance') ? await new Promise(resolve => {
@@ -106,7 +107,7 @@ const conformanceFixture = await build({
       }) : {whatIfs:[]}
       return new Response(JSON.stringify(data), {headers:{'Content-Type':'application/json'}})
     })
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main style={{padding:18}}><Conformance tab="what-ifs" /></main></MemoryRouter></QueryClientProvider>)
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={["/maintenance/standards/what-ifs"]}><main style={{padding:18}}><Maintenance><Conformance tab="what-ifs" /></Maintenance></main></MemoryRouter></QueryClientProvider>)
   ` },
 })
 // Real current-state rows: status words must stay whole beside wrapping names.
@@ -648,12 +649,18 @@ try {
     await page.addScriptTag({ content: conformanceFixture.outputFiles[0].text })
     await fontsReady(page)
     await page.waitForFunction(() => !!window.finishConformance)
-    // Conformance's pages are in the sidebar; the page must still fit a
-    // phone once its counts load.
+    // Maintenance keeps both navigation strips inside the phone after its counts load.
     await page.evaluate(() => window.finishConformance())
     await page.locator('.page-head h1').first().waitFor()
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Conformance fits after count loads at 390, ${size}`)
-    if (out) await page.screenshot({ path: `${out}/conformance-390-${size}.png`, fullPage: true })
+    assert.equal(await page.locator('[aria-label="Maintenance"] a').count(), 4)
+    assert.equal(await page.locator('[aria-label="Standards"] a').count(), 5)
+    for (const label of ['Maintenance', 'Standards']) {
+      const strip = page.locator('[aria-label="' + label + '"]')
+      assert.equal(await strip.evaluate(el => getComputedStyle(el).overflowX), 'auto', label + ' scrolls horizontally')
+      assert.equal(await strip.evaluate(el => new Set([...el.children].map(t => Math.round(t.getBoundingClientRect().top))).size), 1, label + ' keeps one row')
+    }
+    if (out) await page.screenshot({ path: `${out}/maintenance-390-${size}.png`, fullPage: true })
   }
   for (const width of [390, 800, 1440]) {
     for (const size of ['small', 'medium', 'large']) {

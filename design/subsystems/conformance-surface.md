@@ -1,5 +1,9 @@
 # Conformance decisions and display
 
+Maintenance’s Standards tab opens Projects, Checks, Reviews, Remediations and
+Pack upgrades. Record pages use `/maintenance/standards` as their browser prefix.
+API addresses remain under `/api/v1/conformance`.
+
 A verdict records an evaluation. A confirmation or exception records a person's
 decision about that evidence. The current-status display combines those records;
 it must not rewrite the original evaluation as if the evaluator had said something
@@ -20,7 +24,7 @@ together. Findings are amber; “N not known” is red in the standing chip and
 summary note, including on phones. Findings retain priority in standing without
 hiding incomplete evaluation. An attempted check that cannot give an answer is not known,
 with its reason, and contributes no confirmed problem or judged check.
-AI unclear and cannot-assess results remain on project Conformance with their
+AI unclear and cannot-assess results remain on the project record under Maintenance › Standards with their
 reason, Re-check and Record a decision. Recording a decision uses the existing
 accepted-risk disposition for that check version: it does not turn uncertainty
 into a pass. The decision remains attributed and revocable.

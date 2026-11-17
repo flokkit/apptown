@@ -40,10 +40,10 @@ var featureNeeds = map[string]string{
 
 // featureOff says, for each switchable area, what turning it off means.
 var featureOff = map[string]string{
-	"conformance":        "Hides the Conformance pages and refuses estate reviews, verdict confirmations and fixes from the web, the command line and outside agents. Adoption no longer starts reviews and no new fix items are made. Each change's own standards check still runs whenever its adopted workflow requires it. Past reviews and verdicts are kept and come back when it is turned on again; Pack upgrades and the estate view need it on too.",
+	"conformance":        "Hides Maintenance’s Standards tab and refuses estate reviews, verdict confirmations and fixes from the web, the command line and outside agents. Adoption no longer starts reviews and no new fix items are made. Each change's own standards check still runs whenever its adopted workflow requires it. Past reviews and verdicts are kept and come back when it is turned on again; Pack upgrades and the estate view need it on too.",
 	"backups":            "Pauses backups of your apps' data: no scheduled or after-release backups and no scheduled cloud copies. The Backups pages, Back up now and restores are refused, and restore rehearsals with them. Use it when your apps' data is backed up another way, such as filesystem snapshots. Existing backups are kept; turning it on again lets the next scheduled pass back up again. Work already started finishes. AppTown's own backups have their own switch.",
 	"apptown-backup":     "Stops the daily dump of AppTown's own built-in database, kept in its data folder. Use it when AppTown itself is backed up another way, such as filesystem snapshots of its host. Dumps already taken are kept, and a whole-AppTown backup by hand (apptownd backup) still works. Turning it on again resumes the daily dump. Your apps' backups have their own switch.",
-	"updates":            "AppTown stops checking for new versions and the Updates page is hidden. Use it for an install upgraded through its own tooling or with no internet access. Nothing installed changes; turning it on again resumes the checks.",
+	"updates":            "AppTown stops checking for new versions and the AppTown updates page is hidden. Use it for an install upgraded through its own tooling or with no internet access. Nothing installed changes; turning it on again resumes the checks.",
 	"evals":              "Hides evals and starts no new eval runs. Runs already started finish and their results are kept.",
 	"what-ifs":           "Hides Pack upgrades: the projects behind on a pack, and what-ifs that try a newer pack version on them before anyone adopts it. Adoption changes already opened from a what-if are ordinary changes and carry on. Needs Conformance on.",
 	"restore-rehearsals": "Starts no new restore rehearsals or restored copies. Rehearsal places already made are still cleaned up, and past results are kept.",
@@ -78,7 +78,7 @@ func FeatureCatalogue() []Feature {
 		{"worker", "Worker", "always", true, "Worker settings", "/docs/guides/split-install", "", ""},
 		{"previews", "Previews", "always", true, "Change previews", "/docs/guides/how-apps-run", "", ""},
 		{"models", "Models", "always", true, "Model setup pages", "/docs/guides/runtime-environments", "", ""},
-		{"updates", "Update checks", "standard", true, "Checking for new AppTown versions, and the Updates page", "/docs/guides/upgrading", "", ""},
+		{"updates", "Update checks", "standard", true, "Checking for new AppTown versions, and the AppTown updates page", "/docs/guides/upgrading", "", ""},
 		{"complaints", "Complaints", "always", true, "Reports about AppTown", "/docs/guides/features", "", ""},
 		{"evals", "Evals", "beta", false, "Model and workflow evaluations", "/docs/guides/packs-and-what-if", "", ""},
 		{"what-ifs", "Pack upgrades", "beta", false, "Projects behind on a pack, and trying a newer version first", "/docs/guides/packs-and-what-if", "", ""},

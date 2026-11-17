@@ -242,5 +242,5 @@ func (h projectReads) latestStanding(ctx context.Context, p *project.Project) (m
 		return nil, err
 	}
 	return map[string]any{"standing": ps.Standing, "sentence": ps.Sentence, "reviewId": ps.ReviewID, "judgedAt": ps.JudgedAt,
-		"webUrl": "/conformance/projects/" + p.Slug}, nil
+		"webUrl": "/maintenance/standards/projects/" + p.Slug}, nil
 }

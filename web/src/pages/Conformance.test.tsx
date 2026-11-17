@@ -149,8 +149,8 @@ describe('a project page while its review refreshes', () => {
       return new Response('{}')
     })))
     const router = createMemoryRouter([
-      { path: '/conformance/reviews/:reviewId/projects/:slug', element: <Conformance tab="project" /> },
-    ], { initialEntries: [`/conformance/reviews/${uuid(1)}/projects/shop`] })
+      { path: '/maintenance/standards/reviews/:reviewId/projects/:slug', element: <Conformance tab="project" /> },
+    ], { initialEntries: [`/maintenance/standards/reviews/${uuid(1)}/projects/shop`] })
     const el = document.createElement('div')
     document.body.appendChild(el)
     const root = createRoot(el)
@@ -173,7 +173,7 @@ describe('a project page while its review refreshes', () => {
       // Review 2's answer is already held, as after visiting it earlier, so
       // the page does not pass through loading on the way.
       client.setQueryData(getKey(`/conformance?review=${uuid(2)}`), viewOf(2, 3))
-      await act(async () => { await router.navigate(`/conformance/reviews/${uuid(2)}/projects/shop`) })
+      await act(async () => { await router.navigate(`/maintenance/standards/reviews/${uuid(2)}/projects/shop`) })
       await settle()
       expect(lane(), 'review 2 is shown').toBeDefined()
       expect(el.textContent, 'another review shows its checks inline').toContain('check-1 detail')

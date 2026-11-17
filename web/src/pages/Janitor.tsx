@@ -9,7 +9,6 @@ import { useHolds } from '../instancePages'
 import { changedFiles } from './janitor/files'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
-import { PageHead } from '../PageHead'
 import { ListTable, type ListColumn } from '../ListTable'
 import { fmtWhen } from '../format'
 import { RunNow } from './janitor/RunNow'
@@ -19,7 +18,7 @@ import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChan
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}/settings/general#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 
-function summary(data: JanitorView, items: Need[]) {
+export function summary(data: JanitorView, items: Need[]) {
  const c = data.choices?.choices
  if (!c || c.dependencies === 'off' && !c.securityFixes && !c.baseImages && !c.toolchainPatches && !c.packs) return 'Janitor is off'
  const count = new Set(items.map(n => n.project.projectId)).size
@@ -29,7 +28,7 @@ function summary(data: JanitorView, items: Need[]) {
 }
 
 type Need = { key: string; project: JanitorProject; what: string; reason: string; to: string; queue?: QueueStatus; scheduleProblem?: boolean }
-function needs(data: JanitorView): Need[] {
+export function needs(data: JanitorView): Need[] {
   return [...data.projects.filter(p => p.queues.length > 0).flatMap(project => [
     ...project.queues.filter(q => ['decide', 'stopped'].includes(q.state)).map(queue => ({ key: `${project.projectId}/${queue.queue}`, project, what: queue.title, reason: [queue.state === 'decide' ? queue.changeSummary || changedFiles(queue.packages, queue.files) : '', queue.words].filter(Boolean).join(' · '), to: queue.changeId ? `/changes/${queue.changeId}` : projectTo(project), queue })),
     ...(project.scheduleProblem ? [{ key: `${project.projectId}/unknown`, project, what: 'Updates', reason: `${PRODUCT} could not read this project's update schedule · ${project.scheduleProblem}`, to: projectTo(project), scheduleProblem: true }] : []),
@@ -62,25 +61,21 @@ function History({ projects }: { projects: JanitorProject[] }) {
   </>
 }
 
-export default function Janitor() {
+export function NeedsYou() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   const data = q.data
   const items = data ? needs(data) : []
   return <div>
-    <PageHead page="janitor" line={data && summary(data, items)} actions={<>
-      <Link className="btn primary" to="/janitor/settings">Settings</Link>
-    </>} />
     <ReadStatus q={q} what="janitor" /><StaleNote q={q} />
     {data && <>
       {/* Decisions share state across the prose and action cells, so this
           table owns its rows and uses the shared record-table conventions. */}
-      {items.length > 0 && <Section title="Needs you"><table className="record-table record-table-links" aria-label="Needs you">
+      {items.length === 0 ? <p>Nothing needs you.</p> : <Section title="Needs you"><table className="record-table record-table-links" aria-label="Needs you">
         <thead><tr><th scope="col">Project</th><th scope="col" className="record-fit">What it was doing</th><th scope="col">Why</th><th scope="col" className="record-fit record-action" /></tr></thead>
         <tbody>{items.map(n => <NeedRow key={`${n.key}/${n.queue?.changeId}/${n.queue?.decide?.stepId}`} need={n} current={q.current} reload={q.reload} />)}</tbody>
       </table></Section>}
 
     </>}
-    <Section title="Recent updates"><History projects={data?.projects || []} /></Section>
   </div>
 }
 
@@ -115,4 +110,9 @@ function QueueAction({ queue, slug, current, reload, children }: { queue: QueueS
     } : undefined}>{(details, actions) => layout(details && <div className="ch-forward-reason">{details}</div>, <div className="row row-2">
       {actions}<button disabled={!current || action.busy || !canClose} onClick={close.run}>Close</button>
     </div>)}</DecisionChoices>
+}
+
+export function UpdatesHistory() {
+  const q = useGet<JanitorView>('/janitor', { poll: 10000 })
+  return <Section title="Recent updates"><History projects={q.data?.projects || []} /></Section>
 }

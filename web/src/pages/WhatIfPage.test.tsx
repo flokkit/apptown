@@ -54,7 +54,7 @@ async function render(answer: (url: string, init?: RequestInit) => unknown) {
   const el = document.createElement('div')
   const root = createRoot(el)
   await act(async () => {
-    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/maintenance/standards/what-ifs/${WHAT_IF}`]}><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/maintenance/standards/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
   })
   await settled(client)
   return { el, client, done: () => { act(() => root.unmount()); client.clear() } }
@@ -98,7 +98,7 @@ describe('the what-if page', () => {
       expect(rows[0].textContent).toContain('failed')
       expect(chips(rows[3])).toEqual(['unknown: not evaluated'])
       expect(rows[0].textContent).not.toContain('0123456789')
-      const link = rows[0].querySelector<HTMLAnchorElement>(`a[href="/conformance/what-ifs/${WHAT_IF}/projects/ledger"]`)!
+      const link = rows[0].querySelector<HTMLAnchorElement>(`a[href="/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger"]`)!
       expect(link.textContent).toBe('Check details')
       await act(async () => link.click())
       expect(el.querySelector('h1')?.textContent).toBe('ledger')
@@ -144,7 +144,7 @@ describe('the what-if page', () => {
     expect(button(el, 'Recommend v2')).toBeUndefined()
     expect(el.querySelector(`a[href="/packs/team?whatIf=${WHAT_IF}"]`)).not.toBeNull()
     expect(el.querySelector('a[href="/evals/new?pack=team&version=2"]')).not.toBeNull()
-    await act(async () => { (projectRows(el)[0].querySelector(`a[href="/conformance/what-ifs/${WHAT_IF}/projects/ledger"]`) as HTMLAnchorElement).click() })
+    await act(async () => { (projectRows(el)[0].querySelector(`a[href="/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger"]`) as HTMLAnchorElement).click() })
     expect(el.textContent).toContain('1 rules move to an older version')
     expect(el.textContent).toContain('0123456789')
     expect(el.textContent).toContain('docs · readme')
@@ -285,7 +285,7 @@ describe('the what-if page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
-      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/conformance/what-ifs/${WHAT_IF}`]}><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/conformance/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/maintenance/standards/what-ifs/${WHAT_IF}`]}><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/maintenance/standards/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
     })
     await settled(client)
     for (const slug of ['ledger', 'shop']) await act(async () => { (el.querySelector(`input[aria-label="adopt on ${slug}"]`) as HTMLInputElement).click() })
@@ -339,10 +339,10 @@ describe('the what-if page', () => {
 it('names the what-if in the back link of a project result', async () => {
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).includes('/conformance/what-if/') ? whatIf : {})))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  const path = `/conformance/what-ifs/${WHAT_IF}/projects/ledger`
+  const path = `/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger`
   try {
     await act(async () => {
-      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /><Routes><Route path="/conformance/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
     })
     await settled(client)
     await vi.waitFor(() => expect(el.querySelector('.topbar-back')?.textContent).toBe('‹What-if: team v2'))

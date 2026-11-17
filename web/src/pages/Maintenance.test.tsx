@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import Maintenance from './Maintenance'
+import { withFeatures } from '../features.fixture'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -7,7 +9,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
 import { StaleScope } from '../ReadGate'
-import Janitor from './Janitor'
+import { NeedsYou as Janitor, UpdatesHistory } from './Janitor'
 import JanitorSettings from './janitor/Settings'
 import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision } from '../wire.gen'
 
@@ -28,12 +30,12 @@ const history = (): JanitorHistoryView => ({ history: { changes: [{ changeId: 'l
 const cleanup: (() => void)[] = []
 afterEach(() => { cleanup.splice(0).forEach(f => f()); vi.unstubAllGlobals() })
 async function mount(fetcher: (url: string, init?: RequestInit) => Promise<Response>, manage = true, project: Record<string, boolean> = { 'change:create': true, 'change:invoke-lane': true }, settings = false) {
- vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => url.endsWith('/authz/me') ? new Response(JSON.stringify({ instance: { 'instance:manage-standing-approval': manage } }))
-  : url.includes('/authz/me?project=') ? new Response(JSON.stringify({ instance: {}, project })) : fetcher(url, init)))
+ vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => url.endsWith('/authz/me') ? new Response(JSON.stringify({ instance: { 'instance:manage-standing-approval': manage } }))
+  : url.includes('/authz/me?project=') ? new Response(JSON.stringify({ instance: {}, project })) : fetcher(url, init))))
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  client.setDefaultOptions({ queries: { retry: false } })
  cleanup.push(() => { act(() => root.unmount()); client.clear() })
- await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><StaleScope>{settings ? <JanitorSettings /> : <Janitor />}</StaleScope></MemoryRouter></QueryClientProvider>))
+ await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><StaleScope><Maintenance>{settings ? <JanitorSettings /> : <><Janitor /><UpdatesHistory /></>}</Maintenance></StaleScope></MemoryRouter></QueryClientProvider>))
  return { client, el }
 }
 const json = (value: unknown) => new Response(JSON.stringify(value))
@@ -139,9 +141,11 @@ it('keeps loading, empty, failed and stale answers distinct', async () => {
  let complete!: (r:Response)=>void
  const pending = new Promise<Response>(resolve => {complete=resolve})
  const {client, el}=await mount(async url => url.includes('/history') ? json({...history(), history:{changes:[],more:false}}) : pending)
+ await act(async () => { await new Promise(r => setTimeout(r, 10)) })
  expect(el.textContent).toContain('Loading…')
  expect(el.textContent).not.toContain('No projects yet')
  await act(async()=>complete(json({choices:null,projects:[],deployments:[],unknown:[]}))); await settled(client)
+ expect(el.textContent).toContain('Nothing needs you.')
  expect(el.textContent).toContain('Janitor is off')
  expect(el.querySelector('.page-head-line')?.textContent).toBe('Janitor is off')
  expect(el.querySelector('table[aria-label="Needs you"]')).toBeNull()

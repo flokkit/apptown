@@ -255,5 +255,5 @@ export function ChecksRow({ slug }: { slug: string }) {
   return <ListRow listItem className="card row wow-gives wow-list-row" identity={<div className="row wow-gives">
     <strong>Checks</strong>
     <span className="muted small">Judged when a change lands and in reviews</span>
-    </div>} action={<span className="row-action"><Link to={`/conformance/projects/${slug}`}>Does it meet them? →</Link></span>} />
+    </div>} action={<span className="row-action"><Link to={`/maintenance/standards/projects/${slug}`}>Does it meet them? →</Link></span>} />
 }

@@ -101,7 +101,7 @@ func cmdWhatIf(args []string) error {
 	if err := api.post("/conformance/what-if", body, &started); err != nil {
 		return err
 	}
-	link := fmt.Sprintf("%s/conformance/what-ifs/%d", api.base, started.ID)
+	link := fmt.Sprintf("%s/maintenance/standards/what-ifs/%d", api.base, started.ID)
 	fmt.Printf("%s what-if %s: %s v%d on %s %s\n", bold("▶"), started.ID, pos[0], version, scope, dim(link))
 	if *noFollow {
 		return nil
@@ -190,7 +190,7 @@ func whatIfEnd(w whatIf) error {
 		}
 		return fmt.Errorf("%s", msg)
 	}
-	fmt.Printf("  the what-if: %s/conformance/what-ifs/%d\n", api.base, w.ID)
+	fmt.Printf("  the what-if: %s/maintenance/standards/what-ifs/%d\n", api.base, w.ID)
 	return nil
 }
 

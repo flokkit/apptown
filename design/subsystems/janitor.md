@@ -1,6 +1,6 @@
 # Janitor choices
 
-Janitor settings records what to keep updated: dependencies (`off`, `routine`
+Maintenance settings records what to keep updated: dependencies (`off`, `routine`
 for patch and minor, or `aggressive` including major), security fixes, base images,
 toolchain patches for security fixes, and packs. Security fixes require dependency
 updates; toolchain patches require security fixes. Everything starts off.
@@ -50,14 +50,14 @@ with `{choices, expectedRevision}`, `GET /api/v1/janitor/choices/history` and
 `janitor assess --run RUN`. A lost save reply requires reading current choices
 before another save.
 
-## Janitor page
+## Maintenance page
 
-`/janitor` shows work that needs a person and recent landed Changes. Only
+`/maintenance` shows work that needs a person; `/maintenance/updates` shows recent landed Changes. Only
 projects with standing queues are listed or counted. Unknown scans belong to
-Attention and the Conformance project page. An unreadable update schedule on a
+Attention and the project record under Maintenance › Standards. An unreadable update schedule on a
 project with queues offers Run now and shows the scheduler's refusal.
 
-`/janitor/settings` links to project and deployment settings and shows the
+`/maintenance/settings` links to project and deployment settings and shows the
 choices, who set them and when, project choices and automatic release destinations. Switches and the dependency select save on
 change, with one full-choice write at the read revision. Controls are disabled
 while saving or while the read is not current. A conflict reloads the current
@@ -73,7 +73,7 @@ compare the Change's immutable target candidate with the previous landed
 uplift's target in the same project, including a person's adoption. Only added
 or version-changed packs are listed; a first adoption lists all packs.
 Original grant attribution reads the recorded rule revision,
-including for failed work whose Change is purged. Every attribution names the recorded choices, revision and issuer, with a link to Janitor. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
+including for failed work whose Change is purged. Every attribution names the recorded choices, revision and issuer, with a link to Maintenance. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
 
 The Janitor project set contains ordinary projects with no lifecycle row.
@@ -269,7 +269,7 @@ Three uninterrupted failed tries stop the queue. A stopped security queue
 suppresses the faulted targets in its current episode and can try a new
 fixable finding at the scan's failure threshold.
 
-The Janitor overview leads with “N projects need you”, “Keeping N projects up to
+Maintenance’s Janitor tabs leads with “N projects need you”, “Keeping N projects up to
 date”, or “Janitor is off” when choices are absent or all off. Needs you lists
 `decide` and `stopped` queues, release holds and unreadable update schedules.
 Decision rows show what the proposal does, then the current decision's reason.
@@ -370,7 +370,7 @@ history and the release page show the same waiting reason.
 
 ## Scan observations and disposal
 
-The project Overview has no Janitor section. The Conformance project page shows
+The project Overview has no Janitor section. The project record under Maintenance › Standards shows
 the current source, running-image-only and unclassified findings.
 Conformance's Last scan lists each scanner subject, result and observation time,
 with the newest ten earlier observations below. An aggregate Not known and its

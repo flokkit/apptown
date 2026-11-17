@@ -162,7 +162,7 @@ describe('what-if panel', () => {
     expect(details(el)).not.toContain('queued')
     expect(el.textContent).toContain('1 ● unknown')
     expect(el.querySelector('.chip.unknown')?.getAttribute('data-help') ?? el.querySelector('.chip.unknown')?.getAttribute('title')).toBe('not evaluated')
-    expect(el.querySelector('a')?.getAttribute('href')).toBe(`/conformance/what-ifs/${WHAT_IF}`)
+    expect(el.querySelector('a')?.getAttribute('href')).toBe(`/maintenance/standards/what-ifs/${WHAT_IF}`)
     expect(button(el, 'Run on').disabled).toBe(true)
     done()
   })

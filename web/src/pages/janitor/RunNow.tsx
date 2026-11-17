@@ -19,7 +19,7 @@ export function RunNow({ slug, queues, current, reload }: { slug: string; queues
     <button type="button" disabled={!!reason || !current || busy} title={reason || undefined} onClick={run}>Run now</button>
     {reason && <div className="muted record-note">{reason}</div>}
     {result?.starts.filter(s => s.refused || s.whatIfId || s.current).map((s, i) => <div className="record-note" key={i}>
-      {queues.find(q => q.queue === s.queue)?.title || s.queue}: {s.refused || (s.whatIfId ? <Link to={`/conformance/what-ifs/${s.whatIfId}`}>assessment started</Link> : 'up to date')}
+      {queues.find(q => q.queue === s.queue)?.title || s.queue}: {s.refused || (s.whatIfId ? <Link to={`/maintenance/standards/what-ifs/${s.whatIfId}`}>assessment started</Link> : 'up to date')}
       {s.busyChangeId && queues.filter(q => q.queue === s.queue).map(queue => <span key={queue.queue}> · <Link to={`/changes/${s.busyChangeId}`}>change #{s.busyChangeNumber}</Link> · <TryAgain refusedRun queue={{ ...queue, changeId: s.busyChangeId, changeNumber: s.busyChangeNumber }} slug={slug} current={current} reload={reload} /></span>)}
     </div>)}
     {err && <div className="error record-note">{err}</div>}

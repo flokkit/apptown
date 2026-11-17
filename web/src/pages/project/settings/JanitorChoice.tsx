@@ -27,7 +27,7 @@ export function JanitorChoice({ slug }: { slug: string }) {
         {['off', 'routine', 'aggressive'].map(level => <option key={level} value={level}>{janitorLevelName(level)}</option>)}
       </select></FieldRow></div>
       {standing.choice && <p>{standing.choice.person.name}, {fmtWhen(standing.choice.at)}</p>}
-      {standing.instanceLevel === 'off' && <p><Link to="/janitor/settings">Dependency updates are off everywhere</Link></p>}
+      {standing.instanceLevel === 'off' && <p><Link to="/maintenance/settings">Dependency updates are off everywhere</Link></p>}
       <div className="mb-3"><RunNow slug={slug} queues={q.data!.queues} current={q.current} reload={q.reload} /></div>
     </>}
     {action.err && <p className="error" role="alert">{action.err}</p>}

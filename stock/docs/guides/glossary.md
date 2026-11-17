@@ -311,9 +311,11 @@ agent loads only when it needs it.
 
 **Standards check** — the workflow step that checks a change against the project’s adopted guidance. Its step type is `guidance/conformance`.
 
+**Maintenance** — the page for portfolio upkeep: Needs you, Standards, Updates and Settings.
+
 **Conformance** — whether a project meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only
-**review** of projects' committed main (**Check now** on the Conformance page).
+**review** of projects' committed main (**Check now** on Maintenance’s Standards tab).
 A review is a saved record you can open later. A project's **standing** is
 its status and one line saying what to do next; its page groups the checks'
 results as findings, couldn't run, needs your review, approved exceptions,
@@ -349,7 +351,7 @@ no confirmed problem.
 **Suppression** — a recorded decision to accept a finding, with a reason and
 an author.
 
-**Exception (conformance)** — the Conformance page's name for a
+**Exception (conformance)** — Maintenance’s Standards tab’s name for a
 suppression: a person's recorded acceptance of a failing check, as an
 accepted risk or a false positive, with a justification. The check reads
 **excepted**, with its failure still visible underneath. An exception may
@@ -358,7 +360,7 @@ have an expiry date; after it, the finding counts again.
 **Remediation** — a job that fixes findings across many projects, one
 change per project at a time. An agent makes each fix; each change waits for
 a person to accept it, then lands, and a fresh review of that project shows
-whether it worked. Progress is on the Conformance page's Remediations tab.
+whether it worked. Progress is on Maintenance’s Standards › Remediations tab.
 
 **Complaint** — a report, usually from an agent, that AppTown itself got
 in the way: what happened, why it mattered, what they wish had been true.

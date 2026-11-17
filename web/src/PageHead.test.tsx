@@ -143,11 +143,11 @@ it("shows the Backups page's own help", () => {
 it.each([['Remediations', 'A remediation fixes findings'], ['this check', "This check's result in each project"]])('shows the conformance %s page its own help', (sub, words) => {
   const el = document.createElement('div'); document.body.append(el)
   const root = createRoot(el)
-  act(() => root.render(<MemoryRouter><PageHead page="conformance" title="Remediations" sub={sub} /></MemoryRouter>))
+  act(() => root.render(<MemoryRouter><PageHead page="maintenance" title="Remediations" sub={sub} /></MemoryRouter>))
   act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
   const text = el.querySelector('.page-help-pop')!.textContent
   expect(text).toContain(words)
-  expect(text).not.toContain(PAGE_HELP.conformance.line)
+  expect(text).not.toContain("Needs you lists work waiting for a person")
   act(() => root.unmount()); el.remove()
 })
 
@@ -221,4 +221,12 @@ describe('help wording', () => {
     for (const i of items) expect(t, i.title).toContain(`${i.title}:`)
     expect(t).toContain('Services an app itself connects to, such as a database, are on the Services page.')
   })
+})
+
+it('keeps all three guides in Maintenance help', () => {
+  const el = document.createElement('div'), root = createRoot(el)
+  act(() => root.render(<MemoryRouter><PageHead page="maintenance" /></MemoryRouter>))
+  act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
+  expect([...el.querySelectorAll('.page-help-pop a')].map(a => a.getAttribute('href')).sort()).toEqual(['conformance', 'janitor', 'packs-and-what-if'].map(g => '/docs/guides/' + g).sort())
+  act(() => root.unmount())
 })

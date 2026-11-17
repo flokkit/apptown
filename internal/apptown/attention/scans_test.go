@@ -17,7 +17,7 @@ func TestADecisionQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
 	change := idstest.N(7)
 	reason := "update: part web: npm listing failed (exit 1): npm notice\nnpm notice New major version of npm available!\n    at walk ([eval]:8:34)\n"
 	state := workflow.QueueStatus{Title: "Dependency updates", Queue: "updates", State: "decide", Words: "needs you", Reason: reason, ChangeID: change, Packages: []workflow.PackageMove{{Package: "vite", From: "5.0.0", To: "5.1.0"}}}
-	item := queueItem(idstest.N(1), "Tidewell", "/conformance/projects/tidewell", state)
+	item := queueItem(idstest.N(1), "Tidewell", "/maintenance/standards/projects/tidewell", state)
 	if item.Detail != "update: part web: npm listing failed (exit 1): npm notice · moved: vite 5.0.0 → 5.1.0" {
 		t.Fatalf("detail %q", item.Detail)
 	}
@@ -25,7 +25,7 @@ func TestADecisionQueueItemIsOneLineAndOpensItsChange(t *testing.T) {
 		t.Fatalf("href %q", item.Href)
 	}
 	state.ChangeID = ids.Nil
-	if item := queueItem(idstest.N(1), "Tidewell", "/conformance/projects/tidewell", state); item.Href != "/conformance/projects/tidewell" {
+	if item := queueItem(idstest.N(1), "Tidewell", "/maintenance/standards/projects/tidewell", state); item.Href != "/maintenance/standards/projects/tidewell" {
 		t.Fatalf("a queue with no change lost its project link: %q", item.Href)
 	}
 }
@@ -62,6 +62,12 @@ func TestOnlyFailedOrOverdueScansNeedAttention(t *testing.T) {
 		"known":                    {workflow.MainScans{Known: true}, false},
 	} {
 		got := scanSnapshot(workflow.ScanAttentionProject{ProjectID: idstest.N(1), Slug: "p", Name: "P", Reaches: true, Scans: c.scans})
+		if got.Href != "/maintenance/standards/projects/p" {
+			t.Fatalf("scan link: %q", got.Href)
+		}
+		if c.item && got.Items[0].Href != "/maintenance/standards/projects/p" {
+			t.Fatalf("scan item link: %q", got.Items[0].Href)
+		}
 		if (len(got.Items) == 1) != c.item || len(got.Items) > 1 {
 			t.Errorf("%s: items %+v", name, got.Items)
 		}

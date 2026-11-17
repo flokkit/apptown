@@ -50,7 +50,7 @@ describe('the what-ifs list', () => {
     expect(rows[1]).toContain('in progress')
     expect(rows[1]).toContain('1 ● passed2 ● unknown')
     expect(chips(rowEls[1])).toContain('passed: no new failures | unknown: not yet judged')
-    expect(el.querySelector(`a[href="/conformance/what-ifs/${ONE}"]`)).not.toBeNull()
+    expect(el.querySelector(`a[href="/maintenance/standards/what-ifs/${ONE}"]`)).not.toBeNull()
     done()
   })
 

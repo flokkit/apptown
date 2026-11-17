@@ -113,7 +113,7 @@ export default function Packs() {
     <div>
       {msg && <div className="muted small mb-2" >{msg}</div>}
       <StaleNote q={packsQ} />
-      <p><Link to="/janitor">Janitor update approvals</Link></p>
+      <p><Link to="/maintenance">Janitor update approvals</Link></p>
 
       <Section title="Packs" count={packs.length} action={<button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>}>
       <LibraryRows>
@@ -256,5 +256,5 @@ function PackInUse({ fleet, name, unread }: { fleet?: FleetPack; name: string; u
   const using = fleet?.versions.flatMap(v => v.projects) ?? []
   if (!fleet || using.length === 0) return <span className="muted small">not in use</span>
   const behind = fleet.versions.filter(v => v.version !== fleet.recommended).flatMap(v => v.projects).length
-  return <span className="small">recommended v{fleet.recommended} · <Link to={`/packs/${encodeURIComponent(name)}/projects`}>{using.length} {using.length === 1 ? 'project' : 'projects'}</Link>{behind > 0 && <> · <Link to="/conformance/what-ifs">{behind} behind</Link></>}</span>
+  return <span className="small">recommended v{fleet.recommended} · <Link to={`/packs/${encodeURIComponent(name)}/projects`}>{using.length} {using.length === 1 ? 'project' : 'projects'}</Link>{behind > 0 && <> · <Link to="/maintenance/standards/what-ifs">{behind} behind</Link></>}</span>
 }
