@@ -212,7 +212,7 @@ func (c infrastructureChecks) RunHourly(ctx context.Context, _ string, _ map[str
 // including a failed or uncertain deploy, which may have changed the target
 // too. Other targets' inventory is marked out of date and read again; Docker
 // inventory remains owned by the host reader loop.
-func (c *infrastructureChecks) Applied(targetID ids.ID) {
+func (c *infrastructureChecks) Applied(targetID, deploymentID ids.ID) {
 	ctx := context.WithoutCancel(c.life)
 	target, err := c.targets.ByID(ctx, targetID)
 	if err != nil {
@@ -237,17 +237,13 @@ func (c *infrastructureChecks) Applied(targetID ids.ID) {
 	}); err != nil {
 		log.Printf("infrastructure: scheduling capacity after an act: %v", err)
 	}
-	deployments, err := c.deployments.All(ctx)
-	if err != nil {
-		log.Printf("infrastructure: listing changed deployments: %v", err)
-		return
-	}
-	for _, dep := range deployments {
-		if dep.TargetID != targetID {
-			continue
+	if !deploymentID.IsZero() {
+		if err := c.deployments.OweChecks(ctx, deploymentID); err != nil {
+			log.Printf("infrastructure: recording checks owed: %v", err)
+			return
 		}
-		if err := c.requestDeployment(ctx, dep.ID); err != nil {
-			log.Printf("infrastructure: checking changed deployment %s: %v", dep.ID, err)
+		if err := c.requestDeployment(ctx, deploymentID); err != nil {
+			log.Printf("infrastructure: checking changed deployment %s: %v", deploymentID, err)
 		}
 	}
 
@@ -271,7 +267,7 @@ func (c infrastructureChecks) requestDeployment(ctx context.Context, id ids.ID) 
 		return err
 	}
 	err = c.db.InTx(ctx, func(tx *database.Tx) error {
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.DetailObservationJob, Key: key + "/" + ids.New(c.now()).String()})
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.DetailObservationJob, Key: key})
 	})
-	return errors.Join(err, c.protection.AfterAct(ctx, id))
+	return errors.Join(err, c.protection.Request(ctx, id))
 }

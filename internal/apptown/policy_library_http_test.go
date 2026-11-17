@@ -162,6 +162,10 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 )`); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: recreate the schema before stored Janitor conclusions.
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `ALTER TABLE deployments DROP COLUMN checks_owed_at, DROP COLUMN hold; DROP TABLE janitor_projects; DROP INDEX release_events_release_at; DROP INDEX releases_deployment_number`); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: this data-only migration needs the pre-upgrade schema stamp.
 	if _, err := a.DB.SQL().ExecContext(t.Context(), `UPDATE schema_version SET version=214`); err != nil {
 		t.Fatal(err)

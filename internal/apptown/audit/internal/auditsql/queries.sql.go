@@ -99,17 +99,15 @@ WHERE ($1::uuid IS NULL OR a.project_id=$1 OR a.project_id IS NULL)
 AND ($2::text='' OR a.kind LIKE $2||'%')
 AND ($3::text='' OR a.subject=$3)
 AND ($4::text='' OR a.subject=$4 OR starts_with(a.subject, $4||' '))
-AND ($5::jsonb='{}'::jsonb OR a.payload_json @> $5::jsonb)
-ORDER BY a.id DESC LIMIT $6
+ORDER BY a.id DESC LIMIT $5
 `
 
 type RecentReceiptsParams struct {
-	ProjectID       ids.ID
-	KindPrefix      string
-	Subject         string
-	SubjectFamily   string
-	PayloadContains json.RawMessage
-	RowLimit        int32
+	ProjectID     ids.ID
+	KindPrefix    string
+	Subject       string
+	SubjectFamily string
+	RowLimit      int32
 }
 
 type RecentReceiptsRow struct {
@@ -131,7 +129,6 @@ func (q *Queries) RecentReceipts(ctx context.Context, arg RecentReceiptsParams) 
 		arg.KindPrefix,
 		arg.Subject,
 		arg.SubjectFamily,
-		arg.PayloadContains,
 		arg.RowLimit,
 	)
 	if err != nil {

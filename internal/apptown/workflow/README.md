@@ -438,3 +438,13 @@ candidate lands exactly (see `scm`).
 
 Change-level comparisons (the change's diff, commits and narrative) read the
 change's folder, as the change's working copy.
+
+## Janitor project records
+
+Queue transitions, adopted declarations and scan observations write the project's
+Janitor record under the project row lock. Fleet reads use that record; a missing
+record is not known yet. Startup interruption repair records every project once.
+The scan summary keeps the last recorded conclusion when main or running images
+change, until another scan arrives or the evidence becomes more than three days
+old. The project's Scans page still compares coverage against current software.
+Repository presence comes from the current project record.

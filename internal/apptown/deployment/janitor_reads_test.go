@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -54,5 +55,24 @@ func TestJanitorDeploymentSetRefusesAnyUnreadableProject(t *testing.T) {
 	authority.projects = []ids.ID{id}
 	if _, err := s.JanitorDeployments(t.Context(), []ids.ID{id, ids.New(time.Now())}); err == nil {
 		t.Fatal("unreadable project in supplied set was trusted")
+	}
+}
+
+func TestJanitorReleaseConclusionQueryCountDoesNotGrowWithDeployments(t *testing.T) {
+	s, db, _, pid, target := healthWorld(t)
+	for i := 0; i < 8; i++ {
+		if _, err := s.Deployments.EnsureStanding(t.Context(), pid, fmt.Sprintf("main-%d", i), target.ID, Attributes{}.WithDefaults()); err != nil {
+			t.Fatal(err)
+		}
+		if i != 1 && i != 7 {
+			continue
+		}
+		counted := &countedQueries{Handle: db.SQL()}
+		if _, err := s.HeldBackIn(t.Context(), counted, pid); err != nil {
+			t.Fatal(err)
+		}
+		if counted.reads != 1 {
+			t.Fatalf("%d deployments: %d queries", i+1, counted.reads)
+		}
 	}
 }

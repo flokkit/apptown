@@ -39,7 +39,11 @@ func (s *Service) AvailableWorkflows(ctx context.Context, projectID ids.ID) ([]w
 // ScheduledWorkflowNames returns only explicit schedules declarations from the
 // project's adopted pack versions. Availability alone never schedules a workflow.
 func (s *Service) ScheduledWorkflowNames(ctx context.Context, projectID ids.ID) (map[string]bool, error) {
-	memberships, err := ProjectPacksIn(ctx, s.db, projectID)
+	return s.ScheduledWorkflowNamesIn(ctx, s.db, projectID)
+}
+
+func (s *Service) ScheduledWorkflowNamesIn(ctx context.Context, db database.Queryer, projectID ids.ID) (map[string]bool, error) {
+	memberships, err := ProjectPacksIn(ctx, db, projectID)
 	if err != nil {
 		return nil, err
 	}

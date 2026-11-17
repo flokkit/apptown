@@ -469,9 +469,11 @@ func TestCapacityObservationJobsKeepTheTargetRevision(t *testing.T) {
 	if !seen[id.String()+"/1"] || !seen[id.String()+"/2"] {
 		t.Fatalf("revision lost: %+v", rows)
 	}
+	// Keep the default outer job bound; the check starts its own 30 s
+	// budget after host-slot admission.
 	kind := apptownJobKinds(a)[deployment.CapacityObservationJob]
-	if kind.Timeout != 60*time.Second || kind.MaxAttempts != 1 {
-		t.Fatalf("unbounded observation: %+v", kind)
+	if kind.Timeout != 0 || kind.MaxAttempts != 1 {
+		t.Fatalf("capacity job overrides the default outer bound: %+v", kind)
 	}
 }
 
@@ -496,9 +498,11 @@ func TestProtectionObservationJobsKeepTheDeploymentIdentity(t *testing.T) {
 	if !seen[id.String()+"/"+strings.Repeat("a", 64)] || !seen[id.String()+"/"+strings.Repeat("b", 64)] {
 		t.Fatalf("deployment identity changed: %+v", rows)
 	}
+	// Slot contention is exercised through the configured worker in
+	// TestConfiguredProtectionJobWaitsForHostSlotBeforeItsBudget.
 	kind := apptownJobKinds(a)[dataprotection.ProtectionObservationJob]
-	if kind.Timeout != 30*time.Second || kind.MaxAttempts != 1 {
-		t.Fatalf("unbounded protection job: %+v", kind)
+	if kind.Timeout != 0 || kind.MaxAttempts != 1 {
+		t.Fatalf("protection job overrides the default outer bound: %+v", kind)
 	}
 }
 

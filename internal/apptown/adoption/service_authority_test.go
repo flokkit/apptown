@@ -112,7 +112,7 @@ func TestServiceAdoptInRecomputesErasedWeakening(t *testing.T) {
 		if err := SetMembershipIn(t.Context(), tx, pid, []Membership{{Pack: "service-house", Version: 1}}, "initial", "alice", time.Now()); err != nil {
 			return err
 		}
-		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", prior, "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", prior, "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 		}
 		receipt := EmptyReceipt()
 		receipt.Packs = []string{"extra", "house"}
-		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", receipt, "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", receipt, "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

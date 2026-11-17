@@ -19,7 +19,7 @@ import (
 func pinStartFixture(t *testing.T, owner runAdmissions, req StartRequest, def *PreparedRun) ids.ID {
 	t.Helper()
 	if err := owner.records.db.InTx(context.Background(), func(tx *database.Tx) error {
-		return adoption.RecordIn(t.Context(), tx, req.ProjectID, 1, adoption.AdoptionEdit, "fixture", adoption.EmptyReceipt(), "fixture", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, req.ProjectID, 1, adoption.AdoptionEdit, "fixture", adoption.EmptyReceipt(), "fixture", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

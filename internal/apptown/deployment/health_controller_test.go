@@ -463,3 +463,47 @@ func TestACrashLoopHoldSurvivesReceiptPersistenceFailure(t *testing.T) {
 		t.Fatalf("failed receipt claimed persistence: %+v", entries)
 	}
 }
+
+func TestRecordedCrashLoopHoldUsesTheDeploymentRecordAndExpiresWithItsGeneration(t *testing.T) {
+	s, db, _, pid, target := healthWorld(t)
+	dep, err := s.Deployments.EnsureStanding(t.Context(), pid, "main", target.ID, Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	settle := func(key string) {
+		t.Helper()
+		attempt, _, err := s.Outcomes.Admit(t.Context(), Start{DeploymentID: dep.ID, TargetID: target.ID, Key: key})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Outcomes.Complete(t.Context(), Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+			t.Fatal(err)
+		}
+		dep, err = s.Deployments.ByID(t.Context(), dep.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	settle("first")
+	s.recordHealth(t.Context(), docker.Watched{DeploymentID: dep.ID, ProjectID: pid, TargetID: target.ID, Identity: deploy.DockerIdentity{Deployment: dep.label(), Generation: dep.ObservedGeneration}}, "deployment.crash-loop-held", map[string]any{"restarts": 20, "window": "2m", "restartCount": 25, "ok": true})
+	dep, err = s.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil || dep.Hold == nil {
+		t.Fatalf("hold absent on record: %+v %v", dep, err)
+	}
+	s.authority = &requestAuthority{visible: []ids.ID{pid}}
+	for _, held := range []bool{true, false} {
+		reads := 0
+		stop := db.ObserveStatements("audit_log", func([]any) { reads++ })
+		rows, err := s.Operational(t.Context(), []ids.ID{pid})
+		stop()
+		if err != nil || len(rows[pid]) != 1 || (rows[pid][0].Hold != nil) != held {
+			t.Fatalf("held %t: %+v %v", held, rows, err)
+		}
+		if reads != 0 {
+			t.Fatalf("read audit history %d times", reads)
+		}
+		if held {
+			settle("replacement")
+		}
+	}
+}

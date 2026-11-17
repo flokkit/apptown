@@ -370,7 +370,7 @@ SELECT EXISTS(SELECT 1 FROM targets WHERE provider=$1 AND status<>$2);
 
 -- Runtime display/observation facts. NULL scope is private to the background sweep.
 -- name: RuntimeDeployments :many
-SELECT sqlc.embed(d), a.finished_at AS last_applied_at, p.slug FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id JOIN projects p ON p.id=d.project_id
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at, p.slug, p.purpose, p.serving_label FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id JOIN projects p ON p.id=d.project_id
 WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.project_id=ANY(sqlc.narg(project_ids)::uuid[]))
 ORDER BY d.kind DESC,d.id;
 
@@ -701,11 +701,6 @@ SELECT EXISTS (
  WHERE i.release_id=$1 AND jsonb_exists(a.observed_json, '_restart')
 )::boolean AS interrupted_by_restart;
 
--- name: LatestDeploymentRelease :one
-SELECT r.number, r.stage, r.state, r.stage_finished_at,
- COALESCE((SELECT e.text FROM release_events e WHERE e.release_id=r.id ORDER BY e.at DESC, e.id DESC LIMIT 1), '')::text AS failure
-FROM releases r WHERE r.deployment_id=$1 ORDER BY (r.state='releasing') DESC, r.number DESC LIMIT 1;
-
 -- name: ClaimRestartRetry :execrows
 UPDATE deployment_attempts
 SET observed_json = observed_json || jsonb_build_object('_restartRetry', sqlc.arg(at)::timestamptz)
@@ -737,10 +732,33 @@ UPDATE release_requests SET rebuild_pending=true WHERE release_id=sqlc.arg(relea
 -- name: RetainsAutomatedWork :one
 SELECT EXISTS(SELECT 1 WHERE EXISTS(SELECT 1 FROM releases retained0 WHERE retained0.run_id=ANY(sqlc.arg(run_ids)::uuid[])) OR EXISTS(SELECT 1 FROM release_changes retained1 WHERE retained1.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM deployments retained2 WHERE retained2.change_id=sqlc.arg(change_id)) OR EXISTS(SELECT 1 FROM release_bundles retained3 WHERE retained3.run_id=ANY(sqlc.arg(run_ids)::uuid[])));
 
--- name: JanitorReleaseLedger :many
-SELECT r.id, r.number, r.state, r.bundle_id, b.created_at AS bundle_created_at
-FROM releases r LEFT JOIN release_bundles b ON b.id=r.bundle_id
-WHERE r.deployment_id=$1 ORDER BY r.number DESC;
+-- name: JanitorReleaseConclusion :many
+WITH settled AS (
+ SELECT r.id,r.deployment_id,r.number,r.state,r.bundle_id,b.created_at AS bundle_created_at
+ FROM releases r LEFT JOIN release_bundles b ON b.id=r.bundle_id
+ WHERE r.state IN ('released','failed') AND r.deployment_id IN
+ (SELECT id FROM deployments WHERE project_id=$1 AND kind='standing' AND feed='main')
+), latest AS (
+ SELECT DISTINCT ON (deployment_id) * FROM settled ORDER BY deployment_id,number DESC
+), newest AS (
+ SELECT deployment_id,max(bundle_created_at) AS at FROM settled GROUP BY deployment_id
+), uncertain AS (
+ SELECT DISTINCT ON (r.deployment_id) r.deployment_id,r.number
+ FROM releases r WHERE r.state='releasing' AND EXISTS (
+ SELECT 1 FROM deployment_attempts a JOIN deployment_attempt_inputs i ON i.attempt_id=a.id
+ WHERE i.release_id=r.id AND (a.status<>'running' OR jsonb_exists(a.observed_json,'_recovery'))
+ ) ORDER BY r.deployment_id,r.number DESC
+)
+SELECT d.id,d.name,d.display_label,COALESCE(u.number,l.number,0)::bigint AS number,
+ CASE WHEN u.number IS NOT NULL THEN 'release progress is uncertain'
+ WHEN l.state='failed' THEN 'release failed'
+ WHEN l.bundle_created_at<n.at OR (l.bundle_created_at=n.at AND l.bundle_id <
+ (SELECT max(s.bundle_id::text)::uuid FROM settled s WHERE s.deployment_id=d.id AND s.bundle_created_at=n.at))
+ THEN 'runs earlier code' ELSE '' END::text AS reason
+FROM deployments d LEFT JOIN latest l ON l.deployment_id=d.id
+LEFT JOIN newest n ON n.deployment_id=d.id LEFT JOIN uncertain u ON u.deployment_id=d.id
+WHERE d.project_id=$1 AND d.kind='standing' AND d.feed='main' AND COALESCE(d.routine_updates->>'mode','')<>'person'
+ORDER BY d.id;
 
 -- name: SetRoutineUpdates :execrows
 UPDATE deployments SET routine_updates=sqlc.arg(routine_updates), routine_updates_revision=routine_updates_revision+1 WHERE id=sqlc.arg(id) AND routine_updates_revision=sqlc.arg(revision);
@@ -756,3 +774,23 @@ UPDATE release_requests SET base_generation=$2 WHERE release_id=$1 AND routine A
 
 -- name: JanitorDeployments :many
 SELECT * FROM deployments WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND kind='standing' AND feed='main' ORDER BY project_id,id;
+
+-- name: OweChecks :exec
+UPDATE deployments SET checks_owed_at=GREATEST(sqlc.arg(at)::timestamptz, checks_owed_at + interval '1 microsecond') WHERE id=sqlc.arg(id);
+
+-- name: RecordCrashLoopHold :exec
+UPDATE deployments SET hold=sqlc.arg(hold) WHERE id=sqlc.arg(id) AND observed_generation=(sqlc.arg(hold)::jsonb->>'generation')::bigint;
+
+-- name: OwnedByDeployments :many
+SELECT * FROM deployment_owned WHERE deployment_id=ANY($1::uuid[]) ORDER BY id;
+
+-- name: LatestDeploymentReleases :many
+SELECT DISTINCT ON (r.deployment_id) r.deployment_id, r.number, r.stage, r.state, r.stage_finished_at,
+ COALESCE((SELECT e.text FROM release_events e WHERE e.release_id=r.id ORDER BY e.at DESC, e.id DESC LIMIT 1), '')::text AS failure
+FROM releases r WHERE r.deployment_id=ANY($1::uuid[]) ORDER BY r.deployment_id, (r.state='releasing') DESC, r.number DESC;
+
+-- name: ServingReleases :many
+SELECT r.* FROM releases r JOIN deployments d ON d.serving_release_id=r.id WHERE d.id=ANY($1::uuid[]);
+
+-- name: AppliedProfiles :many
+SELECT d.id, i.applied FROM deployments d JOIN deployment_attempt_inputs i ON i.attempt_id=d.serving_attempt_id WHERE d.id=ANY($1::uuid[]);

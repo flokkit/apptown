@@ -1018,6 +1018,23 @@ WHERE NOT (o.receipt ? 'expectedScanners');
  registry TEXT NOT NULL,
  read_at TIMESTAMPTZ NOT NULL
 );`}},
+	{n: 245, note: "record Janitor conclusions and deployment checks", stmts: []string{`ALTER TABLE deployments ADD COLUMN checks_owed_at TIMESTAMPTZ, ADD COLUMN hold JSONB;`, `CREATE TABLE janitor_projects (
+ project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+ queues JSONB NOT NULL DEFAULT '[]',
+ scans JSONB NOT NULL DEFAULT '{}',
+ problem TEXT NOT NULL DEFAULT '',
+ updated_at TIMESTAMPTZ NOT NULL
+);`, `CREATE INDEX releases_deployment_number ON releases(deployment_id, number DESC);`, `CREATE INDEX release_events_release_at ON release_events(release_id, at DESC, id DESC);`, `UPDATE deployments d SET hold = h.hold
+FROM (
+ SELECT DISTINCT ON (d.id) d.id,
+ jsonb_build_object('receipt',a.id,'at',a.at,'confirmed',COALESCE((a.payload_json->>'ok')::boolean,false),
+ 'generation',d.observed_generation,'restarts',a.payload_json->'restarts','window',a.payload_json->'window',
+ 'exitCode',COALESCE(a.payload_json->>'exitCode',''),'detail',COALESCE(a.payload_json->>'detail','')) AS hold
+ FROM deployments d JOIN audit_log a ON a.kind='deployment.crash-loop-held'
+ AND a.payload_json->>'deploymentId'=d.id::text
+ AND a.payload_json->>'generation'=d.observed_generation::text
+ WHERE d.observed_generation>0 ORDER BY d.id,a.id DESC
+) h WHERE d.id=h.id;`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

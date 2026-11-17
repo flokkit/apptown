@@ -109,6 +109,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   routine_updates JSONB NOT NULL DEFAULT '{"mode":"automatic"}',
   routine_updates_revision BIGINT NOT NULL DEFAULT 1,
+  checks_owed_at TIMESTAMPTZ,
+  hold JSONB,
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -402,3 +404,6 @@ CREATE TABLE deployment_readings (
     complete_act_counter BIGINT NOT NULL DEFAULT 0,
     UNIQUE (subject, kind)
 );
+
+CREATE INDEX releases_deployment_number ON releases(deployment_id, number DESC);
+CREATE INDEX release_events_release_at ON release_events(release_id, at DESC, id DESC);

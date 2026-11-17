@@ -3,6 +3,7 @@ package changeactions_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -91,7 +92,7 @@ spec:
 	for _, name := range []string{"nightly-scan", "dependency-care", "pack-care"} {
 		supplied[name] = workflow.StandingEligibilityResult{Refused: "supplied eligibility refusal"}
 	}
-	rows, err := w.schedules.ForJanitor(t.Context(), []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Facts: workflow.ProcedureFacts{Receipt: receipt, Workflows: items, Scheduled: scheduled}, Eligibility: supplied, Queues: []workflow.QueueStatus{}}}, time.Now())
+	rows, err := w.schedules.ForJanitor(t.Context(), []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Procedures: janitorProcedures(t, items, scheduled), Eligibility: supplied, Queues: []workflow.QueueStatus{}}}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,12 +325,90 @@ func TestScheduleOnlyReadsDoNotResolveUnscheduledDefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	facts := workflow.ProcedureFacts{Receipt: ad, Workflows: items, Scheduled: scheduled}
+	procedures := janitorProcedures(t, items, scheduled)
 	queues := []workflow.QueueStatus{}
-	rows, err := w.schedules.ForJanitor(call, []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Facts: facts, Queues: queues}}, time.Now())
+	rows, err := w.schedules.ForJanitor(call, []workflow.JanitorProject{{ProjectID: w.project.ID, Slug: w.project.Slug, Procedures: procedures, Queues: queues}}, time.Now())
 	got := rows[w.project.ID]
 
 	if err != nil || !strings.Contains(got.Janitor().ScheduleProblem, "could not be read") {
 		t.Fatalf("publication read: %+v %v", got, err)
+	}
+}
+
+func janitorProcedures(t *testing.T, items []adoption.AdoptedWorkflow, scheduled map[string]bool) []workflow.JanitorProcedure {
+	t.Helper()
+	var out []workflow.JanitorProcedure
+	for _, item := range items {
+		p, _ := workflow.DescribeJanitorProcedure(item, scheduled[item.Name])
+		out = append(out, p)
+	}
+	return out
+}
+
+func TestAdoptionAdvanceReplacesStoredJanitorQueues(t *testing.T) {
+	w := newScheduleWorld(t)
+	var retainedChange ids.ID
+	record := func(names ...string) {
+		t.Helper()
+		current, err := adoption.CurrentReceiptIn(t.Context(), w.schedules.DB, w.project.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt := adoption.EmptyReceipt()
+		for _, name := range names {
+			receipt.Workflows = append(receipt.Workflows, adoption.ReceiptWorkflow{Name: name, Version: 1})
+		}
+		if err := w.schedules.DB.InTx(t.Context(), func(tx *database.Tx) error {
+			return w.adoption.RecordIn(t.Context(), tx, w.project.ID, current.Revision+1, adoption.AdoptionEdit, "fixture adoption", receipt, "bls", time.Now())
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"first", "second"} {
+		body := fmt.Sprintf("kind: Workflow\nmetadata: {name: %s, title: %s}\nspec:\n  kind: pipeline\n  on:\n    schedule: {cron: '0 6 * * *', queue: %s, standing: true}\n  stages:\n    - name: accept\n      steps:\n        - name: accept\n          uses: approval\n          with: {means: I accept this update.}\n", name, name, name)
+		if _, _, err := w.ways.PublishWorkflow(t.Context(), body, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+		w.packWorkflow(t, w.project.ID, name)
+		record(name)
+		if retainedChange.IsZero() {
+			if err := w.schedules.DB.InTx(w.engine, func(tx *database.Tx) error {
+				scheduled := access.WithCaller(w.engine, access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule"}, Verified: true, Receipt: "system"})
+				created, err := workflow.CreateChangeIn(scheduled, tx, workflow.ChangeDraft{ProjectID: w.project.ID, Title: "Retained queue work", Queue: name}, "apptown-system", time.Now())
+				if err != nil {
+					return err
+				}
+				retainedChange = created.Change.ID
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		queues, err := w.work.StoredQueues(w.engine, w.project.ID)
+		if err != nil || len(queues) != 1 || queues[0].Queue != name || queues[0].Title != name {
+			t.Fatalf("stored queues after adoption: %+v %v", queues, err)
+		}
+	}
+	if err := w.schedules.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		return adoption.SetMembershipIn(t.Context(), tx, w.project.ID, nil, "remove schedule", "bls", time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	record()
+	queues, err := w.work.StoredQueues(w.engine, w.project.ID)
+	if err != nil || len(queues) != 0 {
+		t.Fatalf("removed queues: %+v %v", queues, err)
+	}
+	person, err := identity.New(w.schedules.DB, identity.Config{}).EnsurePerson(t.Context(), "bls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	human := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "bls", Via: "session"}, Verified: true, Receipt: "bls"})
+	if _, err := w.work.Abandon(human, workflow.StopWork{ChangeID: retainedChange, Reason: "Close work from the removed procedure"}); err != nil {
+		t.Fatal(err)
+	}
+	queues, err = w.work.StoredQueues(w.engine, w.project.ID)
+	if err != nil || len(queues) != 0 {
+		t.Fatalf("a write to retained work resurrected removed queues: %+v %v", queues, err)
 	}
 }

@@ -216,6 +216,9 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		if err := q.RecordAutomatedChange(ctx, workflowsql.RecordAutomatedChangeParams{ID: row.ID, ProjectID: row.ProjectID, Queue: in.Queue, What: row.Title, OpenedAt: at, Schedule: in.Schedule, RuleID: in.RuleID, RuleRevision: in.RuleRevision}); err != nil {
 			return CreatedChange{}, err
 		}
+		if err := recordJanitorChangeIn(ctx, tx, row.ID, at); err != nil {
+			return CreatedChange{}, err
+		}
 	}
 
 	id := row.ID

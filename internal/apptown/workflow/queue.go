@@ -38,11 +38,13 @@ type queueDecision struct {
 }
 
 type QueueStatus struct {
+	Workflow      string        `json:"workflow"`
 	ChangeSummary string        `json:"changeSummary"`
 	Title         string        `json:"title"`
 	Queue         string        `json:"queue"`
 	State         string        `json:"state"`
 	Words         string        `json:"words"`
+	StateSince    time.Time     `json:"stateSince"`
 	Since         time.Time     `json:"since"`
 	Failed        int           `json:"failed"`
 	Reason        string        `json:"reason"`
@@ -57,14 +59,25 @@ type QueueStatus struct {
 // Stopped reports whether this queue’s episode has exhausted its attempts.
 func (q QueueStatus) Stopped() bool { return q.Failed >= queueStopAfter }
 
-// QueueState derives the current episode from retained attempts. Quiet scans and
-// duplicate proposals neither fail an episode nor end it; landed work and a
-// person’s skip, try again or closed takeover end it.
-func (s *Service) QueueState(ctx context.Context, project ids.ID, queue string) (QueueStatus, error) {
+// StoredQueue reads the owner’s recorded conclusion for one queue.
+func (s *Service) StoredQueue(ctx context.Context, project ids.ID, queue string) (QueueStatus, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
 		return QueueStatus{}, err
 	}
-	return queueStateIn(ctx, s.db, project, queue)
+	return storedQueueIn(ctx, s.db, project, queue)
+}
+
+func storedQueueIn(ctx context.Context, db database.Queryer, project ids.ID, queue string) (QueueStatus, error) {
+	queues, err := storedQueuesIn(ctx, db, project)
+	if err != nil {
+		return QueueStatus{}, err
+	}
+	for _, q := range queues {
+		if q.Queue == queue {
+			return q, nil
+		}
+	}
+	return QueueStatus{Queue: queue, State: "unknown"}, nil
 }
 func queueStateIn(ctx context.Context, db database.Queryer, project ids.ID, queue string) (QueueStatus, error) {
 	out := QueueStatus{Queue: queue, State: "up_to_date", Files: []fix.File{}, Packages: []PackageMove{}}
@@ -329,7 +342,10 @@ func (e *Execution) StartFix(targets []check.Finding) error {
 	}
 	return e.InAttempt(e.step.Type, func(tx *database.Tx, _ int64) error {
 		ctx := e.ctx
-		return workflowsql.New(tx.SQL()).StartQueueAttempt(ctx, workflowsql.StartQueueAttemptParams{ID: e.run.ChangeID, At: e.now(), Targets: raw})
+		if err := workflowsql.New(tx.SQL()).StartQueueAttempt(ctx, workflowsql.StartQueueAttemptParams{ID: e.run.ChangeID, At: e.now(), Targets: raw}); err != nil {
+			return err
+		}
+		return recordJanitorChangeIn(ctx, tx, e.run.ChangeID, e.now())
 	})
 }
 
@@ -392,7 +408,10 @@ func (e *Execution) keepProposal(fingerprint string, files []fix.File) (bool, st
 			same = true
 			why = "same as the try of " + prev[0].OpenedAt.Format("2 Jan")
 		}
-		return q.RecordQueueProposal(ctx, workflowsql.RecordQueueProposalParams{ID: e.run.ChangeID, Fingerprint: fingerprint, Files: raw})
+		if err := q.RecordQueueProposal(ctx, workflowsql.RecordQueueProposalParams{ID: e.run.ChangeID, Fingerprint: fingerprint, Files: raw}); err != nil {
+			return err
+		}
+		return recordJanitorChangeIn(ctx, tx, e.run.ChangeID, e.now())
 	})
 	if err == nil && !same {
 		err = e.replaceUntouched()
@@ -420,7 +439,7 @@ func (s *Service) SkipUpdate(ctx context.Context, project ids.ID, queue string, 
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
 		return err
 	}
-	state, err := s.QueueState(ctx, project, queue)
+	state, err := s.StoredQueue(ctx, project, queue)
 	if err != nil {
 		return err
 	}
@@ -445,7 +464,7 @@ func (s *Service) SkipUpdate(ctx context.Context, project ids.ID, queue string, 
 		if _, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, project); err != nil {
 			return err
 		}
-		current, err := queueStateIn(ctx, tx, project, queue)
+		current, err := storedQueueIn(ctx, tx, project, queue)
 		if err != nil {
 			return err
 		}
@@ -455,7 +474,10 @@ func (s *Service) SkipUpdate(ctx context.Context, project ids.ID, queue string, 
 		if _, err := scope.AbandonIn(ctx, tx, StopWork{ChangeID: state.ChangeID, Reason: "Skipped this update"}); err != nil {
 			return err
 		}
-		return workflowsql.New(tx.SQL()).SkipQueueAttempt(ctx, state.ChangeID)
+		if err := workflowsql.New(tx.SQL()).SkipQueueAttempt(ctx, state.ChangeID); err != nil {
+			return err
+		}
+		return recordJanitorChangeIn(ctx, tx, state.ChangeID, s.now())
 	})
 }
 
@@ -466,7 +488,7 @@ func (s *Service) TryQueueAgain(ctx context.Context, project ids.ID, queue strin
 	if err != nil {
 		return err
 	}
-	state, err := s.QueueState(ctx, project, queue)
+	state, err := s.StoredQueue(ctx, project, queue)
 	if err != nil {
 		return err
 	}
@@ -488,32 +510,26 @@ func (s *Service) TryQueueAgain(ctx context.Context, project ids.ID, queue strin
 		if _, err := q.ProjectForUpdate(ctx, project); err != nil {
 			return err
 		}
-		current, err := queueStateIn(ctx, tx, project, queue)
+		current, err := storedQueueIn(ctx, tx, project, queue)
 		if err != nil {
 			return err
 		}
 		if current.ChangeID != expectedChange {
 			return fault.New(fault.Conflict, "the queue has a different update; read it again before trying again")
 		}
-		rows, err := q.QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: project, Queue: queue})
+		rows, err := queueEpisodeIn(ctx, tx, project, queue)
 		if err != nil {
 			return err
 		}
 		for _, row := range rows {
-			if row.Outcome == "shipped" || row.Outcome == "skipped" || row.Outcome == "retried" {
+			if row.promoted {
 				break
-			}
-			if !row.ActiveChangeID.IsZero() {
-				ch, err := q.ChangeByID(ctx, workflowsql.ChangeByIDParams{ID: row.ActiveChangeID, ProjectID: project})
-				if err != nil {
-					return err
-				}
-				if !ch.Automated {
-					break
-				}
 			}
 			if row.Outcome == "held" || row.Outcome == "faulted" || row.ID == expectedChange {
 				if err := q.RetryQueueAttempt(ctx, row.ID); err != nil {
+					return err
+				}
+				if err := recordJanitorChangeIn(ctx, tx, row.ID, s.now()); err != nil {
 					return err
 				}
 			}
@@ -538,7 +554,7 @@ func (s *Service) replaceUntouched(ctx context.Context, run *Run) error {
 	if err != nil || len(rows) == 0 {
 		return err
 	}
-	history, err := workflowsql.New(s.db.SQL()).QueueAttempts(ctx, workflowsql.QueueAttemptsParams{ProjectID: run.ProjectID, Queue: rows[0].Queue})
+	history, err := queueEpisodeIn(ctx, s.db, run.ProjectID, rows[0].Queue)
 	if err != nil {
 		return err
 	}
@@ -546,14 +562,10 @@ func (s *Service) replaceUntouched(ctx context.Context, run *Run) error {
 		if r.ID == run.ChangeID || r.EndedAt.Valid || r.ActiveChangeID.IsZero() {
 			continue
 		}
-		ch, err := readChangeInProject(ctx, s.db, r.ActiveChangeID, run.ProjectID)
-		if err != nil {
-			return err
+		if r.promoted {
+			break
 		}
-		if ch.State.Closed() {
-			continue
-		}
-		if _, err := s.abandonments.abandon(ctx, Abandonment{untouchedOnly: true, ChangeID: ch.ID, Who: "apptown-system", Reason: "Replaced by a newer update"}, run.ProjectID); err != nil {
+		if _, err := s.abandonments.abandon(ctx, Abandonment{untouchedOnly: true, ChangeID: r.ActiveChangeID, Who: "apptown-system", Reason: "Replaced by a newer update"}, run.ProjectID); err != nil {
 			return err
 		}
 	}
@@ -565,42 +577,26 @@ func (e *Execution) IsQueue() (bool, error) {
 	return workflowsql.New(e.service.db.SQL()).IsAutomatedQueueChange(e.ctx, e.run.ChangeID)
 }
 
-// Queues lists standing queues in adoption order, with their authored titles.
+// StoredQueues reads standing queues in adoption order, with their authored titles.
 // An unreadable adopted definition fails the read because its queues are unknown.
-func (s *Service) Queues(ctx context.Context, project ids.ID) ([]QueueStatus, error) {
+func (s *Service) StoredQueues(ctx context.Context, project ids.ID) ([]QueueStatus, error) {
 	if _, err := s.require(ctx, operationPermission{Action: actionReadProject, ProjectID: project}); err != nil {
 		return nil, err
 	}
-	definitions, err := s.adoptedProcedures(ctx, project)
+	return storedQueuesIn(ctx, s.db, project)
+}
+func storedQueuesIn(ctx context.Context, db database.Queryer, project ids.ID) ([]QueueStatus, error) {
+	rows, err := workflowsql.New(db.SQL()).JanitorRecord(ctx, project)
 	if err != nil {
 		return nil, err
 	}
-	for _, d := range definitions {
-		if d.problem != "" {
-			return nil, fmt.Errorf("workflow %q: %s", d.name, d.problem)
-		}
-	}
-	return s.queues(ctx, project, definitions)
-}
-
-func (s *Service) queues(ctx context.Context, project ids.ID, definitions []adoptedProcedure) ([]QueueStatus, error) {
 	out := []QueueStatus{}
-	seen := map[string]bool{}
-	for _, d := range definitions {
-		if d.doc == nil {
-			continue
-		}
-		trigger, ok := d.doc.Standing()
-		if !ok || trigger.Queue == "" || seen[trigger.Queue] {
-			continue
-		}
-		seen[trigger.Queue] = true
-		state, err := queueStateIn(ctx, s.db, project, trigger.Queue)
-		if err != nil {
-			return nil, err
-		}
-		state.Title = d.doc.Metadata.DisplayTitle()
-		out = append(out, state)
+	if len(rows) == 0 {
+		return out, nil
 	}
-	return out, nil
+	if rows[0].Problem != "" {
+		return nil, fmt.Errorf("%s", rows[0].Problem)
+	}
+	err = json.Unmarshal(rows[0].Queues, &out)
+	return out, err
 }

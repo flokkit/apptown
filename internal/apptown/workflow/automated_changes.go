@@ -103,7 +103,7 @@ func (s *Service) Attempts(ctx context.Context, project ids.ID, queue string, li
 
 // promoteChangeIn joins an already-authorized human act or landing. Promotion
 // is irreversible: no operation turns ordinary work back into disposable work.
-func promoteChangeIn(ctx context.Context, tx *database.Tx, project, change ids.ID) error {
+func promoteChangeIn(ctx context.Context, tx *database.Tx, project, change ids.ID, at time.Time) error {
 	q := workflowsql.New(tx.SQL())
 	if _, err := q.ProjectForUpdate(ctx, project); err != nil {
 		return err
@@ -125,20 +125,20 @@ func promoteChangeIn(ctx context.Context, tx *database.Tx, project, change ids.I
 	if n != 1 {
 		return fmt.Errorf("%w: automated Change promotion was suppressed", ErrChangeTransition)
 	}
-	return nil
+	return recordJanitorChangeIn(ctx, tx, change, at)
 }
 
 // TouchChangeIn joins an authorized person's write from another owner. An
 // agent acting through their credentials does not make automated work human work.
-func TouchChangeIn(ctx context.Context, tx *database.Tx, project, change ids.ID) error {
+func TouchChangeIn(ctx context.Context, tx *database.Tx, project, change ids.ID, at time.Time) error {
 	if !humanTouch(ctx) {
 		return nil
 	}
-	return promoteChangeIn(ctx, tx, project, change)
+	return promoteChangeIn(ctx, tx, project, change, at)
 }
 
-func promoteChange(ctx context.Context, db *database.DB, project, change ids.ID) error {
-	return db.InTx(ctx, func(tx *database.Tx) error { return promoteChangeIn(ctx, tx, project, change) })
+func promoteChange(ctx context.Context, db *database.DB, project, change ids.ID, at time.Time) error {
+	return db.InTx(ctx, func(tx *database.Tx) error { return promoteChangeIn(ctx, tx, project, change, at) })
 }
 
 func humanTouch(ctx context.Context) bool {
@@ -151,7 +151,7 @@ func (s *Service) touchChange(ctx context.Context, project, change ids.ID) error
 	if !humanTouch(ctx) || change.IsZero() {
 		return nil
 	}
-	return promoteChange(ctx, s.db, project, change)
+	return promoteChange(ctx, s.db, project, change, s.now())
 }
 func (s *Service) touchRun(ctx context.Context, run ids.ID) error {
 	if !humanTouch(ctx) {

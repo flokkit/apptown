@@ -37,7 +37,7 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 	}
 	current = changeLifecycle{ID: row.ID, ProjectID: row.ProjectID, RunID: row.RunID, State: row.State, Type: row.Type, Branch: row.Branch}
 	if move.Action == LandChange || humanTouch(ctx) {
-		if err := promoteChangeIn(ctx, tx, projectID, id); err != nil {
+		if err := promoteChangeIn(ctx, tx, projectID, id, at); err != nil {
 			return current, err
 		}
 	}
@@ -65,6 +65,9 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 		if err := workflowsql.New(tx.SQL()).EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: id, Outcome: next.State.String(), EndedAt: sql.NullTime{Time: at, Valid: true}}); err != nil {
 			return current, err
 		}
+	}
+	if err := recordJanitorChangeIn(ctx, tx, id, at); err != nil {
+		return current, err
 	}
 	return next, nil
 }

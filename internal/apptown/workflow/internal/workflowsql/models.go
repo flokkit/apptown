@@ -82,6 +82,14 @@ type Change struct {
 	AutomatedOrigin     bool
 }
 
+type JanitorProject struct {
+	ProjectID ids.ID
+	Queues    json.RawMessage
+	Scans     json.RawMessage
+	Problem   string
+	UpdatedAt time.Time
+}
+
 type Project struct {
 	ID                         ids.ID
 	Slug                       string

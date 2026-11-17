@@ -17,6 +17,9 @@ import (
 // Every required Work receipt checks that the database accepted one row.
 // at is AppTown's time of the event, from the recording owner's clock.
 func recordEvent(ctx context.Context, db database.Queryer, runID ids.ID, kind string, payload json.RawMessage, at time.Time) error {
+	if plain, ok := db.(*database.DB); ok {
+		return plain.InTx(ctx, func(tx *database.Tx) error { return recordEvent(ctx, tx, runID, kind, payload, at) })
+	}
 	if !json.Valid(payload) {
 		return fmt.Errorf("invalid %s receipt", kind)
 	}
@@ -30,7 +33,7 @@ func recordEvent(ctx context.Context, db database.Queryer, runID ids.ID, kind st
 	if n != 1 {
 		return fmt.Errorf("workflow event %q for run %d was not recorded", kind, runID)
 	}
-	return nil
+	return recordJanitorRunIn(ctx, db.(*database.Tx), runID, at)
 }
 
 func recordReceiptIn(ctx context.Context, tx *database.Tx, runID ids.ID, kind string, value any, at time.Time) error {

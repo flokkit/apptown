@@ -17,7 +17,7 @@ import (
 
 // adoptIn joins the caller's transaction. Work's completion marker remains the
 // facade's participant; all adoption selections and receipts settle here.
-func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate Candidate, expected int64, who, reason string, attached func([]string) error, reviews reviewRequester, at time.Time) (*Adoption, error) {
+func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate Candidate, expected int64, who, reason string, attached func([]string) error, reviews reviewRequester, at time.Time, after ...afterAdvance) (*Adoption, error) {
 	projectID := current.ProjectID
 	capabilities, err := requiredCapabilitiesIn(ctx, tx, candidate)
 	if err != nil {
@@ -66,7 +66,7 @@ func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate 
 	if err := SetMembershipIn(ctx, tx, projectID, plan.memberships, reason, who, at); err != nil {
 		return nil, err
 	}
-	if err := saveAdvanceIn(ctx, tx, expected, next, plan, event, who, at, reviews); err != nil {
+	if err := saveAdvanceIn(ctx, tx, expected, next, plan, event, who, at, reviews, after...); err != nil {
 		return nil, err
 	}
 	return next, nil
@@ -77,7 +77,7 @@ func adoptIn(ctx context.Context, tx *database.Tx, current *Adoption, candidate 
 // recorded revision changes which checks the project answers to, so it
 // requests that project's review in the same transaction (reviews nil:
 // creation, which requests none); a failed request fails the revision.
-func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *Adoption, plan adoptionPlan, event event, who string, at time.Time, reviews reviewRequester) error {
+func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *Adoption, plan adoptionPlan, event event, who string, at time.Time, reviews reviewRequester, after ...afterAdvance) error {
 	q := adoptionsql.New(tx.SQL())
 	if event.Recorded {
 		receipt, err := strs.JSON(plan.receipt)
@@ -96,6 +96,13 @@ func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *A
 	// cannot report successful drift settlement.
 	if _, err := q.SaveCurrentAdoption(ctx, adoptionsql.SaveCurrentAdoptionParams{ProjectID: next.ProjectID, ExpectedRevision: expected, Revision: next.Revision, Drift: next.Drift}); err != nil {
 		return err
+	}
+	for _, participant := range after {
+		if participant != nil {
+			if err := participant(ctx, tx, next.ProjectID, at); err != nil {
+				return err
+			}
+		}
 	}
 	if !event.Recorded {
 		return nil
@@ -149,3 +156,6 @@ func (r Recorded) Current(ctx context.Context) (bool, error) {
 	}
 	return current.Revision == r.revision, nil
 }
+
+// AfterAdvance records a participant after adoption writes, under the project lock.
+type afterAdvance func(context.Context, *database.Tx, ids.ID, time.Time) error

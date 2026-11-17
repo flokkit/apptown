@@ -179,6 +179,9 @@ func (s reworkStore) fail(ctx context.Context, claim *Step, outcome StepOutcome)
 				hold = "faulted"
 			}
 			err = workflowsql.New(tx.SQL()).HoldQueueAttempt(ctx, workflowsql.HoldQueueAttemptParams{Outcome: hold, ID: finished.Run.ChangeID, Reason: finished.Step.Name + ": " + evidenceReason(finished.Step.Evidence)})
+			if err == nil {
+				err = recordJanitorChangeIn(ctx, tx, finished.Run.ChangeID, s.now())
+			}
 			result.held = finished.Run
 		}
 		return result, err

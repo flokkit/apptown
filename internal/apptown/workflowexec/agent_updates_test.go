@@ -140,9 +140,10 @@ func newNodeFixFixture(t *testing.T, name string, spec schema.Spec, options ...f
 		t.Fatal(err)
 	}
 	receipt := adoption.EmptyReceipt()
+	receipt.Workflows = append(receipt.Workflows, adoptQueueWorkflow(t, f, name, "updates"))
 	receipt.Guidance = append(receipt.Guidance, adoption.ReceiptBlock{Name: block.Name, BlockID: block.ID, Version: block.LatestVersion})
 	if err := f.db.InTx(t.Context(), func(tx *database.Tx) error {
-		return adoption.RecordIn(f.ctx, tx, f.projectID, 2, adoption.AdoptionEdit, "adopt dependency guidance", receipt, taskAppTownAdministrator, time.Now())
+		return adoption.New(nil, adoption.Dependencies{AfterAdvance: f.work.RecordJanitorAdoptionIn}).RecordIn(f.ctx, tx, f.projectID, 2, adoption.AdoptionEdit, "adopt dependency guidance", receipt, taskAppTownAdministrator, time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

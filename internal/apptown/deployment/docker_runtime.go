@@ -96,7 +96,7 @@ func (s *Service) reach(ctx context.Context, slug string, d *Deployment) reach {
 // On this AppTown's own host, an address at the published port (no tier
 // domain for it) answers there only, which the Reach says.
 func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Target, observed string) reach {
-	if t != nil && t.Kind == KindDockerHost && d.Standing() && d.HostPort != 0 {
+	if hasDockerAddress(d, t) {
 		routes := s.env.RoutesFor(ctx, d.ProjectID)
 		servingLabel := ""
 		attachedDomain, _ := t.Ingress["domain"].(string)
@@ -108,6 +108,17 @@ func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Tar
 			}
 			servingLabel = owner.ServingLabel
 		}
+		return reachedWith(routes, d, t, servingLabel, observed)
+	}
+	return reachedWith(Routing{}, d, t, "", observed)
+}
+
+func hasDockerAddress(d *Deployment, t *Target) bool {
+	return t != nil && t.Kind == KindDockerHost && d.Standing() && d.HostPort != 0
+}
+
+func reachedWith(routes Routing, d *Deployment, t *Target, servingLabel, observed string) reach {
+	if hasDockerAddress(d, t) {
 		if reach, err := dockerReach(routes, t, servingLabel, d.Name, d.HostPort); err == nil {
 			return reach
 		}

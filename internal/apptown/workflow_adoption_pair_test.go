@@ -81,7 +81,7 @@ func recordPairRevision(t *testing.T, tx *database.Tx, projectID ids.ID, revisio
 		return ids.Nil, err
 	}
 	for next := previous + 1; next <= revision; next++ {
-		if err := adoption.RecordIn(t.Context(), tx, projectID, next, adoption.AdoptionCreate, "pair fixture", adoption.EmptyReceipt(), "fixture", time.Now()); err != nil {
+		if err := adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, projectID, next, adoption.AdoptionCreate, "pair fixture", adoption.EmptyReceipt(), "fixture", time.Now()); err != nil {
 			return ids.Nil, err
 		}
 	}

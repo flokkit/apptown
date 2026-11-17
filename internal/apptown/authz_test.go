@@ -117,7 +117,7 @@ func authzActors(t *testing.T, configs ...Config) *App {
 			if err := adoption.InitializeIn(t.Context(), tx, projectID, 0, ""); err != nil {
 				return err
 			}
-			return adoption.RecordIn(t.Context(), tx, projectID, 1, adoption.AdoptionCreate, "authz fixture", adoption.EmptyReceipt(), "fixture", time.Now())
+			return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, projectID, 1, adoption.AdoptionCreate, "authz fixture", adoption.EmptyReceipt(), "fixture", time.Now())
 		}); err != nil {
 			t.Fatal(err)
 		}

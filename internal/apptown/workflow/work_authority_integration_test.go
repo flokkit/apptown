@@ -369,7 +369,7 @@ func TestUpliftAuthorityWithoutDispatcher(t *testing.T) {
 			}
 			ctx := context.Background()
 			if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
-				return adoption.RecordIn(ctx, tx, a.ProjectID, 1, adoption.AdoptionCreate, "authority fixture", adoption.EmptyReceipt(), "owner", time.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(ctx, tx, a.ProjectID, 1, adoption.AdoptionCreate, "authority fixture", adoption.EmptyReceipt(), "owner", time.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

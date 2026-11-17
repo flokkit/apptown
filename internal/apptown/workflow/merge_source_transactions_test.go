@@ -41,7 +41,7 @@ func TestMergeSourceBatchesAncestryRepositoryAdoptionAndMR(t *testing.T) {
 	setMergeSourceDefaultBranch(t, store, root.ProjectID, "main")
 	for revision := 1; revision <= 3; revision++ {
 		if err := store.InTx(context.Background(), func(tx *database.Tx) error {
-			return adoption.RecordIn(t.Context(), tx, root.ProjectID, int64(revision), adoption.AdoptionEdit, "source fixture", adoption.EmptyReceipt(), "test", time.Now())
+			return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, root.ProjectID, int64(revision), adoption.AdoptionEdit, "source fixture", adoption.EmptyReceipt(), "test", time.Now())
 		}); err != nil {
 			t.Fatal(err)
 		}

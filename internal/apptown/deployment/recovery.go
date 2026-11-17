@@ -47,7 +47,7 @@ type settlementStore interface {
 
 type reporter interface {
 	Log(releaseID ids.ID, format string, args ...any)
-	Applied(ids.ID)
+	Applied(ids.ID, ids.ID)
 }
 
 type RecoveryResult struct {
@@ -143,7 +143,7 @@ func (r recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
 	if out == Applied {
 		result.Outcome = "recovered"
 		if r.reporter != nil {
-			r.reporter.Applied(target.TargetID)
+			r.reporter.Applied(target.TargetID, at.DeploymentID)
 		}
 		logf("live — %s serves generation %d (finished after a restart)", o.URL, at.Generation)
 	}

@@ -29,9 +29,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// capacityObservationTimeout allows for Docker hosts reached over SSH.
-const capacityObservationTimeout = 60 * time.Second
-
 // Jobs is the application's single queue. The registry is bound once here;
 // the jobs package receives operations, never App or deployment error types.
 func (a *App) Jobs() *jobs.Queue { return a.jobs }
@@ -92,7 +89,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 			marked, err := providers.MarkRecorded(ctx)
 			return map[string]any{"marked": marked}, err
 		}},
-		deployment.DetailObservationJob:    {Run: a.Deployment.RunDetailObservation, Timeout: 30 * time.Second},
+		deployment.DetailObservationJob:    {Run: a.Deployment.RunDetailObservation},
 		deployment.TargetObservationJob:    {Run: providers.RunTargetObservation, Timeout: 30 * time.Second},
 		integration.ErrorObservationJob:    {Run: integrationService.ObserveErrorReports, Timeout: 30 * time.Second},
 		dataprotection.StoreObservationJob: {Run: a.DataProtection.ObserveStore, Timeout: 30 * time.Second},
@@ -127,8 +124,8 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		integration.HealthObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 			return nil, integrationService.RunHealthObservation(ctx, key, connectionHealth)
 		}, Timeout: 100 * time.Second},
-		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: capacityObservationTimeout},
-		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
+		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob},
+		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob},
 		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 			return nil, workers.Run(ctx, key)
 		}, Timeout: 15 * time.Second},

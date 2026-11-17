@@ -71,7 +71,7 @@ func (s *Service) OpenPackUplift(ctx context.Context, in Uplift) (*Change, error
 		if _, err := s.standing.eligibleForIn(ctx, tx, rule, in.ProjectID, in.Workflow); err != nil {
 			return err
 		}
-		state, err := queueStateIn(ctx, tx, in.ProjectID, in.Queue)
+		state, err := storedQueueIn(ctx, tx, in.ProjectID, in.Queue)
 		if err != nil {
 			return err
 		}

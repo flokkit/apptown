@@ -47,7 +47,7 @@ func (a *ScanSteps) runImageScan(task *workflow.Execution, cfg scanConfig) {
 				return err
 			}
 		}
-		return nil
+		return task.RecordJanitorScansIn(context.WithoutCancel(ctx), tx)
 	}); err != nil {
 		status = workflow.StatusError
 		reason = "recording the scan observations: " + err.Error()

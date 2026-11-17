@@ -44,6 +44,9 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 		log.Printf("startup repair: failed after %s: %v", a.cfg.clock.Now().Sub(started).Round(time.Millisecond), err)
 		return err
 	}
+	if err := a.Work.RecordJanitorProjects(ctx); err != nil {
+		return fmt.Errorf("recording Janitor projects: %w", err)
+	}
 	// Model calls the old process sent cannot finish: their receipts close
 	// as interrupted and their spend lines are locked in as unknown. The
 	// AppTown's own calls go through the gateway on every instance, with or

@@ -155,7 +155,7 @@ type Service struct {
 	integrations *integration.Service
 	ops          *operations.Service
 	restored     RestoredCopyDependencies
-	applied      func(ids.ID)
+	applied      func(ids.ID, ids.ID)
 	// dataWork is the deployments a restore or a removal is changing now.
 	dataWork    dataWork
 	nativeFresh time.Duration // how long that answer is shown (NativeReadFor)
@@ -186,7 +186,7 @@ type Dependencies struct {
 	// makes none (restored_copy.go).
 	RestoredCopies RestoredCopyDependencies
 	// Applied is told an effect may have changed what a target holds.
-	Applied func(ids.ID)
+	Applied func(ids.ID, ids.ID)
 }
 
 // New builds data protection over the Starter's records and collaborators

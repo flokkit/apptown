@@ -35,29 +35,31 @@ type AppliedAttempt struct {
 
 // Deployment includes its serving attempt's finish time.
 type Deployment struct {
-	RoutineUpdates         RoutineUpdates  `json:"routineUpdates"`
-	RoutineUpdatesRevision int64           `json:"routineUpdatesRevision"`
-	RuntimeState           string          `json:"runtimeState"`
-	RuntimeActor           string          `json:"runtimeActor"`
-	RuntimeAt              stamp.Time      `json:"runtimeAt,omitzero"`
-	RuntimeError           string          `json:"runtimeError,omitempty"`
-	actAt                  time.Time       // the end of its last other act (see MarkActed)
-	LastApplied            *AppliedAttempt `json:"lastApplied,omitempty"`
-	DisplayLabel           string          `json:"displayLabel"`
-	ID                     ids.ID          `json:"id"`
-	ProjectID              ids.ID          `json:"projectId"`
-	Kind                   Kind            `json:"kind"`
-	Name                   string          `json:"name"`
-	ChangeID               ids.ID          `json:"changeId,omitzero"`
-	TargetID               ids.ID          `json:"targetId"`
-	Handle                 map[string]any  `json:"handle"`
-	DesiredGeneration      int64           `json:"desiredGeneration"`
-	ObservedGeneration     int64           `json:"observedGeneration"`
-	Readiness              Readiness       `json:"readiness"`
-	PromotedFromID         ids.ID          `json:"promotedFromId,omitzero"`
-	ApprovalRole           string          `json:"approvalRole"`
-	FeedRevision           int64           `json:"feedRevision"`
-	FeedConfirmed          bool            `json:"feedConfirmed"`
+	RoutineUpdates         RoutineUpdates   `json:"routineUpdates"`
+	RoutineUpdatesRevision int64            `json:"routineUpdatesRevision"`
+	RuntimeState           string           `json:"runtimeState"`
+	RuntimeActor           string           `json:"runtimeActor"`
+	RuntimeAt              stamp.Time       `json:"runtimeAt,omitzero"`
+	RuntimeError           string           `json:"runtimeError,omitempty"`
+	ChecksOwedAt           time.Time        `json:"-"`
+	Hold                   *json.RawMessage `json:"-"`
+	actAt                  time.Time        // the end of its last other act (see MarkActed)
+	LastApplied            *AppliedAttempt  `json:"lastApplied,omitempty"`
+	DisplayLabel           string           `json:"displayLabel"`
+	ID                     ids.ID           `json:"id"`
+	ProjectID              ids.ID           `json:"projectId"`
+	Kind                   Kind             `json:"kind"`
+	Name                   string           `json:"name"`
+	ChangeID               ids.ID           `json:"changeId,omitzero"`
+	TargetID               ids.ID           `json:"targetId"`
+	Handle                 map[string]any   `json:"handle"`
+	DesiredGeneration      int64            `json:"desiredGeneration"`
+	ObservedGeneration     int64            `json:"observedGeneration"`
+	Readiness              Readiness        `json:"readiness"`
+	PromotedFromID         ids.ID           `json:"promotedFromId,omitzero"`
+	ApprovalRole           string           `json:"approvalRole"`
+	FeedRevision           int64            `json:"feedRevision"`
+	FeedConfirmed          bool             `json:"feedConfirmed"`
 	feedAuthority          json.RawMessage
 	Feed                   string `json:"feed"`
 	Audience               string `json:"audience"`
@@ -203,7 +205,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	e := &Deployment{
-		RuntimeState: r.RuntimeState, RuntimeActor: r.RuntimeActor, RuntimeAt: stamp.Time{NullTime: r.RuntimeAt}, RuntimeError: r.RuntimeError, actAt: r.ActAt.Time,
+		RuntimeState: r.RuntimeState, RuntimeActor: r.RuntimeActor, RuntimeAt: stamp.Time{NullTime: r.RuntimeAt}, RuntimeError: r.RuntimeError, actAt: r.ActAt.Time, ChecksOwedAt: r.ChecksOwedAt.Time, Hold: r.Hold,
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,
@@ -270,7 +272,11 @@ func (s *Deployments) ByName(ctx context.Context, projectID ids.ID, name string)
 
 // ForProject lists a project's deployments, standing first.
 func (s *Deployments) ForProject(ctx context.Context, projectID ids.ID) ([]*Deployment, error) {
-	rows, err := deploymentsql.New(s.db.SQL()).DeploymentsForProject(ctx, projectID)
+	return deploymentsForProjectIn(ctx, s.db, projectID)
+}
+
+func deploymentsForProjectIn(ctx context.Context, db database.Queryer, projectID ids.ID) ([]*Deployment, error) {
+	rows, err := deploymentsql.New(db.SQL()).DeploymentsForProject(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -488,4 +494,9 @@ func feedAuthority(raw *json.RawMessage) json.RawMessage {
 		return nil
 	}
 	return *raw
+}
+
+// OweChecks records every completed act without changing the runtime reading basis.
+func (s *Deployments) OweChecks(ctx context.Context, id ids.ID) error {
+	return deploymentsql.New(s.db.SQL()).OweChecks(ctx, deploymentsql.OweChecksParams{ID: id, At: s.now()})
 }

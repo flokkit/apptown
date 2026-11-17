@@ -39,7 +39,7 @@ func TestQueueStateReturnsWords(t *testing.T) {
 					}
 				}
 			}
-			got, err := s.QueueState(t.Context(), ch.ProjectID, queue)
+			got, err := s.StoredQueue(t.Context(), ch.ProjectID, queue)
 			if err != nil || got.State != tc.state || got.Words != tc.words {
 				t.Fatalf("queue=%+v: %v", got, err)
 			}
@@ -73,7 +73,7 @@ func TestQueueDecisionWordsExplainMissingEvidence(t *testing.T) {
 			if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, StepOutcome{Status: StatusFail}); err != nil {
 				t.Fatal(err)
 			}
-			got, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+			got, err := s.StoredQueue(t.Context(), ch.ProjectID, "security")
 			if err != nil || got.State != "decide" || got.Words != tc.words || got.Decide == nil || got.Decide.StepID != steps[0].ID || got.Decide.Act != nextOverride {
 				t.Fatalf("queue=%+v: %v", got, err)
 			}

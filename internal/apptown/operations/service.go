@@ -649,3 +649,30 @@ func (s *Service) Running(ctx context.Context) ([]Operation, error) {
 	}
 	return records(rows)
 }
+
+// SubjectProgress reads current and last ended operations for a listing.
+func (s *Service) SubjectProgress(ctx context.Context, subjects []string, kind string) (map[string]*Operation, map[string]*Operation, error) {
+	q := operationssql.New(s.db.SQL())
+	live, err := q.LiveOnSubjects(ctx, subjects)
+	if err != nil {
+		return nil, nil, err
+	}
+	ended, err := q.LatestEndedOnSubjects(ctx, operationssql.LatestEndedOnSubjectsParams{Subjects: subjects, Kind: kind})
+	if err != nil {
+		return nil, nil, err
+	}
+	current, last := map[string]*Operation{}, map[string]*Operation{}
+	for _, group := range []struct {
+		rows []operationssql.Operation
+		out  map[string]*Operation
+	}{{live, current}, {ended, last}} {
+		for _, r := range group.rows {
+			op, err := record(r)
+			if err != nil {
+				return nil, nil, err
+			}
+			group.out[r.Subject.String] = op
+		}
+	}
+	return current, last, nil
+}

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -21,11 +22,19 @@ func (s *Service) serving(ctx context.Context, dep *Deployment) (Inputs, bool, e
 // runningBundle is the serving attempt's bundle, Nil when it is not known.
 // Unknown is never a match for a manual redeploy or a data-copy exemption.
 func (s *Service) runningBundle(ctx context.Context, dep *Deployment) (ids.ID, error) {
-	in, ok, err := s.serving(ctx, dep)
+	return runningBundleIn(ctx, s.db, dep)
+}
+
+func runningBundleIn(ctx context.Context, db database.Queryer, dep *Deployment) (ids.ID, error) {
+	if dep.ServingAttemptID.IsZero() {
+		return ids.Nil, nil
+	}
+	in, err := inputsForIn(ctx, db, Attempt{ID: dep.ServingAttemptID, DeploymentID: dep.ID, Generation: dep.ObservedGeneration})
+	ok, err := database.Lookup(err)
 	if err != nil || !ok {
 		return ids.Nil, err
 	}
-	b, err := s.generationBundle(ctx, dep.ProjectID, Inputs{BundleID: in.BundleID, ReleaseID: dep.ServingReleaseID, ReleaseRun: in.ReleaseRun})
+	b, err := generationBundleIn(ctx, db, dep.ProjectID, Inputs{BundleID: in.BundleID, ReleaseID: dep.ServingReleaseID, ReleaseRun: in.ReleaseRun})
 	if err != nil || b == nil {
 		return ids.Nil, err
 	}
@@ -44,14 +53,19 @@ type RunningImages struct {
 }
 
 func (s *Service) RunningImages(ctx context.Context, project ids.ID) ([]RunningImages, error) {
-	deps, err := s.Deployments.ForProject(ctx, project)
+	return s.RunningImagesIn(ctx, s.db, project)
+}
+
+// RunningImagesIn reads serving subjects in the observation writer transaction.
+func (s *Service) RunningImagesIn(ctx context.Context, db database.Queryer, project ids.ID) ([]RunningImages, error) {
+	deps, err := deploymentsForProjectIn(ctx, db, project)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]RunningImages, 0, len(deps))
 	for _, dep := range deps {
 		row := RunningImages{DeploymentID: dep.ID, Deployment: dep.Name, Images: map[string]string{}}
-		id, err := s.runningBundle(ctx, dep)
+		id, err := runningBundleIn(ctx, db, dep)
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +75,7 @@ func (s *Service) RunningImages(ctx context.Context, project ids.ID) ([]RunningI
 			out = append(out, row)
 			continue
 		}
-		bundle, err := s.Bundles.ByID(ctx, id)
+		bundle, err := bundleRecord(deploymentsql.New(db.SQL()).BundleByID(ctx, id))
 		if err != nil {
 			return nil, err
 		}

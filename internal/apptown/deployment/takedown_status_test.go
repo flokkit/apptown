@@ -59,7 +59,7 @@ func TestTakeDownOwnsStatusUntilALaterAct(t *testing.T) {
 	if err != nil || strings.Contains(status.Reason, "take-down did not finish") {
 		t.Fatalf("later deployment: %+v %v", status, err)
 	}
-	for _, query := range []string{"-- name: LiveOnSubject", "-- name: LatestEndedOfKind"} {
+	for _, query := range []string{"-- name: LiveOnSubject", "-- name: LatestEndedOnSubjects"} {
 		dbtest.FailNextStatement(t, w.db, query)
 		if got, err := w.s.Status(t.Context(), w.main.ID); err == nil {
 			t.Fatalf("ledger failure gave a status: %+v", got)

@@ -6333,13 +6333,13 @@ func cameraJanitorQueue(t *testing.T, a *App, project ids.ID) {
 			t.Fatal(err)
 		}
 		a.Work.Wait()
-		state, err := a.Work.QueueState(ctx, project, "updates")
+		state, err := a.Work.StoredQueue(ctx, project, "updates")
 		if err != nil || state.Failed != n+1 {
 			t.Fatalf("camera try %d: %+v %v", n, state, err)
 		}
 		moveClock(a, time.Hour)
 	}
-	if state, err := a.Work.QueueState(ctx, project, "updates"); err != nil || state.State != "stopped" {
+	if state, err := a.Work.StoredQueue(ctx, project, "updates"); err != nil || state.State != "stopped" {
 		t.Fatal(fmt.Sprintf("camera stopped state: %+v %v", state, err))
 	}
 }

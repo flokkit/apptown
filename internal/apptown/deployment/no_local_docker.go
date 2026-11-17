@@ -59,9 +59,10 @@ func (s *Service) refusesLanding(ctx context.Context, projectID ids.ID, t *Targe
 		return nil
 	}
 	switch {
-	case t.Kind == KindDockerHost && t.Origin == OriginAttached:
-		return nil
 	case t.Kind == KindDockerHost:
+		if t.Origin == OriginAttached {
+			return nil
+		}
 		return errBuiltInHostRefused
 	default:
 		return refused("a landing deploys to a Docker host, and %s is %s: attach a Docker host and deploy there, then promote to %s", t.Name, t.Kind, t.Kind)
@@ -199,10 +200,14 @@ func (s *Service) recordedImages(ctx context.Context, b *ReleaseBundle, t *Targe
 // recovery named, its manual release's bundle, or the bundle its landing
 // cut. nil when there is none.
 func (s *Service) generationBundle(ctx context.Context, projectID ids.ID, in Inputs) (*ReleaseBundle, error) {
-	q := deploymentsql.New(s.db.SQL())
+	return generationBundleIn(ctx, s.db, projectID, in)
+}
+
+func generationBundleIn(ctx context.Context, db database.Queryer, projectID ids.ID, in Inputs) (*ReleaseBundle, error) {
+	q := deploymentsql.New(db.SQL())
 	switch {
 	case !in.BundleID.IsZero():
-		b, err := lookupBundle(s.Bundles.ByID(ctx, in.BundleID))
+		b, err := lookupBundle(bundleRecord(q.BundleByID(ctx, in.BundleID)))
 		if b != nil && b.ProjectID != projectID {
 			return nil, errBundleMissing
 		}
@@ -214,7 +219,7 @@ func (s *Service) generationBundle(ctx context.Context, projectID ids.ID, in Inp
 		}
 		return b, err
 	case !in.ReleaseRun.IsZero():
-		return s.Bundles.OfRun(ctx, projectID, in.ReleaseRun)
+		return lookupBundle(bundleRecord(q.BundleOfRun(ctx, deploymentsql.BundleOfRunParams{ProjectID: projectID, RunID: in.ReleaseRun})))
 	}
 	return nil, nil
 }

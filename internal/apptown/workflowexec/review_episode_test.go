@@ -17,6 +17,7 @@ func TestReviewHumanActEndsQueueEpisode(t *testing.T) {
 		t.Run(act, func(t *testing.T) {
 			spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "attempt", Uses: ScriptKind, With: map[string]any{"run": "false"}}}}}}
 			f, _ := newTaskAppTown(t, "review-episode", spec)
+			adoptReviewQueue(t, f, "review-episode")
 			f.scriptRunner = func(task *workflow.Execution) {
 				if _, err := task.Claim(); err != nil {
 					t.Fatal(err)
@@ -41,7 +42,7 @@ func TestReviewHumanActEndsQueueEpisode(t *testing.T) {
 			}
 			want := 1 // Two explicit skips ended the earlier episodes.
 			if act == "skip-stopped" {
-				before, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+				before, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 				if err != nil || !before.Stopped() {
 					t.Fatalf("before skip: %+v %v", before, err)
 				}
@@ -67,7 +68,7 @@ func TestReviewHumanActEndsQueueEpisode(t *testing.T) {
 				}
 				want = 0
 			}
-			state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+			state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,6 +90,7 @@ func TestTryQueueAgainPreservesHistoryAndAdmitsTheSameProposal(t *testing.T) {
 func testTryQueueAgain(t *testing.T, closed bool) {
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "attempt", Uses: ScriptKind, With: map[string]any{"run": "false"}}}}}}
 	f, _ := newTaskAppTown(t, "try-again", spec)
+	adoptReviewQueue(t, f, "try-again")
 	tree := "candidate"
 	var same bool
 	f.scriptRunner = func(e *workflow.Execution) {
@@ -135,7 +137,7 @@ func testTryQueueAgain(t *testing.T, closed bool) {
 	if closed {
 		expected = ids.Nil
 	}
-	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 	if err != nil || !state.Stopped() || state.ChangeID != expected {
 		t.Fatalf("stopped: %+v %v", state, err)
 	}
@@ -149,7 +151,7 @@ func testTryQueueAgain(t *testing.T, closed bool) {
 	if err != nil || ch.State != workflow.ChangeAbandoned {
 		t.Fatalf("open change: %+v %v", ch, err)
 	}
-	state, err = f.work.QueueState(f.ctx, f.projectID, "updates")
+	state, err = f.work.StoredQueue(f.ctx, f.projectID, "updates")
 	if err != nil || state.State != "up_to_date" || state.Failed != 0 || !state.ChangeID.IsZero() {
 		t.Fatalf("reset: %+v %v", state, err)
 	}

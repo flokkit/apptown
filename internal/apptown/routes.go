@@ -200,6 +200,9 @@ func newRouteMux(a *App, routes []routeSpec) (mux *http.ServeMux, err error) {
 		}
 		mux.HandleFunc(route.pattern, func(w http.ResponseWriter, r *http.Request) {
 			r = r.WithContext(callerContext(r))
+			if r.Method == http.MethodGet {
+				r = r.WithContext(identity.WithReadFacts(r.Context()))
+			}
 			if route.policy.allows(a, w, r, route.pattern) {
 				if err := requireRequestFeatures(a, r, route); err != nil {
 					httpapi.WriteFault(w, err)

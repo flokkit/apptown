@@ -150,7 +150,7 @@ func reviewFixtureStages(t *testing.T, purpose project.Purpose, stages []schema.
 		if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
-		return id, adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "review fixture", adoption.EmptyReceipt(), "reviewer", time.Now())
+		return id, adoption.New(nil, adoption.Dependencies{}).RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "review fixture", adoption.EmptyReceipt(), "reviewer", time.Now())
 	})
 	if err != nil {
 		t.Fatal(err)

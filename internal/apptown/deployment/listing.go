@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/stamp"
@@ -149,10 +150,12 @@ type Summary struct {
 }
 
 type listingRecord struct {
-	summary    Summary
-	deployment *Deployment
-	target     *Target
-	project    string
+	summary      Summary
+	deployment   *Deployment
+	target       *Target
+	project      string
+	purpose      project.Purpose
+	servingLabel string
 }
 
 // List reads authorized stored facts and the matching background observation.
@@ -291,6 +294,14 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		}
 		byDeployment[row.DeploymentID] = append(byDeployment[row.DeploymentID], need)
 	}
+	ownedRows, err := q.OwnedByDeployments(ctx, deploymentIDs)
+	if err != nil {
+		return nil, err
+	}
+	owned := map[ids.ID][]deploy.Owned{}
+	for _, r := range ownedRows {
+		owned[r.DeploymentID] = append(owned[r.DeploymentID], deploy.Owned{Kind: r.Kind, ID: r.Ident, Name: r.Name, Data: r.HoldsData, Need: r.Need})
+	}
 	for i, row := range rows {
 		e, err := appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, nil)
 		if err != nil {
@@ -302,13 +313,9 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		if !e.TargetID.IsZero() && byTarget[e.TargetID] == nil {
 			return nil, fmt.Errorf("deployment %s refers to a missing target", e.Name)
 		}
-		owned, err := ownedIn(ctx, q, e.ID)
-		if err != nil {
-			return nil, err
-		}
 		var keys []string
 		needs := byDeployment[e.ID]
-		for _, o := range owned {
+		for _, o := range owned[e.ID] {
 			switch {
 			case o.Kind == KindOpenRouterKey:
 				keys = append(keys, o.Name)
@@ -318,7 +325,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), RuntimeActions: runtimeActions(byTarget[e.TargetID]), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
+		out[i] = listingRecord{project: row.Slug, purpose: project.Purpose(row.Purpose), servingLabel: row.ServingLabel, deployment: e, target: byTarget[e.TargetID], summary: Summary{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), RuntimeActions: runtimeActions(byTarget[e.TargetID]), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

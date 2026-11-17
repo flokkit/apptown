@@ -61,7 +61,7 @@ func (c sshDocker) Run(ctx context.Context, host string, cmd docker.Command) (ou
 	// A call can retain several sessions while requesting another (attach,
 	// BuildKit, stats). Admit at most three calls before taking session slots
 	// so those retained streams leave room for each call to make progress.
-	if !c.reader {
+	if !c.reader && ctx.Value(callSlotKey{}) != c.connection {
 		select {
 		case c.connection.calls <- struct{}{}:
 		case <-ctx.Done():

@@ -93,7 +93,7 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 		if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 			return err
 		}
-		if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "eval copy created", receipt, in.Who, at); err != nil {
+		if err := s.adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "eval copy created", receipt, in.Who, at); err != nil {
 			return err
 		}
 		if err := audit.At(at).RecordIn(ctx, tx, in.Who, id, "project.copied", in.Slug, map[string]any{"from": source.Slug, "commit": in.Commit}); err != nil {

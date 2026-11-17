@@ -149,29 +149,53 @@ func (q *Queries) JanitorProjectChoices(ctx context.Context, projectIds []ids.ID
 	return items, nil
 }
 
-const janitorProjectLabels = `-- name: JanitorProjectLabels :many
-SELECT p.id,p.slug,p.name FROM projects p
-WHERE p.id=ANY($1::uuid[]) AND p.purpose='ordinary'
-AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
-ORDER BY p.name,p.id
+const janitorProjectIDs = `-- name: JanitorProjectIDs :many
+SELECT id FROM projects ORDER BY id
 `
 
-type JanitorProjectLabelsRow struct {
-	ID   ids.ID
-	Slug string
-	Name string
-}
-
-func (q *Queries) JanitorProjectLabels(ctx context.Context, projectIds []ids.ID) ([]JanitorProjectLabelsRow, error) {
-	rows, err := q.db.QueryContext(ctx, janitorProjectLabels, pq.Array(projectIds))
+func (q *Queries) JanitorProjectIDs(ctx context.Context) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, janitorProjectIDs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []JanitorProjectLabelsRow
+	var items []ids.ID
 	for rows.Next() {
-		var i JanitorProjectLabelsRow
-		if err := rows.Scan(&i.ID, &i.Slug, &i.Name); err != nil {
+		var id ids.ID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const janitorRecord = `-- name: JanitorRecord :many
+SELECT project_id, queues, scans, problem, updated_at FROM janitor_projects WHERE project_id=$1
+`
+
+func (q *Queries) JanitorRecord(ctx context.Context, projectID ids.ID) ([]JanitorProject, error) {
+	rows, err := q.db.QueryContext(ctx, janitorRecord, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JanitorProject
+	for rows.Next() {
+		var i JanitorProject
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.Queues,
+			&i.Scans,
+			&i.Problem,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -183,6 +207,71 @@ func (q *Queries) JanitorProjectLabels(ctx context.Context, projectIds []ids.ID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const janitorRecords = `-- name: JanitorRecords :many
+SELECT p.id,p.slug,p.name,p.default_branch,COALESCE(j.queues,'[]'::jsonb)::jsonb AS queues,COALESCE(j.scans,'{}'::jsonb)::jsonb AS scans,COALESCE(j.problem,'')::text AS problem FROM projects p
+LEFT JOIN janitor_projects j ON j.project_id=p.id
+WHERE p.id=ANY($1::uuid[]) AND p.purpose='ordinary'
+AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
+ORDER BY p.name,p.id
+`
+
+type JanitorRecordsRow struct {
+	ID            ids.ID
+	Slug          string
+	Name          string
+	DefaultBranch string
+	Queues        json.RawMessage
+	Scans         json.RawMessage
+	Problem       string
+}
+
+func (q *Queries) JanitorRecords(ctx context.Context, projectIds []ids.ID) ([]JanitorRecordsRow, error) {
+	rows, err := q.db.QueryContext(ctx, janitorRecords, pq.Array(projectIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JanitorRecordsRow
+	for rows.Next() {
+		var i JanitorRecordsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.DefaultBranch,
+			&i.Queues,
+			&i.Scans,
+			&i.Problem,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const janitorRunChange = `-- name: JanitorRunChange :one
+SELECT project_id,change_id FROM runs WHERE id=$1
+`
+
+type JanitorRunChangeRow struct {
+	ProjectID ids.ID
+	ChangeID  ids.ID
+}
+
+func (q *Queries) JanitorRunChange(ctx context.Context, id ids.ID) (JanitorRunChangeRow, error) {
+	row := q.db.QueryRowContext(ctx, janitorRunChange, id)
+	var i JanitorRunChangeRow
+	err := row.Scan(&i.ProjectID, &i.ChangeID)
+	return i, err
 }
 
 const previousLandedAdoption = `-- name: PreviousLandedAdoption :one
@@ -202,4 +291,58 @@ func (q *Queries) PreviousLandedAdoption(ctx context.Context, arg PreviousLanded
 	var target_candidate_json json.RawMessage
 	err := row.Scan(&target_candidate_json)
 	return target_candidate_json, err
+}
+
+const recordJanitorProcedures = `-- name: RecordJanitorProcedures :exec
+INSERT INTO janitor_projects(project_id,scans,problem,updated_at) VALUES($1,$2,$3,$4)
+ON CONFLICT(project_id) DO UPDATE SET scans=janitor_projects.scans || EXCLUDED.scans,problem=EXCLUDED.problem,updated_at=EXCLUDED.updated_at
+`
+
+type RecordJanitorProceduresParams struct {
+	ProjectID ids.ID
+	Scans     json.RawMessage
+	Problem   string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) RecordJanitorProcedures(ctx context.Context, arg RecordJanitorProceduresParams) error {
+	_, err := q.db.ExecContext(ctx, recordJanitorProcedures,
+		arg.ProjectID,
+		arg.Scans,
+		arg.Problem,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const recordJanitorQueues = `-- name: RecordJanitorQueues :exec
+INSERT INTO janitor_projects(project_id,queues,updated_at) VALUES($1,$2,$3)
+ON CONFLICT(project_id) DO UPDATE SET queues=EXCLUDED.queues,updated_at=EXCLUDED.updated_at
+`
+
+type RecordJanitorQueuesParams struct {
+	ProjectID ids.ID
+	Queues    json.RawMessage
+	UpdatedAt time.Time
+}
+
+func (q *Queries) RecordJanitorQueues(ctx context.Context, arg RecordJanitorQueuesParams) error {
+	_, err := q.db.ExecContext(ctx, recordJanitorQueues, arg.ProjectID, arg.Queues, arg.UpdatedAt)
+	return err
+}
+
+const recordJanitorScans = `-- name: RecordJanitorScans :exec
+INSERT INTO janitor_projects(project_id,scans,updated_at) VALUES($1,$2,$3)
+ON CONFLICT(project_id) DO UPDATE SET scans=janitor_projects.scans || EXCLUDED.scans,updated_at=EXCLUDED.updated_at
+`
+
+type RecordJanitorScansParams struct {
+	ProjectID ids.ID
+	Scans     json.RawMessage
+	UpdatedAt time.Time
+}
+
+func (q *Queries) RecordJanitorScans(ctx context.Context, arg RecordJanitorScansParams) error {
+	_, err := q.db.ExecContext(ctx, recordJanitorScans, arg.ProjectID, arg.Scans, arg.UpdatedAt)
+	return err
 }

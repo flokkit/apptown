@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/fault"
@@ -137,13 +136,14 @@ type ContainerFacts struct {
 // CrashLoopHold is the health controller's hold on the generation, from its
 // receipt: Confirmed when the stop succeeded, otherwise only attempted.
 type CrashLoopHold struct {
-	Receipt   ids.ID `json:"receipt"`
-	At        string `json:"at"`
-	Confirmed bool   `json:"confirmed"`
-	Restarts  int    `json:"restarts"`
-	Window    string `json:"window"`
-	ExitCode  string `json:"exitCode,omitempty"`
-	Detail    string `json:"detail,omitempty"`
+	Generation int64  `json:"generation"`
+	Receipt    ids.ID `json:"receipt"`
+	At         string `json:"at"`
+	Confirmed  bool   `json:"confirmed"`
+	Restarts   int    `json:"restarts"`
+	Window     string `json:"window"`
+	ExitCode   string `json:"exitCode,omitempty"`
+	Detail     string `json:"detail,omitempty"`
 }
 
 // Diagnostics reads a deployment's runtime facts; the caller needs the
@@ -154,11 +154,13 @@ func (s *Service) diagnostics(ctx context.Context, projectID ids.ID, name string
 	if err != nil {
 		return Diagnostics{}, err
 	}
-	out := Diagnostics{Deployment: dep.Name, Generation: dep.ObservedGeneration, Desired: dep.DesiredGeneration, Commit: dep.ReleaseSHA,
-		Parts: []PartDiagnosis{}, LogMaxLines: docker.LogMaxLines, LogMaxBytes: docker.LogMaxBytes}
-	if out.Runtime, err = s.diagnosedRuntime(ctx, dep); err != nil {
+	runtime, err := s.diagnosedRuntime(ctx, dep)
+	if err != nil {
 		return Diagnostics{}, err
 	}
+	out := Diagnostics{Deployment: dep.Name, Generation: dep.ObservedGeneration, Desired: dep.DesiredGeneration, Commit: dep.ReleaseSHA,
+		Parts: []PartDiagnosis{}, LogMaxLines: docker.LogMaxLines, LogMaxBytes: docker.LogMaxBytes}
+	out.Runtime = runtime
 	if r, err := s.servingRelease(ctx, dep); err != nil {
 		return Diagnostics{}, err
 	} else if r != nil {
@@ -189,16 +191,7 @@ func (s *Service) diagnosedRuntime(ctx context.Context, dep *Deployment) (Diagno
 			continue
 		}
 		o := s.observations.read(r, s.now())
-		out := DiagnosedRuntime{State: o.State.String(), Health: o.Health, ObservedAt: o.ObservedAt, AttemptedAt: o.AttemptedAt, Stale: o.Stale}
-		switch {
-		case o.Err != nil:
-			out.Reason = "its latest observation failed: " + safeReason(o.Err)
-		case o.ObservedAt.IsZero():
-			out.Reason = "not observed yet"
-		case o.Stale:
-			out.Reason = "its last observation is out of date"
-		}
-		return out, nil
+		return diagnosedObservation(o), nil
 	}
 	return DiagnosedRuntime{State: RuntimeUnknown.String(), Stale: true, Reason: "not observed yet"}, nil
 }
@@ -220,6 +213,34 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 			return err
 		}
 	}
+	proj, err := s.projects.ByID(ctx, dep.ProjectID)
+	if err != nil {
+		return err
+	}
+	var reading hostReading
+	if target != nil && !target.runsNoContainers() && !target.reportsParts() && dep.Container != "" {
+		reading, err = NewHostSnapshots(s.db, s.now).reading(ctx, target)
+		if err != nil {
+			return err
+		}
+	}
+	if target.reportsParts() {
+		return s.diagnoseReportedParts(ctx, dep, applied, out)
+	}
+	if err := s.diagnosePartsRecord(dep, target, proj.Slug, applied, reading, out); err != nil {
+		return err
+	}
+	if out.Unsupported != "" {
+		_, words := s.limitEventsSource(ctx, dep)
+		out.Unsupported += " (" + words + ")"
+	}
+	if target.runsNoContainers() || dep.Container == "" {
+		return nil
+	}
+	return s.settledParts(ctx, dep, out)
+}
+
+func (s *Service) diagnosePartsRecord(dep *Deployment, target *Target, slug string, applied AppliedProfile, reading hostReading, out *Diagnostics) error {
 	if target.runsNoContainers() {
 		out.NoContainers = true
 		for _, p := range diagnosedParts(applied) {
@@ -228,31 +249,20 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 		}
 		return nil
 	}
-	if target.reportsParts() {
-		return s.diagnoseReportedParts(ctx, dep, applied, out)
-	}
 	if dep.Container == "" {
-		_, words := s.limitEventsSource(ctx, dep)
-		out.Unsupported = "its target does not report each part's container to AppTown (" + words + ")"
+		out.Unsupported = "its target does not report each part's container to AppTown"
 		for _, p := range diagnosedParts(applied) {
 			p.Presence, p.Reason = presenceUnknown, "not reported by its target"
 			out.Parts = append(out.Parts, p)
 		}
 		return nil
 	}
-	proj, err := s.projects.ByID(ctx, dep.ProjectID)
-	if err != nil {
-		return err
-	}
 	out.Containers = true
-	containers := partContainers(dep, proj.Slug, applied)
+	containers := partContainers(dep, slug, applied)
 	if target == nil {
 		return errors.New("a deployment with a container has no target")
 	}
-	reading, err := NewHostSnapshots(s.db, s.now).reading(ctx, target)
-	if err != nil {
-		return err
-	}
+
 	section := reading.Containers
 	out.Reading = DetailReading{ObservedAt: section.ObservedAt, AttemptedAt: reading.AttemptedAt}
 	// A deployment's parts wait only for its own last act. The host-wide act
@@ -314,7 +324,7 @@ func (s *Service) diagnoseParts(ctx context.Context, dep *Deployment, out *Diagn
 			p.Presence, p.Reason, p.Stale = presenceUnknown, whyRead, true
 		}
 	}
-	return s.settledParts(ctx, dep, out)
+	return nil
 }
 
 // settledParts says, read after the parts were, whether the deployment is
@@ -326,6 +336,7 @@ func (s *Service) settledParts(ctx context.Context, dep *Deployment, out *Diagno
 	if err != nil {
 		return err
 	}
+
 	out.Unsettled = why
 	for i := range out.Parts {
 		p := &out.Parts[i]
@@ -384,32 +395,19 @@ func diagnosedParts(applied AppliedProfile) []PartDiagnosis {
 	return out
 }
 
-// crashLoopHold is the newest crash-loop hold receipt for the deployment's
-// settled generation, nil when there is none.
-func (s *Service) crashLoopHold(ctx context.Context, dep *Deployment) (*CrashLoopHold, error) {
-	if dep.ObservedGeneration == 0 {
+// crashLoopHold applies only to the generation the controller stopped.
+func (s *Service) crashLoopHold(_ context.Context, dep *Deployment) (*CrashLoopHold, error) {
+	if dep.Hold == nil || dep.ObservedGeneration == 0 {
 		return nil, nil
 	}
-	lines, err := audit.Recent(ctx, s.db, audit.Filter{ProjectID: dep.ProjectID, KindPrefix: "deployment.crash-loop-held", Subject: dep.Name, Limit: 1, PayloadContains: map[string]any{"deploymentId": dep.ID, "generation": dep.ObservedGeneration}})
-	if err != nil {
-		return nil, fmt.Errorf("reading crash-loop holds: %w", err)
+	var hold CrashLoopHold
+	if err := json.Unmarshal(*dep.Hold, &hold); err != nil {
+		return nil, err
 	}
-	for _, l := range lines {
-		var p struct {
-			DeploymentID ids.ID `json:"deploymentId"`
-			Generation   int64  `json:"generation"`
-			OK           bool   `json:"ok"`
-			Restarts     int    `json:"restarts"`
-			Window       string `json:"window"`
-			ExitCode     string `json:"exitCode"`
-			Detail       string `json:"detail"`
-		}
-		if json.Unmarshal(l.Payload, &p) != nil || p.DeploymentID != dep.ID || p.Generation != dep.ObservedGeneration {
-			continue
-		}
-		return &CrashLoopHold{Receipt: l.ID, At: l.At, Confirmed: p.OK, Restarts: p.Restarts, Window: p.Window, ExitCode: p.ExitCode, Detail: p.Detail}, nil
+	if hold.Generation != dep.ObservedGeneration {
+		return nil, nil
 	}
-	return nil, nil
+	return &hold, nil
 }
 
 // PartLog is one explicit read of a part's recent log, with its bounds and
@@ -553,4 +551,17 @@ func servedPart(p *PartDiagnosis, rt DiagnosedRuntime, generation int64) {
 	default:
 		p.Presence, p.Reason = presenceUnknown, "whether its address serves this release is not known"
 	}
+}
+
+func diagnosedObservation(o RuntimeObservation) DiagnosedRuntime {
+	out := DiagnosedRuntime{State: o.State.String(), Health: o.Health, ObservedAt: o.ObservedAt, AttemptedAt: o.AttemptedAt, Stale: o.Stale}
+	switch {
+	case o.Err != nil:
+		out.Reason = "its latest observation failed: " + safeReason(o.Err)
+	case o.ObservedAt.IsZero():
+		out.Reason = "not observed yet"
+	case o.Stale:
+		out.Reason = "its last observation is out of date"
+	}
+	return out
 }

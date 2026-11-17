@@ -29,7 +29,7 @@ func TestFreshWorkflowAgentReceivesDeclaredContextFromStartingCommit(t *testing.
 			receipt := adoption.EmptyReceipt()
 			receipt.Guidance = []adoption.ReceiptBlock{{Name: b.Name, BlockID: b.ID, Version: 1}}
 			if err := f.db.InTx(t.Context(), func(tx *database.Tx) error {
-				return adoption.RecordIn(t.Context(), tx, f.projectID, 2, adoption.AdoptionCreate, "context fixture", receipt, "fixture", time.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, f.projectID, 2, adoption.AdoptionCreate, "context fixture", receipt, "fixture", time.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

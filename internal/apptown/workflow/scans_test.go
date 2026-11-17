@@ -110,7 +110,7 @@ func TestEmptyDeterministicWorkRequiresEveryStepToPass(t *testing.T) {
 	for _, state := range []StepState{StatusPass, StatusFail, StatusError, StatusPending, StatusRunning} {
 		t.Run(state.String(), func(t *testing.T) {
 			s, ch, _, _, _ := automatedFixture(t)
-			if err := s.db.InTx(t.Context(), func(tx *database.Tx) error { return promoteChangeIn(t.Context(), tx, ch.ProjectID, ch.ID) }); err != nil {
+			if err := s.db.InTx(t.Context(), func(tx *database.Tx) error { return promoteChangeIn(t.Context(), tx, ch.ProjectID, ch.ID, s.now()) }); err != nil {
 				t.Fatal(err)
 			}
 			run := admitAutomatedRun(t, s, ch, "script", "scan")
@@ -437,9 +437,6 @@ func classifyTestScans(main string, running []RunningImages, observations []conf
 		heads = append(heads, conformance.ScanHead{ID: o.ID, RunID: o.RunID, Subject: o.Subject, Scanner: o.Scanner, BindingVersion: o.BindingVersion, ConfigHash: o.ConfigHash, ObservedAt: o.ObservedAt})
 	}
 	return latestMainScans(main, running, observations, selectScanHeads(main, running, heads), now)
-}
-func (s noScanSchedule) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
-	return false, s.err
 }
 
 // The head selector alone decides which receipts the current view loads.

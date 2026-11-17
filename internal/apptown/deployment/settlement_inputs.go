@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 )
@@ -10,7 +11,11 @@ import (
 // Recovery reads the admitted inputs even if the deployment now serves a
 // different generation. Missing inputs are an error, never guessed from HEAD.
 func (s *Outcomes) InputsFor(ctx context.Context, at Attempt) (Inputs, error) {
-	r, err := deploymentsql.New(s.db.SQL()).AttemptInputs(ctx, deploymentsql.AttemptInputsParams{ID: at.ID, DeploymentID: at.DeploymentID, Generation: at.Generation})
+	return inputsForIn(ctx, s.db, at)
+}
+
+func inputsForIn(ctx context.Context, db database.Queryer, at Attempt) (Inputs, error) {
+	r, err := deploymentsql.New(db.SQL()).AttemptInputs(ctx, deploymentsql.AttemptInputsParams{ID: at.ID, DeploymentID: at.DeploymentID, Generation: at.Generation})
 	if err != nil {
 		return Inputs{}, err
 	}

@@ -51,6 +51,8 @@ type Deployment struct {
 	ServingAttemptID       ids.ID
 	RoutineUpdates         json.RawMessage
 	RoutineUpdatesRevision int64
+	ChecksOwedAt           sql.NullTime
+	Hold                   *json.RawMessage
 }
 
 type DeploymentAddressSetting struct {

@@ -45,7 +45,7 @@ func (h ProjectScans) List(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	queues, err := h.work.Queues(r.Context(), p.ID)
+	queues, err := h.work.StoredQueues(r.Context(), p.ID)
 	if err != nil {
 		WriteFault(w, err)
 		return

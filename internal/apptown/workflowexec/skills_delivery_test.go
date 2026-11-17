@@ -34,7 +34,7 @@ func adoptSkillBlock(t *testing.T, db *database.DB, projectID ids.ID) *adoption.
 	receipt := adoption.EmptyReceipt()
 	receipt.Guidance = []adoption.ReceiptBlock{{Name: "rules/plain", BlockID: idstest.N(7), Version: 1}, {Name: "build/container-image", BlockID: skillBlockID, Version: 1}}
 	if _, err := database.Transact(context.Background(), db, func(tx *database.Tx) (struct{}, error) {
-		return struct{}{}, adoption.RecordIn(t.Context(), tx, projectID, before.Revision+1, adoption.AdoptionEdit, "skill fixture", receipt, "tester", time.Now())
+		return struct{}{}, adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, projectID, before.Revision+1, adoption.AdoptionEdit, "skill fixture", receipt, "tester", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

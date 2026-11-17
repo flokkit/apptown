@@ -1,8 +1,10 @@
 package attention
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
@@ -84,5 +86,33 @@ func TestOnlyDecisionsAndStoppedQueuesNeedAttention(t *testing.T) {
 		if len(got.Items) != want {
 			t.Fatalf("%s: %+v", state, got)
 		}
+	}
+}
+
+func TestApprovalQueueLabelUsesWhenItBeganWaiting(t *testing.T) {
+	t.Parallel()
+	since := time.Date(2026, 11, 17, 1, 2, 3, 0, time.UTC)
+	for _, tc := range []struct {
+		name, state, decision, label string
+	}{
+		{"approval", "decide", `{"act":"approve"}`, "waiting for approval"},
+		{"held", "decide", `{"act":"override"}`, "waiting"},
+		{"stopped", "stopped", `null`, "failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var state workflow.QueueStatus
+			if err := json.Unmarshal([]byte(`{"decide":`+tc.decision+`}`), &state); err != nil {
+				t.Fatal(err)
+			}
+			state.State, state.StateSince = tc.state, since
+			item := queueItem(idstest.N(1), "Garden", "/", state)
+			raw, err := json.Marshal(item)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(raw), `"statusLabel":"`+tc.label+`"`) || !item.ObservedAt.Equal(since) {
+				t.Fatalf("%s label: %s", tc.name, raw)
+			}
+		})
 	}
 }

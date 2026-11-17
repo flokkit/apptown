@@ -237,7 +237,7 @@ func (s *Service) remove(ctx context.Context, in RemoveDeployment, principal acc
 	taken, err := driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, BackedUp: final != nil, LastUser: others == 0, Synthetic: synthetic})
 	// Even a failed/ambiguous provider call can change what inventory observes.
 	if s.applied != nil {
-		s.applied(selected.TargetID)
+		s.applied(selected.TargetID, selected.ID)
 	}
 	out = removalResult{deleted: taken.Deleted, left: taken.Left}
 	if err != nil {

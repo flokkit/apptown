@@ -44,7 +44,7 @@ type Service struct {
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
 	records            context.Context
-	applied            func(ids.ID)
+	applied            func(ids.ID, ids.ID)
 	release            ReleaseDependencies
 	configuration      ConfigurationDependencies
 	observationTimeout time.Duration
@@ -93,9 +93,9 @@ type Dependencies struct {
 	Groups            groupDirectory
 	Releases          ReleaseDependencies
 	Configuration     ConfigurationDependencies
-	Followups         jobs.Enqueuer // settlement's after-commit work
-	Declared          declarations  // the app's declaration, for what a target holds
-	Applied           func(ids.ID)  // called after a deployment is applied; nil is fine
+	Followups         jobs.Enqueuer        // settlement's after-commit work
+	Declared          declarations         // the app's declaration, for what a target holds
+	Applied           func(ids.ID, ids.ID) // called after a deployment is applied; nil is fine
 	// CopyStarter is data protection's side of starting a deployment from a
 	// copy; nil refuses every start from a copy.
 	CopyStarter copyLauncher
@@ -189,8 +189,8 @@ func (s *Service) setClock(now func() time.Time) {
 // InfrastructureChanged notifies the post-act collaborator after a removal.
 // Docker readings use HostSnapshots.BeforeAct before the effect; post-act
 // checks are scheduled for other providers.
-func (s *Service) InfrastructureChanged(targetID ids.ID) {
+func (s *Service) InfrastructureChanged(targetID, deploymentID ids.ID) {
 	if s.applied != nil {
-		s.applied(targetID)
+		s.applied(targetID, deploymentID)
 	}
 }

@@ -2,11 +2,13 @@ package identity
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 var _ access.Authority = (*Service)(nil)
@@ -81,7 +83,7 @@ func (s *Service) Explain(ctx context.Context, pr access.Principal, p access.Per
 // Holdings answers every catalogue capability for one resource using one set
 // of cached authority facts. Unavailable facts fail the entire read.
 func (s *Service) Holdings(ctx context.Context, pr access.Principal, res access.Resource) (map[access.Capability]bool, error) {
-	facts := &serviceFacts{ctx: ctx, q: s.db, at: s.now()}
+	facts := s.readFacts(ctx, s.now())
 	delegation := access.DelegationOf(pr)
 	out := make(map[access.Capability]bool, len(access.Definitions))
 	for capability := range access.Definitions {
@@ -95,13 +97,15 @@ func (s *Service) Holdings(ctx context.Context, pr access.Principal, res access.
 }
 
 func (s *Service) explain(ctx context.Context, pr access.Principal, d access.Channel, p access.Permission, now time.Time) (access.Decision, error) {
-	return explainWithFacts(ctx, pr, d, p, &serviceFacts{ctx: ctx, q: s.db, at: now})
+	return explainWithFacts(ctx, pr, d, p, s.readFacts(ctx, now))
 }
 
 func explainWithFacts(ctx context.Context, pr access.Principal, d access.Channel, p access.Permission, f *serviceFacts) (access.Decision, error) {
 	if err := ctx.Err(); err != nil {
 		return access.Decision{}, err
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if pr.Instrument == "console" {
 		disabled := f.Disabled(access.Principal{ID: pr.ID, Kind: "user", Name: pr.Person})
 		if f.err != nil {
@@ -128,12 +132,14 @@ func (r denialRecorder) record(ctx context.Context, pr access.Principal, p acces
 // with a later request or command; project scope remains supplied per decision.
 // Grants are judged live as of at, the operation's clock.
 type serviceFacts struct {
-	ctx      context.Context
-	q        database.Queryer
-	at       time.Time
-	disabled map[string]bool
-	grants   map[string][]access.Grant
-	err      error
+	mu        sync.Mutex
+	catalogue map[ids.ID][]access.Resource
+	ctx       context.Context
+	q         database.Queryer
+	at        time.Time
+	disabled  map[string]bool
+	grants    map[string][]access.Grant
+	err       error
 }
 
 func (f *serviceFacts) failed(err error) {
@@ -175,4 +181,30 @@ func (f *serviceFacts) Grants(pr access.Principal) []access.Grant {
 	}
 	f.grants[key] = grants
 	return grants
+}
+
+type readFactsKey struct{}
+type readFactsMemo struct {
+	mu        sync.Mutex
+	byService map[*Service]*serviceFacts
+}
+
+// WithReadFacts shares authority facts for this GET only. Commands and
+// transaction-bound authority checks always read their own current facts.
+func WithReadFacts(ctx context.Context) context.Context {
+	return context.WithValue(ctx, readFactsKey{}, &readFactsMemo{byService: map[*Service]*serviceFacts{}})
+}
+func (s *Service) readFacts(ctx context.Context, at time.Time) *serviceFacts {
+	memo, _ := ctx.Value(readFactsKey{}).(*readFactsMemo)
+	if memo == nil {
+		return &serviceFacts{ctx: ctx, q: s.db, at: at}
+	}
+	memo.mu.Lock()
+	defer memo.mu.Unlock()
+	if facts := memo.byService[s]; facts != nil {
+		return facts
+	}
+	facts := &serviceFacts{ctx: ctx, q: s.db, at: at, catalogue: map[ids.ID][]access.Resource{}}
+	memo.byService[s] = facts
+	return facts
 }

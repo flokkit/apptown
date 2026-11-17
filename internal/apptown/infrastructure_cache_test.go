@@ -14,12 +14,17 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/attention"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/stamp"
@@ -391,8 +396,8 @@ func TestActsOnOneTargetQueueOnePostActCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := infrastructureChecksFor(a)
-	checks.Applied(target.ID)
-	checks.Applied(target.ID)
+	checks.Applied(target.ID, ids.Nil)
+	checks.Applied(target.ID, ids.Nil)
 	rows := operationJobs(t, a, "inventory")
 	if len(rows) != 1 || rows[0].Key != "do-syd/act" {
 		t.Fatalf("acts did not coalesce: %+v", rows)
@@ -448,13 +453,13 @@ func TestAnActQueuesDeploymentDetailAndProtectionWithoutThePeriodicPass(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	a.infrastructure.Applied(target.ID)
+	a.infrastructure.Applied(target.ID, dep.ID)
 	key, err := a.Deployment.DetailObservationKey(t.Context(), dep.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rows := operationJobs(t, a, deployment.DetailObservationJob)
-	if len(rows) != 1 || !strings.HasPrefix(rows[0].Key, key+"/") {
+	if len(rows) != 1 || rows[0].Key != key {
 		t.Fatalf("post-act detail: %+v", rows)
 	}
 	if rows := operationJobs(t, a, "protection-observation"); len(rows) != 1 {
@@ -471,12 +476,12 @@ func TestOutboundChecksHaveTheirOwnBoundedQueue(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing kind %s", name)
 		}
-		if k.Queue != "observations" || k.Timeout <= 0 || k.Timeout > 100*time.Second {
+		if k.Queue != "observations" || k.Timeout < 0 || k.Timeout > 100*time.Second {
 			t.Errorf("unbounded or shared check %s: %+v", name, k)
 		}
 		limit := 30 * time.Second
 		if name == deployment.CapacityObservationJob {
-			limit = 60 * time.Second
+			limit = 0
 		}
 		if name != "integration-health" && k.Timeout > limit {
 			t.Errorf("slow host check %s: %s", name, k.Timeout)
@@ -764,8 +769,8 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 	if err := (capacityObservationRequests{db: a.DB}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
-	a.infrastructure.Applied(target.ID)
-	a.infrastructure.Applied(target.ID)
+	a.infrastructure.Applied(target.ID, dep.ID)
+	a.infrastructure.Applied(target.ID, dep.ID)
 	if rows := operationJobs(t, a, "inventory"); len(rows) != 0 {
 		t.Fatalf("Docker provider inventory queued: %+v", rows)
 	}
@@ -803,5 +808,190 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 	inventory, err := a.Deployment.InventoryFor(ctx, target)
 	if err != nil || !inventory.AttemptedAt.IsZero() {
 		t.Fatalf("post-act readings wrote host inventory: %+v %v", inventory, err)
+	}
+}
+
+func TestPostActChecksOnlyTheActedDeploymentAndSupersedesPendingChecks(t *testing.T) {
+	t.Parallel()
+	a, _, p, _ := doWorld(t)
+	ctx := t.Context()
+	target, err := a.targets.ByName(ctx, "do-syd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.deployments.EnsureStanding(ctx, p.ID, "acted", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.deployments.EnsureStanding(ctx, p.ID, "other", target.ID, deployment.Attributes{}.WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	a.infrastructure.Applied(target.ID, dep.ID)
+	old, err := a.Deployment.DetailObservationKey(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.infrastructure.Applied(target.ID, dep.ID)
+	current, err := a.Deployment.DetailObservationKey(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old == current {
+		t.Fatal("a second act did not owe a new check")
+	}
+	for _, kind := range []string{deployment.DetailObservationJob, dataprotection.ProtectionObservationJob} {
+		rows := operationJobs(t, a, kind)
+		if len(rows) != 2 {
+			t.Fatalf("%s queued other deployments: %+v", kind, rows)
+		}
+		for _, row := range rows {
+			if !strings.HasPrefix(row.Key, dep.ID.String()+"/") {
+				t.Fatal("checked another deployment")
+			}
+		}
+	}
+	if _, err := a.Deployment.RunDetailObservation(ctx, old, nil); err != nil {
+		t.Fatal(err)
+	}
+	// A superseded pending check never collected a detail reading.
+	testAccounts(t, a.DB, "checks-admin")
+	testAdministrator(t, a, "checks-admin")
+	person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "checks-admin"), Kind: "user", Name: "checks-admin", Via: "session"}})
+	resources, err := a.Deployment.Resources(person, p.ID, dep.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resources.Reading.AttemptedAt.IsZero() {
+		t.Fatal("superseded check collected")
+	}
+}
+
+// The configured River worker must leave slot admission outside its 30 s check
+// budget. A fake SSH transport keeps this independent of an actual host.
+func TestConfiguredProtectionJobWaitsForHostSlotBeforeItsBudget(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{DockerClient: dockerfake.New()})
+	ctx := t.Context()
+	target := attachTarget(t, a, "slot-host", "slot.example.test")
+	pid := createReadTestProject(t, a, "slot-project")
+	dep, err := a.deployments.EnsureStanding(ctx, pid, "main", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo, err := (project.RepositoryRef{ID: pid, Slug: "slot-project"}).Path(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("version: 2\napp:\n  web:\n    build: .\n    public: true\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, repo, "init", "-q", "-b", "main")
+	gittest.Run(t, repo, "add", ".apptown/app.yaml")
+	gittest.Run(t, repo, "-c", "user.name=test", "-c", "user.email=test@example.org", "commit", "-qm", "app")
+	revision := gittest.Run(t, repo, "rev-parse", "HEAD")
+
+	attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "slot-applied", Inputs: deployment.Inputs{Revision: revision, Applied: deployment.AppliedProfile{Parts: map[string]deployment.AppliedPart{}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	releases := []func(){}
+	for range 3 {
+		_, release, err := a.hosts.HoldCallSlot(ctx, target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		releases = append(releases, release)
+	}
+	defer func() {
+		for _, release := range releases {
+			release()
+		}
+	}()
+	a.infrastructure.Applied(target.ID, dep.ID)
+	queued := operationJobs(t, a, dataprotection.ProtectionObservationJob)
+	if len(queued) != 1 {
+		t.Fatalf("jobs %+v", queued)
+	}
+	kinds := apptownJobKinds(a)
+	for _, kind := range []string{deployment.DetailObservationJob, dataprotection.ProtectionObservationJob, deployment.CapacityObservationJob} {
+		if kinds[kind].Timeout != 0 {
+			t.Fatalf("%s has an outer check timeout", kind)
+		}
+	}
+	settled, stop := startJobForTest(t, a, queued[0].ID)
+	defer stop()
+	if !poll.Until(ctx, 10*time.Second, 10*time.Millisecond, func() bool { return jobState(t, a, queued[0].ID) == "running" }) {
+		t.Fatal("worker did not start")
+	}
+
+	select {
+	case row := <-settled:
+		t.Fatalf("job ended while waiting for slot: %+v", row)
+	case <-time.After(31 * time.Second):
+	}
+	releases[0]()
+	releases = releases[1:]
+	select {
+	case row := <-settled:
+		if row.State != "completed" {
+			t.Fatalf("job failed after admission: %+v", row)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("job did not finish after slot release")
+	}
+}
+
+// Need fulfilment reports an act before a later release can settle anything.
+func TestNeedFulfilmentReportOwesANewCheck(t *testing.T) {
+	t.Parallel()
+	a, _, p, _ := doWorld(t)
+	ctx := t.Context()
+	target, err := a.targets.ByName(ctx, "do-syd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.deployments.EnsureStanding(ctx, p.ID, "needs", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := a.Deployment.DetailObservationKey(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	driver, err := a.targetProviders.Driver(ctx, target, dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contract, err := appcontract.Parse([]byte("app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.targetProviders.PrepareNeeds(ctx, driver, target, dep, contract, func(string, ...any) {}); err != nil {
+		t.Fatal(err)
+	}
+	after, err := a.Deployment.DetailObservationKey(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before == after {
+		t.Fatal("need fulfilment did not change the check key")
+	}
+	stored, err := a.deployments.ByID(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.ObservedGeneration != 0 || stored.LastApplied != nil {
+		t.Fatal("fixture settled a release instead of reporting need fulfilment")
+	}
+	rows := operationJobs(t, a, deployment.DetailObservationJob)
+	if len(rows) != 1 || rows[0].Key != after {
+		t.Fatalf("fresh runnable check: %+v", rows)
 	}
 }

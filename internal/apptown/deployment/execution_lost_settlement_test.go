@@ -26,7 +26,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 			in := deploymentStartFor(dep, fmt.Sprintf("release-%d", releaseID), "selected")
 			in.Inputs.ReleaseID = releaseID
 			notified := 0
-			runner := Runner{Store: store, Acted: func(_ ids.ID) { notified++ }}
+			runner := Runner{Store: store, Acted: func(_ ids.ID, _ ids.ID) { notified++ }}
 			executions := 0
 			result, err := runner.Run(context.Background(), in, func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 				executions++

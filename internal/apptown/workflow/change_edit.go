@@ -71,7 +71,7 @@ func (s changeStore) edit(ctx context.Context, in ChangeEdit, who string) (*Chan
 		if *in.ExpectedRevision != held.EditRevision {
 			return nil, errChangeEditMoved
 		}
-		if err := TouchChangeIn(ctx, tx, in.ProjectID, in.ID); err != nil {
+		if err := TouchChangeIn(ctx, tx, in.ProjectID, in.ID, s.now()); err != nil {
 			return nil, err
 		}
 		if in.Title != nil {

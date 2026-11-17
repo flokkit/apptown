@@ -115,7 +115,7 @@ func TestARecordedRevisionRequestsItsProjectsReview(t *testing.T) {
 	pid := adoptionTestProject(t, db, "ad", "Ad")
 	created := EmptyReceipt()
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "project created", created, "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "project created", created, "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
