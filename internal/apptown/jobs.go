@@ -142,9 +142,9 @@ func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]an
 			if err := (inventoryRequests{db: c.db}).requestInventory(ctx, target.Name); err != nil {
 				errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
 			}
-		}
-		if err := (capacityObservationRequests{db: c.db}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
-			errs = append(errs, fmt.Errorf("%s capacity: %w", target.Name, err))
+			if err := (capacityObservationRequests{db: c.db}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
+				errs = append(errs, fmt.Errorf("%s capacity: %w", target.Name, err))
+			}
 		}
 	}
 	deployments, err := c.deployments.All(ctx)
@@ -208,10 +208,10 @@ func (c infrastructureChecks) RunHourly(ctx context.Context, _ string, _ map[str
 	return nil, errors.Join(errs...)
 }
 
-// Applied queues fresh detail, protection and capacity checks after every act,
+// Applied queues fresh detail and protection checks after every act,
 // including a failed or uncertain deploy, which may have changed the target
 // too. Other targets' inventory is marked out of date and read again; Docker
-// inventory remains owned by the host reader loop.
+// inventory and capacity remain owned by the host reader loop.
 func (c *infrastructureChecks) Applied(targetID, deploymentID ids.ID) {
 	ctx := context.WithoutCancel(c.life)
 	target, err := c.targets.ByID(ctx, targetID)
@@ -230,12 +230,12 @@ func (c *infrastructureChecks) Applied(targetID, deploymentID ids.ID) {
 			log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
 		}
 
-	}
-	if err := c.db.InTx(ctx, func(tx *database.Tx) error {
-		key := target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10) + "/" + ids.New(c.now()).String()
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.CapacityObservationJob, Key: key})
-	}); err != nil {
-		log.Printf("infrastructure: scheduling capacity after an act: %v", err)
+		if err := c.db.InTx(ctx, func(tx *database.Tx) error {
+			key := target.ID.String() + "/" + strconv.FormatInt(target.SettingsRevision, 10) + "/" + ids.New(c.now()).String()
+			return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.CapacityObservationJob, Key: key})
+		}); err != nil {
+			log.Printf("infrastructure: scheduling capacity after an act: %v", err)
+		}
 	}
 	if !deploymentID.IsZero() {
 		if err := c.deployments.OweChecks(ctx, deploymentID); err != nil {

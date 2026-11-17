@@ -188,7 +188,7 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 	var err error
 	switch t.Kind {
 	case KindDockerHost:
-		out, err = s.dockerCapacity(ctx, t)
+		return TargetCapacity{}, fmt.Errorf("Docker capacity is collected by the host reader loop")
 	case KindPortainer:
 		out, err = s.portainerCapacity(ctx, t)
 	case KindDOApp, kindFlyMachines, KindAWSECS:
@@ -205,37 +205,45 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 	return out, nil
 }
 
-func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
-	dk, err := s.hosts.DockerScope(ctx, t)
-	return s.fixedHostCapacity(ctx, t, dk, err, "A fixed host: it does not grow.")
-}
-
 // portainerCapacity reads a Portainer endpoint as a Docker host is read,
 // through the endpoint's Docker proxy (Providers.PortainerDataScope).
 func (s *Service) portainerCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
 	dk, err := s.providers.PortainerDataScope(ctx, t)
-	return s.fixedHostCapacity(ctx, t, dk, err, "A fixed host behind Portainer: it does not grow.")
+	dk.Now = s.now
+	var facts docker.HostFacts
+	if err == nil {
+		facts, _ = docker.ReadHost(ctx, dk, docker.HostQuery{Host: true, Containers: true, Use: true, ReaderImage: s.env.ToolVersions().Images.DF})
+	} else {
+		facts.Host.Reason = fmt.Sprintf("its daemon cannot be asked: %v", err)
+	}
+	return s.fixedHostCapacity(ctx, t, facts, "A fixed host behind Portainer: it does not grow.")
 }
 
-// fixedHostCapacity reads a fixed host through its daemon's scope: its
-// totals, every running container's limits and use, the whole host's use,
-// who holds it, and the disk holding its data. A scope that could not be
-// made (scopeErr) leaves every figure unknown with why.
-func (s *Service) fixedHostCapacity(ctx context.Context, t *Target, dk docker.Scope, scopeErr error, words string) (TargetCapacity, error) {
-	out := TargetCapacity{Words: words, Memory: &ResourceCapacity{}, CPU: &ResourceCapacity{}}
-	if scopeErr != nil {
-		reason := fmt.Sprintf("its daemon cannot be asked: %v", scopeErr)
-		*out.Memory, *out.CPU = unknownResource(reason, true), unknownResource(reason, false)
-		out.Disk = &DiskCapacity{Total: unknown(reason), Free: unknown(reason)}
-		return out, nil
-	}
-	info, err := docker.ReadHostInfo(ctx, dk)
-	if err != nil {
-		out.Memory.Total, out.CPU.Total = unknownErr(err), unknownErr(err)
+// fixedHostCapacity computes capacity from the same facts for laps and Portainer.
+func (s *Service) fixedHostCapacity(ctx context.Context, t *Target, facts docker.HostFacts, words string) (TargetCapacity, error) {
+	out := TargetCapacity{Words: words, Memory: &ResourceCapacity{}, CPU: &ResourceCapacity{}, ReadAt: s.now(), Target: t.Name, Kind: t.Kind}
+	var memory int64
+	var cpus int
+	var root string
+	if facts.Host.Value == nil {
+		out.Memory.Total, out.CPU.Total = unknown(facts.Host.Reason), unknown(facts.Host.Reason)
 	} else {
-		out.Memory.Total, out.CPU.Total = known(float64(info.MemoryBytes)), known(float64(info.CPUs))
+		h := facts.Host.Value
+		memory, cpus, root = h.MemTotal, h.NCPU, h.DockerRootDir
+		out.Memory.Total, out.CPU.Total = known(float64(memory)), known(float64(cpus))
 	}
-	limits, limitsErr := docker.RunningLimits(ctx, dk)
+	var limits []docker.ContainerLimit
+	var limitsErr error
+	if facts.Containers.Value == nil {
+		limitsErr = fmt.Errorf("container limits could not be read: %s", facts.Containers.Reason)
+	} else {
+		for _, c := range *facts.Containers.Value {
+			if c.State.Running {
+				limits = append(limits, c.Limit())
+			}
+		}
+	}
+	var err error
 	var owners containerOwners
 	var deps map[ids.ID]ProjectDeployment
 	if limitsErr == nil {
@@ -256,9 +264,25 @@ func (s *Service) fixedHostCapacity(ctx context.Context, t *Target, dk docker.Sc
 	} else {
 		out.Memory.Promised, out.CPU.Promised = promisedOf(limits)
 	}
-	used, usedErr := docker.RunningUsage(ctx, dk)
+	var used map[string]docker.Usage
+	var usedErr, kernelErr error
+	var parts map[string][]byte
+	if facts.Use.Value == nil {
+		usedErr = fmt.Errorf("container use was not read")
+		kernelErr = usedErr
+	} else {
+		u := facts.Use.Value
+		used = u.Containers
+		if u.ContainersReason != "" {
+			usedErr = fmt.Errorf("%s", u.ContainersReason)
+		}
+		parts = u.Kernel
+		if u.KernelReason != "" {
+			kernelErr = fmt.Errorf("%s", u.KernelReason)
+		}
+	}
 	out.Memory.InUse = inUseOf(limits, limitsErr, used, usedErr)
-	out.Memory.HostUsed, out.CPU.HostUsed = s.hostUse(ctx, dk, info.MemoryBytes, info.CPUs, info.DataRoot)
+	out.Memory.HostUsed, out.CPU.HostUsed = hostUse(parts, kernelErr, memory, cpus)
 
 	if limitsErr == nil {
 		out.Tenants = tenantsOf(limits, used, usedErr, owners, deps)
@@ -266,12 +290,21 @@ func (s *Service) fixedHostCapacity(ctx context.Context, t *Target, dk docker.Sc
 	}
 	overcommit(out.Memory)
 	overcommit(out.CPU)
-	if info.DataRoot != "" {
-		d := s.disk(ctx, t, dk, info.DataRoot)
-		out.Disk = &d
-	} else {
-		out.Disk = &DiskCapacity{Total: unknown("the daemon did not say where its data is"), Free: unknown("the daemon did not say where its data is")}
+	diskReason := facts.Host.Reason
+	if diskReason == "" {
+		diskReason = "the data-root disk was not read"
 	}
+	out.Disk = &DiskCapacity{Path: root, Total: unknown(diskReason), Free: unknown(diskReason)}
+	if facts.Use.Value != nil {
+		u := facts.Use.Value
+		if u.DiskReason == "" {
+			v := u.Disk
+			out.Disk = &DiskCapacity{Path: root, ReadAt: facts.Use.ObservedAt, Total: known(float64(v.TotalBytes)), Free: known(float64(v.FreeBytes)), Low: v.Low(), Refuses: v.Refuses(), Floor: v.Floor(), Warning: v.Warning()}
+		} else {
+			out.Disk.Total, out.Disk.Free = unknown(u.DiskReason), unknown(u.DiskReason)
+		}
+	}
+
 	return out, nil
 }
 
@@ -305,15 +338,6 @@ func inUseOf(limits []docker.ContainerLimit, limitsErr error, used map[string]do
 		}
 	}
 	return &Split{AppTown: known(f), Other: known(o)}
-}
-
-func unknownResource(reason string, memory bool) ResourceCapacity {
-	why := unknown(reason)
-	r := ResourceCapacity{Total: why, HostUsed: &why, Promised: unknownPromised(fmt.Errorf("%s", reason))}
-	if memory {
-		r.InUse = &Split{AppTown: unknown(reason), Other: unknown(reason)}
-	}
-	return r
 }
 
 func unknownPromised(err error) Promised {
@@ -356,21 +380,6 @@ func overcommit(r *ResourceCapacity) {
 	if r.Total.Known && p.AppTown.or(p.Other) && p.AppTown.Value+p.Other.Value > r.Total.Value {
 		r.Overcommitted = true
 	}
-}
-
-// disk collects evidence in the daemon's standing reader for a background check.
-func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, root string) DiskCapacity {
-	now := s.now()
-	out := DiskCapacity{Path: root, ReadAt: now}
-	d, err := docker.ReadDisk(ctx, dk, s.env.ToolVersions().Images.DF, root)
-	if err != nil {
-		out.Total, out.Free = unknownErr(err), unknownErr(err)
-	} else {
-		out.Total, out.Free = known(float64(d.TotalBytes)), known(float64(d.FreeBytes))
-		out.Low, out.Refuses, out.Floor = d.Low(), d.Refuses(), d.Floor()
-		out.Warning = d.Warning()
-	}
-	return out
 }
 
 // elasticCapacity is what each deployment on an App Platform target runs

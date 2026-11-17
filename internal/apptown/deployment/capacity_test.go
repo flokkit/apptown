@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -56,7 +57,7 @@ func TestANeedIsSizedOnItsDeploymentAndChangedInPlace(t *testing.T) {
 	if run := ranWith(t, w, "lab", db, 0); !strings.Contains(run, "--memory 268435456 --memory-swap 268435456") {
 		t.Fatalf("the database was started without its size: %s", run)
 	}
-	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
+	if _, err := backgroundCapacity(t, w.s, "lab"); err != nil {
 		t.Fatal(err)
 	}
 	r, err := w.s.Resources(t.Context(), w.project, "prod")
@@ -378,13 +379,13 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	d.SetDisk(1000000*1024, 50000*1024)
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
-		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
+		case len(args) > 1 && args[0] == "ps" && args[1] == "-aq":
 			return []byte("a\nb\nc\nd\n"), nil, true
-		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
-			return []byte("/apptown-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\t\n" +
-				"/apptown-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\t\n" +
-				"/traefik\t268435456\t0\t50000\t100000\t\t<no value>\t<no value>\t<no value>\n" +
-				"/odd\t0\t0\t0\t0\tlots\t\t\t\n"), nil, true
+		case len(args) > 4 && args[0] == "inspect" && args[4] == "{{json .}}":
+			return capacityContainers("/apptown-env-p-prod\t536870912\t1000000000\t0\t0\t\tenv\t\t\n"+
+				"/apptown-svc-env-p-prod-postgres\t0\t0\t0\t0\t\tenv\t\t\n"+
+				"/traefik\t268435456\t0\t50000\t100000\t\t<no value>\t<no value>\t<no value>\n"+
+				"/odd\t0\t0\t0\t0\tlots\t\t\t\n", args[5:]), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			if statsFail {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
@@ -465,13 +466,13 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	inspectFails, newcomer := true, false
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
-		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
+		case len(args) > 1 && args[0] == "ps" && args[1] == "-aq":
 			return []byte("a\n"), nil, true
-		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
+		case len(args) > 4 && args[0] == "inspect" && args[4] == "{{json .}}":
 			if inspectFails {
 				return []byte("Error: No such object: a"), fmt.Errorf("exit 1"), true
 			}
-			return []byte("/apptown-env-p-prod\t0\t0\t0\t0\t\tenv\t\t\n"), nil, true
+			return capacityContainers("/apptown-env-p-prod\t0\t0\t0\t0\t\t\tenv\t\t\n", args[5:]), nil, true
 		case len(args) > 0 && args[0] == "stats":
 			out := "apptown-env-p-prod\t100MiB / 8GiB\t1.00%\n"
 			if newcomer {
@@ -534,7 +535,7 @@ func TestADeploymentShowsItsShareOfItsHost(t *testing.T) {
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
 		t.Fatalf("release: %+v %v", rel, err)
 	}
-	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
+	if _, err := backgroundCapacity(t, w.s, "lab"); err != nil {
 		t.Fatal(err)
 	}
 	r, err := w.s.Resources(t.Context(), w.project, "prod")
@@ -583,23 +584,49 @@ func TestAPortainerTargetsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	ours, other, lookalike := strings.ToUpper(stack)+"-app-1", "wiki-app-1", stack+"x-app-1"
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
-		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
+		case len(args) > 1 && args[0] == "ps" && args[1] == "-aq":
 			return []byte("c1\nc2\nc3\n"), nil, true
-		case len(args) > 4 && args[0] == "inspect" && strings.Contains(args[4], "CpuQuota"):
-			return []byte("/" + ours + "\t268435456\t0\t0\t0\t\t<no value>\t<no value>\t" + strings.ToUpper(stack) + "\n" +
-				"/" + other + "\t536870912\t0\t0\t0\t\t<no value>\t<no value>\twiki\n" +
-				"/" + lookalike + "\t1073741824\t0\t0\t0\t\t<no value>\t<no value>\t" + stack + "x\n"), nil, true
+		case len(args) > 4 && args[0] == "inspect" && args[4] == "{{json .}}":
+			return capacityContainers("/"+ours+"\t268435456\t0\t0\t0\t\t<no value>\t<no value>\t"+strings.ToUpper(stack)+"\n"+
+				"/"+other+"\t536870912\t0\t0\t0\t\t<no value>\t<no value>\twiki\n"+
+				"/"+lookalike+"\t1073741824\t0\t0\t0\t\t<no value>\t<no value>\t"+stack+"x\n", args[5:]), nil, true
 		case len(args) > 0 && args[0] == "stats":
-			if !slices.Equal(args[len(args)-3:], []string{"c1", "c2", "c3"}) {
+			if !slices.Equal(args[len(args)-3:], []string{ours, other, lookalike}) {
 				return []byte("waiting for events"), errors.New("an unnamed stats never answers through Portainer"), true
 			}
 			return []byte(ours + "\t100MiB / 256MiB\t1.00%\n" + other + "\t200MiB / 512MiB\t1.00%\n" + lookalike + "\t300MiB / 1GiB\t1.00%\n"), nil, true
 		}
 		return nil, nil, false
 	})
+	at := p.s.now()
+	p.s.setClock(func() time.Time { return at })
 	c, err := backgroundCapacity(t, p.s, IntranetTargetName)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// The lap publisher and the Portainer job collect the same daemon facts
+	// and persist exactly the same capacity answer, including stack ownership.
+	target := p.target(t, IntranetTargetName)
+	observer := NewCapacityObserver(p.s)
+	expected, e := observer.load(t.Context(), target)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dk, e := p.s.providers.PortainerDataScope(t.Context(), target)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dk.Now = p.s.now
+	snapshots := NewHostSnapshots(p.s.db, p.s.now)
+	snapshots.capacity = observer
+	if _, _, e = snapshots.collect(t.Context(), target, dk, docker.HostQuery{Host: true, Containers: true, Use: true, ReaderImage: p.s.env.ToolVersions().Images.DF}, nil, nil, at.Add(hostReadInterval)); e != nil {
+		t.Fatal(e)
+	}
+	actual, e := observer.load(t.Context(), target)
+	// The collector supplies its own host description; all capacity figures agree.
+	expected.Capacity.Words = actual.Capacity.Words
+	if e != nil || !reflect.DeepEqual(expected.Capacity, actual.Capacity) {
+		t.Fatalf("capacity differs across collectors:\njob: %+v\nlap: %+v\n%v", expected.Capacity, actual.Capacity, e)
 	}
 	if !strings.Contains(c.Words, "behind Portainer") || c.Memory.Total.Value != 8<<30 || c.CPU.Total.Value != 8 {
 		t.Fatalf("what the endpoint has: %s %+v %+v", c.Words, c.Memory.Total, c.CPU.Total)
@@ -960,11 +987,26 @@ func backgroundCapacity(t *testing.T, service *Service, name string) (TargetCapa
 	}
 	var reading TargetCapacity
 	o := NewCapacityObserver(service)
-	o.read = func(ctx context.Context, t *Target) (TargetCapacity, error) {
-		var err error
-		reading, err = service.targetCapacity(ctx, t)
+	if target.Kind == KindDockerHost {
+		_, err := NewHostSnapshots(service.db, service.now).BeforeAct(t.Context(), target.ID)
+		if err != nil {
+			return reading, err
+		}
+		o.fixed = func(ctx context.Context, t *Target, f docker.HostFacts, words string) (TargetCapacity, error) {
+			var e error
+			reading, e = service.fixedHostCapacity(ctx, t, f, words)
+			return reading, e
+		}
+		reader := HostReaders{Snapshots: NewHostSnapshots(service.db, service.now), Targets: service.Targets, Hosts: service.hosts, Providers: service.providers, Capacity: o}
+		err = reader.lap(t.Context(), target.ID, service.now().Add(hostReadInterval))
 		return reading, err
 	}
+	o.read = func(ctx context.Context, t *Target) (TargetCapacity, error) {
+		var e error
+		reading, e = service.targetCapacity(ctx, t)
+		return reading, e
+	}
+
 	err = o.Run(t.Context(), target.ID, target.SettingsRevision)
 	return reading, err
 }
@@ -978,7 +1020,7 @@ func TestCapacityPagesNeverCollectHostReadings(t *testing.T) {
 	if err != nil || cold.Words != "Pending first check" || len(daemon.Matching("")) != before {
 		t.Fatalf("cold page did host IO: %+v %v", cold, err)
 	}
-	if err := NewCapacityObserver(w.s).Run(t.Context(), w.lab.ID, w.lab.SettingsRevision); err != nil {
+	if _, err := backgroundCapacity(t, w.s, "lab"); err != nil {
 		t.Fatal(err)
 	}
 	before = len(daemon.Matching(""))
@@ -1049,4 +1091,33 @@ func TestCapacitySaysWhetherTheTargetIsAFixedHost(t *testing.T) {
 			t.Fatalf("%s read: %+v %v", test.kind, read, err)
 		}
 	}
+}
+
+// The fixture supplies Engine JSON; the assertions above describe its totals.
+func capacityContainers(lines string, ids []string) []byte {
+	var out []string
+	for i, line := range strings.Split(strings.TrimSpace(lines), "\n") {
+		f := strings.Split(line, "\t")
+		// Keep empty trailing label fields when the final container has none.
+		for len(f) < 9 {
+			f = append(f, "")
+		}
+		var c docker.HostContainer
+		c.ID, c.Name = ids[i], f[0]
+		c.State.Running = true
+		fmt.Sscan(f[1], &c.HostConfig.Memory)
+		fmt.Sscan(f[2], &c.HostConfig.NanoCpus)
+		fmt.Sscan(f[3], &c.HostConfig.CpuQuota)
+		fmt.Sscan(f[4], &c.HostConfig.CpuPeriod)
+		c.HostConfig.CpusetCpus = f[5]
+		c.Config.Labels = map[string]string{}
+		for j, k := range []string{"apptown.class", "apptown.owner", "com.docker.compose.project"} {
+			if f[j+6] != "<no value>" {
+				c.Config.Labels[k] = f[j+6]
+			}
+		}
+		raw, _ := json.Marshal(c)
+		out = append(out, string(raw))
+	}
+	return []byte(strings.Join(out, "\n"))
 }

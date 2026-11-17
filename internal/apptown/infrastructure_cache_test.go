@@ -319,7 +319,7 @@ func TestInfrastructureScheduleChecksAllTargetsWithoutReaders(t *testing.T) {
 			t.Errorf("no periodic inventory for %s", target.Name)
 		}
 	}
-	if len(operationJobs(t, a, diskObservationJob)) != 1 || len(operationJobs(t, a, deployment.CapacityObservationJob)) != len(targets) {
+	if len(operationJobs(t, a, diskObservationJob)) != 1 || len(operationJobs(t, a, deployment.CapacityObservationJob)) != capacityJobTargets(targets) {
 		t.Fatal("periodic pass omitted disk checks")
 	}
 	if len(operationJobs(t, a, "protection-observation")) != 0 {
@@ -429,7 +429,7 @@ func TestInfrastructurePassContinuesAfterAdmissionFailures(t *testing.T) {
 			t.Errorf("error omitted target %s: %v", target.Name, err)
 		}
 	}
-	if len(operationJobs(t, a, deployment.CapacityObservationJob)) != len(targets) || len(operationJobs(t, a, diskObservationJob)) != 1 {
+	if len(operationJobs(t, a, deployment.CapacityObservationJob)) != capacityJobTargets(targets) || len(operationJobs(t, a, diskObservationJob)) != 1 {
 		t.Fatal("inventory admission failure skipped remaining checks")
 	}
 }
@@ -766,9 +766,6 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 	if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := (capacityObservationRequests{db: a.DB}).requestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
-		t.Fatal(err)
-	}
 	a.infrastructure.Applied(target.ID, dep.ID)
 	a.infrastructure.Applied(target.ID, dep.ID)
 	if rows := operationJobs(t, a, "inventory"); len(rows) != 0 {
@@ -778,7 +775,7 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 		rows := operationJobs(t, a, kind)
 		want := 2
 		if kind == deployment.CapacityObservationJob {
-			want = 3 // periodic and both acts must each survive coalescing
+			want = 0 // Docker capacity belongs to the host lap
 		}
 		if len(rows) != want {
 			t.Fatalf("%s: %+v", kind, rows)
@@ -801,8 +798,8 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 		t.Fatalf("protection not checked: %+v %v", protection, err)
 	}
 	capacity, err := a.capacityObserver.Snapshot(ctx, target)
-	if err != nil || capacity.AttemptedAt.IsZero() {
-		t.Fatalf("capacity not checked: %+v %v", capacity, err)
+	if err != nil || !capacity.AttemptedAt.IsZero() {
+		t.Fatalf("Docker capacity collected outside the lap: %+v %v", capacity, err)
 	}
 	// Any host collection, including a failed one, records its attempt time.
 	inventory, err := a.Deployment.InventoryFor(ctx, target)
@@ -994,4 +991,60 @@ func TestNeedFulfilmentReportOwesANewCheck(t *testing.T) {
 	if len(rows) != 1 || rows[0].Key != after {
 		t.Fatalf("fresh runnable check: %+v", rows)
 	}
+}
+
+func capacityJobTargets(targets []*deployment.Target) int {
+	n := 0
+	for _, target := range targets {
+		if target.Kind != deployment.KindDockerHost && target.Status != deployment.TargetRetired {
+			n++
+		}
+	}
+	return n
+}
+
+func TestCapacityJobsBelongOnlyToPortainerAndCloud(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	targets := []*deployment.Target{}
+	for _, tc := range []struct{ name, kind, origin string }{
+		{"ssh-host", deployment.KindDockerHost, deployment.OriginAttached},
+		{"local-host", deployment.KindDockerHost, deployment.OriginBuiltIn},
+		{"endpoint", deployment.KindPortainer, deployment.OriginAttached},
+		{"cloud", deployment.KindDOApp, deployment.OriginAttached},
+	} {
+		target, err := a.targets.Put(t.Context(), &deployment.Target{Name: tc.name, Kind: tc.kind, Origin: tc.origin, Status: deployment.TargetReady})
+		if err != nil {
+			t.Fatal(err)
+		}
+		targets = append(targets, target)
+	}
+	checks := infrastructureChecksFor(a)
+	if _, err := checks.Run(t.Context(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	check := func(want int) {
+		t.Helper()
+		rows := operationJobs(t, a, deployment.CapacityObservationJob)
+		for _, target := range targets {
+			count := 0
+			for _, row := range rows {
+				if strings.HasPrefix(row.Key, target.ID.String()+"/") {
+					count++
+				}
+			}
+			expected := want
+			if target.Kind == deployment.KindDockerHost {
+				expected = 0
+			}
+			if count != expected {
+				t.Fatalf("%s queued %d capacity jobs, want %d: %+v", target.Name, count, expected, rows)
+			}
+		}
+	}
+	check(1)
+	for _, target := range targets {
+		checks.Applied(target.ID, ids.Nil)
+	}
+	check(2)
 }

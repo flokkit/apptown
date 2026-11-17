@@ -278,7 +278,7 @@ func (s *Service) diagnosePartsRecord(dep *Deployment, target *Target, slug stri
 		whyRead = "waiting for the first host container reading"
 	case predatesDeployment:
 		whyRead = "waiting for a host container reading after the latest change"
-	case s.now().Sub(section.ObservedAt) > observationStaleAfter:
+	case reading.stale(s.now(), section.ObservedAt):
 		whyRead = "its host's container reading is out of date"
 	}
 	if whyRead != "" {

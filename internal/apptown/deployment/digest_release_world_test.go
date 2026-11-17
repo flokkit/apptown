@@ -247,7 +247,7 @@ func (h *digestHosts) Run(ctx context.Context, host string, req docker.Command) 
 	switch {
 	case len(args) >= 2 && args[0] == "context" && args[1] == "show":
 		return []byte("default\n"), nil
-	case len(args) >= 3 && args[0] == "info" && strings.Contains(args[2], "MemTotal"):
+	case len(args) >= 3 && args[0] == "info" && (strings.Contains(args[2], "MemTotal") || args[2] == "{{json .}}"):
 		return out, err // what the host can give containers: the daemon's answer
 	case len(args) >= 1 && args[0] == "info":
 		return []byte(h.platform + "\n"), nil

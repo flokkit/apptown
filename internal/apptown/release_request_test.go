@@ -298,6 +298,7 @@ func TestPairedRollbackNeverStartsRejectedCodeOnRestoredData(t *testing.T) {
 				t.Fatal(err)
 			}
 			daemon := w.hosts.daemon("lab2")
+			daemon.images.SetImages(earlierImage, rejectedImage)
 			sentinel, currentImage, earlierSaw := "initial", "", ""
 			restored, rejectedStartsAfterRestore := false, 0
 			daemon.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {

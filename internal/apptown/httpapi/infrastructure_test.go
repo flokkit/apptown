@@ -10,10 +10,10 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -314,38 +314,6 @@ func TestInventoryMatchesAnImmutableIDDespiteDisplayNameChanges(t *testing.T) {
 	}
 }
 
-// daemonReplies answers docker commands by their leading words.
-type daemonReplies map[string]string
-
-func (d daemonReplies) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-	line := strings.Join(req.Args, " ")
-	// A name filter keeps the names that contain it, as Docker's does.
-	filter := ""
-	for i, a := range req.Args {
-		if a == "--filter" && i+1 < len(req.Args) {
-			filter, _ = strings.CutPrefix(req.Args[i+1], "name=")
-		}
-	}
-	for prefix, out := range d {
-		if !strings.HasPrefix(line, prefix) {
-			continue
-		}
-		var kept []string
-		for _, l := range strings.SplitAfter(out, "\n") {
-			if name, _, _ := strings.Cut(l, "\t"); l != "" && strings.Contains(name, filter) {
-				kept = append(kept, l)
-			}
-		}
-		if req.Stdout != nil {
-			// A read with its own streams (image inspect) answers on stdout.
-			_, err := containerresulttest.WriteString(req.Stdout, strings.Join(kept, ""))
-			return nil, err
-		}
-		return []byte(strings.Join(kept, "")), nil
-	}
-	return nil, nil
-}
-
 // What AppTown records owning and the Docker host still holds reads as
 // recorded, through the real reads: a local build recorded bare (BuildTag,
 // which the daemon answers as name:latest) and an approved older database
@@ -355,11 +323,10 @@ func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 	t.Parallel()
 	tag := docker.Current.BuildTag("apptown-env-shop-main-g1-app")
 	anon := strings.Repeat("ab", 32)
-	daemon := daemonReplies{
-		"info":          "test-daemon\n",
-		"image inspect": `["` + tag + `:latest"]` + "\t[]\t" + `"sha256:1"` + "\n",
-		"volume ls":     anon + "\t\t\nsomeone-elses-data\t\t\n",
-	}
+	daemon := dockerfake.New()
+	daemon.SetImages(tag + ":latest")
+	daemon.SetVolume(anon, true)
+	daemon.SetVolume("someone-elses-data", true)
 	images := func(context.Context) ([]string, error) { return []string{tag}, nil }
 	live, err := docker.Inventory{Scope: func(context.Context) (docker.Scope, error) { return docker.Scope{Client: daemon}, nil }, Images: images}.Inventory(t.Context())
 	if err != nil {

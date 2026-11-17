@@ -22,12 +22,13 @@ func TestImageRetentionDeletesOnlyRecordedExpiredAndOwnedBuildTags(t *testing.T)
 				fmt.Fprintln(&out, string(raw))
 			}
 			return []byte(out.String()), nil
-		case args[0] == "image" && strings.Contains(args[3], "RepoTags"):
-			for _, ref := range args[4:] {
-				id := refs[ref]
-				fmt.Fprintf(req.Stdout, "[]\t[%q]\t%q\n", ref, id)
+		case args[0] == "image" && args[1] == "ls":
+			var lines []string
+			for ref, id := range refs {
+				repo, digest, _ := strings.Cut(ref, "@")
+				lines = append(lines, imageRow(repo, "<none>", digest, id))
 			}
-			return nil, nil
+			return []byte(strings.Join(lines, "\n")), nil
 		case args[0] == "image":
 			return []byte("sha256:kept"), nil
 		case args[0] == "rmi":

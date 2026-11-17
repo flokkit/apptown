@@ -2,6 +2,7 @@ package dockerfake
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -54,5 +55,15 @@ func TestUnconfiguredResultsLeaveContainerListingsWithTheDaemon(t *testing.T) {
 	out, err := scope.Run(t.Context(), "ps", "-aq", "--filter", "label=apptown.class=container-result")
 	if err != nil || string(out) != "leftover" {
 		t.Fatalf("recorded result container disappeared: %q %v", out, err)
+	}
+}
+
+func TestImageListingIncludesDigestOnlyNames(t *testing.T) {
+	t.Parallel()
+	d := New()
+	d.SetImages("registry.example/app@sha256:digest", "local-build:latest")
+	out, err := d.Run(t.Context(), "", docker.Command{Args: []string{"image", "ls", "--all", "--digests", "--no-trunc", "--format", "{{json .}}"}})
+	if err != nil || !strings.Contains(string(out), `"Digest":"sha256:digest"`) || !strings.Contains(string(out), `"Tag":"\u003cnone\u003e"`) || !strings.Contains(string(out), `"Repository":"local-build"`) {
+		t.Fatalf("image listing %s: %v", out, err)
 	}
 }

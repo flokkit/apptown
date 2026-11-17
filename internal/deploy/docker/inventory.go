@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,7 +21,7 @@ type Inventory struct {
 	Scope func(context.Context) (Scope, error)
 	Also  []string // containers the host also reports by name (the caller's own database on its built-in host)
 	// Images is the image references the deployments on the target
-	// recorded (deploy.Owned of kind image), each asked for exactly.
+	// recorded (deploy.Owned of kind image), matched against the host listing.
 	Images func(context.Context) ([]string, error)
 }
 
@@ -123,10 +122,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			res = append(res, r)
 		}
 	}
-	// Images are asked for by the references the deployments recorded,
-	// never listed: a listing leaves out an image with no tag (Docker's
-	// containerd store, and the classic one for an image pulled by digest
-	// alone), and reconciliation shows only recorded images anyway.
+	// Only recorded image references are exposed from the host listing.
 	if i.Images != nil {
 		recorded, err := i.Images(ctx)
 		if err != nil {
@@ -155,61 +151,36 @@ var ownerLabel = `{{.Label "` + dockerlabel.Owner + `"}}`
 // only to confirm a record (deploy.TagConfirmsOnly).
 var instanceLabel = `{{.Label "` + dockerlabel.Instance + `"}}`
 
-// recordedImages answers which of refs are on dk, with one `docker image
-// inspect` for all of them (an attached host is an ssh round trip a call).
-// A ref is present when it is one of an answered image's own names: a
-// digest reference among its RepoDigests (only there: a tag cannot confirm
-// a digest), a tag among its RepoTags (a bare name is Docker's implicit latest, as a
-// local build is recorded), or its ID. It is absent when Docker says it has
-// no such image. Anything else is unknown, and an error: a failure that is
-// not "no such image", an answer that cannot be read, or a ref Docker
-// neither answered by that name nor said it lacks.
+// recordedImages matches recorded names against one complete daemon listing.
+// An unread listing cannot establish absence.
 func recordedImages(ctx context.Context, dk Scope, refs []string) ([]string, error) {
-	refs = slices.Compact(slices.Sorted(slices.Values(refs)))
-	if len(refs) == 0 {
-		return nil, nil
+	out, err := dk.Run(ctx, "image", "ls", "--all", "--digests", "--no-trunc", "--format", "{{json .}}")
+	if err != nil {
+		return nil, fmt.Errorf("listing Docker images: %w", err)
 	}
-	var stdout, stderr bytes.Buffer
-	args := append([]string{"image", "inspect", "--format", "{{json .RepoTags}}\t{{json .RepoDigests}}\t{{json .Id}}"}, refs...)
-	_, runErr := dk.Command(ctx, Command{Args: args, Stdout: &stdout, Stderr: &stderr})
 	names := map[string]bool{}
-	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if line == "" {
 			continue
 		}
-		f := strings.Split(line, "\t")
-		var tags, digests []string
-		var id string
-		if len(f) != 3 || json.Unmarshal([]byte(f[0]), &tags) != nil || json.Unmarshal([]byte(f[1]), &digests) != nil || json.Unmarshal([]byte(f[2]), &id) != nil {
-			return nil, fmt.Errorf("reading Docker's answer about the recorded images: %q", strs.Truncate(line, 200))
+		var row struct{ Repository, Tag, Digest, ID string }
+		if json.Unmarshal([]byte(line), &row) != nil || row.ID == "" || row.Repository == "" || row.Tag == "" || row.Digest == "" {
+			return nil, fmt.Errorf("reading Docker's image listing: %q", strs.Truncate(line, 200))
 		}
-		for _, n := range append(append(tags, digests...), id) {
-			names[familiar(n)] = true
+		names[familiar(row.ID)] = true
+		if row.Repository != "<none>" {
+			if row.Tag != "<none>" {
+				names[familiar(row.Repository+":"+row.Tag)] = true
+			}
+			if row.Digest != "<none>" {
+				names[familiar(row.Repository+"@"+row.Digest)] = true
+			}
 		}
-	}
-	missing := map[string]bool{}
-	for _, line := range strings.Split(strings.TrimSpace(stderr.String()), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		_, ref, ok := strings.Cut(line, "No such image: ")
-		if !ok {
-			return nil, fmt.Errorf("asking Docker for the recorded images: %s", strs.Truncate(line, 200))
-		}
-		missing[familiar(strings.TrimSpace(ref))] = true
-	}
-	if runErr != nil && len(missing) == 0 {
-		return nil, fmt.Errorf("asking Docker for the recorded images: %w", runErr)
 	}
 	var present []string
-	for _, ref := range refs {
-		switch name := familiar(ref); {
-		case missing[name]:
-		case names[name]:
+	for _, ref := range slices.Compact(slices.Sorted(slices.Values(refs))) {
+		if names[familiar(ref)] {
 			present = append(present, ref)
-		default:
-			return nil, fmt.Errorf("docker did not say whether it has the recorded image %s", ref)
 		}
 	}
 	return present, nil

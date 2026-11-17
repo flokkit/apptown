@@ -435,6 +435,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.diskObserver = maintenance.NewDiskObserver(db, a.disks, cfg.clock.Now)
 	a.workerObserver = maintenance.NewWorkerObserver(db, workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
 	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment)
+	a.HostReaders.Capacity = a.capacityObserver
 	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})
 	*a.infrastructure = infrastructureChecksFor(a)
 	a.Notifications = notification.New(notification.Dependencies{DB: a.DB, Jobs: jobQueue{}, Secrets: a.Secrets, Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Now: cfg.clock.Now, Origin: cfg.publicOrigin(), ReadAttention: func(ctx context.Context) (attention.View, error) { return a.attention.Read(ctx) }})

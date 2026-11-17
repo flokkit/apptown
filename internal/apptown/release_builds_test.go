@@ -260,34 +260,30 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 	if len(args) == 2 && args[0] == "save" && req.Stdout != nil {
 		return nil, h.save(host, args[1], req.Stdout)
 	}
-	if len(args) >= 5 && args[0] == "image" && args[1] == "inspect" && strings.Contains(args[3], "RepoTags") {
-		captured := req
-		captured.Stdout = nil
-		captured.Stderr = nil
-		_, _ = d.Run(ctx, "", captured)
-		var missing bool
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		for _, ref := range args[4:] {
-			if h.held[host][ref] || strings.HasPrefix(ref, "sha256:") {
-				fmt.Fprintf(req.Stdout, "[]\t[%q]\t%q\n", ref, "sha256:built")
-			} else {
-				fmt.Fprintln(req.Stderr, "Error response from daemon: No such image: "+ref)
-				missing = true
-			}
-		}
-		if missing {
-			return nil, errFakeExit
-		}
-		return nil, nil
-	}
 	out, err := d.Run(ctx, "", req) // recorded, as the daemon saw it
 	switch {
+	case len(args) > 1 && args[0] == "image" && args[1] == "ls":
+		var listing strings.Builder
+		listing.Write(out)
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		for ref, present := range h.held[host] {
+			if !present {
+				continue
+			}
+			repo, digest, byDigest := strings.Cut(ref, "@")
+			if !byDigest {
+				continue
+			}
+			raw, _ := json.Marshal(map[string]string{"Repository": repo, "Tag": "<none>", "Digest": digest, "ID": "sha256:built"})
+			fmt.Fprintf(&listing, "\n%s", raw)
+		}
+		return []byte(listing.String()), err
 	case len(args) >= 2 && args[0] == "context" && args[1] == "show":
 		return []byte("default\n"), nil
 	case len(args) >= 1 && args[0] == "info":
-		if len(args) == 3 && strings.Contains(args[2], "MemTotal") {
-			return []byte("8589934592\t4\t/var/lib/docker\n"), nil
+		if len(args) == 3 && (strings.Contains(args[2], "MemTotal") || args[2] == "{{json .}}") {
+			return out, err
 		}
 		return []byte(h.platform + "\n"), nil
 	case len(args) == 2 && args[0] == "pull":
@@ -296,7 +292,9 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 		// Each image a host built has its own ID, which `docker save`
 		// packs and a container started from it runs.
 		sum := sha256.Sum256([]byte(host + " " + args[4]))
-		return []byte("sha256:" + hex.EncodeToString(sum[:]) + "\n"), nil
+		id := "sha256:" + hex.EncodeToString(sum[:])
+		_, _ = d.images.Run(ctx, "", docker.Command{Args: []string{"image", "inspect", "--format", "{{.Id}}", id}})
+		return []byte(id + "\n"), nil
 	case len(args) == 5 && args[0] == "image" && args[1] == "inspect" && args[3] == "{{.Id}}" && len(args[4]) == len("sha256:")+64 && strings.HasPrefix(args[4], "sha256:"):
 		return []byte(args[4] + "\n"), nil // an image's ID names it
 	case len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && err == nil:

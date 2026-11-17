@@ -3,9 +3,8 @@ package deployment
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,25 +35,25 @@ func imageCopyWorld(t *testing.T, owned []deploy.Owned, during func()) (*Service
 		}
 	}
 	daemon.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
-		if len(c.Args) < 5 || c.Args[0] != "image" || c.Args[1] != "inspect" {
+		if len(c.Args) < 2 || c.Args[0] != "image" || c.Args[1] != "ls" {
 			return nil, nil, false
 		}
 		if during != nil {
 			during()
 		}
-		missing := false
-		for _, ref := range c.Args[4:] {
-			if ref == goneCopy {
-				fmt.Fprintf(c.Stderr, "Error: No such image: %s\n", ref)
-				missing = true
+		var lines []string
+		for _, o := range append([]deploy.Owned{{Kind: "image", ID: keptCopy}}, owned...) {
+			if o.Kind != "image" {
 				continue
 			}
-			fmt.Fprintf(c.Stdout, "[]\t[%q]\t%q\n", ref, dockerfake.ImageID(ref))
+			repo, digest, ok := strings.Cut(o.ID, "@")
+			if !ok {
+				continue
+			}
+			raw, _ := json.Marshal(map[string]string{"Repository": repo, "Tag": "<none>", "Digest": digest, "ID": dockerfake.ImageID(o.ID)})
+			lines = append(lines, string(raw))
 		}
-		if missing {
-			return nil, errors.New("exit status 1"), true
-		}
-		return nil, nil, true
+		return []byte(strings.Join(lines, "\n")), nil, true
 	})
 	return svc, NewHostSnapshots(db, svc.now), dep, target
 }

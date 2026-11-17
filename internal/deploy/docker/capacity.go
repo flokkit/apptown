@@ -61,62 +61,12 @@ type ContainerLimit struct {
 	Stack string
 }
 
-// RunningLimits is the limits Docker enforces on every running container:
-// the daemon's own record (docker inspect), so a preview, a need, an
-// override and software AppTown did not start are all in it. A CPU
-// ceiling may be set three ways (--cpus, a quota over a period, a set of
-// CPUs); the tightest one holds.
-func RunningLimits(ctx context.Context, dk Scope) ([]ContainerLimit, error) {
-	out, err := dk.Run(ctx, "ps", "-q", "--no-trunc")
-	if err != nil {
-		return nil, fmt.Errorf("docker ps: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	running := strings.Fields(string(out))
-	if len(running) == 0 {
-		return nil, nil
-	}
-	format := "{{.Name}}\t{{.HostConfig.Memory}}\t{{.HostConfig.NanoCpus}}\t{{.HostConfig.CpuQuota}}\t{{.HostConfig.CpuPeriod}}\t{{.HostConfig.CpusetCpus}}\t" + `{{index .Config.Labels "` + dockerlabel.Class + `"}}` + "\t" + `{{index .Config.Labels "` + dockerlabel.Owner + `"}}` + "\t" + `{{index .Config.Labels "` + composeProject + `"}}`
-	out, err = dk.Run(ctx, append([]string{"inspect", "--type", "container", "--format", format}, running...)...)
-	if err != nil {
-		return nil, fmt.Errorf("docker inspect: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	var limits []ContainerLimit
-	// Lines are split, not trimmed whole: a container without the class
-	// label ends its line in an empty field, which trimming would take.
-	for _, line := range strings.Split(strings.TrimRight(string(out), "\r\n"), "\n") {
-		line = strings.TrimRight(line, "\r")
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		l, err := parseContainerLimit(line)
-		if err != nil {
-			return nil, err
-		}
-		limits = append(limits, l)
-	}
-	return limits, nil
-}
-
-func parseContainerLimit(line string) (ContainerLimit, error) {
-	f := strings.Split(line, "\t")
-	if len(f) != 9 {
-		return ContainerLimit{}, fmt.Errorf("docker inspect answered %q", line)
-	}
-	mem, err1 := strconv.ParseInt(f[1], 10, 64)
-	nano, err2 := strconv.ParseInt(f[2], 10, 64)
-	quota, err3 := strconv.ParseInt(f[3], 10, 64)
-	period, err4 := strconv.ParseInt(f[4], 10, 64)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-		return ContainerLimit{}, fmt.Errorf("docker inspect answered %q", line)
-	}
-	label := func(v string) string {
-		if v == "<no value>" {
-			return ""
-		}
-		return v
-	}
-	l := ContainerLimit{Name: strings.TrimPrefix(f[0], "/"), MemoryBytes: mem, Class: label(f[6]), Owner: label(f[7]), Stack: label(f[8])}
+// Limit reads the enforced limits from an inspected container.
+func (c HostContainer) Limit() ContainerLimit {
+	h := c.HostConfig
+	l := ContainerLimit{Name: c.Name, MemoryBytes: h.Memory, Class: c.Config.Labels[dockerlabel.Class], Owner: c.Config.Labels[dockerlabel.Owner], Stack: c.Config.Labels[composeProject]}
 	l.AppTown = l.Class != ""
+	nano, quota, period := h.NanoCpus, h.CpuQuota, h.CpuPeriod
 	tightest := func(c float64) {
 		if c > 0 && (l.CPUs == 0 || c < l.CPUs) {
 			l.CPUs = c
@@ -129,7 +79,7 @@ func parseContainerLimit(line string) (ContainerLimit, error) {
 		}
 		tightest(float64(quota) / float64(period))
 	}
-	if set := strings.TrimSpace(f[5]); set != "" {
+	if set := strings.TrimSpace(h.CpusetCpus); set != "" {
 		n, ok := cpusetSize(set)
 		if !ok {
 			l.CPUUnread = true
@@ -137,7 +87,7 @@ func parseContainerLimit(line string) (ContainerLimit, error) {
 			tightest(float64(n))
 		}
 	}
-	return l, nil
+	return l
 }
 
 // cpusetSize counts the CPUs in a cpuset ("0-3,6").
@@ -163,36 +113,10 @@ func cpusetSize(set string) (int, bool) {
 // composeProject is the label Compose puts on each container of a project.
 const composeProject = "com.docker.compose.project"
 
-// RunningUsage is what every running container uses now, memory and CPU,
-// by name (docker stats, one sample). Through a proxy that carries only
-// plain requests (NoStreams) the containers are named: an unnamed stats
-// first opens the daemon's event stream, whose answer Portainer's proxy
-// holds until an event comes, so it waits indefinitely there. A container
-// that stops between the two calls fails that reading.
-func RunningUsage(ctx context.Context, dk Scope) (map[string]Usage, error) {
-	args := []string{"stats", "--no-stream", "--format", "{{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"}
-	if dk.NoStreams {
-		out, err := dk.Run(ctx, "ps", "-q", "--no-trunc")
-		if err != nil {
-			return nil, fmt.Errorf("docker ps: %v: %s", err, strings.TrimSpace(string(out)))
-		}
-		running := strings.Fields(string(out))
-		if len(running) == 0 {
-			return map[string]Usage{}, nil
-		}
-		args = append(args, running...)
-	}
-	out, err := dk.Run(ctx, args...)
-	if err != nil {
-		return nil, fmt.Errorf("docker stats: %v: %s", err, strings.TrimSpace(string(out)))
-	}
-	return parseUsage(out)
-}
-
-// ReadDisk reads the filesystem holding the daemon's data folder in the
+// readDisk reads the filesystem holding the daemon's data folder in the
 // daemon's standing disk reader (diskspace.ReadThroughDocker). Each call's
 // output is combined, as every call through a scope's client is.
-func ReadDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.Space, error) {
+func readDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.Space, error) {
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
@@ -214,7 +138,7 @@ func AdmitDisk(ctx context.Context, dk Scope, image string) error {
 	if err != nil {
 		return diskspace.Admit(what, diskspace.Space{}, fmt.Errorf("where its data is: %w", err))
 	}
-	d, err := ReadDisk(ctx, dk, image, info.DataRoot)
+	d, err := readDisk(ctx, dk, image, info.DataRoot)
 	return diskspace.Admit(what+" ("+info.DataRoot+")", d, err)
 }
 

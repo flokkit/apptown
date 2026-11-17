@@ -1444,8 +1444,9 @@ erase the retained evidence. Attention says disk space is not known after a fail
 has its own time, so a partial check cannot renew an unread sibling. See
 [background infrastructure readings](deploy-targets.md#background-infrastructure-readings).
 
-After an act, detail, protection and target capacity checks are queued immediately
-on every target. Docker host inventory is written only by its reader loop.
+After an act, detail and protection checks are queued immediately. Portainer
+and cloud targets also queue capacity checks. Docker host inventory and capacity
+are written by the host reader loop; its first lap after an act samples use.
 The deployment read includes `LastApplied`: the serving attempt's generation
 and finish time. A deployment with neither a serving attempt nor a serving
 release is not released yet; its protection check stays pending. Managed-deployment operation

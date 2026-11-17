@@ -265,3 +265,12 @@ func TestCgroupCPUUsesHostUptime(t *testing.T) {
 		})
 	}
 }
+
+// Collect the kernel fixture before exercising the shared interpretation.
+func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cpus int, root string) (*Figure, *Figure) {
+	parts, err := diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
+		b, e := dk.Run(ctx, args...)
+		return string(b), "", e
+	}, s.env.ToolVersions().Images.DF, root, s.now, dk.NoStreams)
+	return hostUse(parts, err, memory, cpus)
+}

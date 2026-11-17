@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -39,8 +40,9 @@ type Daemon struct {
 	started           map[string][2][]string // a container started by its own entrypoint: that entrypoint and its arguments
 	health            map[string]string      // a container's health check as Docker prints it in JSON; absent without one
 	limits            map[string][2]int64    // the memory and NanoCPUs Docker holds a container to
-	host              string                 // docker info's memory, CPUs and data folder
-	disk              string                 // what df says of the data folder's filesystem
+	images            map[string]bool
+	host              string // docker info's memory, CPUs and data folder
+	disk              string // what df says of the data folder's filesystem
 	port              int
 	reply             func([]string) ([]byte, error, bool)
 	results           Results
@@ -241,6 +243,16 @@ func (d *Daemon) SetOOMKilled(name string, killed bool) {
 	d.mu.Unlock()
 }
 
+// SetImages replaces the daemon's image names, including digest-only names.
+func (d *Daemon) SetImages(refs ...string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.images = map[string]bool{}
+	for _, ref := range refs {
+		d.images[ref] = true
+	}
+}
+
 func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -267,6 +279,21 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	d.commands = append(d.commands, append([]string(nil), args...))
 	if len(args) == 0 {
 		return nil, nil
+	}
+	// Pulls, builds and image inspections resolve references on this daemon.
+	if d.images == nil {
+		d.images = map[string]bool{}
+	}
+	if args[0] == "pull" || args[0] == "tag" || args[0] == "image" && len(args) > 1 && args[1] == "inspect" {
+		d.images[args[len(args)-1]] = true
+		d.images["sha256:built"] = true
+	}
+	if args[0] == "build" || args[0] == "buildx" {
+		for i, a := range args {
+			if (a == "-t" || a == "--tag") && i+1 < len(args) {
+				d.images[args[i+1]] = true
+			}
+		}
 	}
 	if d.resultsEnabled && !d.diskResults.Owns(args) {
 		if out, err, ok := d.results.RunEnv(args, req.Env); ok {
@@ -387,12 +414,22 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	}
 	if d.reply != nil {
 		if out, err, ok := d.reply(append([]string(nil), args...)); ok {
-			return d.printID(args, out, err), err
+			out = d.printID(args, out, err)
+			if req.Stdout != nil && len(out) > 0 {
+				_, writeErr := req.Stdout.Write(out)
+				return nil, errors.Join(err, writeErr)
+			}
+			return out, err
 		}
 	}
 	if d.commandReply != nil {
 		if out, err, ok := d.commandReply(req); ok {
-			return d.printID(args, out, err), err
+			out = d.printID(args, out, err)
+			if req.Stdout != nil && len(out) > 0 {
+				_, writeErr := req.Stdout.Write(out)
+				return nil, errors.Join(err, writeErr)
+			}
+			return out, err
 		}
 	}
 
@@ -476,13 +513,26 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		sort.Strings(lines)
 		return []byte(strings.Join(lines, "\n")), nil
 	}
-	if len(args) > 4 && args[0] == "image" && args[1] == "inspect" && strings.Contains(args[3], "RepoTags") {
-		for _, ref := range args[4:] {
-			if req.Stdout != nil {
-				fmt.Fprintf(req.Stdout, "[%q]\t[]\t%q\n", ref, ImageID(ref))
+	if args[0] == "image" && len(args) > 1 && args[1] == "ls" {
+		var lines []string
+		for ref := range d.images {
+			repo, tag, digest := ref, "<none>", "<none>"
+			id := ImageID(ref)
+			if strings.HasPrefix(ref, "sha256:") {
+				repo = "<none>"
+				id = ref
+			} else if r, v, ok := strings.Cut(ref, "@"); ok {
+				repo, digest = r, v
+			} else if i := strings.LastIndex(ref, ":"); i > strings.LastIndex(ref, "/") {
+				repo, tag = ref[:i], ref[i+1:]
+			} else {
+				tag = "latest"
 			}
+			raw, _ := json.Marshal(map[string]string{"Repository": repo, "Tag": tag, "Digest": digest, "ID": id})
+			lines = append(lines, string(raw))
 		}
-		return nil, nil
+		sort.Strings(lines)
+		return []byte(strings.Join(lines, "\n")), nil
 	}
 	// Named volumes exist only after creation, unless a test explicitly
 	// supplies an inspection response above. Unknown objects are not present.

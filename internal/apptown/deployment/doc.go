@@ -172,14 +172,15 @@
 // from the running-code fact. Deployment history reads these release requests.
 // Deployment reads expose LastApplied from the completed attempt of the observed
 // generation. Detail readings keep prior payloads and their identity and age
-// after a change, marked unknown and old for display only. Post-act detail,
-// protection and capacity checks run on every target.
+// after a change, marked unknown and old for display only. Post-act detail and
+// protection checks run on every target; capacity jobs serve other providers.
 // [HostSnapshots] stores Docker host facts in five independently timed sections.
 // [HostReaders] runs one sequential loop per active Docker target, collecting
-// host, containers, resources and images every twenty seconds after a lap. The
+// host, containers, resources and images on a twenty-second start cadence. The
 // built-in host has no loop when local Docker is disabled; Attention expects no
-// reading from it. Use is reserved for capacity. Foreground reads never store
-// this evidence. A failed section retains its evidence; an
+// reading from it. Use samples capacity every five minutes and after acts, using
+// the same facts computation and publication as Portainer. Foreground reads
+// never store this evidence. A failed section retains its evidence; an
 // unread section stays unknown. BeforeAct increments the act counter before an
 // effect, and the done it returns increments it again when the effect ends.
 // Only a complete lap begun after that act clears the whole-reading
@@ -193,6 +194,9 @@
 // act such as a health restart, crash-loop stop, restore or failed attempt),
 // so one deployment's act leaves its siblings' witnessed parts. Diagnostics never
 // inspect parts individually; a failed section exposes the next ordinary lap.
+// Diagnostics and inventory expire after max(NextAt, AttemptedAt+Took)+Took+10s;
+// inventory's six-hour display retention is separate. The independent runtime
+// sweep and readiness probes keep their own 45-second rule.
 // Missing-resource claims compare records
 // and facts during the same complete collection; newer records cannot establish
 // absence against older facts. Placement verification runs during collection
