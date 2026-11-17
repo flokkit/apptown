@@ -142,3 +142,33 @@ func TestDeclaredToolchainsBoundImageMovesThroughUpdateInputs(t *testing.T) {
 		})
 	}
 }
+
+// nextup on the demo: the Dockerfile names node:24.22.2-alpine without a
+// digest and the update pins the registry's fully qualified answer for the
+// same tag; that is a move on the declared line, not off it.
+func TestDeclaredLineAcceptsTheQualifiedDigestPinOfAShortTag(t *testing.T) {
+	t.Parallel()
+	tree := t.TempDir()
+	write := func(file, value string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(tree, file), []byte(value), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("mise.toml", "[tools]\nnode = \"24.22.2\"\ngo = \"1.27.4\"\n")
+	write("Dockerfile", "FROM node:24.22.2-alpine AS frontend\n")
+	before, err := UpdateInputs(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := "sha256:" + strings.Repeat("c", 64)
+	write("Dockerfile", "FROM index.docker.io/library/node:24.22.2-alpine@"+digest+" AS frontend\n")
+	after, err := UpdateInputs(tree)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "index.docker.io/library/node:24.22.2-alpine", Digest: digest}}}
+	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive")}); err != nil {
+		t.Fatal(err)
+	}
+}
