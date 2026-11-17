@@ -20,7 +20,8 @@ same image name and tag variant (`-alpine`, `-slim`, `-bookworm-slim`,
 `-alpine3.22` stay). For each external FROM and `staticServer:`, run
 read numeric tool versions from mise, .tool-versions and version files before
 the change. A tag and a declaration agree when their shared numeric components
-match (for example, node:24-slim and node = "24.22.2"). Use the longest agreeing
+match (for example, node:24-slim and node = "24.22.2"). A vendor version such
+as java = "temurin-21.0.5+11.0.LTS" declares only its major, 21. Use the longest agreeing
 declaration: run `apptown image newest <repo>:<declared><variant> --scope line`
 (for that example, `node:24.22.2-slim --scope line`). Match by version, not image
 name: an unrelated image sharing that version stays on the same line too; say

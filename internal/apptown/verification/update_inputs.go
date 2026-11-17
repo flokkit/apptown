@@ -123,6 +123,12 @@ var inputWords = regexp.MustCompile(`\S+`)
 var declaredVersion = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
 var patchVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
+// vendorVersion is mise's vendor spelling (temurin-21.0.5+11.0.LTS,
+// corretto-21.0.5.11.1, oracle-graalvm-21.0.5). After the major, the digits
+// are the vendor's own build numbering, which image tags spell differently
+// (eclipse-temurin:21.0.5_11), so only the major declares a line.
+var vendorVersion = regexp.MustCompile(`^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-([0-9]+)(?:[.+_][0-9A-Za-z.+_-]*)?$`)
+
 func dockerBaseInputs(raw []byte) dockerInputs {
 	exact := dockerInputs{Exact: string(raw)}
 	if bytes.ContainsAny(raw, "\x00\r") || bytes.Contains(raw, []byte("<<")) {
@@ -403,6 +409,8 @@ func declaredTools(inputs map[string]any) []string {
 	add := func(v string) {
 		if declaredVersion.MatchString(v) {
 			out = append(out, v)
+		} else if m := vendorVersion.FindStringSubmatch(v); m != nil {
+			out = append(out, m[1])
 		}
 	}
 	for path, value := range inputs {
