@@ -44,20 +44,13 @@ export function shortDiffstat(stat?: string): string {
 // The page's head: what this change is — its title, its state, who asked
 // for it (when the record says), when it was opened and how big it is. The
 // request and summary are on Overview; editing and attachments are in Details.
-export function changeTitle(ch: ChangeView['change']): string {
-  const title = ch.title.trim()
-  const request = ch.body?.trim() ?? ''
-  const copied = title.replace(/[…]+$|\.\.\.$/g, '').trim()
-  return request && copied.length > 35 && request.startsWith(copied) ? firstLine(request, Infinity) || title : title
-}
-
 export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: boolean }) {
   const ch = view.change
   const advice = useFailureAdvice(view)
   return (
     <header className="ch-head">
       <div className="ch-title-row">
-        <h1><span className="ch-number">Change #{ch.number}:</span> {changeTitle(ch)}</h1>
+        <h1><span className="ch-number">Change #{ch.number}:</span> {ch.title}</h1>
  {ch.automatedOrigin && <span className="small muted">Janitor</span>}
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}

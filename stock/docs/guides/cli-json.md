@@ -1,5 +1,10 @@
 # The command line's JSON
 
+A change title is a short statement of the goal, around 60 characters, for
+example "Report test counts to AppTown". Put exact instructions in the body
+(`--body` in the CLI, `intent` in MCP). Caller-supplied titles over 100
+characters are refused, including title edits.
+
 The core-loop commands (`new`, `fix`, `quick`, `plan`, `build`, `land`,
 `show`, `changes`, `wait`, `approve`, `release`, `rollback`, `complain` and `version`)
 take `--json`. A script reads these fields; they are stable through 1.x, as

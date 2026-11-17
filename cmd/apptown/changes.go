@@ -378,7 +378,7 @@ func cmdHome() error {
 func cmdImport(args []string) error {
 	fs := newFlags("import")
 	project := fs.String("p", "", "project slug")
-	title := fs.String("t", "", "change title (default: import <branch>)")
+	title := fs.String("t", "", "the goal in a few words (about 60 characters); default: import <branch>")
 	pos := parseArgs(fs, args)
 	if len(pos) < 1 {
 		return usagef("usage: apptown import <branch> [-p project] [-t title]")
@@ -840,7 +840,7 @@ func followOrReturn(changeID, runID ids.ID, yes, noFollow bool) error {
 func cmdStart(args []string) error {
 	fs := newFlags("start")
 	project := fs.String("p", "", "project slug")
-	title := fs.String("t", "", "change title")
+	title := fs.String("t", "", "the goal in a few words (about 60 characters); instructions go in --body")
 	typ := fs.String("type", "feature", "change type")
 	body := fs.String("body", "", "change description")
 	ref := fs.String("ref", "", "external reference (Jira key, ticket URL)")
@@ -1037,7 +1037,7 @@ func cmdInvoke(args []string) error {
 	fs := newFlags("invoke")
 	project := fs.String("p", "", "project slug")
 	workflow := fs.String("w", "", "workflow name")
-	title := fs.String("t", "", "change title")
+	title := fs.String("t", "", "the goal in a few words (about 60 characters); instructions go in --body")
 	typ := fs.String("type", "feature", "change type")
 	body := fs.String("body", "", "change description")
 	intent := fs.String("intent", "", "why this work exists (in a chat, recorded with the change)")

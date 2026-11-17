@@ -1,7 +1,13 @@
 @layer pages {
-.ch-progress { display: inline-flex; max-width: 100%; }
-.ch-progress-trigger { display: grid; gap: var(--space-1); width: 10rem; max-width: 100%; padding: var(--space-2); background: transparent; border: 0; }
-.ch-progress-bar { display: flex; gap: var(--space-1); height: var(--space-1); }
+.ch-progress { width: 100%; min-width: 0; margin-block: var(--space-3); }
+.ch-progress-trigger { display: grid; gap: var(--space-2); width: 100%; text-align: start; max-width: 100%; padding: var(--space-2); background: transparent; border: 0; }
+.ch-progress-names { display: flex; gap: var(--space-1); }
+.ch-progress-names > * { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ch-progress-names .bad { color: var(--bad); }
+.ch-progress-where { font-size: var(--fs-xs); }
+.ch-progress-popover .ch-now { font-size: var(--fs-xs); }
+.ch-progress-popover .ch-now-steps li { gap: var(--space-2); padding-block: var(--space-2); }
+.ch-progress-bar { display: flex; gap: var(--space-1); height: var(--space-2); }
 .ch-progress-segment { flex: 1; min-width: 0; background: var(--border-strong); border-radius: var(--radius-bar); }
 .ch-progress-segment.done { background: var(--ok); }
 .ch-progress-segment.failed { background: var(--bad); }
@@ -10,7 +16,7 @@
 .ch-progress-segment.current { background: var(--busy); animation: ch-progress-pulse 1.5s ease-in-out infinite; }
 @keyframes ch-progress-pulse { 50% { opacity: 0.4; } }
 @media (prefers-reduced-motion: reduce) { .ch-progress-segment.current { animation: none; } }
-.ch-progress-popover { width: max-content; --popover-max-width: 40rem; overflow-wrap: anywhere; }
+.ch-progress-popover { min-width: 0; width: max-content; overflow-wrap: anywhere; }
 .ch-now .ok { color: var(--ok); }
 .ch-now .bad { color: var(--bad); }
 .ch-now .warn { color: var(--warn); }
@@ -21,5 +27,7 @@
 @media (width <= 600px) {
   .ch-now-steps li { grid-template-columns: var(--space-5) minmax(0, 1fr); }
   .ch-now-fact, .ch-now-steps time, .ch-now-steps li > :last-child { grid-column: 2; }
+  .ch-progress-popover .ch-now-steps li { grid-template-columns: var(--space-5) minmax(0, 1fr) auto; }
+  .ch-progress-popover .ch-now-steps li > :last-child { grid-column: 3; grid-row: 1; }
 }
 }

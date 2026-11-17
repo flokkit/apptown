@@ -31,6 +31,10 @@
 // preserving independent workflow judgments and per-rule fallback levels.
 // Nothing from these reads grants authority to a later command.
 //
+// Caller-supplied Change titles, including human edits, are limited to 100
+// runes. Longer titles return fault.Invalid; instructions belong in the body.
+// Existing titles remain readable.
+//
 // Stores and SQLC queries stay private. Named transaction participants allow
 // Deployment, jobs, policy and adoption owners to contribute their own receipts or
 // observations without giving Work a general repository or an App dependency.

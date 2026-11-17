@@ -26,6 +26,7 @@ const fixture = await build({
     import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
     import { ResultMark } from './pages/change/CheckTable'
     import { StatePanel } from './pages/change/StatePanel'
+    import { RunProgress } from './pages/change/RunProgress'
     import { ProjectListRow } from './ProjectListRow'
     import { DailyChart } from './pages/Usage'
     import { Disclosure } from './Popover'
@@ -44,6 +45,9 @@ const fixture = await build({
       const [current, setCurrent] = useState('Overview')
       return <Tabs className="tabs ch-tabs">{['Overview','Code','Conversation','Details'].map(label=><a key={label} className={'tab'+(label===current?' active':'')} aria-current={label===current?'page':undefined} href="#change" onClick={e=>{e.preventDefault();setCurrent(label)}}>{label}</a>)}</Tabs>
     }
+    function ChangeProgressHeader({view}) {
+      return <><StatePanel view={view} /><RunProgress view={view} /><ChangeTabs /></>
+    }
     const long = 'A very long project identity with a long-unbroken-identifier-abcdefghijklmnopqrstuvwxyz0123456789'
     createRoot(document.getElementById('root')).render(<MemoryRouter>
       <main style={{padding: 12}}>
@@ -55,7 +59,7 @@ const fixture = await build({
         <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
-        <div className="ch-page" style={{paddingInline:6}}><ChangeTabs /><QueryClientProvider client={new QueryClient()}><StatePanel view={{change:{id:"change",number:9,title:"Winter rides",state:"shipped"},waitingOn:{kind:"closed",says:"landed",tone:"ok"},goesTo:{branch:"main",deployments:[]},checks:{tone:"ok",text:"4 passed, 1 not applicable",started:true},detail:{next:[],artifacts:[],run:{id:"run",status:"done",currentStage:"ship"},stages:["gates","ship"],steps:[{id:"check",runId:"run",stage:"gates",type:"script",name:"Tests",status:"pass",progress:"done",evidence:{},startedAt:"",finishedAt:""},{id:"build",runId:"run",stage:"ship",type:"build",name:"build",status:"pass",progress:"done",evidence:{},startedAt:"",finishedAt:""}]},next:[]}} /></QueryClientProvider></div>
+        <div className="ch-page" style={{paddingInline:6}}><QueryClientProvider client={new QueryClient()}>{['running', 'finished', 'failed'].map(state => <div key={state} data-change-progress={state}><ChangeProgressHeader view={{change:{id:"change",number:35,title:"Report test counts to AppTown",body:"Add one line at the end of the application configuration with a greeting for visitors",state:state==='finished'?'shipped':'landing'},waitingOn:{kind:state==='finished'?'closed':'work',run:'run',step:'build',says:state==='finished'?'Landed':state==='failed'?'Build failed':'Building',tone:state==='finished'?'ok':state==='failed'?'bad':'busy'},goesTo:{branch:"main",deployments:[]},checks:{tone:"ok",text:"4 passed, 1 not applicable",started:true},detail:{next:[],artifacts:[],run:{id:"run",status:state==='finished'?'done':'running',currentStage:"ship"},stages:["prepare","gates","ship"],steps:[{id:"prepare",runId:"run",stage:"prepare",type:"script",name:"prepare",status:"pass",progress:"done",evidence:{}},{id:"check",runId:"run",stage:"gates",type:"script",name:"tests",status:"pass",progress:"done",evidence:{}},...['approval','merged','build','required-file','publish','release'].map((name,i)=>({id:name,runId:"run",stage:"ship",type:['approval','scm/merged','build','artifact/require','script','script'][i],name,config:{},status:state==='finished'||i<2?'pass':i===2?(state==='failed'?'fail':'running'):'pending',progress:state==='finished'||i<2?'done':i===2?(state==='failed'?'failed':'running'):'waiting',evidence:{},startedAt:"",finishedAt:""}))]},next:[]}} /></div>)}</QueryClientProvider></div>
         <div className="row console-head" style={{marginBottom:8}}><h1 style={{margin:0}}>Project chat</h1><span className="badge here">questions &amp; setup</span><span className="console-head-space" style={{flex:1}} /><AgentActivity connected busy={false} /><div className="head-menu"><button aria-label="Chat menu">⋯</button></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
@@ -349,7 +353,7 @@ const changeChatFixture = await build({
     window.fetch = withFeatures(async url => {
       const path = String(url)
       const body = path === '/api/v1/changes/X'
-        ? {change:{id:'X',number:1,title:'Update the club contact details',state:'in_progress'},projectSlug:'club',runs:[],evidence:{landingReleases:[],releases:[],targets:[]},commits:[],adrs:[],usage:{total:0,costMicros:0},editing:0,waitingOn:{kind:'chat',says:'Building in the chat',tone:'busy'},goesTo:{branch:'main',deployments:[]},checks:{started:false},next:[]}
+        ? {change:{id:'X',number:1,title:'Update the club contact details',state:'in_progress'},projectSlug:'club',runs:[],evidence:{landingReleases:[],releases:[],targets:[]},commits:[],adrs:[],usage:{total:0,costMicros:0},editing:0,detail:{next:[],artifacts:[],events:[],run:{id:'run',status:'running',currentStage:'gates'},stages:['gates'],steps:[{id:'test',runId:'run',stage:'gates',type:'tests',name:'tests',status:'running',progress:'running',config:{},evidence:{}}]},waitingOn:{kind:'work',run:'run',step:'test',says:'Running tests',tone:'busy'},goesTo:{branch:'main',deployments:[]},checks:{started:false},next:[]}
         : path.endsWith('/transcript') ? {sessions:[{id:'old',ended:true,actor:'sam',createdAt:'2026-11-13T00:00:00Z',messages:[{i:0,role:'you',text:'Earlier conversation'}]},{...session,messages:[]}],unreadable:0}
         : path === '/api/v1/projects/club/console' ? {session,sessions:[session]}
         : path.includes('/messages') ? {messages:[]}
@@ -381,6 +385,7 @@ try {
   page.on('console', m => consoleLines.push(`${m.type()}: ${m.text()}`))
   page.on('pageerror', e => consoleLines.push(`pageerror: ${e.message}`))
   await page.route('http://layout.test/**', route => route.fulfill({ contentType: 'text/html', body: `<style>@layer tokens, base, type, components, pages, utilities; ${css}</style><div id="root"></div>` }))
+  await page.route('http://layout.test/api/v1/steps/build/live?*', route => route.fulfill({ contentType: 'application/json', body: '{"lines":[]}' }))
   for (const [width, height] of [[390, 450], [390, 844], [1440, 900]]) {
     await page.setViewportSize({ width, height })
     await page.goto('http://layout.test/')
@@ -497,16 +502,22 @@ try {
     await page.setViewportSize({ width, height: 844 })
     for (const size of ['small', 'medium', 'large']) {
       await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
-      assert.ok(await page.locator('.ch-headline').evaluate(el => { const range = document.createRange(); range.selectNodeContents(el); return range.getClientRects().length === 1 }), `headline words stay whole at ${width}, ${size}`)
-      assert.ok(await page.locator('.ch-progress-trigger').evaluate(el => el.getBoundingClientRect().right <= innerWidth), `progress bars wrap within the header at ${width}, ${size}`)
-      await page.getByRole('button', { name: /^Progress:/ }).click()
+      assert.ok(await page.locator('.ch-headline').first().evaluate(el => { const range = document.createRange(); range.selectNodeContents(el); return range.getClientRects().length === 1 }), `headline words stay whole at ${width}, ${size}`)
+      assert.ok(await page.locator('.ch-progress-trigger').first().evaluate(el => el.getBoundingClientRect().right <= innerWidth), `progress bars wrap within the header at ${width}, ${size}`)
+      // A narrow content column makes the width guarantee observable even
+      // when this fixture's words would naturally fit a full desktop strip.
+      await page.locator('[data-change-progress]').first().evaluate(el => { el.style.maxWidth = '18rem' })
+      await page.getByRole('button', { name: /^Progress:/ }).first().click()
+      await page.waitForFunction(() => { const el = document.querySelector('.ch-progress-popover'); if (!el) return false; const r = el.getBoundingClientRect(); return r.right <= innerWidth && r.left >= 0 })
       assert.ok(await page.locator('.ch-progress-popover').evaluate(el => el.getBoundingClientRect().right <= innerWidth && el.getBoundingClientRect().left >= 0), `progress popover fits at ${width}, ${size}`)
+      assert.ok(await page.locator('.ch-progress-popover').evaluate(el => el.getBoundingClientRect().width <= document.querySelector('.ch-progress-trigger').getBoundingClientRect().width + 0.5), `progress popover no wider than strip at ${width}, ${size}`)
       await page.keyboard.press('Escape')
-      assert.equal(await page.locator('.ch-tabs').evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `change tabs stay on one row at ${width}, ${size}`)
+      await page.locator('[data-change-progress]').first().evaluate(el => { el.style.maxWidth = '' })
+      assert.equal(await page.locator('.ch-tabs').first().evaluate(strip => new Set([...strip.children].map(tab => Math.round(tab.getBoundingClientRect().top))).size), 1, `change tabs stay on one row at ${width}, ${size}`)
       // The current tab is always wholly in view, whether or not the row scrolls.
       for (const label of ['Overview', 'Details', 'Overview']) {
-        await page.locator('.ch-tabs a.tab', { hasText: label }).click()
-        assert.ok(await page.locator('.ch-tabs').evaluate(strip => { const s = strip.getBoundingClientRect(), t = strip.querySelector('[aria-current="page"]').getBoundingClientRect(); return t.left >= s.left - 0.5 && t.right <= s.right + 0.5 }), `current change tab ${label} wholly in view at ${width}, ${size}`)
+        await page.locator('.ch-tabs').first().locator('a.tab', { hasText: label }).click()
+        assert.ok(await page.locator('.ch-tabs').first().evaluate(strip => { const s = strip.getBoundingClientRect(), t = strip.querySelector('[aria-current="page"]').getBoundingClientRect(); return t.left >= s.left - 0.5 && t.right <= s.right + 0.5 }), `current change tab ${label} wholly in view at ${width}, ${size}`)
       }
       assert.ok(await page.locator('.console-head .agent-activity .chip').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `chat activity label stays complete at ${width}, ${size}`)
       assert.ok(await page.locator('.console-head').evaluate(head => [...head.children].every(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth })), `chat header fits at ${width}, ${size}`)
@@ -585,6 +596,18 @@ try {
       if (out) for (const theme of ['light', 'dark']) {
         await page.evaluate(theme => { document.documentElement.dataset.theme = theme }, theme)
         await page.screenshot({ path: `${out}/${width}-${size}-${theme}.png`, fullPage: true })
+        if (size === 'medium' && [390, 1440].includes(width)) for (const state of ['running', 'finished', 'failed']) {
+          const header = page.locator('[data-change-progress="' + state + '"]')
+          assert.equal(await header.locator('[aria-label="Stages"] > span').count(), 3)
+          assert.equal(await header.locator('[aria-label="Steps"] > span').count(), 6)
+          await header.screenshot({ path: out + '/change-header-' + state + '-' + (width === 390 ? 'phone' : 'desktop') + '-' + theme + '.png' })
+          if (state === 'running' && theme === 'light') {
+            await header.evaluate(el => el.scrollIntoView({block: 'start'}))
+            await header.locator('.ch-progress-trigger').click()
+            await page.screenshot({ path: out + '/change-popover-' + (width === 390 ? 'phone' : 'desktop') + '.png' })
+            await page.keyboard.press('Escape')
+          }
+        }
       }
     }
   }

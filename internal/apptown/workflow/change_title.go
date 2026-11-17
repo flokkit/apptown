@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -89,6 +90,9 @@ func (t changeTitle) decide(edit changeTitleEdit) (changeTitle, bool, error) {
 	}
 	switch edit.act {
 	case pinTitle:
+		if err := validateChangeTitle(edit.words); err != nil {
+			return t, false, err
+		}
 		if words == "" {
 			return t, false, nil
 		}
@@ -128,7 +132,10 @@ func firstMessageTitle(text string) string {
 		for !utf8.RuneStart(title[end]) {
 			end--
 		}
-		title = strings.TrimSpace(title[:end]) + "…"
+		if space := strings.LastIndexByte(title[:end], ' '); space >= 32 {
+			end = space
+		}
+		title = strings.TrimRight(title[:end], " ,;:.!?-–—") + "…"
 	}
 	return title
 }
@@ -182,4 +189,12 @@ func (s changeStore) nameFromChat(ctx context.Context, projectID ids.ID, id ids.
 // AppTown's clock.
 func (s *Service) NameFromChat(ctx context.Context, projectID ids.ID, id ids.ID, text, who string) (bool, error) {
 	return (changeStore{s.db, s.clocked}).nameFromChat(ctx, projectID, id, text, who)
+}
+
+// Caller titles name the goal; the body carries the instructions.
+func validateChangeTitle(words string) error {
+	if utf8.RuneCountInString(words) > 100 {
+		return fault.New(fault.Invalid, "Title is the goal in a few words; put the instructions in the body.")
+	}
+	return nil
 }

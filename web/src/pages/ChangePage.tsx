@@ -10,8 +10,9 @@ import { useSetProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { ChangeView } from '../api'
 import { useGet } from '../data'
-import { ChangesTab, changeReport, changeTitle } from './change/Head'
+import { ChangesTab, changeReport } from './change/Head'
 import { ChangeOverview } from './change/Overview'
+import { RunProgress } from './change/RunProgress'
 import { StatePanel } from './change/StatePanel'
 import { ConversationLog } from './change/Conversation'
 import { useRunDetail } from './change/Tabs'
@@ -53,7 +54,7 @@ export default function ChangePage() {
     if (!view) return
     const ch = view.change
     setPageContext({
-      names: { [`/changes/${id}`]: `Change ${ch.number} · ${changeTitle(ch)}` },
+      names: { [`/changes/${id}`]: `Change ${ch.number} · ${ch.title}` },
     })
   }, [view?.change.number, view?.change.state, view?.change.title, view?.change.body]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setPageContext({}), [])
@@ -93,7 +94,9 @@ export default function ChangePage() {
   }
   const workTab = (stepId?: string | null, runId?: string | null) => href('details', { run: runId && runId !== view.detail?.run.id ? runId : undefined, step: stepId })
 
-  const steps = [...(workRunId && work.detail ? work.detail.steps : []), ...(view.detail?.steps ?? [])]
+  // A repeated check belongs to the landing, whatever its result.
+  const landingNames = new Set(view.detail?.steps.map(s => s.name))
+  const steps = [...(workRunId && work.detail ? work.detail.steps.filter(s => !landingNames.has(s.name)) : []), ...(view.detail?.steps ?? [])]
   const TABS: { key: ChangeTab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'changes', label: 'Code' },
@@ -104,6 +107,7 @@ export default function ChangePage() {
   return (
     <InlineHelp.Provider value><div className={`ch-page${tab === 'conversation' && liveChat ? ' ch-page-chat' : ''}`}>
       <StatePanel view={view} reading={read} />
+      <RunProgress view={view} reading={read} />
       {tab !== 'overview' && current && viewerTurn(view) && <p>Your decision is waiting · <Link to={href('overview')}>Overview</Link></p>}
 
 

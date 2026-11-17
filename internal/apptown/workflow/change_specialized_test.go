@@ -12,12 +12,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -324,4 +326,40 @@ func TestSpecializedAdmissionCancelsProjectAndRepositoryWaits(t *testing.T) {
 		// sql-guarantee: a whole-store total; no workflow read enumerates Changes across every project, and this proves no hidden Change row was written anywhere.
 		completionCount(t, c.db, 0, `SELECT count(*) FROM changes`)
 	})
+}
+
+func TestLongGeneratedUpliftTitleAdmitsAndKeepsFullBody(t *testing.T) {
+	t.Parallel()
+	c, in := upliftFixture(t)
+	in.Words = []string{strings.Repeat("採用", 150)}
+	ch, err := c.openUplift(t.Context(), in, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !utf8.ValidString(ch.Title) || utf8.RuneCountInString(ch.Title) > 100 || !strings.Contains(ch.Body, in.Words[0]) {
+		t.Fatalf("uplift title/body: %+v", ch)
+	}
+}
+
+func TestLongImportTitleBoundsOnlyTheGeneratedTitle(t *testing.T) {
+	t.Parallel()
+	i, in, _ := importFixture(t)
+	repo := filepath.Join(i.git.Paths().DataDir, "workspaces", "project-"+in.ProjectID.String())
+	branch := strings.Repeat("b", 150)
+	if out, err := gitexec.Run(t.Context(), repo, "branch", branch, in.Branch); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	in.Branch = branch
+	in.Title = strings.Repeat("界", 101)
+	if ch, err := i.importChange(t.Context(), in, "alice"); ch != nil || fault.KindOf(err) != fault.Invalid {
+		t.Fatalf("explicit import title: %+v %v", ch, err)
+	}
+	in.Title = ""
+	ch, err := i.importChange(t.Context(), in, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !utf8.ValidString(ch.Title) || utf8.RuneCountInString(ch.Title) > 100 || ch.Branch != branch {
+		t.Fatalf("import: %+v", ch)
+	}
 }

@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -16,6 +14,8 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // git is what Work asks of the repositories on disk: a standalone clone
@@ -174,7 +174,7 @@ func (s changeStore) importBranch(ctx context.Context, in ImportBranch, source i
 		}
 		title := in.Title
 		if title == "" {
-			title = "import " + in.Branch
+			title = strs.Truncate("import "+in.Branch, 99)
 		}
 		created, err := insertChangeIn(ctx, tx, ChangeDraft{ProjectID: in.ProjectID, Title: title}, who, current, changeOrigin{branch: source.branch, base: source.base, provenance: "imported/branch"}, now)
 		if err != nil {

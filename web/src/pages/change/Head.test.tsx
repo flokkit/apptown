@@ -7,7 +7,7 @@ import { getKey, newQueryClient } from '../../data'
 import { StepCard } from './Steps'
 import type { Step } from '../../api'
 import { MemoryRouter } from 'react-router-dom'
-import { changeTitle, ChangeHeader, ChangesTab, RequestEntry } from './Head'
+import { ChangeHeader, ChangesTab, RequestEntry } from './Head'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0001-7000-8000-000000000000'
@@ -58,12 +58,13 @@ describe('change state and committed evidence', () => {
   })
 })
 
-it('uses the request sentence as the display title for a request copied into the title, preserving human titles', () => {
+it('shows the stored title for copied requests and human titles', () => {
   const v = view('landing')
   v.change.body = 'A ride calendar with dates and places for every ride in the coming season.'
-  v.change.title = v.change.body.slice(0, 60)
+  v.change.title = v.change.body.slice(0, 60) + '…'
   const render = () => renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><ChangeHeader view={v} /></QueryClientProvider>)
-  expect(render()).toContain('</span> A ride calendar with dates and places for every ride in the coming season.</h1>')
+  expect(render()).toContain(`</span> ${v.change.title}</h1>`)
+  expect(render()).not.toContain(v.change.body)
   v.change.title = 'Winter rides'
   expect(render()).toContain('</span> Winter rides</h1>')
 })
@@ -125,15 +126,4 @@ it('shows distinct firing and acceptance rules with the same issuer and revision
  expect(html.match(/href="\/maintenance"/g)?.length).toBeGreaterThanOrEqual(2)
  expect(html).not.toContain('dependency-rule')
  expect(html).not.toContain('pack-rule')
-})
-
-it('keeps the request sentence including a dotted path in copied titles', () => {
- const body = 'Add one line at the end of .apptown/app.yaml, as a top-level key: greeting. Keep the rest.'
- expect(changeTitle({ title: body, body } as ChangeView['change'])).toBe('Add one line at the end of .apptown/app.yaml, as a top-level key: greeting.')
-})
-
-it('lets a long request sentence wrap without an ellipsis', () => {
- const body = 'Add one line at the end of .apptown/app.yaml, as a top-level key: ' + 'a longer description '.repeat(12) + '. Another sentence.'
- expect(changeTitle({title: body.slice(0, 80), body} as ChangeView['change'])).toBe(firstLine(body, Infinity))
- expect(changeTitle({title: body.slice(0, 80), body} as ChangeView['change'])).not.toContain('…')
 })

@@ -70,3 +70,38 @@ func TestCreateChangeHTTPPostCommitFailureNamesTheAdmittedWork(t *testing.T) {
 		})
 	}
 }
+
+func TestCallerTitleHTTPRefusesWith400(t *testing.T) {
+	t.Parallel()
+	f := newWorkflowHTTPFixture(t, true)
+	grantWorkflowHTTPAuthority(t, f)
+	h := NewChangeAdmission(f.Projects, f.Access, f.Work, changeactions.New(f.Work, f.DB), f.DB, "open")
+	title := strings.Repeat("界", 101)
+	check := func(w *httptest.ResponseRecorder) {
+		t.Helper()
+		var out struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 400 || out.Error != "Title is the goal in a few words; put the instructions in the body." {
+			t.Fatalf("HTTP %d: %s (%v)", w.Code, w.Body.String(), err)
+		}
+	}
+	for _, lane := range []string{"", "test"} {
+		body, _ := json.Marshal(map[string]any{"title": title, "workflow": lane})
+		r := httptest.NewRequest("POST", "/", strings.NewReader(string(body))).WithContext(f.Context)
+		r.SetPathValue("slug", "shop")
+		w := httptest.NewRecorder()
+		h.CreateChange(w, r)
+		check(w)
+	}
+	ch, err := f.Work.Change(f.Context, f.ChangeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(map[string]any{"title": title, "expectedEditRevision": ch.EditRevision})
+	r := httptest.NewRequest("PATCH", "/", strings.NewReader(string(body))).WithContext(f.Context)
+	r.SetPathValue("id", ch.ID.String())
+	w := httptest.NewRecorder()
+	NewChanges(f.Work, f.Projects, f.Access, f.DB, nil).PatchChange(w, r)
+	check(w)
+}

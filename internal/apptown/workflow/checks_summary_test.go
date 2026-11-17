@@ -169,3 +169,59 @@ func TestNonGatingCheckIsANote(t *testing.T) {
 		}
 	}
 }
+
+// Repeated checks use the landing receipt, even when it is not successful.
+func TestChangeChecksUsesLandingResultsOnce(t *testing.T) {
+	t.Parallel()
+	q, work, _ := activityFixture(t)
+	landing := insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}`)})
+	for _, run := range []*Run{work, landing} {
+		for _, check := range []struct{ name, kind, evidence string }{
+			{"tests", "tests", `{"testCounts":{"passed":4,"failed":0,"skipped":0}}`},
+			{"guidance-conformance", "guidance/conformance", `{"checks":[{"check":"tidy","verdict":"pass"}]}`},
+		} {
+			id := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: check.name, Type: check.kind, Status: StatusPending.String()})
+			sql := workflowsql.New(q.db.SQL())
+			if n, err := sql.StartAttempt(t.Context(), workflowsql.StartAttemptParams{At: time.Now(), ID: id}); err != nil || n != 1 {
+				t.Fatalf("start: %d %v", n, err)
+			}
+			if n, err := sql.FinishAttempt(t.Context(), workflowsql.FinishAttemptParams{At: time.Now(), Status: StatusPass.String(), EvidenceJson: json.RawMessage(check.evidence), ID: id, Attempt: 1}); err != nil || n != 1 {
+				t.Fatalf("finish: %d %v", n, err)
+			}
+		}
+	}
+	finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: work.ID, Stage: "finish", Name: "privacy", Type: "script"}, StatusPass)
+	finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: work.ID, Stage: "finish", Name: "security", Type: "scan"}, StatusNotApplicable)
+	s := newService(q.db, allowProject(work.ProjectID), Runtime{})
+	working, err := s.Snapshot(t.Context(), work.ID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.ChangeChecks(t.Context(), working); err != nil || got.Text != "3 passed, 1 not applicable" {
+		t.Fatalf("working: %+v %v", got, err)
+	}
+	latest, err := s.Snapshot(t.Context(), landing.ID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		status         StepState
+		evidence, want string
+	}{
+		{StatusPass, `{"testCounts":{"passed":4,"failed":0,"skipped":0}}`, "3 passed, 1 not applicable"},
+		{StatusPending, `{}`, "Checks running · 2 passed, 1 not applicable"},
+		{StatusFail, `{}`, "Tests failed · 2 passed, 1 not applicable"},
+		{StatusPass, `{}`, "Checks not all known · 2 passed, 1 not applicable"},
+	} {
+		for _, step := range latest.Steps {
+			if step.Name == "tests" {
+				step.Status = tc.status
+				step.Evidence = json.RawMessage(tc.evidence)
+			}
+		}
+		got, err := s.ChangeChecks(t.Context(), latest)
+		if err != nil || got.Text != tc.want {
+			t.Fatalf("landing %s %s: %+v %v, want %s", tc.status, tc.evidence, got, err, tc.want)
+		}
+	}
+}

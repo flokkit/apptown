@@ -492,7 +492,7 @@ try {
               if (!await page.locator('.ch-progress-segment.failed').count()) throw new Error('gating failure needs a red segment');
             } else {
               if (!await page.locator('.ch-progress-segment.current').count()) throw new Error('running progress needs a current step');
-              if (!(await trigger.getAttribute('aria-label')).includes('gates')) throw new Error('landing must be in its gates stage');
+              if (await page.locator('.ch-progress-names strong').innerText() !== 'Gates') throw new Error('landing must be in its gates stage');
             }
             await trigger.click();
             await page.locator('.ch-now').waitFor();
@@ -500,16 +500,21 @@ try {
               const box = panel.getBoundingClientRect();
               const trigger = document.querySelector('.ch-progress-trigger').getBoundingClientRect();
               const limit = 40 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+              // A panel over its own strip blocks the strip; it must sit beside it.
+              if (box.top < trigger.bottom && box.bottom > trigger.top) return false;
               return box.left >= 8 && box.right <= innerWidth - 8 + 1 && box.width <= limit + 1 &&
                 (innerWidth < 1440 || Math.abs(box.left - trigger.left) < 1);
             });
-            if (!progressPlacement) throw new Error('progress panel must grow from the bars and fit its content within the viewport');
-            const stageNames = await page.locator('.ch-progress-bar[aria-label="Stages"] > span').evaluateAll(segments => segments.map(s => s.title.replace(/^./, c => c.toUpperCase())).join(' · '));
+            if (!progressPlacement) throw new Error('progress panel must grow from the bars, leave them uncovered and fit within the viewport');
+            const stageNames = await page.locator('.ch-progress-names > *').evaluateAll(names => names.map(n => n.textContent).join(' · '));
+            if (await page.locator('.ch-progress [title]').count()) throw new Error('progress names its phases in text, not native tooltips');
             const stageLine = page.locator('.ch-now-stages').first();
             if (await stageLine.innerText() !== stageNames || !await stageLine.locator('strong').count()) throw new Error('progress must name ordered stages and emphasise the current stage');
             if (viewport.width >= 1440) await page.screenshot({ path: `${out}/${screen}-${size}-${theme}-progress-open.png`, fullPage: true });
             await page.keyboard.press('Escape');
             await page.mouse.move(0, 0);
+            // Escape hands focus back to the strip; the page's own shot shows it at rest.
+            await page.evaluate(() => document.activeElement?.blur());
             if (size === 'desktop') {
               await page.setViewportSize({ width: 1920, height: viewport.height });
               const aligned = await page.locator('.ch-overview').evaluate(el => Math.abs(el.getBoundingClientRect().left - el.closest('.ch-tab-body').getBoundingClientRect().left) < 1);

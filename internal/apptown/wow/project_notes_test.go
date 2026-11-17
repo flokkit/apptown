@@ -22,6 +22,9 @@ func TestStockFormatCheckMatchesParser(t *testing.T) {
 	var script string
 	for _, b := range blocks {
 		if b.Name == "repo/project-notes" {
+			if !strings.Contains(b.Body, "`# Project notes`") {
+				t.Fatal("agent-facing guidance must name the required first line")
+			}
 			var checks []check.Declaration
 			if err := json.Unmarshal([]byte(b.ChecksJSON), &checks); err != nil {
 				t.Fatal(err)
