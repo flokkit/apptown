@@ -163,7 +163,7 @@ try {
     const changes = await request('/projects/club-newsletter/changes');
     const views = await Promise.all(changes.map(c => request('/changes/' + c.id)));
     const advisory = views.find(v => v.change.title === 'Shorten the page names');
-    const failed = views.find(v => v.detail?.steps.some(s => s.status === 'fail'));
+    const failed = views.find(v => v.detail?.steps.some(s => !s.observation && s.status === 'fail'));
     const form = await request('/evals/start');
     const delivered = views.find(v => v.evidence?.releases?.some(r => r.serving && r.observedAt));
     if (!delivered) throw new Error('no delivery receipts in design seed');
@@ -274,6 +274,8 @@ try {
     'change-delivery': `/changes/${seeded.delivered}`,
     change: `/changes/${process.env.DESIGN_CHANGE}`,
     'change-progress': `/changes/${process.env.DESIGN_PROGRESS}?tab=overview`,
+    'change-progress-finished': `/changes/${seeded.delivered}?tab=overview`,
+    'change-progress-failed': `/changes/${seeded.failed}?tab=overview`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
     'change-failed': `/changes/${seeded.failed}`, 'overview-empty': '/projects/shared-notes',
     'eval-scorecard': `/evals/${seeded.evaluation}`, 'what-if': `/conformance/what-ifs/${seeded.whatif}`,
@@ -478,16 +480,43 @@ try {
           await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
           if (how === 'fresh') loaded = await pageState(page);
           timer.lap('settle');
-          if (screen === 'change-progress') {
-            const panel = page.locator('.ch-now');
-            await panel.waitFor();
-            if (!(await panel.innerText()).includes('Standards check')) throw new Error('progress must use the standards step label');
-            const passed = await panel.locator('.ok').evaluateAll(els => {
-              const probe = document.createElement('span'); probe.style.color = 'var(--ok)'; document.body.append(probe);
-              const green = getComputedStyle(probe).color; probe.remove();
-              return els.length > 0 && els.every(el => getComputedStyle(el).color === green);
+          if (screen.startsWith('change-progress')) {
+            const trigger = page.getByRole('button', { name: /^Progress:/ });
+            await trigger.waitFor();
+            if (await page.locator('.ch-overview .ch-now, .ch-shield').count()) throw new Error('progress detail must leave Overview and the header shield');
+            if (screen.endsWith('-finished')) {
+              if (await page.locator('.ch-progress-segment.failed, .ch-progress-segment.unknown').count()) throw new Error('finished progress must be green');
+              const note = page.locator('.ch-check-summary');
+              if (!(await note.innerText()).includes('3 findings') || !await note.getByRole('link', { name: 'Security →' }).count()) throw new Error('bundle findings need a neutral Security note');
+            } else if (screen.endsWith('-failed')) {
+              if (!await page.locator('.ch-progress-segment.failed').count()) throw new Error('gating failure needs a red segment');
+            } else {
+              if (!await page.locator('.ch-progress-segment.current').count()) throw new Error('running progress needs a current step');
+              if (!(await trigger.getAttribute('aria-label')).includes('gates')) throw new Error('landing must be in its gates stage');
+            }
+            await trigger.click();
+            await page.locator('.ch-now').waitFor();
+            const progressPlacement = await page.locator('.ch-progress-popover').evaluate(panel => {
+              const box = panel.getBoundingClientRect();
+              const trigger = document.querySelector('.ch-progress-trigger').getBoundingClientRect();
+              const limit = 40 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+              return box.left >= 8 && box.right <= innerWidth - 8 + 1 && box.width <= limit + 1 &&
+                (innerWidth < 1440 || Math.abs(box.left - trigger.left) < 1);
             });
-            if (!passed || !await panel.locator('[aria-label="pending"]').count()) throw new Error('progress needs shared passed colours and a pending mark');
+            if (!progressPlacement) throw new Error('progress panel must grow from the bars and fit its content within the viewport');
+            const stageNames = await page.locator('.ch-progress-bar[aria-label="Stages"] > span').evaluateAll(segments => segments.map(s => s.title.replace(/^./, c => c.toUpperCase())).join(' · '));
+            const stageLine = page.locator('.ch-now-stages').first();
+            if (await stageLine.innerText() !== stageNames || !await stageLine.locator('strong').count()) throw new Error('progress must name ordered stages and emphasise the current stage');
+            if (viewport.width >= 1440) await page.screenshot({ path: `${out}/${screen}-${size}-${theme}-progress-open.png`, fullPage: true });
+            await page.keyboard.press('Escape');
+            await page.mouse.move(0, 0);
+            if (size === 'desktop') {
+              await page.setViewportSize({ width: 1920, height: viewport.height });
+              const aligned = await page.locator('.ch-overview').evaluate(el => Math.abs(el.getBoundingClientRect().left - el.closest('.ch-tab-body').getBoundingClientRect().left) < 1);
+              if (!aligned) throw new Error('Overview must start at the content left edge');
+              await page.screenshot({ path: `${out}/${screen}-wide-${theme}.png`, fullPage: true });
+              await page.setViewportSize(viewport);
+            }
           }
           if (screen === 'features') {
             const clipped = await page.locator('main tbody td').evaluateAll(cells => cells.filter(el => {

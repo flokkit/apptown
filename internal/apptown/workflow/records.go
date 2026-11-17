@@ -38,8 +38,11 @@ type Run struct {
 }
 
 type Step struct {
-	IsCheck        bool `json:"isCheck"`
-	CheckAttention bool `json:"checkAttention"`
+	// Observation is true only when a snapshot reads that the stage gate does not require this step.
+	Observation    bool   `json:"observation"`
+	Progress       string `json:"progress"`
+	IsCheck        bool   `json:"isCheck"`
+	CheckAttention bool   `json:"checkAttention"`
 	runEnded       bool
 	approvalReady  bool
 	StatusLabel    status.DisplayStatus `json:"statusLabel"`
@@ -88,6 +91,7 @@ func (s Step) MarshalJSON() ([]byte, error) {
 	type view Step
 	out := view(s)
 	out.StatusLabel = s.displayLabel()
+	out.Progress = s.progress()
 	out.IsCheck = isCheck(s.Type)
 	out.CheckAttention = s.checkAttention()
 	return json.Marshal(out)

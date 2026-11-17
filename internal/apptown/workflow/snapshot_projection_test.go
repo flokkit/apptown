@@ -68,3 +68,35 @@ func TestWorkflowSnapshotOmitsDerivedStateForDoneRun(t *testing.T) {
 		t.Fatalf("finished run derived state=%q detail=%q", detail.State, detail.StateDetail)
 	}
 }
+
+// Completed expanded checks and dynamic checks read the same gate membership
+// as the stage engine; each run reads its own definition.
+func TestSnapshotGateMembershipUsesRecordedDeclarations(t *testing.T) {
+	t.Parallel()
+	for _, explicit := range []bool{true, false} {
+		t.Run(map[bool]string{true: "explicit", false: "default all"}[explicit], func(t *testing.T) {
+			t.Parallel()
+			definition := `{"kind":"pipeline","stages":[{"name":"checks","steps":[{"name":"a","uses":"scan","with":{"on":"source"}},{"name":"b","uses":"script"}]` + map[bool]string{true: `,"gate":{"require":["a"]}`, false: ``}[explicit] + `},{"name":"ship"}]}`
+			q, run, _ := activityFixture(t)
+			child := insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, ParentRunID: run.ID, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", Status: RunDone.String(), CurrentStage: "ship", DefinitionJson: []byte(definition)})
+			insertRunEventForTest(t, q.db, child.ID, "stage.entered", []byte(`{"stage":"checks","checks":[{"declaration":"a","name":"concrete-scanner","type":"scan"}]}`))
+			for _, name := range []string{"concrete-scanner", "b", "dynamic"} {
+				kind := "script"
+				if name == "concrete-scanner" {
+					kind = "scan"
+				}
+				finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: child.ID, Stage: "checks", Name: name, Type: kind}, StatusPass)
+			}
+			svc := newService(q.db, allowProject(run.ProjectID), Runtime{})
+			snap, err := svc.Snapshot(t.Context(), child.ID, TraceView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, step := range snap.Steps {
+				if want := explicit && step.Name != "concrete-scanner"; step.Observation != want {
+					t.Fatalf("%s observation=%v want %v", step.Name, step.Observation, want)
+				}
+			}
+		})
+	}
+}

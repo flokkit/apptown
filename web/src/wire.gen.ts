@@ -2235,6 +2235,8 @@ export type StandingVote = {
 }
 
 export type Step = {
+  observation: boolean
+  progress: string
   isCheck: boolean
   checkAttention: boolean
   statusLabel: DisplayStatus

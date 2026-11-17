@@ -12,9 +12,9 @@ const focusable = 'a[href], button:not(:disabled), input:not(:disabled), select:
 // close, focus returns to the trigger only from inside the panel, so a click
 // into a field elsewhere keeps the field's focus. Scrolling the trigger out of
 // sight closes the panel.
-export function Popover({ anchor, onClose, children, id, placement = 'below', className = '', onPointerEnter, onPointerLeave, takeFocus = true }: {
+export function Popover({ anchor, onClose, children, id, placement = 'below', align = 'end', className = '', onPointerEnter, onPointerLeave, takeFocus = true }: {
   anchor: RefObject<HTMLElement>; onClose: () => void; children: ReactNode; id: string
-  placement?: 'above' | 'below'; className?: string; takeFocus?: boolean
+  placement?: 'above' | 'below'; align?: 'start' | 'end'; className?: string; takeFocus?: boolean
   onPointerEnter?: (event: React.PointerEvent) => void; onPointerLeave?: (event: React.PointerEvent) => void
 }) {
   const panel = useRef<HTMLDivElement>(null)
@@ -25,7 +25,7 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
     const position = () => {
       const left = viewport?.offsetLeft ?? 0, top = viewport?.offsetTop ?? 0
       const width = viewport?.width ?? window.innerWidth, height = viewport?.height ?? window.innerHeight
-      element.style.maxWidth = `${width - 16}px`
+      element.style.maxWidth = `min(var(--popover-max-width, ${width - 16}px), ${width - 16}px)`
       element.style.maxHeight = `${height - 16}px`
       const rect = trigger.getBoundingClientRect(), box = element.getBoundingClientRect()
       // A panel belongs beside its control: once the control has scrolled
@@ -33,7 +33,7 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
       if (rect.bottom < top || rect.top > top + height) { onClose(); return }
       const below = rect.bottom + 6
       const y = placement === 'above' || below + box.height > top + height - 8 ? rect.top - box.height - 6 : below
-      element.style.left = `${Math.max(left + 8, Math.min(rect.right - box.width, left + width - box.width - 8))}px`
+      element.style.left = `${Math.max(left + 8, Math.min(align === 'start' ? rect.left : rect.right - box.width, left + width - box.width - 8))}px`
       element.style.top = `${Math.max(top + 8, Math.min(y, top + height - box.height - 8))}px`
     }
     position()
@@ -64,7 +64,7 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', cl
     }
     // Focus is taken once, as the panel opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor, onClose, placement])
+  }, [anchor, onClose, placement, align])
   return createPortal(<div ref={panel} id={id} tabIndex={-1} className={`popover ${className}`} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>{children}</div>, document.body)
 }
 

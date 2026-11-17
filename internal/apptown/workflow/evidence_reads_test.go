@@ -34,12 +34,13 @@ func TestWorkflowEvidenceViewsKeepOrderLimitsAndExactBodies(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// Run, steps, events, artifacts. The detail view also judges this
+		// Run, steps, events, artifacts and the stage declaration mapping.
+		// The detail view also judges this
 		// run's activity, and the run waits at its gate, so one more read
 		// fetches the stage's checks receipt for the gate's verdict.
-		want := 4
+		want := 5
 		if view == DetailView {
-			want = 5
+			want = 6
 		}
 		if counted.reads != want {
 			t.Fatalf("ordinary view made %d reads; activity must reuse its steps", counted.reads)
@@ -322,7 +323,7 @@ func TestAttentionRowsOmitEventsAndArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if counted.reads != 3 || len(snapshot.Events) != 0 || len(snapshot.Artifacts) != 0 || snapshot.WaitingOn.Kind != "approval" {
+	if counted.reads != 4 || len(snapshot.Events) != 0 || len(snapshot.Artifacts) != 0 || snapshot.WaitingOn.Kind != "approval" {
 		t.Fatalf("attention row: reads=%d %+v", counted.reads, snapshot)
 	}
 }

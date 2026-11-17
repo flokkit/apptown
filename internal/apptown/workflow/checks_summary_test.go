@@ -102,7 +102,7 @@ func TestChangeVerdictIncludesTheWorkingRunCarriedByLanding(t *testing.T) {
 		t.Fatal(latest.Checks)
 	}
 	summary, err := s.ChangeChecks(t.Context(), latest)
-	if err != nil || summary.Tone != "bad" || summary.Text != "Privacy failed · 1 passed, 2 skipped: Security scan, Licence scan" {
+	if err != nil || summary.Tone != "bad" || summary.Text != "Privacy failed · 1 passed, 2 not applicable" {
 		t.Fatalf("change verdict %+v %v", summary, err)
 	}
 }
@@ -119,12 +119,13 @@ func TestChecksSummaryCountsAndNamesSkippedChecks(t *testing.T) {
 		steps      []*Step
 		tone, text string
 	}{
-		{[]*Step{{Type: "scan", Name: "security", Status: StatusNotApplicable}, {Type: "scan", Name: "license", Status: StatusSkipped}, {Type: "scan", Name: "security", Status: StatusSkipped}, {Type: "scan", Name: "license", Status: StatusNotApplicable}}, "unknown", "Checks not all known · 0 passed, 2 skipped: Security scan, Licence scan"},
-		{[]*Step{pass, na}, "ok", "1 passed, 1 skipped: Dependency scan"},
-		{[]*Step{noted, na}, "ok", "1 passed, 1 skipped: Dependency scan · 1 note"},
+		{[]*Step{na, {Type: "scan", Name: "license", Status: StatusNotApplicable}, skipped}, "unknown", "Checks not all known · 0 passed, 2 not applicable, 1 skipped: Optional check"},
+		{[]*Step{{Type: "scan", Name: "security", Status: StatusNotApplicable}, {Type: "scan", Name: "license", Status: StatusSkipped}, {Type: "scan", Name: "security", Status: StatusSkipped}, {Type: "scan", Name: "license", Status: StatusNotApplicable}}, "unknown", "Checks not all known · 0 passed, 2 not applicable, 2 skipped: Licence scan, Security scan"},
+		{[]*Step{pass, na}, "ok", "1 passed, 1 not applicable"},
+		{[]*Step{noted, na}, "ok", "1 passed, 1 not applicable · 1 note"},
 		{[]*Step{pass}, "ok", "All checks passed"},
 		{[]*Step{pass, skipped}, "unknown", "Checks not all known · 1 passed, 1 skipped: Optional check"},
-		{[]*Step{na}, "ok", "0 passed, 1 skipped: Dependency scan"},
+		{[]*Step{na}, "ok", "0 passed, 1 not applicable"},
 		{[]*Step{skipped}, "unknown", "Checks not all known · 0 passed, 1 skipped: Optional check"},
 	} {
 		got := summarizeChecks(tc.steps)
@@ -151,5 +152,20 @@ func TestStepRegistrationOwnsSummaryAttentionAndExecutor(t *testing.T) {
 	}
 	if isCheckKind("scm/merged") {
 		t.Fatal("internal merge gate became a check executor type")
+	}
+}
+
+func TestNonGatingCheckIsANote(t *testing.T) {
+	t.Parallel()
+	advisory := false
+	for _, step := range []*Step{
+		{Observation: true, Type: "scan", Name: "bundle", Status: StatusFail},
+		{Observation: true, Type: "scan", Name: "bundle", Status: StatusError},
+		{Type: "script", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Verdict: VerdictFail, Gates: &advisory}}}}},
+	} {
+		got := summarizeChecks([]*Step{{Type: "script", Status: StatusPass}, step})
+		if got.Tone != "ok" || got.Text != "All checks passed · 1 note" || step.checkAttention() {
+			t.Fatalf("%+v attention=%v", got, step.checkAttention())
+		}
 	}
 }

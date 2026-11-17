@@ -59,7 +59,7 @@ describe('the state panel', () => {
 describe('handover checks', () => {
   const view = (status: string, evidence: object = {}, events: unknown[] = []) => ({
     checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'boot failed', tone: 'bad', run: 'run', step: 'boot', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 4, title: 'Fix the menu', state: 'in_progress' }, projectSlug: 'demo', runs: [], state: 'blocked', statusLabel: 'failed',
-    detail: { run: { id: 'run', workflowName: 'quick-change', currentStage: 'apply', status: 'running' }, state: 'blocked', next: [], events,
+    detail: { stages: ['apply'], run: { id: 'run', workflowName: 'quick-change', currentStage: 'apply', status: 'running' }, state: 'blocked', next: [], events,
       steps: [{ id: 'agent', name: 'apply-change', type: 'agent/pi', stage: 'apply', status, evidence, config: {} },
         { id: 'boot', name: 'boot', type: 'preview', stage: 'apply', status: 'fail', evidence: { reason: 'fourth failure' }, config: {} }] },
   } as unknown as ChangeView)
@@ -104,7 +104,7 @@ describe('handover checks', () => {
 
  it('keeps the top card to title and state while the action belongs on Overview', () => {
   const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'boot failed', tone: 'bad', run: 'run', step: 'boot', checks: 1, who: [], you: 'yes' }, change: { id: CHANGE, number: 3, title: 'Fix the menu', state: 'landing' }, projectSlug: 'lunch-orders', evidence: { merged: false }, runs: [], state: 'blocked', statusLabel: 'failed', next: [{ act: 'send-back', stepId: null, step: '' }],
-    detail: { run: { id: 'run', currentStage: 'land', status: 'running' }, state: 'blocked', next: [], events: [], steps: [
+    detail: { stages: ['land'], run: { id: 'run', currentStage: 'land', status: 'running' }, state: 'blocked', next: [], events: [], steps: [
       { id: 'boot', name: 'boot', type: 'preview', stage: 'land', status: 'fail', evidence: { reason: 'the app did not start' }, config: {} }
     ] } } as unknown as ChangeView
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}>
