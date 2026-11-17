@@ -148,10 +148,14 @@ age alone creates no worker-unavailable item. Deployment runtime uses its existi
 background observation owner. A deployment's last act is the latest of its
 successful attempt, its confirmed start, stop or restart, and its other acts (a
 health restart, a crash-loop stop, a restore, a failed or uncertain attempt).
-For two minutes after that act, a runtime reading begun before it, or one taken
-while a start, stop or restart is under way, raises no runtime item: not a
-missing status, not the stopped advisory, not an unhealthy runtime. This
-includes first releases and rebuilds. Metadata edits do not restart this
+While a release is in progress (from its admission until its attempt settles
+as done, failed or uncertain) the deployment raises no runtime item. After the
+act, until the first reading begun after it should have been published by the
+runtime observer's schedule (a sweep under way finishes, the next starts after
+the interval and runs at most a sweep, plus ten seconds: 55 seconds), a runtime
+reading begun before it, or one taken while a start, stop or restart is under
+way, raises no runtime item: not a missing status, not the stopped advisory,
+not an unhealthy runtime. This includes first releases and rebuilds. Metadata edits do not restart this
 interval. Attempt failures and crash holds remain visible during it. Once applied, a
 pending first runtime reading cannot wait indefinitely. Protection remains pending
 until a deployment has a successful attempt. An applied deployment with an empty

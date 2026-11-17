@@ -501,6 +501,10 @@ func TestOperationalReadKeepsCurrentAuthorityAndUsesOnlyCachedRuntime(t *testing
 	if err != nil || len(warm) != 1 || warm[0].Runtime.State != RuntimeRunning || warm[0].ID != envs[0].ID || warm[0].DesiredGeneration != envs[0].DesiredGeneration || calls.Load() != before {
 		t.Fatalf("cached operational read %+v %v calls%d", warm, err, calls.Load())
 	}
+	// With no act there is nothing to wait for a reading after.
+	if !warm[0].LastActAt.IsZero() || !warm[0].ReadingDue.IsZero() {
+		t.Fatalf("reading due %v with no act (%v)", warm[0].ReadingDue, warm[0].LastActAt)
+	}
 	authority.err = errors.New("revoked")
 	deniedSet, err := s.Operational(t.Context(), []ids.ID{projectID})
 	denied := deniedSet[projectID]

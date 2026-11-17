@@ -22,6 +22,19 @@ const observationInterval = 15 * time.Second
 const observationSweepTimeout = 10 * time.Second
 const observationStaleAfter = 45 * time.Second
 
+// observationPublishTimeout bounds a sweep's re-read and publication, after
+// collection; the next interval starts only when it returns.
+const observationPublishTimeout = 5 * time.Second
+
+// observationSweepTook is the longest a sweep runs: collection, then the
+// re-read and publication.
+const observationSweepTook = observationSweepTimeout + observationPublishTimeout
+
+// firstReadingWithin bounds when a reading begun after an act is published:
+// the sweep under way finishes, the next starts after the interval and takes
+// at most a sweep, plus ten seconds of margin (the rule host readings use).
+const firstReadingWithin = observationSweepTook + observationInterval + observationSweepTook + 10*time.Second
+
 type observationEntry struct {
 	key          [32]byte
 	reachability [32]byte
@@ -197,7 +210,7 @@ func (s *Service) observeRuntimeSelection(ctx context.Context, projects []ids.ID
 	}
 	// Re-read after external I/O; neither the selection snapshot nor a database
 	// connection is held while a provider runs. Deleted/replaced rows cannot publish.
-	refreshCtx, refreshCancel := context.WithTimeout(parent, 5*time.Second)
+	refreshCtx, refreshCancel := context.WithTimeout(parent, observationPublishTimeout)
 	defer refreshCancel()
 	current, err := s.listRecords(refreshCtx, nil)
 	if err != nil {
