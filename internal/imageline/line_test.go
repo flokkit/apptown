@@ -121,3 +121,18 @@ func TestDigestHeadsTheCandidateThroughMirrorAndTransport(t *testing.T) {
 		t.Fatalf("candidate HEAD: %s heads=%d %v", got, heads.Load(), err)
 	}
 }
+
+// A Dockerfile names Docker Hub images in short form, while a registry
+// answer is fully qualified and digest-pinned; both name the same image.
+func TestAllowsADigestPinOfTheSameTagInEitherSpelling(t *testing.T) {
+	t.Parallel()
+	const pin = "index.docker.io/library/node:24.22.2-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8"
+	for _, old := range []string{"node:24.22.2-alpine", "docker.io/library/node:24.22.2-alpine", pin} {
+		if err := Allows(old, pin, "node:24.22.2-alpine", Line); err != nil {
+			t.Errorf("%s → %s: %v", old, pin, err)
+		}
+	}
+	if err := Allows("node:24.22.2-alpine", "index.docker.io/library/python:24.22.2-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8", "node:24.22.2-alpine", Line); err == nil {
+		t.Error("another repository passed as the same image")
+	}
+}

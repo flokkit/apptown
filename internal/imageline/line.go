@@ -217,10 +217,12 @@ func Allows(old, next, line string, scope Scope) error {
 	if err != nil {
 		return err
 	}
-	if a.Repository != b.Repository || a.Variant != b.Variant ||
+	// Repositories compare by their normalized names: a Dockerfile's
+	// "node" and a registry answer's "index.docker.io/library/node" are one image.
+	if a.Repository.Name() != b.Repository.Name() || a.Variant != b.Variant ||
 		s.Prefix != "" && !prefix(b.Prefix, s.Prefix) ||
 		a.Prefix == "" && b.Prefix != "" || a.Prefix != "" && b.Prefix != "" && newer(a.Prefix, b.Prefix) {
-		return fmt.Errorf("image %s must stay on %s without a downgrade", next, s.Key())
+		return fmt.Errorf("image %s must stay on the %s line without a downgrade", next, s.Repository.Name()+":"+s.Prefix+s.Variant)
 	}
 	return nil
 }
