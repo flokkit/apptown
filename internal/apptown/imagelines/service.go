@@ -34,6 +34,7 @@ func (r Reading) Evidence() string {
 
 type Resolver interface {
 	Answer(context.Context, string, imageline.Scope) (Reading, error)
+	Digest(context.Context, string) (string, error)
 }
 type service struct {
 	db      *database.DB
@@ -92,4 +93,18 @@ func (s *service) Answer(ctx context.Context, ref string, scope imageline.Scope)
 		}
 		return r.Val.(Reading), nil
 	}
+}
+
+// Digest proves a candidate tag through an uncached manifest HEAD, using the
+// same mirror and deployments trust as newest readings.
+func (s *service) Digest(ctx context.Context, ref string) (string, error) {
+	var mirror string
+	var err error
+	if s.mirror != nil {
+		mirror, err = s.mirror(ctx)
+	}
+	if err != nil {
+		return "", err
+	}
+	return imageline.Digest(ctx, ref, imageline.Access{Mirror: mirror, Transport: trust.Lazy(trust.Deployments)})
 }

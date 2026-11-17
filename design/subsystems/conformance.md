@@ -21,6 +21,15 @@ binds recorded verdicts to the admitted project, declaration version and source.
 Callers cannot substitute another project or check after evaluation. Terminal
 review state rejects further writes.
 
+A manual review with `recheck` and named projects also requests the security
+queue for each named project whose latest main scans are unknown, including
+failed assessments. The HTTP transport reads Workflow's `LatestMainScans` and
+calls `Schedules.RunJanitor` with `again: true` as the caller. That operation
+checks project Change creation and lane invocation authority and keeps its
+standing eligibility and queue admission rules. Known scans, including findings,
+start nothing. Scan read failures and request refusals are logged and do not fail
+the admitted standards review. A review of the whole estate starts no scans.
+
 After a successful landing is recorded, conformance saves its guidance check
 results as a completed review with trigger `landing`. The record names the source run
 and checked candidate; each verdict names the landed commit, block version,

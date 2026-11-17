@@ -106,6 +106,12 @@ Dependency inspection compares toolchain and runtime inputs on the committed bas
 and candidate, including mise declarations, version files, Dockerfile base
 operands and contract image/build inputs. With base images on, external-image FROM operands may
 change version or digest while keeping the repository and tag variant unchanged.
+Routine moves use the longest numeric toolchain declaration whose shared
+version components agree with the current tag, including shortened tags.
+Without one, the dependency level supplies the scope. Candidates stay on that
+line without downgrading; an uncached registry HEAD proves their tag and digest
+through the same mirror and transport as newest lookups. The newest reading is
+retained as evidence, but any real build on the line is allowed.
 Flags, aliases, stage count and order, ARGs and parser directives stay unchanged.
 Stage references, scratch and operands containing `$` remain byte-identical.
 Docker instructions are read across single-backslash continuations, including
@@ -441,3 +447,7 @@ by settlement and the reaper. Conformance keeps scan observations independently,
 including exact subjects, scanner binding version, configuration and hash,
 observation time, verdict, normalized findings and unknown reasons. Compact
 summaries continue to reference those observations after disposal.
+
+A source scan schedule retries failed assessments at the earlier of its cron
+time and one hour after its last firing. Each retry uses ordinary admission
+and records its own firing. Findings and stale successful scans keep the cron.

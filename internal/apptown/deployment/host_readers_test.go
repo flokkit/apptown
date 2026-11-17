@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -87,5 +88,52 @@ func TestHostReadersAttachAndRetireCancelTheOnlyCommand(t *testing.T) {
 	got, err := r.Snapshots.reading(t.Context(), target)
 	if err != nil || !got.AttemptedAt.IsZero() {
 		t.Fatalf("retired loop stored a reading: %+v %v", got, err)
+	}
+}
+
+// The real per-target loop includes the lap's time in its interval. A slow lap
+// is immediately followed by the next one, with no concurrent host command.
+func TestHostReadersStartOnCadenceAndStoreTheSameDeadline(t *testing.T) {
+	for _, took := range []time.Duration{16 * time.Second, 25 * time.Second} {
+		t.Run(took.String(), func(t *testing.T) {
+			svc, db, daemon, _, target := healthWorld(t)
+			synctest.Test(t, func(t *testing.T) {
+				// Connections opened by a lap own timers in this bubble; close them here.
+				defer func() {
+					if err := db.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				snapshots := NewHostSnapshots(db, time.Now)
+				reader := HostReaders{Snapshots: snapshots, Targets: NewTargets(db, nil), Hosts: svc.hosts, Providers: svc.providers, Inventory: svc.Inventory}
+				ctx, cancel := context.WithCancel(t.Context())
+				starts := make(chan time.Time, 2)
+				count := 0
+				daemon.SetReply(func(args []string) ([]byte, error, bool) {
+					if args[0] == "info" {
+						count++
+						starts <- snapshots.now()
+						if count == 1 {
+							<-time.After(took)
+						} else {
+							<-ctx.Done()
+							return nil, ctx.Err(), true
+						}
+					}
+					return nil, nil, false
+				})
+				done := make(chan struct{})
+				go func() { defer close(done); reader.Run(ctx) }()
+				defer func() { cancel(); <-done }()
+				first, second := <-starts, <-starts
+				if got, want := second.Sub(first), max(hostReadInterval, took); got != want {
+					t.Fatalf("next lap started after %s; want %s", got, want)
+				}
+				reading, err := snapshots.reading(t.Context(), target)
+				if err != nil || !reading.NextAt.Equal(first.Add(hostReadInterval)) {
+					t.Fatalf("stored deadline=%s, want %s: %v", reading.NextAt, first.Add(hostReadInterval), err)
+				}
+			})
+		})
 	}
 }

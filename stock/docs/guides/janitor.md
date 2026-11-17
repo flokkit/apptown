@@ -18,7 +18,11 @@ the same version limits. An agent updates every ecosystem, workspace and
 sub-project it finds, following adopted dependency guidance. An AI model reads
 the complete diff and judges its level and scope, including the smallest code
 changes a moved package needs. When it cannot decide, the Change waits for a
-person. With Base images on, the agent updates Dockerfile base images within the selected level. AppTown
+person. With Base images on, the agent updates Dockerfile base images on the declared toolchain line. An image tag
+and a numeric declaration agree when their shared version components match:
+`node:24-slim` beside `node = "24.22.2"` stays on 24.22.2; Python 3.12 stays
+on 3.12. The longest agreeing declaration wins. Images with no agreeing numeric
+declaration keep the selected level’s scope. AppTown
 checks that each external image keeps its name and tag variant. Stage references,
 `scratch` and variable operands stay unchanged. Toolchains stay unchanged except
 when Toolchain patches is on, for patch releases within the same minor that a named security finding needs. For a nonempty security fix, the reporting scanner must no longer report each
@@ -28,7 +32,9 @@ scan observations rather than project fix targets; source dependency findings
 still have their own fix targets. Findings in other parts need a person.
 Image updates stay digest-pinned. The Janitor uses `apptown image newest` for
 external FROM operands and `staticServer:`; AppTown checks routine moves against
-the same recorded registry answer. A refused lookup leaves that image unchanged.
+the allowed line and refuses downgrades. Any real build on that line is allowed,
+even when a newer build exists; a registry HEAD proves the candidate tag’s
+digest. A refused lookup leaves that image unchanged.
 A security target may choose the smallest pinned build that clears the finding.
 Direct dependencies move to stable releases only. A package they pull in may be
 a pre-release (alpha, beta, rc) when the stable release itself requires it; the
@@ -64,7 +70,10 @@ With Security fixes on, the Janitor also requests a rebuild when a running
 scan reports a finding absent from that image digest's usable build-time scan.
 It applies recorded exceptions and the scan's severity threshold first.
 A missing or erroring build-time scan leaves the baseline unknown, so the
-Janitor can request a rebuild. A running scan error triggers no rebuild.
+Janitor can request a rebuild. A running scan error triggers no rebuild. While the latest scans could not be
+assessed, the project’s scans schedule retries at the earlier of its next cron
+time and one hour after its last firing. Findings and stale successful scans
+keep the ordinary cron.
 
 A rebuild releases the running release's same commit, taking current packages
 through the Dockerfile's final-stage upgrade. It applies only to deployments

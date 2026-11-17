@@ -136,6 +136,7 @@ func appRoutes(a *App) []routeSpec {
 	var refusedStepWork httpapi.RefusedStepWork
 	var features httpapi.Features
 	if a != nil {
+		schedules := changeactions.Schedules{Packs: fleetReviewsFor(a), Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}
 		features = httpapi.NewFeatures(a.Access)
 		docs = docsForRoutes(a.cfg.browserSession().PublicOrigin)
 		runs = httpapi.NewRuns(a.Work, a.operations)
@@ -148,7 +149,7 @@ func appRoutes(a *App) []routeSpec {
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
 		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets}, a.repositoryAttachments)
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
-		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a))
+		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a), a.Work, schedules, a.cfg.clock.Now)
 		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
 		evalRoutes = httpapi.NewEvals(a.Evals)
 		packAssistance = httpapi.NewPackAssistance(a.Ways, a.lifecycle, a.modelSelection, a.inference)
@@ -208,7 +209,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)
 		projectManifest = httpapi.NewProjectManifest(a.Projects, a.Adoption, a.DB, a.cfg.dataDir, a.Secrets)
 		projectWorkflows = httpapi.NewProjectWorkflows(a.Projects, a.Adoption, a.Work, a.DB)
-		janitor = httpapi.NewJanitor(changeactions.Schedules{Packs: fleetReviewsFor(a), Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.Work, a.standingRules, a.Deployment, a.cfg.clock.Now)
+		janitor = httpapi.NewJanitor(schedules, a.Work, a.standingRules, a.Deployment, a.cfg.clock.Now)
 		projectScans = httpapi.NewProjectScans(a.Projects, a.Work, a.standingRules, a.Deployment)
 		projectSchedules = httpapi.NewProjectSchedules(a.Projects, changeactions.Schedules{Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
 		runProgress = httpapi.NewRunProgress(a.Work, &a.progress)

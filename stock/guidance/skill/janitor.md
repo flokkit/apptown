@@ -15,11 +15,20 @@ on; they never add a missing one.
 For a pack adoption, add or change only the declarations in `.apptown/app.yaml`
 that the new pack's failing checks name.
 
-Move external Dockerfile FROM images within the selected level, keeping the
+Move external Dockerfile FROM images on their declared toolchain line, keeping the
 same image name and tag variant (`-alpine`, `-slim`, `-bookworm-slim`,
 `-alpine3.22` stay). For each external FROM and `staticServer:`, run
+read numeric tool versions from mise, .tool-versions and version files before
+the change. A tag and a declaration agree when their shared numeric components
+match (for example, node:24-slim and node = "24.22.2"). Use the longest agreeing
+declaration: run `apptown image newest <repo>:<declared><variant> --scope line`
+(for that example, `node:24.22.2-slim --scope line`). Match by version, not image
+name: an unrelated image sharing that version stays on the same line too; say
+so in your report. With no agreeing numeric declaration, run
 `apptown image newest <current> --scope minor` at routine, or `--scope major`
-at aggressive, and move to exactly the printed tag and digest. If it refuses,
+at aggressive. Choose the printed tag and digest. AppTown permits any registry
+build on the allowed line that is not older than the current pin; it proves
+the candidate tag's digest with a registry HEAD. If the lookup refuses,
 change nothing for that image and say so. Record its registry reading and any
 stale-reading warning in the final message. For a security target, use
 `--scope patch` when a smaller move clears the finding; a security fix may

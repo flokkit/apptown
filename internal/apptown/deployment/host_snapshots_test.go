@@ -44,7 +44,7 @@ func TestHostSnapshotsPreserveEachSectionsEvidenceTime(t *testing.T) {
 	reader := &failedStandingReader{daemon: d}
 	dk := docker.Scope{Client: reader, Now: func() time.Time { return now }}
 	q := docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, Use: true, ReaderImage: "df:test"}
-	if _, _, err = s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+	if _, _, err = s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	now = first.Add(20 * time.Minute)
@@ -56,7 +56,7 @@ func TestHostSnapshotsPreserveEachSectionsEvidenceTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Partial evidence keeps the whole-reading mark, even at the same clock.
-	if _, _, err = s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+	if _, _, err = s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	// Construct a new owner to prove persistence rather than an in-memory merge.
@@ -100,7 +100,7 @@ func TestHostSnapshotsFirstPartialReadingDoesNotInventAbsence(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil); err != nil {
+	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.reading(t.Context(), target)
@@ -138,7 +138,7 @@ func TestHostSnapshotsActInvalidationAndSettingsIdentity(t *testing.T) {
 	if err != nil || !r.Invalidated || r.Host.Value != nil {
 		t.Fatalf("act before first read: %+v %v", r, err)
 	}
-	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, q, nil, nil); err != nil {
+	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.BeforeAct(t.Context(), target.ID); err != nil {
@@ -148,7 +148,7 @@ func TestHostSnapshotsActInvalidationAndSettingsIdentity(t *testing.T) {
 	if err != nil || !r.Invalidated || r.Host.Value == nil {
 		t.Fatalf("act erased evidence: %+v %v", r, err)
 	}
-	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, q, nil, nil); err != nil {
+	if _, _, err = s.collect(t.Context(), target, docker.Scope{Client: d}, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	r, err = s.reading(t.Context(), target)
@@ -184,7 +184,7 @@ func TestHostSnapshotsActDuringCollectionKeepsInvalidation(t *testing.T) {
 			d := dockerfake.New()
 			dk := docker.Scope{Client: d, Now: s.now}
 			q := docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}
-			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 				t.Fatal(err)
 			}
 			acted := first.Add(elapsed)
@@ -197,7 +197,7 @@ func TestHostSnapshotsActDuringCollectionKeepsInvalidation(t *testing.T) {
 				}
 				return nil, nil, false
 			})
-			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 				t.Fatal(err)
 			}
 			r, err := s.reading(t.Context(), target)
@@ -211,7 +211,7 @@ func TestHostSnapshotsActDuringCollectionKeepsInvalidation(t *testing.T) {
 			d.SetReply(nil)
 			// A new complete collection clears the generation fence even if
 			// the clock has not advanced since the act.
-			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+			if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 				t.Fatal(err)
 			}
 			r, err = s.reading(t.Context(), target)
@@ -268,7 +268,7 @@ func TestHostSnapshotsMissingClaimsUseCollectedRecords(t *testing.T) {
 	check("never read", 0, true, true, false)
 	collect := func() {
 		t.Helper()
-		if _, _, err := s.collect(t.Context(), target, docker.Scope{Client: daemon, Now: func() time.Time { return now }}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, svc.Inventory); err != nil {
+		if _, _, err := s.collect(t.Context(), target, docker.Scope{Client: daemon, Now: func() time.Time { return now }}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, svc.Inventory, s.now().Add(hostReadInterval)); err != nil {
 			t.Fatal(err)
 		}
 		r, err := s.reading(t.Context(), target)
@@ -313,7 +313,7 @@ func TestHostReaderCollectsOnlyInventorySections(t *testing.T) {
 	svc, db, daemon, _, target := healthWorld(t)
 	s := NewHostSnapshots(db, nil)
 	worker := HostReaders{Snapshots: s, Targets: svc.Targets, Hosts: svc.hosts, Providers: svc.providers, Inventory: svc.Inventory}
-	if err := worker.lap(t.Context(), target.ID); err != nil {
+	if err := worker.lap(t.Context(), target.ID, worker.Snapshots.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	r, err := s.reading(t.Context(), target)
@@ -344,7 +344,7 @@ func TestHostReadingActProvenanceReachesInventoryPages(t *testing.T) {
 	daemon.SetRunning("apptown-dep-one", true)
 	lap := func() {
 		t.Helper()
-		if _, _, err := s.collect(t.Context(), target, dk, query, nil, nil); err != nil {
+		if _, _, err := s.collect(t.Context(), target, dk, query, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -427,7 +427,7 @@ func TestForegroundHostReadDoesNotWriteStoredReading(t *testing.T) {
 	s := NewHostSnapshots(db, func() time.Time { return now })
 	dk := docker.Scope{Client: daemon, Now: s.now}
 	q := docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}
-	if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil); err != nil {
+	if _, _, err := s.collect(t.Context(), target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	entered, release := make(chan struct{}), make(chan struct{})
@@ -445,7 +445,10 @@ func TestForegroundHostReadDoesNotWriteStoredReading(t *testing.T) {
 	})
 	now = now.Add(time.Minute)
 	done := make(chan error, 1)
-	go func() { _, _, err := s.collect(t.Context(), target, blocked, q, nil, svc.Inventory); done <- err }()
+	go func() {
+		_, _, err := s.collect(t.Context(), target, blocked, q, nil, svc.Inventory, s.now().Add(hostReadInterval))
+		done <- err
+	}()
 	<-entered
 	foreground, err := docker.ReadHost(t.Context(), dk, docker.HostQuery{Host: true})
 	if err != nil || foreground.Host.Value == nil {
@@ -478,7 +481,7 @@ func TestInventoryCarriesTheStoredLapsDuration(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	if _, _, err := snapshots.collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil); err != nil {
+	if _, _, err := snapshots.collect(t.Context(), target, docker.Scope{Client: daemon, Now: svc.now}, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true}, nil, nil, snapshots.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	live := svc.InventoryLive(t.Context(), target)
@@ -503,7 +506,7 @@ func TestHostSnapshotsLapDuringActLeavesReadingInvalidated(t *testing.T) {
 	in.TargetID = target.ID
 	r.BeforeAct = s.BeforeAct
 	if _, err := r.Run(t.Context(), in, func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-		if _, _, err := s.collect(ctx, target, dk, q, nil, nil); err != nil {
+		if _, _, err := s.collect(ctx, target, dk, q, nil, nil, s.now().Add(hostReadInterval)); err != nil {
 			t.Fatal(err)
 		}
 		return activeExecution(ctx, at, checkpoint)

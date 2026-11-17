@@ -797,3 +797,7 @@ func TestRoutineImageRefusalIsAnUnknownCheck(t *testing.T) {
 		t.Fatalf("%s %s", status, encoded)
 	}
 }
+
+func (r testImageReadings) Digest(context.Context, string) (string, error) {
+	return r.answer.Digest, r.err
+}

@@ -1359,7 +1359,9 @@ status derive part presence and process facts from that stored container section
 reading pages or collecting deployment details makes no per-part Docker calls.
 A failed container section keeps its last facts as old and records the failed
 attempt separately. Its reason gives the next ordinary host sweep, twenty
-seconds after the lap finishes. There is no separate diagnostics retry loop.
+seconds after the lap begins, before host preparation. Each host’s loop stays
+serial; a lap longer than twenty seconds starts its next lap immediately. The
+stored next-reading time uses the same deadline. There is no separate diagnostics retry loop.
 A host container reading more than forty-five seconds old is stale. Resources
 and model allowances collect independently of diagnostics.
 

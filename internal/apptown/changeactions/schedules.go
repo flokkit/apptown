@@ -95,7 +95,8 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 		if err != nil {
 			continue
 		}
-		last, found, err := workflow.ScheduleLastFiredIn(ctx, s.DB, c.projectID, c.workflow)
+		records, err := workflow.ScheduleRecordsIn(ctx, s.DB, c.projectID)
+		last, found := records[c.workflow]
 		if err != nil {
 			log.Printf("schedule %s/%s: reading last firing: %v", c.slug, c.workflow, err)
 			continue
@@ -107,7 +108,12 @@ func (s Schedules) FireDueSchedules(ctx context.Context, now time.Time) {
 			}
 			continue
 		}
-		if spec.Next(last.Time).After(now) {
+		next, err := s.nextScanFiring(ctx, c.projectID, c.scansSource && last.Outcome != workflow.ScheduleArmed, last.At, spec.Next(last.At))
+		if err != nil {
+			log.Printf("schedule %s/%s: reading scans: %v", c.slug, c.workflow, err)
+			continue
+		}
+		if next.After(now) {
 			continue
 		}
 		fired, err := s.fire(ctx, due, now, "")
@@ -657,7 +663,12 @@ func (s Schedules) scheduleView(ctx context.Context, p project.Project, now time
 			*rows = append(*rows, ps)
 			continue
 		}
-		ps.Next = spec.Next(from)
+		ps.Next, err = s.nextScanFiring(ctx, projectID, c.scansSource && ps.Last != nil, from, spec.Next(from))
+		if err != nil {
+			ps.Problem = err.Error()
+			*rows = append(*rows, ps)
+			continue
+		}
 		ps.Due = !ps.Next.After(now)
 		*rows = append(*rows, ps)
 	}
@@ -715,4 +726,19 @@ func scansSource(carried []carried) (bool, error) {
 		scans = scans || c.scansSource
 	}
 	return scans, nil
+}
+
+// A failed assessment retries through its ordinary schedule and admission rules.
+func (s Schedules) nextScanFiring(ctx context.Context, projectID ids.ID, scansSource bool, last, next time.Time) (time.Time, error) {
+	if !scansSource || !last.Add(time.Hour).Before(next) {
+		return next, nil
+	}
+	scans, err := s.Actions.work.LatestMainScans(asSchedule(ctx, projectID), projectID, 0)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if scans.Failed {
+		return last.Add(time.Hour), nil
+	}
+	return next, nil
 }

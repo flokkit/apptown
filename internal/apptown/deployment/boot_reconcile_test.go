@@ -37,7 +37,7 @@ func TestAHostLapRepairsOnlyWhatIsGone(t *testing.T) {
 		t.Helper()
 		at = at.Add(time.Minute)
 		repairs.asked = nil
-		if err := r.lap(t.Context(), target.ID); err != nil {
+		if err := r.lap(t.Context(), target.ID, r.Snapshots.now().Add(hostReadInterval)); err != nil {
 			t.Fatal(err)
 		}
 		if len(repairs.asked) != want {

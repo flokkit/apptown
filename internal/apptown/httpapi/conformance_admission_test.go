@@ -6,7 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
@@ -36,7 +38,7 @@ func TestConformanceReviewHTTPValidatesBeforeAdmittingAndPreservesScope(t *testi
 	confirmationHTTPProject(t, db, "elsewhere")
 	checks := conformance.New(db, confirmationHTTPAuthority{}, confirmationHTTPSource{}, nil, nil)
 	fleet := &admittedHTTPReview{checks: checks}
-	h := NewConformanceReviews(project.New(db, nil), fleet)
+	h := NewConformanceReviews(project.New(db, nil), fleet, nil, changeactions.Schedules{}, time.Now)
 	ctx := confirmationHTTPContext(t, db)
 	call := func(body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(body)).WithContext(ctx)
@@ -47,7 +49,7 @@ func TestConformanceReviewHTTPValidatesBeforeAdmittingAndPreservesScope(t *testi
 	for _, tc := range []struct {
 		body string
 		code int
-	}{{`{`, 400}, {`{"projects":false}`, 400}, {`{"projects":["reviewed","missing"]}`, 404},
+	}{{`{`, 400}, {`{"projects":false}`, 400}, {`{"projects":["reviewed","missing"]}`, 404}, {`{"projects":["reviewed","missing"],"recheck":true}`, 404},
 		// A misspelt key is refused, never read as "the whole estate".
 		{`{"project":"reviewed"}`, 400}, {`{"projects":["reviewed"]} {}`, 400}} {
 		w := call(tc.body)

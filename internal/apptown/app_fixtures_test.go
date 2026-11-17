@@ -330,3 +330,7 @@ func (testImageResolver) Answer(_ context.Context, ref string, scope imageline.S
 	}
 	return imagelines.Reading{Answer: imageline.Answer{Tag: line.Repository.Tag(line.Prefix + line.Variant).Name(), Digest: "sha256:" + strings.Repeat("a", 64), Registry: "registry.test"}, ReadAt: time.Date(2026, 11, 17, 0, 0, 0, 0, time.UTC)}, nil
 }
+
+func (testImageResolver) Digest(context.Context, string) (string, error) {
+	return "sha256:" + strings.Repeat("a", 64), nil
+}

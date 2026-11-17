@@ -30,7 +30,10 @@ spec:
               the dependency guidance for each. Base image updates: ${{inputs.baseImages}}.
               When false, leave every FROM and staticServer unchanged. When true, use
               apptown image newest for each external FROM and staticServer, as the
-              janitor skill says. Move to exactly its answer; on refusal leave that
+              janitor skill says: use the longest agreeing numeric toolchain declaration
+              with --scope line, including when the current tag is shorter than the
+              declaration; otherwise use the selected level’s scope. Choose its
+              printed tag and digest; on refusal leave that
               image unchanged and report why. Do not change toolchain versions
               (mise, .tool-versions, version files). The only permitted change in
               .apptown/app.yaml is moving an existing staticServer, as the janitor skill says. Change application code only where a moved package
@@ -85,7 +88,10 @@ spec:
               features, refactors, formatting, unrelated fixes, weakened or removed
               tests or .apptown/app.yaml changes except staticServer. AppTown checks
               moved FROM and staticServer images against its registry resolver, keeping
-              the same repository and variant and requiring a digest. The agent
+              the same repository and variant, staying on the declared line (or the
+              selected level’s scope without an agreeing numeric declaration),
+              never downgrading, and proving the candidate tag’s digest with a
+              registry HEAD. Any real build on that line is allowed. The agent
               reports resolver refusals and stale readings. Toolchain versions stay
               unchanged. Fail when any change falls outside
               these, and name it. When you fail, your first sentence says in plain

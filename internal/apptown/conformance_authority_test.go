@@ -2,9 +2,18 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/changeactions"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -211,4 +220,138 @@ func revokeConformanceDefaultRead(t *testing.T, a *App) {
 		}
 	}
 	t.Fatal("missing default read grant")
+}
+
+// Rechecking coordinates standards admission and security scans through their
+// real transport and owners, preserving independent project authority.
+func TestConformanceRecheckRequestsOnlyUnknownNamedScansAsCaller(t *testing.T) {
+	for _, tc := range []struct {
+		name, verdict                              string
+		denied, noRecheck, estate, noConsent, busy bool
+		want                                       int
+	}{
+		{name: "failed", verdict: "error", want: 1},
+		{name: "not yet scanned", want: 1},
+		{name: "known", verdict: "pass"},
+		{name: "known with findings", verdict: "fail"},
+		{name: "no change creation authority", denied: true},
+		{name: "ordinary review", noRecheck: true},
+		{name: "whole estate", estate: true},
+		{name: "standing refusal", noConsent: true},
+		{name: "busy queue", busy: true, want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			a := authzActors(t)
+			person, err := a.Access.EnsurePerson(t.Context(), "boss")
+			if err != nil {
+				t.Fatal(err)
+			}
+			admin := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Kind: "user", Name: "boss", Via: "session"}, Verified: true})
+			a.SyncStock(admin)
+			pid, main, git := fleetRepo(t, a, "clock", map[string]string{"README.md": "source"})
+			platform, err := a.Ways.Pack(admin, "apptown")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := a.DB.InTx(admin, func(tx *database.Tx) error {
+				return adoption.SetMembershipIn(admin, tx, pid, []adoption.Membership{{Pack: platform.Name, Version: platform.Version}}, "fixture", "boss", a.cfg.clock.Now())
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := recordCatalogFixture(a.Adoption, admin, pid, "boss"); err != nil {
+				t.Fatal(err)
+			}
+			if !tc.noConsent {
+				if _, err := a.standingRules.Save(admin, workflow.JanitorChoicesCommand{Choices: workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			release := make(chan struct{})
+			rebuildWork(t, a, func(d *workflow.Dependencies) {
+				d.Runners["scan"] = func(e *workflow.Execution) { <-release }
+			})
+			t.Cleanup(func() { close(release) })
+			if tc.verdict != "" {
+				now := a.Work.Now()
+				o := conformance.ScanObservation{ID: ids.New(now), ProjectID: pid, RunID: ids.New(now), StepID: ids.New(now), Attempt: 1,
+					Subject: conformance.ScanSubject{On: "source", Commit: main, Tree: strings.TrimSpace(git("rev-parse", "HEAD^{tree}"))},
+					Scanner: "osv", ExpectedScanners: []string{"osv"}, Verdict: tc.verdict, ObservedAt: now}
+				if tc.verdict == "fail" {
+					o.Findings = []conformance.Finding{{Finding: check.Finding{Identifiers: []string{"CVE-TEST"}}}}
+				}
+				if err := a.DB.InTx(admin, func(tx *database.Tx) error { return conformance.RecordScanObservationIn(admin, tx, o) }); err != nil {
+					t.Fatal(err)
+				}
+			}
+			directory := a.Access
+			caller := admin
+			if tc.denied {
+				p, err := directory.EnsurePerson(t.Context(), "reviewer")
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, cap := range []access.Capability{access.CapProjectRead, access.CapConformanceRev, access.CapChangeInvokeLane} {
+					if _, err := directory.PutGrant(t.Context(), identity.Spec{SubjectType: "user", Subject: "reviewer", Capability: string(cap), Scope: access.ScopeInstance, By: "bls"}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				caller = access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: p.PrincipalID, Kind: "user", Name: "reviewer", Via: "session"}, Verified: true})
+				if _, err := a.Work.MayOpenWork(caller, pid); fault.KindOf(err) != fault.Forbidden {
+					t.Fatalf("expected real work authority refusal: %v", err)
+				}
+			}
+			scans, err := a.Work.LatestMainScans(caller, pid, 0)
+			if err != nil || scans.Known != (tc.verdict == "pass" || tc.verdict == "fail") || scans.Failed != (tc.verdict == "error") {
+				t.Fatalf("scan precondition: %+v %v", scans, err)
+			}
+			h := httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a), a.Work, changeactions.Schedules{Packs: fleetReviewsFor(a), Standing: &a.standingRules, Actions: a.changeActions, Adoption: a.Adoption, Projects: a.Projects, DB: a.DB}, a.cfg.clock.Now)
+			body := `{"projects":["clock"],"recheck":true}`
+			if tc.noRecheck {
+				body = `{"projects":["clock"]}`
+			}
+			if tc.estate {
+				body = `{"recheck":true}`
+			}
+			call := func() {
+				t.Helper()
+				r := httptest.NewRequest("POST", "/api/v1/conformance/review", strings.NewReader(body)).WithContext(caller)
+				response := httptest.NewRecorder()
+				h.RunConformanceReview(response, r)
+				var review conformance.Review
+				if err := json.Unmarshal(response.Body.Bytes(), &review); err != nil || response.Code != 202 || review.ID.IsZero() || review.Status != conformance.ReviewQueued {
+					t.Fatalf("review admission: %d %s %v", response.Code, response.Body.String(), err)
+				}
+			}
+			call()
+			if tc.busy {
+				call()
+			}
+			attempts, err := a.Work.Attempts(admin, pid, "", 20)
+			if err != nil || len(attempts) != tc.want {
+				t.Fatalf("security attempts: got %+v want %d: %v", attempts, tc.want, err)
+			}
+			requests, err := audit.Recent(admin, a.DB, audit.Filter{ProjectID: pid, KindPrefix: "schedule.run-requested"})
+			if err != nil || len(requests) != tc.want {
+				t.Fatalf("scan request attribution: %+v %v", requests, err)
+			}
+			for _, request := range requests {
+				if request.ActorPrincipal != person.PrincipalID {
+					t.Fatalf("scan requester: %+v", request)
+				}
+			}
+			for _, attempt := range attempts {
+				if attempt.Queue != "security" || attempt.Schedule != "janitor-scan" {
+					t.Fatalf("wrong queue: %+v", attempt)
+				}
+				runs, err := a.Work.ChangeRuns(admin, attempt.ChangeID, workflow.ChangeRuns{})
+				if err != nil || len(runs) != 1 {
+					t.Fatalf("security runs: %+v %v", runs, err)
+				}
+				if runs[0].ProjectID != pid || runs[0].WorkflowName != "janitor-scan" {
+					t.Fatalf("wrong scan run: %+v", runs[0])
+				}
+			}
+		})
+	}
 }
