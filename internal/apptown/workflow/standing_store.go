@@ -79,7 +79,11 @@ func StartJanitorChoices(ctx context.Context, db *database.DB, at time.Time, res
 		if !restored {
 			return struct{}{}, nil
 		}
-		return struct{}{}, disableRestoredIn(ctx, tx, at)
+		if err := disableRestoredIn(ctx, tx, at); err != nil {
+			// Named so a refused restore start says which step failed.
+			return struct{}{}, fmt.Errorf("disable restored standing approvals: %w", err)
+		}
+		return struct{}{}, nil
 	})
 	return err
 }

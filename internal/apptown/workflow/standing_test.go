@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,8 +102,9 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 	a, s, _, ctx, in := standingFixture(t)
 	enableStanding(t, s, ctx, in)
 	dbtest.FailNextStatement(t, a.DB, "-- name: InsertStandingRevision :exec")
-	if err := StartJanitorChoices(ctx, a.DB, time.Now(), true); err == nil {
-		t.Fatal("restore ignored required disabling write")
+	// The daemon refuses to start with this error; it names the restore step.
+	if err := StartJanitorChoices(ctx, a.DB, time.Now(), true); err == nil || !strings.Contains(err.Error(), "disable restored standing approvals") {
+		t.Fatalf("restore ignored required disabling write or did not name it: %v", err)
 	}
 	h, err := s.History(ctx)
 	if err != nil || len(h) != 1 || !h[0].Enabled {
