@@ -9,6 +9,8 @@ patch and minor dependency updates, security fixes, base images, toolchain patch
 for security fixes and packs. The choices show “Set by AppTown” until you change
 them. Turn choices off in Maintenance settings, or turn the Janitor off for one
 project in Settings › General.
+[Who keeps what up to date](who-keeps-what-updated.md) says what the Janitor
+leaves to people, the administrator and providers.
 
 ## What it may change
 

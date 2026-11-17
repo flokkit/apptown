@@ -40,6 +40,7 @@ groups:
       - apptown-backups
       - deployment-backups
       - upgrading
+      - who-keeps-what-updated
       - packs-and-what-if
       - monitoring
       - compatibility

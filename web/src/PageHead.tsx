@@ -34,7 +34,7 @@ export const PAGE_HELP = {
       <p>The janitor keeps projects' dependencies and packs up to date, and fixes security findings, without anyone asking. It makes each update as an ordinary change: the change is checked, and lands and releases on its own only when a person has granted that permission in Maintenance settings.</p>
       <p><strong>Needs you</strong> lists work it could not finish. Open a project for its scans, findings and Run now.</p>
       <p>Choose what to keep updated. Base images keep the same image and variant. Toolchain patches are for security fixes. Packs move to the newest published versions. {PRODUCT} checks each change against these choices and records what ran. Each project can choose its dependency level or turn the janitor off. Deployments keep their own automatic release settings.</p>
-      <p>Guides: <Link to="/docs/guides/conformance">Conformance</Link> · <Link to="/docs/guides/packs-and-what-if">Packs and what-if</Link></p>
+      <p>Guides: <Link to="/docs/guides/conformance">Conformance</Link> · <Link to="/docs/guides/packs-and-what-if">Packs and what-if</Link> · <Link to="/docs/guides/who-keeps-what-updated">Who keeps what up to date</Link></p>
     </>,
     guide: 'janitor',
   },

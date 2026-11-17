@@ -109,7 +109,9 @@ version, run a what-if from its page (**Run on N eligible projects**): it
 runs that version's checks on projects on an earlier version and shows what
 would newly fail and what it could not assess, without changing anyone's
 standing. Projects can adopt the version from the what-if's page. See
-[Packs, versions and what-if](packs-and-what-if.md).
+[Packs, versions and what-if](packs-and-what-if.md), and
+[Who keeps what up to date](who-keeps-what-updated.md) for what else the
+Janitor, the administrator and providers keep current.
 
 ## When a check is judged
 
