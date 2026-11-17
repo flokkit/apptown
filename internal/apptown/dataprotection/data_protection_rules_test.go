@@ -328,7 +328,7 @@ func TestTheDeploymentSaysHowItsDataIsProtected(t *testing.T) {
 		t.Fatalf("before a store: %+v %v", p, err)
 	}
 	checks := 0
-	w.s.applied = func(targetID ids.ID) {
+	w.s.applied = func(targetID ids.ID, _ ids.ID) {
 		checks++
 		if targetID != dep.TargetID {
 			t.Errorf("copy checked target %s, want %s", targetID, dep.TargetID)

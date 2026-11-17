@@ -484,7 +484,7 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 		taken, err = driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, LastUser: others == 0})
 	}
 	if s.applied != nil {
-		s.applied(selected.TargetID)
+		s.applied(selected.TargetID, selected.ID)
 	}
 	if err != nil {
 		if t.providerFailed(ctx, err) {

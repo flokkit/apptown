@@ -72,11 +72,14 @@ func TestQueueDefinitionFailureStaysUnknownForCallers(t *testing.T) {
 	authority := access.Checked{Authority: directory, Projects: w.schedules.Projects}
 	work := workflow.New(t.Context(), w.schedules.DB, workflow.Dependencies{Authority: authority, JanitorDefinitions: definitions, Standing: w.schedules.Standing})
 	t.Cleanup(work.Stop)
-	if queues, err := work.Queues(w.engine, w.project.ID); err != nil || len(queues) != 0 {
+	if queues, err := work.StoredQueues(w.engine, w.project.ID); err != nil || len(queues) != 0 {
 		t.Fatalf("non-standing definition: %+v %v", queues, err)
 	}
 	definitions.fail = true
-	if queues, err := work.Queues(w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
+	if err := work.RecordJanitorProjects(w.engine); err != nil {
+		t.Fatal(err)
+	}
+	if queues, err := work.StoredQueues(w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {
 		t.Errorf("definition failure returned successful queues: %+v %v", queues, err)
 	}
 	if snapshot, err := readScanSnapshot(attention.Scans{Work: work}, w.engine, w.project.ID); err == nil || !strings.Contains(err.Error(), "workflow definition unavailable") {

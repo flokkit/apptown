@@ -41,22 +41,28 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 	t.Helper()
 	db := changeactions.DatabaseSuite.New(t)
 	dataDir := t.TempDir()
-	ids := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
-	if err := ids.SeedAdministrator(context.Background(), "bls"); err != nil {
+	directory := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
+	if err := directory.SeedAdministrator(context.Background(), "bls"); err != nil {
 		t.Fatal(err)
 	}
-	projects := project.New(db, identity.Scoped(ids, "project"))
+	projects := project.New(db, identity.Scoped(directory, "project"))
 	ways := wow.New(db, wow.Dependencies{})
-	adopt := adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(ids, "adoption"), Projects: projects}, Ways: ways})
+	var work *workflow.Service
+	adopt := adoption.New(db, adoption.Dependencies{AfterAdvance: func(ctx context.Context, tx *database.Tx, pid ids.ID, at time.Time) error {
+		if work == nil {
+			return nil
+		}
+		return work.RecordJanitorAdoptionIn(ctx, tx, pid, at)
+	}, Authority: access.Checked{Authority: identity.Scoped(directory, "adoption"), Projects: projects}, Ways: ways})
 	locks := new(scm.RepositoryLocks)
-	authority := access.Checked{Authority: identity.Scoped(ids, "work"), Projects: projects}
+	authority := access.Checked{Authority: identity.Scoped(directory, "work"), Projects: projects}
 	lifecycle := projectlifecycle.New(db, projectlifecycle.Dependencies{Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Changes: workflow.NewChanges(db, authority, nil), Superseded: workflow.NewAbandonments(db, nil, locks)}, projectlifecycle.Config{DataDir: dataDir})
 	p, err := lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "clock", Name: "Clock", Actor: "bls"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	preparation := workcommands.NewPreparation(db, adopt, scm.NewBranches(db, locks), dataDir, nil, nil, nil, nil)
-	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: ids, Procedures: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
+	rules := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: authority, Identity: directory, Procedures: scheduleStandingProcedure{}, Portfolio: &scheduleStandingPortfolio{}})
 	var selected map[string]workflow.Runner
 	var automatic []string
 	if len(runners) > 0 {
@@ -65,7 +71,7 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 			automatic = append(automatic, kind)
 		}
 	}
-	work := workflow.New(context.Background(), db, workflow.Dependencies{RunningImages: scheduleRunningImages{}, ScanSchedules: scheduleScans{}, JanitorDefinitions: adopt, Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
+	work = workflow.New(context.Background(), db, workflow.Dependencies{RunningImages: scheduleRunningImages{}, ScanSchedules: scheduleScans{}, JanitorDefinitions: adopt, Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)
 	engine := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}, Verified: true, Receipt: "system"})
@@ -205,7 +211,7 @@ func TestAnEvalCopyFiresNoSchedule(t *testing.T) {
 		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
-		return id, adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "eval copy created", adoption.EmptyReceipt(), "eval/1", time.Now())
+		return id, adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "eval copy created", adoption.EmptyReceipt(), "eval/1", time.Now())
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -829,13 +835,10 @@ spec:
 // The scheduler fixture has no deployed software; source observations remain real.
 type scheduleRunningImages struct{}
 
-func (scheduleRunningImages) RunningImages(context.Context, ids.ID) ([]workflow.RunningImages, error) {
+func (scheduleRunningImages) RunningImagesIn(context.Context, database.Queryer, ids.ID) ([]workflow.RunningImages, error) {
 	return nil, nil
 }
 
 type scheduleScans struct{}
 
 func (scheduleScans) ScansSource(context.Context, ids.ID) (bool, error) { return true, nil }
-func (scheduleScans) ScansSourceFrom(context.Context, ids.ID, workflow.ProcedureFacts) (bool, error) {
-	return true, nil
-}

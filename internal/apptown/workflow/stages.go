@@ -93,6 +93,9 @@ func (w stages) EnterIn(ctx context.Context, tx *database.Tx, runID ids.ID, spec
 			auto = append(auto, ReadyStep{ID: row.ID, Type: p.check.Type, OnEnter: p.onEnter, Name: p.check.Name})
 		}
 	}
+	if err := recordJanitorRunIn(ctx, tx, runID, at); err != nil {
+		return nil, err
+	}
 	return auto, nil
 }
 

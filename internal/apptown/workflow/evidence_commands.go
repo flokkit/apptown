@@ -38,7 +38,7 @@ func (s *Service) AttachArtifact(ctx context.Context, runID ids.ID, in ArtifactD
 			return ids.Nil, ErrRunMoved
 		}
 		if !run.ChangeID.IsZero() {
-			if err := TouchChangeIn(ctx, tx, run.ProjectID, run.ChangeID); err != nil {
+			if err := TouchChangeIn(ctx, tx, run.ProjectID, run.ChangeID, s.now()); err != nil {
 				return ids.Nil, err
 			}
 		}

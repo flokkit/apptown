@@ -143,7 +143,7 @@ func (s *Service) takeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 		return nil, fmt.Errorf("no standing deployment named %q", deploymentName)
 	}
 	if s.applied != nil {
-		defer s.applied(dep.TargetID)
+		defer s.applied(dep.TargetID, dep.ID)
 	}
 	// A target that cannot be read is not one known to take AppTown's
 	// backups: the refusal for one AppTown takes no set on is never skipped.

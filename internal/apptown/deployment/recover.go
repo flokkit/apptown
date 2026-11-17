@@ -99,7 +99,7 @@ func (o recoveryObserver) Resume(ctx context.Context, at Attempt, noted map[stri
 
 type recoveryReporter struct {
 	log     func(ids.ID, string, ...any)
-	applied func(ids.ID)
+	applied func(ids.ID, ids.ID)
 }
 
 func (r recoveryReporter) Log(releaseID ids.ID, format string, args ...any) {
@@ -109,9 +109,9 @@ func (r recoveryReporter) Log(releaseID ids.ID, format string, args ...any) {
 	}
 	log.Printf("deployment recovery: "+format, args...)
 }
-func (r recoveryReporter) Applied(targetID ids.ID) {
+func (r recoveryReporter) Applied(targetID, deploymentID ids.ID) {
 	if r.applied != nil {
-		r.applied(targetID)
+		r.applied(targetID, deploymentID)
 	}
 }
 

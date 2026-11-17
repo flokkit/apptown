@@ -68,7 +68,7 @@ spec:
 		if got.Cron != cron || got.Refused != "" || got.Queue != "deps" || got.Next.IsZero() || got.Problem != "" {
 			t.Fatalf("%+v", got)
 		}
-		queues, err := w.work.Queues(human, w.project.ID)
+		queues, err := w.work.StoredQueues(human, w.project.ID)
 		if err != nil || len(queues) != 1 || queues[0].Queue != "deps" || queues[0].Title != "Night deps" {
 			t.Fatalf("%+v %v", queues, err)
 		}

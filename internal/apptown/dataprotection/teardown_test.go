@@ -338,7 +338,7 @@ func TestRemovalSettlementFailureKeepsItsFinalSet(t *testing.T) {
 		return nil, err
 	})
 	ops, _ := takeDownOps(t, s)
-	s.applied = func(ids.ID) { dbtest.FailNextStatement(t, s.db, "-- name: DeleteDeployment") }
+	s.applied = func(_ ids.ID, _ ids.ID) { dbtest.FailNextStatement(t, s.db, "-- name: DeleteDeployment") }
 	op, err := s.TakeDown(t.Context(), removeSelection(dep))
 	if err != nil {
 		t.Fatal(err)

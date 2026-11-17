@@ -41,8 +41,6 @@ type Filter struct {
 	SubjectFamily string // this subject and its space-separated descendants
 	Subject       string // exactly this subject (a target's name, a pack's)
 	Limit         int
-	// PayloadContains filters subject identity before applying the row limit.
-	PayloadContains map[string]any
 }
 
 const (
@@ -56,15 +54,7 @@ func Recent(ctx context.Context, q database.Queryer, f Filter) ([]Entry, error) 
 	if limit < 1 || limit > MaxLimit {
 		limit = defaultLimit
 	}
-	payload := []byte("{}")
-	if f.PayloadContains != nil {
-		var err error
-		payload, err = json.Marshal(f.PayloadContains)
-		if err != nil {
-			return nil, err
-		}
-	}
-	rows, err := auditsql.New(q.SQL()).RecentReceipts(ctx, auditsql.RecentReceiptsParams{ProjectID: f.ProjectID, KindPrefix: f.KindPrefix, Subject: f.Subject, SubjectFamily: f.SubjectFamily, RowLimit: int32(limit), PayloadContains: payload})
+	rows, err := auditsql.New(q.SQL()).RecentReceipts(ctx, auditsql.RecentReceiptsParams{ProjectID: f.ProjectID, KindPrefix: f.KindPrefix, Subject: f.Subject, SubjectFamily: f.SubjectFamily, RowLimit: int32(limit)})
 	out := make([]Entry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, Entry{ID: r.ID, At: r.At.Format(time.RFC3339Nano), Actor: r.Actor, ActorPrincipal: r.ActorPrincipal, ActorVia: r.ActorVia, ProjectID: r.ProjectID, ProjectSlug: r.ProjectSlug, Kind: r.Kind, Subject: r.Subject, Payload: compact(string(r.PayloadJson))})

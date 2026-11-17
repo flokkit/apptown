@@ -9,7 +9,6 @@ WHERE (sqlc.narg(project_id)::uuid IS NULL OR a.project_id=sqlc.narg(project_id)
 AND (sqlc.arg(kind_prefix)::text='' OR a.kind LIKE sqlc.arg(kind_prefix)||'%')
 AND (sqlc.arg(subject)::text='' OR a.subject=sqlc.arg(subject))
 AND (sqlc.arg(subject_family)::text='' OR a.subject=sqlc.arg(subject_family) OR starts_with(a.subject, sqlc.arg(subject_family)||' '))
-AND (sqlc.arg(payload_contains)::jsonb='{}'::jsonb OR a.payload_json @> sqlc.arg(payload_contains)::jsonb)
 ORDER BY a.id DESC LIMIT sqlc.arg(row_limit);
 
 -- Which of these people any ledger line names as its actor, directly or

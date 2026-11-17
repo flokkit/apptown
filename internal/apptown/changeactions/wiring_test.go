@@ -79,7 +79,7 @@ func newWiringFixture(t *testing.T) wiringFixture {
 		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return err
 		}
-		return adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "operator", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "operator", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

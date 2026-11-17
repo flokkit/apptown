@@ -609,7 +609,7 @@ func TestABlockResolvesAsOfItsRevisionByAppTownsClock(t *testing.T) {
 				if err := adoption.InitializeIn(t.Context(), tx, pid, 0, ""); err != nil {
 					return err
 				}
-				return adoption.RecordIn(t.Context(), tx, pid, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "boss", a.cfg.clock.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, pid, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "boss", a.cfg.clock.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

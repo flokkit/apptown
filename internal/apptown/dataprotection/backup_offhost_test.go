@@ -536,7 +536,7 @@ func TestTakingABackupRequestsFreshDeploymentChecks(t *testing.T) {
 	t.Parallel()
 	w := newOffhostWorld(t, "backup-check", 40109)
 	calls := 0
-	w.s.applied = func(id ids.ID) { calls++ }
+	w.s.applied = func(id ids.ID, _ ids.ID) { calls++ }
 	if b := w.take("scheduled"); b.Status != BackupOK {
 		t.Fatalf("backup: %+v", b)
 	}
@@ -547,7 +547,7 @@ func TestTakingABackupRequestsFreshDeploymentChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.s.applied = func(id ids.ID) {
+	w.s.applied = func(id ids.ID, _ ids.ID) {
 		calls++
 		if id != dep.TargetID {
 			t.Errorf("checked target %s, want %s", id, dep.TargetID)
@@ -628,5 +628,80 @@ func TestBackupsOffSweepFinishesMovingExistingSets(t *testing.T) {
 	}
 	if _, err := os.Stat(b.Path); !os.IsNotExist(err) {
 		t.Fatalf("moved backup left on disk: %v", err)
+	}
+}
+
+type pendingProtectionChecks struct{ keys []string }
+
+func (q *pendingProtectionChecks) RequestProtectionObservation(_ context.Context, id ids.ID, identity string) error {
+	key := id.String() + "/" + identity
+	if !slices.Contains(q.keys, key) {
+		q.keys = append(q.keys, key)
+	}
+	return nil
+}
+
+func TestBackupFinishingDuringProtectionOwesARunnableCheck(t *testing.T) {
+	t.Parallel()
+	w := newOffhostWorld(t, "overlapping-backup", 40174)
+	ctx := t.Context()
+	dep, err := w.s.deployments.ByName(ctx, w.pid, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := &pendingProtectionChecks{}
+	observer := NewProtectionObserver(w.s.Service, q)
+	// Use the post-act boundary's owner writes and check request. The queue
+	// deliberately coalesces identical running and pending keys.
+	w.s.applied = func(_ ids.ID, id ids.ID) {
+		if err := w.s.deployments.OweChecks(ctx, id); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := observer.Request(ctx, id); err != nil {
+			t.Error(err)
+		}
+	}
+	if err := observer.Request(ctx, dep.ID); err != nil {
+		t.Fatal(err)
+	}
+	old := q.keys[0]
+	entered, release := make(chan struct{}), make(chan struct{})
+	read := observer.read
+	observer.read = func(ctx context.Context, id ids.ID, name string) (*Protection, error) {
+		p, err := read(ctx, id, name)
+		close(entered)
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return p, err
+	}
+	done := make(chan error, 1)
+	go func() { _, err := observer.RunJob(ctx, old, nil); done <- err }()
+	select {
+	case <-entered:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	backup := w.take("scheduled")
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if backup.Status != BackupOK {
+		t.Fatalf("backup: %+v", backup)
+	}
+	if len(q.keys) != 2 || q.keys[1] == old {
+		t.Fatalf("backup was hidden by the running check: %v", q.keys)
+	}
+	observer.read = read
+	if _, err := observer.RunJob(ctx, q.keys[1], nil); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := observer.Snapshot(ctx, dep.ID)
+	if err != nil || snapshot.ObservedAt.IsZero() || snapshot.Unknown {
+		t.Fatalf("new check did not run: %+v %v", snapshot, err)
 	}
 }

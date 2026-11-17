@@ -51,13 +51,25 @@ func (s *Service) visibleProjects(ctx context.Context, q database.Queryer, pr ac
 	if s.cfg.Projects == nil {
 		return nil, access.ErrAuthorityUnavailable
 	}
-	candidates, err := s.cfg.Projects.ProjectResources(ctx, projectID)
+	facts := &serviceFacts{ctx: ctx, q: q, at: s.now()}
+	if q == s.db {
+		facts = s.readFacts(ctx, s.now())
+	}
+	facts.mu.Lock()
+	candidates, cached := facts.catalogue[projectID]
+	var err error
+	if !cached {
+		candidates, err = s.cfg.Projects.ProjectResources(ctx, projectID)
+		if err == nil && facts.catalogue != nil {
+			facts.catalogue[projectID] = candidates
+		}
+	}
+	facts.mu.Unlock()
 	if err != nil {
 		return nil, err
 	}
 	// Each fact is read lazily once for this operation. The catalogue and facts
 	// are not one database snapshot; the next operation reads all facts anew.
-	facts := &serviceFacts{ctx: ctx, q: q, at: s.now()}
 	visible := make([]ids.ID, 0, len(candidates))
 	for _, resource := range candidates {
 		// The catalogue is a fact source, but cannot widen an instrument's bounds.

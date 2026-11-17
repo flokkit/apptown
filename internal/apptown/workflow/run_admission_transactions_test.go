@@ -196,7 +196,7 @@ func TestRunStartRejectsChangedAdoptionBeforeWriting(t *testing.T) {
 	admissions, req, def := runAdmissionFixture(t)
 	store := admissions.records
 	if err := store.db.InTx(context.Background(), func(tx *database.Tx) error {
-		return adoption.RecordIn(t.Context(), tx, req.ProjectID, 1, adoption.AdoptionEdit, "moved", adoption.EmptyReceipt(), "alice", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, req.ProjectID, 1, adoption.AdoptionEdit, "moved", adoption.EmptyReceipt(), "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

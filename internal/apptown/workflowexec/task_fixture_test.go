@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -339,7 +340,7 @@ func newTaskAppTown(t *testing.T, name string, spec schema.Spec, options ...func
 		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
-		return id, adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "task fixture", adoption.EmptyReceipt(), taskAppTownAdministrator, time.Now())
+		return id, adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "task fixture", adoption.EmptyReceipt(), taskAppTownAdministrator, time.Now())
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -529,4 +530,32 @@ type fixtureUpdateBound struct{ f *taskAppTown }
 
 func (b fixtureUpdateBound) UpdateChoicesForRun(context.Context, ids.ID) (workflow.JanitorChoices, error) {
 	return workflow.JanitorChoices{Dependencies: b.f.bound, BaseImages: true, ToolchainPatches: true, SecurityFixes: true}, nil
+}
+
+// adoptQueueWorkflow publishes the fixture's executable definition with its
+// standing queue, so adoption owns membership just as it does in the app.
+func adoptQueueWorkflow(t *testing.T, f *taskAppTown, name, queue string) adoption.ReceiptWorkflow {
+	t.Helper()
+	spec := f.definitions[name]
+	spec.On.Schedule = &schema.ScheduleTrigger{Cron: "0 6 * * *", Standing: true, Queue: queue}
+	raw, err := json.Marshal(schema.Doc{APIVersion: "apptown.dev/v1", Kind: "Workflow", Metadata: schema.Metadata{Name: name}, Spec: spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, version, err := f.ways.PublishWorkflow(f.ctx, string(raw), taskAppTownAdministrator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return adoption.ReceiptWorkflow{Name: name, Version: version}
+}
+
+func adoptReviewQueue(t *testing.T, f *taskAppTown, name string) {
+	t.Helper()
+	receipt := adoption.EmptyReceipt()
+	receipt.Workflows = append(receipt.Workflows, adoptQueueWorkflow(t, f, name, "updates"))
+	if err := f.db.InTx(f.ctx, func(tx *database.Tx) error {
+		return adoption.New(nil, adoption.Dependencies{AfterAdvance: f.work.RecordJanitorAdoptionIn}).RecordIn(f.ctx, tx, f.projectID, 2, adoption.AdoptionEdit, "adopt queue", receipt, taskAppTownAdministrator, time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
 }

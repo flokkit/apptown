@@ -3316,6 +3316,7 @@ export type LimitEvent = {
 }
 
 export type CrashLoopHold = {
+  generation: number
   receipt: string | null
   at: string
   confirmed: boolean
@@ -4335,11 +4336,13 @@ export type JanitorHold = {
 }
 
 export type QueueStatus = {
+  workflow: string
   changeSummary: string
   title: string
   queue: string
   state: string
   words: string
+  stateSince: string
   since: string
   failed: number
   reason: string

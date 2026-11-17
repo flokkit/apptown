@@ -1046,7 +1046,7 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 		})
 	}
 
-	dbtest.FailNextStatement(t, a.DB, "-- name: JanitorProjectLabels :many")
+	dbtest.FailNextStatement(t, a.DB, "-- name: JanitorRecords :many")
 	if _, err := readScanSnapshot(source, ctx, active); err == nil {
 		t.Fatal("eligibility read failure became exclusion")
 	}

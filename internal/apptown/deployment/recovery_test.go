@@ -77,7 +77,7 @@ func (r *recoveryFixtureReporter) Log(releaseID ids.ID, format string, args ...a
 	r.releases = append(r.releases, releaseID)
 	r.logs = append(r.logs, fmt.Sprintf(format, args...))
 }
-func (r *recoveryFixtureReporter) Applied(ids.ID) { r.applied++ }
+func (r *recoveryFixtureReporter) Applied(ids.ID, ids.ID) { r.applied++ }
 
 func recoveryFixture(t *testing.T) (Recoverer, *recoveryFixtureSource, *executionSettlement, *recoveryFixtureReporter, *int) {
 	t.Helper()

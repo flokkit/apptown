@@ -413,3 +413,23 @@ func (h *Hosts) Watched(ctx context.Context, deployments *Deployments) []docker.
 func (h *Hosts) readsDockerHost(t *Target) bool {
 	return t.Status != TargetRetired && !(t.Origin == OriginBuiltIn && h.NoLocalDocker())
 }
+
+// HoldCallSlot admits a whole check before starting its execution budget.
+func (h *Hosts) HoldCallSlot(ctx context.Context, target *Target) (context.Context, func(), error) {
+	if target.Kind != KindDockerHost || target.Origin != OriginAttached {
+		return ctx, func() {}, nil
+	}
+	scope, err := h.DockerScope(ctx, target)
+	if err != nil {
+		return ctx, nil, err
+	}
+	c := scope.Client.(sshDocker).connection
+	select {
+	case c.calls <- struct{}{}:
+		return context.WithValue(ctx, callSlotKey{}, c), func() { <-c.calls }, nil
+	case <-ctx.Done():
+		return ctx, nil, ctx.Err()
+	}
+}
+
+type callSlotKey struct{}

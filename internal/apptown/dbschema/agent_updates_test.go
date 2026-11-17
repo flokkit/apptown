@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
@@ -38,18 +37,20 @@ func TestAgentUpdateMigrationPreservesRecordedObservations(t *testing.T) {
 	}
 	moves := `[{"ecosystem":"npm","package":"example","from":"v2026.6","to":"v2026.7"}]`
 	var changes []ids.ID
-	for _, outcome := range []string{"held", "skipped"} {
-		created, err := database.Transact(t.Context(), db, func(tx *database.Tx) (workflow.CreatedChange, error) {
-			return workflow.CreateChangeIn(access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: pid}}), tx, workflow.ChangeDraft{ProjectID: pid, Title: "Historical update", Queue: "updates"}, "fixture", time.Now())
-		})
-		if err != nil {
+	// sql-guarantee: seed historical changes and summaries in the pre-242
+	// schema. Current owner operations require the current schema, including
+	// the queue files column and the Janitor write participant.
+	for n, outcome := range []string{"held", "skipped"} {
+		id := ids.New(time.Now())
+		if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO changes(id,project_id,number,type,title,created_at) VALUES($1,$2,$3,'scheduled','Historical update',now())`, id, pid, n+1); err != nil {
 			t.Fatal(err)
 		}
-		changes = append(changes, created.Change.ID)
-		if _, err := db.SQL().ExecContext(t.Context(), `UPDATE automated_changes SET packages=$1,outcome=$2 WHERE id=$3`, moves, outcome, created.Change.ID); err != nil {
+		changes = append(changes, id)
+		if _, err := db.SQL().ExecContext(t.Context(), `INSERT INTO automated_changes(id,project_id,active_change_id,queue,what,opened_at,packages,outcome) VALUES($1,$2,$1,'updates','Historical update',now(),$3,$4)`, id, pid, moves, outcome); err != nil {
 			t.Fatal(err)
 		}
 	}
+
 	// sql-guarantee: a retained summary whose Change has already been purged is
 	// historical storage that current admissions cannot create.
 	if _, err := db.SQL().ExecContext(t.Context(), `DELETE FROM changes WHERE id=$1`, changes[1]); err != nil {

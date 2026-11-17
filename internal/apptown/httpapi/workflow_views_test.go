@@ -131,7 +131,7 @@ func TestHandleDashboardSplit(t *testing.T) {
 		if err := adoption.InitializeIn(f.Context, tx, projectB, 0, ""); err != nil {
 			return err
 		}
-		return adoption.RecordIn(f.Context, tx, projectB, 1, adoption.AdoptionCreate, "dashboard fixture", adoption.EmptyReceipt(), "fixture", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(f.Context, tx, projectB, 1, adoption.AdoptionCreate, "dashboard fixture", adoption.EmptyReceipt(), "fixture", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

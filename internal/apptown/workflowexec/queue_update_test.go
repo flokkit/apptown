@@ -93,7 +93,7 @@ func TestFaultedProposalsRetryIdenticalCandidateUntilStopped(t *testing.T) {
 		if checks != n+1 {
 			t.Fatalf("identical candidate did not reach tests: %d", checks)
 		}
-		state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+		state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 		want := "retrying"
 		if n == 2 {
 			want = "stopped"
@@ -115,7 +115,7 @@ func TestFaultedProposalsRetryIdenticalCandidateUntilStopped(t *testing.T) {
 	if err := f.work.TryQueueAgain(f.ctx, f.projectID, "updates", last); err != nil {
 		t.Fatal(err)
 	}
-	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 	if err != nil || state.Failed != 0 {
 		t.Fatalf("retry: %+v %v", state, err)
 	}
@@ -171,12 +171,12 @@ func TestThreeUninterruptedFailuresStopOnlyTheirQueue(t *testing.T) {
 				if err := json.Unmarshal(retained, &got); err != nil || !reflect.DeepEqual(got, targets) {
 					t.Fatalf("lost targets on attempt %d: %s (%v)", n+1, retained, err)
 				}
-				state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+				state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 				if err != nil || state.Failed != n+1 || state.Stopped() != (n == 2) {
 					t.Fatalf("attempt %d: %+v %v", n+1, state, err)
 				}
 			}
-			other, err := f.work.QueueState(f.ctx, f.projectID, "security")
+			other, err := f.work.StoredQueue(f.ctx, f.projectID, "security")
 			if err != nil || other.Failed != 0 {
 				t.Fatalf("other queue: %+v %v", other, err)
 			}
@@ -202,7 +202,7 @@ func TestThreeUninterruptedFailuresStopOnlyTheirQueue(t *testing.T) {
 // Scans have no running-image subjects in the command fixture.
 type fixtureRunningImages struct{}
 
-func (fixtureRunningImages) RunningImages(context.Context, ids.ID) ([]workflow.RunningImages, error) {
+func (fixtureRunningImages) RunningImagesIn(context.Context, database.Queryer, ids.ID) ([]workflow.RunningImages, error) {
 	return nil, nil
 }
 
@@ -252,7 +252,7 @@ func TestProposalFingerprintBindsMainTreeTargetsAndAdoption(t *testing.T) {
 		}
 	}
 	propose(nil, false)
-	state, err := f.work.QueueState(f.ctx, f.projectID, "updates")
+	state, err := f.work.StoredQueue(f.ctx, f.projectID, "updates")
 	if err != nil || state.State != "decide" || state.Decide == nil || state.Decide.Act != "override" || state.Decide.StepID.IsZero() {
 		t.Fatalf("held proposal: %+v %v", state, err)
 	}
@@ -275,7 +275,7 @@ func TestProposalFingerprintBindsMainTreeTargetsAndAdoption(t *testing.T) {
 	receipt := adoption.EmptyReceipt()
 	receipt.Guidance = []adoption.ReceiptBlock{{Name: block.Name, BlockID: block.ID, Version: block.LatestVersion}}
 	if err := f.db.InTx(t.Context(), func(tx *database.Tx) error {
-		return adoption.RecordIn(f.ctx, tx, f.projectID, 3, adoption.AdoptionEdit, "new pinned guidance", receipt, taskAppTownAdministrator, time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(f.ctx, tx, f.projectID, 3, adoption.AdoptionEdit, "new pinned guidance", receipt, taskAppTownAdministrator, time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

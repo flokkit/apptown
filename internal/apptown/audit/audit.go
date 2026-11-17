@@ -55,12 +55,19 @@ func (at At) String() string { return stamp.Of(time.Time(at)).String() }
 // timestamp and handles the error. Consequential commands use RecordIn instead.
 // It records what has happened, so it is written though the caller stops.
 func Append(ctx context.Context, q database.Queryer, at, actor string, projectID ids.ID, kind, subject, payload string) error {
+	_, err := AppendID(ctx, q, at, actor, projectID, kind, subject, payload)
+	return err
+}
+
+// AppendID also returns the receipt identity for an owner's stored conclusion.
+func AppendID(ctx context.Context, q database.Queryer, at, actor string, projectID ids.ID, kind, subject, payload string) (ids.ID, error) {
 	minted, err := time.Parse(time.RFC3339, at)
 	if err != nil {
-		return fmt.Errorf("audit %q: its stamp %q: %w", kind, at, err)
+		return ids.Nil, fmt.Errorf("audit %q: its stamp %q: %w", kind, at, err)
 	}
-	_, err = auditsql.New(q.SQL()).AppendReceipt(context.WithoutCancel(ctx), line(ctx, minted, at, actor, projectID, kind, subject, json.RawMessage(payload)))
-	return err
+	row := line(ctx, minted, at, actor, projectID, kind, subject, json.RawMessage(payload))
+	_, err = auditsql.New(q.SQL()).AppendReceipt(context.WithoutCancel(ctx), row)
+	return row.ID, err
 }
 
 // line is one ledger line as stored: its id minted at its own stamp.

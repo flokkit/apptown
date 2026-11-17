@@ -13,8 +13,8 @@ import (
 
 // Scans reports scans that need a person: a scan whose scanner failed, or a
 // last scan more than three days old. Code or images newer than the last scan
-// are not an item: the next scheduled scan answers them, and the Janitor page
-// shows them as not known meanwhile. A project whose packs schedule no scan
+// are not an item: the next scheduled scan answers them. The Janitor summary
+// retains the last scan conclusion until another scan arrives or it ages out. A project whose packs schedule no scan
 // made that choice; the Janitor page says so. Findings confined to a running
 // image never make an attention item.
 type Scans struct {
@@ -28,6 +28,9 @@ func (s Scans) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]Scan
 		return nil, err
 	}
 	out := map[ids.ID]ScanSnapshot{}
+	for _, id := range projects {
+		out[id] = ScanSnapshot{Snapshot: scanSnapshot(workflow.ScanAttentionProject{})}
+	}
 	for _, p := range rows {
 		out[p.ProjectID] = ScanSnapshot{Snapshot: scanSnapshot(p), Err: p.Err}
 	}
@@ -58,7 +61,14 @@ func queueItem(id ids.ID, name, href string, state workflow.QueueStatus) Item {
 	if !state.ChangeID.IsZero() {
 		href = "/changes/" + state.ChangeID.String()
 	}
-	return Item{Key: "queue/" + id.String() + "/" + state.Queue, Severity: SeverityWarning, Title: name + ": " + state.Title + " " + state.Words, Detail: queueDetail(state), Href: href, ObservedAt: state.Since}
+	label := labelFailed
+	if state.State == "decide" {
+		label = labelWaiting
+		if state.Decide != nil && state.Decide.Act == workflow.NextApprove {
+			label = labelApproval
+		}
+	}
+	return Item{StatusLabel: label, Key: "queue/" + id.String() + "/" + state.Queue, Severity: SeverityWarning, Title: name + ": " + state.Title + " " + state.Words, Detail: queueDetail(state), Href: href, ObservedAt: state.StateSince}
 }
 
 // scanDetail is the owner's reason for the scans being not known, which names

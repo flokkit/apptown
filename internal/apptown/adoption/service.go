@@ -87,6 +87,7 @@ type UpliftChange struct {
 	NotStarted string
 }
 type Dependencies struct {
+	AfterAdvance afterAdvance
 	Authority    access.ReadAuthorizer
 	Ways         catalog
 	Capabilities capabilityLocker
@@ -119,6 +120,7 @@ func New(db *database.DB, deps Dependencies) *Service {
 	adoptions := newAdoptions(db)
 	adoptions.clock = deps.Now
 	adoptions.reviews = deps.Reviews
+	adoptions.afterAdvance = deps.AfterAdvance
 	policies := newPolicies(db)
 	policies.clock = deps.Now
 	library := newLibrary(db, deps.Ways)
@@ -264,7 +266,7 @@ func (s *Service) AdoptIn(ctx context.Context, tx *database.Tx, projectID ids.ID
 	if err := s.require(ctx, authorization{Operation: operation, ProjectID: projectID, Actor: who, Weakens: len(weakens) > 0}); err != nil {
 		return nil, err
 	}
-	return adoptIn(ctx, tx, current, c, expected, who, reason, func(required []string) error { return s.requireCapabilities(ctx, tx, projectID, required) }, s.deps.Reviews, s.adoptions.now())
+	return adoptIn(ctx, tx, current, c, expected, who, reason, func(required []string) error { return s.requireCapabilities(ctx, tx, projectID, required) }, s.deps.Reviews, s.adoptions.now(), s.deps.AfterAdvance)
 }
 func (s *Service) requireCapabilities(ctx context.Context, q database.Queryer, projectID ids.ID, required []string) error {
 	if len(required) == 0 {

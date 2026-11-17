@@ -31,5 +31,5 @@ func TransitionRunIn(ctx context.Context, tx *database.Tx, expected *Run, next R
 	if n != 1 {
 		return ErrRunMoved
 	}
-	return nil
+	return recordJanitorChangeIn(ctx, tx, expected.ChangeID, at)
 }

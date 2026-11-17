@@ -238,3 +238,11 @@ CREATE TABLE IF NOT EXISTS standing_project_choices (
  record_json JSONB NOT NULL,
  at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE janitor_projects (
+ project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+ queues JSONB NOT NULL DEFAULT '[]',
+ scans JSONB NOT NULL DEFAULT '{}',
+ problem TEXT NOT NULL DEFAULT '',
+ updated_at TIMESTAMPTZ NOT NULL
+);

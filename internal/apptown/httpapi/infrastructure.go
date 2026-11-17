@@ -253,7 +253,7 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 			WriteError(w, 502, "not removed: %s", why)
 			return
 		}
-		h.deployment.InfrastructureChanged(t.ID)
+		h.deployment.InfrastructureChanged(t.ID, ids.Nil)
 		if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, actor(r), ids.Nil, "infrastructure.removed", t.Name, what); err != nil {
 			WriteError(w, 500, "%s %s was removed, but its outcome was not recorded: %v", in.Kind, in.Name, err)
 			return

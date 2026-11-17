@@ -204,7 +204,7 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 	if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 		return out, err
 	}
-	if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "project created", receipt, in.Actor, now); err != nil {
+	if err := s.adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "project created", receipt, in.Actor, now); err != nil {
 		return out, err
 	}
 	opener, err := identity.ActorIn(ctx, tx, in.Actor)

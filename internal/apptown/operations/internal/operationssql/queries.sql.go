@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const claimOperation = `-- name: ClaimOperation :one
@@ -270,6 +271,60 @@ func (q *Queries) LatestEndedOfKind(ctx context.Context, arg LatestEndedOfKindPa
 	return i, err
 }
 
+const latestEndedOnSubjects = `-- name: LatestEndedOnSubjects :many
+SELECT DISTINCT ON (subject) id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE subject=ANY($1::text[]) AND kind=$2 AND state NOT IN ('queued','running') ORDER BY subject,id DESC
+`
+
+type LatestEndedOnSubjectsParams struct {
+	Subjects []string
+	Kind     string
+}
+
+func (q *Queries) LatestEndedOnSubjects(ctx context.Context, arg LatestEndedOnSubjectsParams) ([]Operation, error) {
+	rows, err := q.db.QueryContext(ctx, latestEndedOnSubjects, pq.Array(arg.Subjects), arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Operation
+	for rows.Next() {
+		var i Operation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Kind,
+			&i.ProjectID,
+			&i.Subject,
+			&i.Holds,
+			&i.AskedBy,
+			&i.AskedByPrincipal,
+			&i.Authority,
+			&i.Input,
+			&i.State,
+			&i.Steps,
+			&i.Result,
+			&i.Detail,
+			&i.CancelRequested,
+			&i.JobID,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.TouchedAt,
+			&i.FinishedAt,
+			&i.DismissedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const liveHolder = `-- name: LiveHolder :one
 SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations o
   WHERE o.state IN ('queued','running')
@@ -341,6 +396,55 @@ func (q *Queries) LiveOnSubject(ctx context.Context, subject sql.NullString) (Op
 		&i.DismissedAt,
 	)
 	return i, err
+}
+
+const liveOnSubjects = `-- name: LiveOnSubjects :many
+SELECT DISTINCT ON (subject) id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE subject=ANY($1::text[]) AND state IN ('queued','running') ORDER BY subject,id DESC
+`
+
+func (q *Queries) LiveOnSubjects(ctx context.Context, dollar_1 []string) ([]Operation, error) {
+	rows, err := q.db.QueryContext(ctx, liveOnSubjects, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Operation
+	for rows.Next() {
+		var i Operation
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Kind,
+			&i.ProjectID,
+			&i.Subject,
+			&i.Holds,
+			&i.AskedBy,
+			&i.AskedByPrincipal,
+			&i.Authority,
+			&i.Input,
+			&i.State,
+			&i.Steps,
+			&i.Result,
+			&i.Detail,
+			&i.CancelRequested,
+			&i.JobID,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.TouchedAt,
+			&i.FinishedAt,
+			&i.DismissedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const lockAdmission = `-- name: LockAdmission :exec

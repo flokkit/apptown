@@ -234,7 +234,7 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		}
 		return audit.At(s.now()).RecordIn(recordCtx, tx, actor.Principal.Name, projectID, kind, name, map[string]any{"deploymentId": dep.ID, "generation": dep.ObservedGeneration, "error": detail})
 	})
-	s.InfrastructureChanged(dep.TargetID)
+	s.InfrastructureChanged(dep.TargetID, dep.ID)
 	if err != nil || settleErr != nil {
 		return nil, errors.Join(err, settleErr)
 	}

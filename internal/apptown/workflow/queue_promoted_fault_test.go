@@ -47,7 +47,7 @@ func TestPromotedCheckFailureRequiresDecision(t *testing.T) {
 			if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
 				t.Fatal(err)
 			}
-			before, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+			before, err := s.StoredQueue(t.Context(), ch.ProjectID, "security")
 			if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "Dockerfile restructure" {
 				t.Fatalf("held: %+v %v", before, err)
 			}
@@ -83,7 +83,7 @@ func TestPromotedCheckFailureRequiresDecision(t *testing.T) {
 					t.Fatalf("attempt %d: %+v", attempt, result)
 				}
 			}
-			got, err := s.QueueState(ctx, ch.ProjectID, "security")
+			got, err := s.StoredQueue(ctx, ch.ProjectID, "security")
 			if err != nil {
 				t.Fatal(err)
 			}

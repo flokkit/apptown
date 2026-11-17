@@ -92,7 +92,7 @@ spec:
 				}
 				w.work.Wait()
 			}
-			queues, err := w.work.Queues(human, w.project.ID)
+			queues, err := w.work.StoredQueues(human, w.project.ID)
 			if err != nil || len(queues) != 1 || queues[0].Queue != "team-queue" || queues[0].Title != "Team care" {
 				t.Fatalf("queues %+v %v", queues, err)
 			}

@@ -66,7 +66,7 @@ func (a PackAdoptions) AdoptWhatIf(ctx context.Context, assessed *conformance.Wh
 		if err != nil {
 			return err
 		}
-		state, err := a.Work.QueueState(call, p.ProjectID, queue)
+		state, err := a.Work.StoredQueue(call, p.ProjectID, queue)
 		if err != nil {
 			return err
 		}

@@ -132,7 +132,7 @@ func TestReviewQuietQueueFinishesAfterFinding(t *testing.T) {
 						t.Parallel()
 						fixture, ch, _, retention, running := automatedFixture(t)
 						if !queue {
-							if err := fixture.db.InTx(t.Context(), func(tx *database.Tx) error { return promoteChangeIn(t.Context(), tx, ch.ProjectID, ch.ID) }); err != nil {
+							if err := fixture.db.InTx(t.Context(), func(tx *database.Tx) error { return promoteChangeIn(t.Context(), tx, ch.ProjectID, ch.ID, time.Now()) }); err != nil {
 								t.Fatal(err)
 							}
 						}

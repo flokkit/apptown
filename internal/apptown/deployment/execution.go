@@ -111,7 +111,7 @@ type Runner struct {
 	Store executionStore
 	// Acted hears of every effect that ran, once it is settled, whatever its
 	// outcome: a failed or uncertain deploy may have changed the target too.
-	Acted     func(ids.ID)
+	Acted     func(ids.ID, ids.ID)
 	BeforeAct func(context.Context, ids.ID) (done func(), err error)
 }
 
@@ -173,7 +173,7 @@ func (r Runner) Run(ctx context.Context, in Start, execute execute) (ExecutionRe
 		defer done()
 	}
 	if r.Acted != nil {
-		defer r.Acted(in.TargetID)
+		defer r.Acted(in.TargetID, in.DeploymentID)
 	}
 	o, err := execute(ctx, at, r.Store.Checkpoint(ctx, at))
 	result.Observed = o

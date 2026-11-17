@@ -39,7 +39,7 @@ func (f *automatedRetentionFake) RetainsWorkIn(context.Context, database.Queryer
 
 type runningImagesFake struct{ rows []RunningImages }
 
-func (f *runningImagesFake) RunningImages(context.Context, ids.ID) ([]RunningImages, error) {
+func (f *runningImagesFake) RunningImagesIn(context.Context, database.Queryer, ids.ID) ([]RunningImages, error) {
 	return f.rows, nil
 }
 
@@ -47,6 +47,7 @@ func automatedFixture(t *testing.T) (*Service, *Change, string, *automatedRetent
 	t.Helper()
 	db := testDB(t)
 	pid := workflowTestProject(t, db, "scan-project", "Scan project", "main")
+	seedSyntheticJanitorQueues(t, db, pid, "security", "updates")
 	data := t.TempDir()
 	repo, err := (project.RepositoryRef{ID: pid, Slug: "scan-project"}).Path(data)
 	if err != nil {
@@ -452,10 +453,6 @@ type scheduledScans struct{}
 
 func (scheduledScans) ScansSource(context.Context, ids.ID) (bool, error) { return true, nil }
 
-func (scheduledScans) ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error) {
-	return true, nil
-}
-
 // Judge infrastructure faults retry through the normal writer twice; error
 // evidence survives each reset and only the final attempt holds the queue.
 func TestQueueCheckFaultRetriesTwiceBeforeHolding(t *testing.T) {
@@ -563,7 +560,7 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 	if _, err := (reworkStore{db: s.db}).fail(t.Context(), claim, outcome); err != nil {
 		t.Fatal(err)
 	}
-	before, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+	before, err := s.StoredQueue(t.Context(), ch.ProjectID, "security")
 	if err != nil || before.State != "decide" || before.Decide == nil || before.Decide.Act != nextOverride || before.Decide.StepID != routine.ID || before.Words != "Dockerfile restructure." {
 		t.Fatalf("held: %+v %v", before, err)
 	}
@@ -579,7 +576,7 @@ func TestQueueKeepsPromotedChangeThroughOverrideAndAcceptance(t *testing.T) {
 	if err := newStepAttempts(s.db, func(string) bool { return true }).finish(ctx, testClaim, StepOutcome{Status: StatusPass}); err != nil {
 		t.Fatal(err)
 	}
-	after, err := s.QueueState(ctx, ch.ProjectID, "security")
+	after, err := s.StoredQueue(ctx, ch.ProjectID, "security")
 	if err != nil || after.ChangeID != ch.ID || after.State != "decide" || after.Decide == nil || after.Decide.Act != NextApprove || after.Decide.StepID != accept.ID || after.Words != "Waiting for your acceptance" {
 		t.Fatalf("after override: %+v %v", after, err)
 	}
@@ -668,7 +665,7 @@ func TestQueueDescribesOnlyRecordedProposals(t *testing.T) {
 				}
 				s.Wait()
 			}
-			read, err := s.QueueState(t.Context(), ch.ProjectID, "security")
+			read, err := s.StoredQueue(t.Context(), ch.ProjectID, "security")
 			if err != nil {
 				t.Fatal(err)
 			}

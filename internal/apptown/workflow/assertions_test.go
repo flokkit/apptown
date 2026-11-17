@@ -367,7 +367,7 @@ func TestAssertionMergeRefusesChangedSourceMetadata(t *testing.T) {
 					}
 				case "revision":
 					if err := owner.db.InTx(context.Background(), func(tx *database.Tx) error {
-						return adoption.RecordIn(t.Context(), tx, run.ProjectID, 1, adoption.AdoptionCreate, "source changed", adoption.EmptyReceipt(), "alice", time.Now())
+						return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, run.ProjectID, 1, adoption.AdoptionCreate, "source changed", adoption.EmptyReceipt(), "alice", time.Now())
 					}); err != nil {
 						t.Fatal(err)
 					}

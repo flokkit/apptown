@@ -241,6 +241,9 @@ func (s *Service) endNothingToChange(ctx context.Context, expected *Run) error {
 		if err := workflowsql.New(tx.SQL()).EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: run.ChangeID, Outcome: outcome, Reason: why, EndedAt: sql.NullTime{Time: s.now(), Valid: true}}); err != nil {
 			return nil, err
 		}
+		if err := recordJanitorChangeIn(ctx, tx, run.ChangeID, s.now()); err != nil {
+			return nil, err
+		}
 		return result, nil
 	})
 	return err

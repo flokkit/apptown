@@ -47,7 +47,7 @@ func upliftFixture(t *testing.T) (changeStore, Uplift) {
 	id := workflowTestProject(t, db, "uplift", "Uplift", "main")
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
 		for revision := int64(1); revision <= 7; revision++ {
-			if err := adoption.RecordIn(t.Context(), tx, id, revision, adoption.AdoptionCreate, "uplift prerequisite", adoption.EmptyReceipt(), "alice", time.Now()); err != nil {
+			if err := adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, revision, adoption.AdoptionCreate, "uplift prerequisite", adoption.EmptyReceipt(), "alice", time.Now()); err != nil {
 				return err
 			}
 		}

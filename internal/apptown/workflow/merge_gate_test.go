@@ -393,7 +393,7 @@ func TestMergeGateRefusesChangedSourceMetadata(t *testing.T) {
 		"default branch": func(db *database.DB, run *Run) { setMergeSourceDefaultBranch(t, db, run.ProjectID, "trunk") },
 		"adoption": func(db *database.DB, run *Run) {
 			if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-				return adoption.RecordIn(t.Context(), tx, run.ProjectID, 1, adoption.AdoptionEdit, "competing adoption", adoption.EmptyReceipt(), "alice", time.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, run.ProjectID, 1, adoption.AdoptionEdit, "competing adoption", adoption.EmptyReceipt(), "alice", time.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

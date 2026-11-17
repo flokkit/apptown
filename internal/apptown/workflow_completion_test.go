@@ -605,6 +605,10 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 			}
 		}}
 	})
+	if err := a.DB.InTx(ctx, func(tx *database.Tx) error { return a.Work.RecordJanitorAdoptionIn(ctx, tx, ch.ProjectID, time.Now()) }); err != nil {
+		t.Fatal(err)
+	}
+
 	a.Work.Stop()
 	scheduled := verifiedContext(t.Context(), access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: ch.ProjectID})
 	source := attention.Scans{Work: a.Work}
@@ -631,7 +635,7 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		state, err := a.Work.QueueState(ctx, ch.ProjectID, "updates")
+		state, err := a.Work.StoredQueue(ctx, ch.ProjectID, "updates")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -659,6 +663,6 @@ func TestAcceptedQueueWorkRemovesEarlierFailureFromAttention(t *testing.T) {
 	}
 }
 
-func (queueAttentionDefinition) ScheduledWorkflowNames(context.Context, ids.ID) (map[string]bool, error) {
+func (queueAttentionDefinition) ScheduledWorkflowNamesIn(context.Context, database.Queryer, ids.ID) (map[string]bool, error) {
 	return map[string]bool{}, nil
 }

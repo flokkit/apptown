@@ -70,7 +70,7 @@ func (a Attachments) Add(ctx context.Context, id ids.ID, name string, body []byt
 		return attachmentAdded{}, err
 	}
 	if humanTouch(ctx) {
-		if err := promoteChange(ctx, a.changes.db, project, id); err != nil {
+		if err := promoteChange(ctx, a.changes.db, project, id, a.changes.now()); err != nil {
 			return attachmentAdded{}, err
 		}
 	}
@@ -142,7 +142,7 @@ func (a Attachments) Remove(ctx context.Context, id ids.ID, name string) error {
 		return err
 	}
 	if humanTouch(ctx) {
-		if err := promoteChange(ctx, a.changes.db, project, id); err != nil {
+		if err := promoteChange(ctx, a.changes.db, project, id, a.changes.now()); err != nil {
 			return err
 		}
 	}

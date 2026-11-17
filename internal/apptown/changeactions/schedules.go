@@ -248,7 +248,7 @@ func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedB
 // admit is shared by firing and reads of current operational admission.
 func (s Schedules) admit(ctx context.Context, c firing) (fired, error) {
 	if c.trigger.Queue != "" {
-		state, err := s.Actions.work.QueueState(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
+		state, err := s.Actions.work.StoredQueue(asSchedule(ctx, c.projectID), c.projectID, c.trigger.Queue)
 		if err != nil {
 			return fired{}, fmt.Errorf("reading queue %s: %w", c.trigger.Queue, err)
 		}
@@ -416,81 +416,39 @@ func (s Schedules) carriedBy(ctx context.Context, projectID ids.ID, publications
 	if err != nil {
 		return nil, err
 	}
-	return s.carriedFrom(ctx, projectID, publications, workflow.ProcedureFacts{Receipt: ad, Workflows: items, Scheduled: names})
+	for _, name := range selected {
+		found := false
+		for _, item := range items {
+			found = found || item.Name == name
+		}
+		if !found {
+			version, body, err := s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: projectID, Revision: ad}, name)
+			items = append(items, adoption.AdoptedWorkflow{Name: name, Version: version, YAML: body, Err: err})
+		}
+	}
+	procedures := make([]workflow.JanitorProcedure, 0, len(items))
+	for _, item := range items {
+		p, _ := workflow.DescribeJanitorProcedure(item, names[item.Name])
+		procedures = append(procedures, p)
+	}
+	return carriedProcedures(procedures, publications), nil
 }
 
-func (s Schedules) carriedFrom(ctx context.Context, projectID ids.ID, publications bool, facts workflow.ProcedureFacts) ([]carried, error) {
-	ad := facts.Receipt
-	if ad == nil {
-		return nil, nil
-	}
-	names := map[string]bool{}
-	for name, scheduled := range facts.Scheduled {
-		names[name] = scheduled
-	}
-	if publications {
-		for _, wf := range ad.Receipt.Workflows {
-			if _, exists := names[wf.Name]; !exists {
-				names[wf.Name] = false
-			}
-		}
-	}
-	items := facts.Workflows
-	pinned := make(map[string]adoption.AdoptedWorkflow, len(items))
-	for _, item := range items {
-		pinned[item.Name] = item
-	}
-	var out []carried
-	ordered := make([]string, 0, len(names))
-	for name := range names {
-		ordered = append(ordered, name)
-	}
-	slices.Sort(ordered)
-	for _, name := range ordered {
-		scheduled := names[name]
-		item, adopted := pinned[name]
-		version, yaml, err := item.Version, item.YAML, item.Err
-		if !adopted {
-			version, yaml, err = s.Adoption.WorkflowVersion(ctx, adoption.Source{ProjectID: ad.ProjectID, Revision: ad}, name)
-		}
-		if err != nil {
-			out = append(out, carried{workflow: name, scheduled: scheduled, err: err})
+func carriedProcedures(items []workflow.JanitorProcedure, publications bool) []carried {
+	out := []carried{}
+	for _, p := range items {
+		if p.Problem != "" {
+			out = append(out, carried{workflow: p.Name, version: p.Version, scheduled: p.Scheduled, err: fmt.Errorf("%s", p.Problem)})
 			continue
 		}
-		doc, err := schema.ParseWorkflowStored([]byte(yaml))
-		if err != nil {
-			// Whether it carries a schedule is unknown, not no: the scheduler
-			// cannot fire it, and the read says it could not be read.
-			out = append(out, carried{workflow: name, scheduled: scheduled, version: version, err: fmt.Errorf("its stored definition does not parse: %w", err)})
-			continue
+		if publications && p.Publication {
+			out = append(out, carried{workflow: p.Name, version: p.Version, standing: p.Standing, publication: true, trigger: schema.ScheduleTrigger{Queue: p.Standing.Queue}})
 		}
-		if doc.Metadata.System {
-			continue
+		if p.Scheduled {
+			out = append(out, carried{workflow: p.Name, version: p.Version, scheduled: true, standing: p.Standing, trigger: p.Trigger, discoversTargets: p.DiscoversTargets, scansSource: p.ScansSource})
 		}
-		if trigger, ok := doc.Standing(); publications && ok && doc.Spec.On.Publication != nil && trigger.Queue != "" {
-			out = append(out, carried{workflow: name, version: version, standing: &trigger, publication: true, trigger: schema.ScheduleTrigger{Queue: trigger.Queue}})
-		}
-		if !scheduled || doc.Spec.On.Schedule == nil || doc.Spec.On.Schedule.Cron == "" {
-			continue
-		}
-		discovers, scansSource := false, false
-		for _, stage := range doc.Spec.Stages {
-			for _, step := range append(append([]schema.Step{}, stage.OnEnter...), stage.Steps...) {
-				if step.Uses == "scan" && step.With["on"] == "source" {
-					scansSource = true
-				}
-				if step.Uses == "workflow/call" && step.With["findings"] == "fixable" {
-					discovers = true
-				}
-			}
-		}
-		one := carried{scheduled: true, workflow: name, version: version, trigger: *doc.Spec.On.Schedule, discoversTargets: discovers, scansSource: scansSource}
-		if trigger, ok := doc.Standing(); ok {
-			one.standing = &trigger
-		}
-		out = append(out, one)
 	}
-	return out, nil
+	return out
 }
 
 // ProjectSchedules is what a project's schedules will do and last did.
@@ -547,15 +505,11 @@ func (s Schedules) Of(ctx context.Context, p project.Project, now time.Time) (Pr
 func (s Schedules) ForJanitor(ctx context.Context, projects []workflow.JanitorProject, now time.Time) (map[ids.ID]ProjectSchedules, error) {
 	carried := map[ids.ID][]carried{}
 	for _, p := range projects {
-		items, err := s.carriedFrom(ctx, p.ProjectID, true, p.Facts)
-		if err != nil {
-			return nil, err
-		}
-		carried[p.ProjectID] = items
+		carried[p.ProjectID] = carriedProcedures(p.Procedures, true)
 	}
 	out := map[ids.ID]ProjectSchedules{}
 	for _, p := range projects {
-		row, err := s.scheduleView(ctx, project.Project{ID: p.ProjectID, Slug: p.Slug, Purpose: project.Ordinary}, now, carried[p.ProjectID], p.Eligibility, p.Queues)
+		row, err := s.scheduleView(ctx, project.Project{ID: p.ProjectID, Slug: p.Slug, Purpose: project.Ordinary}, now, carried[p.ProjectID], p.Eligibility, p.Queues, &p.Scans)
 		if err != nil {
 			return nil, err
 		}
@@ -574,10 +528,10 @@ func (s Schedules) of(ctx context.Context, p project.Project, now time.Time, pub
 	if err != nil {
 		return ProjectSchedules{}, err
 	}
-	return s.scheduleView(ctx, p, now, carried, nil, nil)
+	return s.scheduleView(ctx, p, now, carried, nil, nil, nil)
 }
 
-func (s Schedules) scheduleView(ctx context.Context, p project.Project, now time.Time, carried []carried, eligibility map[string]workflow.StandingEligibilityResult, queues []workflow.QueueStatus) (ProjectSchedules, error) {
+func (s Schedules) scheduleView(ctx context.Context, p project.Project, now time.Time, carried []carried, eligibility map[string]workflow.StandingEligibilityResult, queues []workflow.QueueStatus, storedScans *workflow.MainScans) (ProjectSchedules, error) {
 	projectID := p.ID
 	records, err := workflow.ScheduleRecordsIn(ctx, s.DB, projectID)
 	if err != nil {
@@ -663,7 +617,14 @@ func (s Schedules) scheduleView(ctx context.Context, p project.Project, now time
 			*rows = append(*rows, ps)
 			continue
 		}
-		ps.Next, err = s.nextScanFiring(ctx, projectID, c.scansSource && ps.Last != nil, from, spec.Next(from))
+		ps.Next = spec.Next(from)
+		if storedScans != nil {
+			if c.scansSource && ps.Last != nil && storedScans.Failed && from.Add(time.Hour).Before(ps.Next) {
+				ps.Next = from.Add(time.Hour)
+			}
+		} else {
+			ps.Next, err = s.nextScanFiring(ctx, projectID, c.scansSource && ps.Last != nil, from, ps.Next)
+		}
 		if err != nil {
 			ps.Problem = err.Error()
 			*rows = append(*rows, ps)
@@ -704,14 +665,6 @@ func (s Schedules) ScansSource(ctx context.Context, projectID ids.ID) (bool, err
 		return false, err
 	}
 	return scansSource(carried)
-}
-
-func (s Schedules) ScansSourceFrom(ctx context.Context, projectID ids.ID, facts workflow.ProcedureFacts) (bool, error) {
-	items, err := s.carriedFrom(ctx, projectID, false, facts)
-	if err != nil {
-		return false, err
-	}
-	return scansSource(items)
 }
 
 func scansSource(carried []carried) (bool, error) {

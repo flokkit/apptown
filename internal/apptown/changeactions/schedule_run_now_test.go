@@ -121,7 +121,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 			// Armed by the previous firing; the next cron time is tomorrow 05:00.
 			release <- struct{}{}
 			if !waitFor(func() bool {
-				s, err := w.work.QueueState(w.engine, w.project.ID, "security")
+				s, err := w.work.StoredQueue(w.engine, w.project.ID, "security")
 				return err == nil && s.State != "updating"
 			}) {
 				t.Fatal("the first scan never settled")
@@ -149,7 +149,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 	// The second scan is still working: another request is refused and the
 	// firing record stays the second scan's.
 	if !waitFor(func() bool {
-		s, err := w.work.QueueState(w.engine, w.project.ID, "security")
+		s, err := w.work.StoredQueue(w.engine, w.project.ID, "security")
 		return err == nil && s.State == "updating"
 	}) {
 		t.Fatal("the running scan never showed as updating")

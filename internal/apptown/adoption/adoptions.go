@@ -160,9 +160,10 @@ type RecordedRevision struct {
 
 // adoptionStore is the supported API over a project's revisions.
 type adoptionStore struct {
-	db      *database.DB
-	clock   func() time.Time // AppTown's clock; nil is the real one
-	reviews reviewRequester  // see Dependencies.Reviews
+	db           *database.DB
+	clock        func() time.Time // AppTown's clock; nil is the real one
+	afterAdvance afterAdvance
+	reviews      reviewRequester // see Dependencies.Reviews
 }
 
 func newAdoptions(db *database.DB) *adoptionStore { return &adoptionStore{db: db} }
@@ -221,7 +222,7 @@ func (s *adoptionStore) history(ctx context.Context, projectID ids.ID, limit int
 // and receipt commit together.
 // It is stamped at, the caller's clock (AppTown's), by which the ways of
 // working it adopted are later resolved as of that time.
-func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, kind AdoptionKind, reason string, receipt Receipt, by string, at time.Time) error {
+func (s *Service) RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, kind AdoptionKind, reason string, receipt Receipt, by string, at time.Time) error {
 	if !kind.standing() {
 		return errAdoptionKind
 	}
@@ -246,7 +247,7 @@ func RecordIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision i
 	}
 	// Creation, not a change of adoption: revision 1 has no earlier
 	// standing to recheck, and eval copies are throwaway. No review.
-	return saveAdvanceIn(ctx, tx, current.Revision, next, plan, event, by, at, nil)
+	return saveAdvanceIn(ctx, tx, current.Revision, next, plan, event, by, at, nil, s.deps.AfterAdvance)
 }
 
 var ErrRevisionUnavailable = errors.New("recorded adoption revision is unavailable")
@@ -291,7 +292,7 @@ func (s *adoptionStore) advance(ctx context.Context, projectID ids.ID, kind Adop
 		if err != nil {
 			return nil, err
 		}
-		if err := saveAdvanceIn(ctx, tx, current.Revision, next, plan, event, by, now, s.reviews); err != nil {
+		if err := saveAdvanceIn(ctx, tx, current.Revision, next, plan, event, by, now, s.reviews, s.afterAdvance); err != nil {
 			return nil, err
 		}
 		if !event.Recorded {

@@ -40,10 +40,11 @@ type CapacityObserver struct {
 	now    func() time.Time
 	target func(context.Context, ids.ID) (*Target, error)
 	read   func(context.Context, *Target) (TargetCapacity, error)
+	hosts  *Hosts
 }
 
 func NewCapacityObserver(service *Service) *CapacityObserver {
-	return &CapacityObserver{db: service.db, now: service.now, target: service.Targets.ByID, read: service.targetCapacity}
+	return &CapacityObserver{db: service.db, now: service.now, target: service.Targets.ByID, read: service.targetCapacity, hosts: service.hosts}
 }
 
 // Snapshot takes the current authorized target record. A changed configuration
@@ -91,8 +92,6 @@ func (o *CapacityObserver) load(ctx context.Context, t *Target) (capacityRecord,
 
 // Run publishes only evidence for the target configuration it checked.
 func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
 	target, err := o.target(ctx, id)
 	if err != nil {
 		return err
@@ -100,6 +99,16 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 	if target.SettingsRevision != revision {
 		return nil
 	}
+	if o.hosts != nil {
+		var release func()
+		ctx, release, err = o.hosts.HoldCallSlot(ctx, target)
+		if err != nil {
+			return err
+		}
+		defer release()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	reading, checkErr := o.read(ctx, target)
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return ctx.Err()

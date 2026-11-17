@@ -50,6 +50,11 @@ func (s *Service) diagnoseReportedParts(ctx context.Context, dep *Deployment, ap
 	if err != nil {
 		return err
 	}
+	diagnoseReportedPartsRecord(dep, applied, o, why, out)
+	return s.settledParts(ctx, dep, out)
+}
+
+func diagnoseReportedPartsRecord(dep *Deployment, applied AppliedProfile, o RuntimeObservation, why string, out *Diagnostics) {
 	out.Reading = DetailReading{ObservedAt: o.ObservedAt, AttemptedAt: o.AttemptedAt}
 	if why != "" {
 		out.Reading.Failure, out.Reading.Stale, out.Reading.Unknown = why, true, true
@@ -85,7 +90,6 @@ func (s *Service) diagnoseReportedParts(ctx context.Context, dep *Deployment, ap
 			}
 		}
 	}
-	return s.settledParts(ctx, dep, out)
 }
 
 // reportedOf is the reported parts that run generation g, by name (a need

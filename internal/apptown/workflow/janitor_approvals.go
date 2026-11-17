@@ -10,11 +10,9 @@ func (s *Service) janitorEligibility(ctx context.Context, projects []JanitorProj
 	set := make([]ProjectWorkflows, 0, len(projects))
 	for _, p := range projects {
 		request := ProjectWorkflows{ProjectID: p.ProjectID}
-		for _, d := range parseProcedures(p.Facts) {
-			if d.doc != nil {
-				if _, ok := d.doc.Standing(); ok {
-					request.Workflows = append(request.Workflows, d.name)
-				}
+		for _, q := range p.Queues {
+			if q.Workflow != "" {
+				request.Workflows = append(request.Workflows, q.Workflow)
 			}
 		}
 		set = append(set, request)

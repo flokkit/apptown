@@ -148,12 +148,12 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 					}
 				}
 			} else {
+				if _, err := workflowsql.New(tx.SQL()).EnsureLanding(ctx, run.ID); err != nil {
+					return err
+				}
 				if err := recordReceiptIn(ctx, tx, run.ID, "landing.queued", struct {
 					Change ids.ID `json:"change"`
 				}{run.ChangeID}, w.now()); err != nil {
-					return err
-				}
-				if _, err := workflowsql.New(tx.SQL()).EnsureLanding(ctx, run.ID); err != nil {
 					return err
 				}
 				completed.Effects = append(completed.Effects, CompletionLand)

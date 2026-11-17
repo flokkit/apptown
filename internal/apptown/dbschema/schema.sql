@@ -1391,6 +1391,14 @@ CREATE TABLE IF NOT EXISTS standing_project_choices (
  at TIMESTAMPTZ NOT NULL
 );
 
+CREATE TABLE janitor_projects (
+ project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+ queues JSONB NOT NULL DEFAULT '[]',
+ scans JSONB NOT NULL DEFAULT '{}',
+ problem TEXT NOT NULL DEFAULT '',
+ updated_at TIMESTAMPTZ NOT NULL
+);
+
 -- Source: internal/apptown/deployment/schema.sql
 CREATE TABLE IF NOT EXISTS releases (
   id UUID PRIMARY KEY,
@@ -1503,6 +1511,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   routine_updates JSONB NOT NULL DEFAULT '{"mode":"automatic"}',
   routine_updates_revision BIGINT NOT NULL DEFAULT 1,
+  checks_owed_at TIMESTAMPTZ,
+  hold JSONB,
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -1796,6 +1806,9 @@ CREATE TABLE deployment_readings (
     complete_act_counter BIGINT NOT NULL DEFAULT 0,
     UNIQUE (subject, kind)
 );
+
+CREATE INDEX releases_deployment_number ON releases(deployment_id, number DESC);
+CREATE INDEX release_events_release_at ON release_events(release_id, at DESC, id DESC);
 
 -- Source: internal/apptown/preview/schema.sql
 -- What AppTown created for a preview, by the preview's name: today the

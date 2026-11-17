@@ -5519,19 +5519,28 @@
           "state": {
             "type": "string"
           },
+          "stateSince": {
+            "format": "date-time",
+            "type": "string"
+          },
           "title": {
             "type": "string"
           },
           "words": {
             "type": "string"
+          },
+          "workflow": {
+            "type": "string"
           }
         },
         "required": [
+          "workflow",
           "changeSummary",
           "title",
           "queue",
           "state",
           "words",
+          "stateSince",
           "since",
           "failed",
           "reason",

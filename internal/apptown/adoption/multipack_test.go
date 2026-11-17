@@ -37,7 +37,7 @@ func multipackProject(t *testing.T, db *database.DB) ids.ID {
 	t.Helper()
 	pid := serviceAdoptionProject(t, db)
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "created", EmptyReceipt(), "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "created", EmptyReceipt(), "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +219,7 @@ func TestSavingGuidanceUnchangedRecordsThePacksAndKeepsEveryPin(t *testing.T) {
 		if err := SetMembershipIn(t.Context(), tx, pid, []Membership{{Pack: "house", Version: 1}}, "initial", "alice", time.Now()); err != nil {
 			return err
 		}
-		return RecordIn(t.Context(), tx, pid, 2, AdoptionEdit, "advanced", receipt, "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 2, AdoptionEdit, "advanced", receipt, "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

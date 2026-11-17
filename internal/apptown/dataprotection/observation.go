@@ -79,10 +79,17 @@ type ProtectionObserver struct {
 	now     func() time.Time
 	resolve func(context.Context, ids.ID) (*deployment.Deployment, string, error)
 	read    func(context.Context, ids.ID, string) (*Protection, error)
+	hold    func(context.Context, ids.ID) (context.Context, func(), error)
 }
 
 func NewProtectionObserver(service *Service, queue protectionObservationQueue) *ProtectionObserver {
-	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.collectProtection, resolve: service.protectionIdentity}
+	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.collectProtection, resolve: service.protectionIdentity, hold: func(ctx context.Context, id ids.ID) (context.Context, func(), error) {
+		target, err := service.targets.ByID(ctx, id)
+		if err != nil {
+			return ctx, nil, err
+		}
+		return service.hosts.HoldCallSlot(ctx, target)
+	}}
 }
 
 func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
@@ -100,10 +107,11 @@ func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deploymen
 		return nil, "", err
 	}
 	raw, err := json.Marshal(struct {
+		ChecksOwedAt   time.Time
 		Deployment     any
 		TargetRevision int64
 		Store          *BackupStore
-	}{dep.ReadingBasis(), target.SettingsRevision, store})
+	}{dep.ChecksOwedAt, dep.ReadingBasis(), target.SettingsRevision, store})
 	if err != nil {
 		return nil, "", err
 	}
@@ -179,8 +187,6 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 }
 
 func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string) error {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
 	dep, current, err := o.resolve(ctx, id)
 	if err == nil && (current != identity || dep.Kind != deployment.Standing) {
 		return nil
@@ -188,6 +194,16 @@ func (o *ProtectionObserver) run(ctx context.Context, id ids.ID, identity string
 	if err == nil && dep.LastApplied == nil && dep.ServingReleaseID.IsZero() {
 		return nil
 	}
+	if err == nil && o.hold != nil {
+		var release func()
+		ctx, release, err = o.hold(ctx, dep.TargetID)
+		if err != nil {
+			return err
+		}
+		defer release()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	var protection *Protection
 	if err == nil {
 		protection, err = o.read(ctx, dep.ProjectID, dep.Name)
@@ -326,12 +342,6 @@ const ProtectionObservationJob = "protection-observation"
 func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 	rawID, identity, ok := strings.Cut(key, "/")
 	id, idErr := ids.Parse(rawID)
-	identity, act, hasAct := strings.Cut(identity, "/")
-	if hasAct {
-		if _, err := ids.Parse(act); err != nil {
-			return nil, jobs.Permanent(err)
-		}
-	}
 	digest, digestErr := hex.DecodeString(identity)
 	if !ok || idErr != nil || id.IsZero() || digestErr != nil || len(digest) != sha256.Size {
 		return nil, jobs.Permanent(errors.New("invalid protection observation identity"))
@@ -341,24 +351,16 @@ func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[strin
 
 // Request admits a periodic background check for the current local identity.
 func (o *ProtectionObserver) Request(ctx context.Context, id ids.ID) error {
-	return o.request(ctx, id, false)
+	return o.request(ctx, id)
 }
 
-// AfterAct guarantees a fresh check after an act, even if a check is running.
-func (o *ProtectionObserver) AfterAct(ctx context.Context, id ids.ID) error {
-	return o.request(ctx, id, true)
-}
-
-func (o *ProtectionObserver) request(ctx context.Context, id ids.ID, afterAct bool) error {
+func (o *ProtectionObserver) request(ctx context.Context, id ids.ID) error {
 	dep, identity, err := o.resolve(ctx, id)
 	if err != nil {
 		return err
 	}
 	if dep.Kind != deployment.Standing {
 		return nil
-	}
-	if afterAct {
-		identity += "/" + ids.New(o.now()).String()
 	}
 	return o.queue.RequestProtectionObservation(ctx, id, identity)
 }

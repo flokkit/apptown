@@ -138,7 +138,7 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (checkout
 	// The receipt of the credential is written with the hold it takes: a
 	// ticket whose receipt failed is revoked like one that could not hold.
 	if _, err := database.Transact(ctx, c.db, func(tx *database.Tx) (scm.Authority, error) {
-		if err := workflow.TouchChangeIn(ctx, tx, p.ID, ch.ID); err != nil {
+		if err := workflow.TouchChangeIn(ctx, tx, p.ID, ch.ID, c.now()); err != nil {
 			return scm.Authority{}, err
 		}
 		held, err := workflow.TakeChangeIn(ctx, tx, p.ID, ch.Branch, scm.TicketHolder(t.ID), c.chats, c.now())

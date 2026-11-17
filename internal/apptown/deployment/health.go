@@ -80,7 +80,30 @@ func (s *Service) recordHealth(ctx context.Context, w docker.Watched, kind strin
 		if err != nil {
 			return err
 		}
-		return audit.Append(ctx, tx, audit.At(at).String(), "apptown-system", w.ProjectID, kind, w.Name, string(body))
+		receipt, err := audit.AppendID(ctx, tx, audit.At(at).String(), "apptown-system", w.ProjectID, kind, w.Name, string(body))
+		if err != nil {
+			return err
+		}
+		if kind != "deployment.crash-loop-held" {
+			return nil
+		}
+		hold := CrashLoopHold{Receipt: receipt, At: audit.At(at).String(), Generation: w.Identity.Generation, Confirmed: payload["ok"] == true}
+		// Decode controller evidence with the same field types used by the reader.
+		var evidence struct {
+			Restarts int    `json:"restarts"`
+			Window   string `json:"window"`
+			ExitCode string `json:"exitCode"`
+			Detail   string `json:"detail"`
+		}
+		if err := json.Unmarshal(body, &evidence); err != nil {
+			return err
+		}
+		hold.Restarts, hold.Window, hold.ExitCode, hold.Detail = evidence.Restarts, evidence.Window, evidence.ExitCode, evidence.Detail
+		raw, err := json.Marshal(hold)
+		if err != nil {
+			return err
+		}
+		return deploymentsql.New(tx.SQL()).RecordCrashLoopHold(ctx, deploymentsql.RecordCrashLoopHoldParams{ID: w.DeploymentID, Hold: (*json.RawMessage)(&raw)})
 	})
 	if err != nil {
 		log.Printf("health controller: best-effort receipt and release note could not be recorded: %v", err)

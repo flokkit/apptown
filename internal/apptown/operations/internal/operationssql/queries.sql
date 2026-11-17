@@ -88,3 +88,9 @@ SELECT id FROM operations WHERE number = $1;
 -- first (apptown executing).
 -- name: RunningOperations :many
 SELECT * FROM operations WHERE state = 'running' ORDER BY id;
+
+-- name: LiveOnSubjects :many
+SELECT DISTINCT ON (subject) * FROM operations WHERE subject=ANY($1::text[]) AND state IN ('queued','running') ORDER BY subject,id DESC;
+
+-- name: LatestEndedOnSubjects :many
+SELECT DISTINCT ON (subject) * FROM operations WHERE subject=ANY(sqlc.arg(subjects)::text[]) AND kind=sqlc.arg(kind) AND state NOT IN ('queued','running') ORDER BY subject,id DESC;

@@ -16,7 +16,7 @@ func TestDeploymentExecutionCancellationQueuesRecoveryInsteadOfPublishing(t *tes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	notified := 0
-	result, err := (Runner{Store: f.outcomes, Acted: func(_ ids.ID) { notified++ }}).Run(ctx, deploymentStartFor(dep, "cancelled", "selected"),
+	result, err := (Runner{Store: f.outcomes, Acted: func(_ ids.ID, _ ids.ID) { notified++ }}).Run(ctx, deploymentStartFor(dep, "cancelled", "selected"),
 		func(_ context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			if err := checkpoint(map[string]any{"providerID": "original"}); err != nil {
 				t.Fatal(err)

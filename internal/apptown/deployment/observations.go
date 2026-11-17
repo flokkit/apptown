@@ -555,13 +555,14 @@ func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, re
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range rows {
+	observations, err := s.displayObservations(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
+	for i, r := range rows {
 		e := r.deployment
-		observed, err := s.displayObservation(ctx, r)
-		if err != nil {
-			return nil, err
-		}
-		reach := s.reachedAt(ctx, r.project, e, r.target, observed.url)
+		observed := observations[i]
+		reach := reachedWith(s.env.routes.forProject(r.purpose.EvalDomainOnly()), e, r.target, r.servingLabel, observed.url)
 		out = append(out, runtimeDeployment{Kind: e.Kind, ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
 	}
 	return out, ctx.Err()

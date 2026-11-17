@@ -1,9 +1,3 @@
--- name: JanitorProjectLabels :many
-SELECT p.id,p.slug,p.name FROM projects p
-WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]) AND p.purpose='ordinary'
-AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
-ORDER BY p.name,p.id;
-
 -- name: JanitorLandedChanges :many
 SELECT a.*,c.number,c.title,c.type,c.target_candidate_json,c.closed_at,p.slug,p.name
 FROM automated_changes a JOIN changes c ON c.id=a.active_change_id AND c.project_id=a.project_id
@@ -22,3 +16,31 @@ SELECT target_candidate_json FROM changes
 WHERE project_id=sqlc.arg(project_id) AND type='uplift' AND adopted_revision>0
 AND closed_at<sqlc.arg(before)::timestamptz
 ORDER BY closed_at DESC,id DESC LIMIT 1;
+
+-- name: JanitorRecords :many
+SELECT p.id,p.slug,p.name,p.default_branch,COALESCE(j.queues,'[]'::jsonb)::jsonb AS queues,COALESCE(j.scans,'{}'::jsonb)::jsonb AS scans,COALESCE(j.problem,'')::text AS problem FROM projects p
+LEFT JOIN janitor_projects j ON j.project_id=p.id
+WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]) AND p.purpose='ordinary'
+AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
+ORDER BY p.name,p.id;
+
+-- name: JanitorRecord :many
+SELECT * FROM janitor_projects WHERE project_id=$1;
+
+-- name: RecordJanitorQueues :exec
+INSERT INTO janitor_projects(project_id,queues,updated_at) VALUES($1,$2,$3)
+ON CONFLICT(project_id) DO UPDATE SET queues=EXCLUDED.queues,updated_at=EXCLUDED.updated_at;
+
+-- name: RecordJanitorProcedures :exec
+INSERT INTO janitor_projects(project_id,scans,problem,updated_at) VALUES($1,$2,$3,$4)
+ON CONFLICT(project_id) DO UPDATE SET scans=janitor_projects.scans || EXCLUDED.scans,problem=EXCLUDED.problem,updated_at=EXCLUDED.updated_at;
+
+-- name: RecordJanitorScans :exec
+INSERT INTO janitor_projects(project_id,scans,updated_at) VALUES($1,$2,$3)
+ON CONFLICT(project_id) DO UPDATE SET scans=janitor_projects.scans || EXCLUDED.scans,updated_at=EXCLUDED.updated_at;
+
+-- name: JanitorProjectIDs :many
+SELECT id FROM projects ORDER BY id;
+
+-- name: JanitorRunChange :one
+SELECT project_id,change_id FROM runs WHERE id=$1;

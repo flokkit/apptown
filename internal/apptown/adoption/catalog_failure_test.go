@@ -16,7 +16,7 @@ func TestAdoptionRuntimeSourcesPropagateFailedWorkflowCatalog(t *testing.T) {
 	db := testDB(t)
 	pid := adoptionTestProject(t, db, "catalog-failure", "Catalog failure")
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", EmptyReceipt(), "alice", time.Now())
+		return (&Service{}).RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", EmptyReceipt(), "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

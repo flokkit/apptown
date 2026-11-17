@@ -46,8 +46,11 @@ func janitorReadFixture(t *testing.T) (*Service, *StandingRules, context.Context
 		receipt.Workflows = append(receipt.Workflows, adoption.ReceiptWorkflow{Name: name, Version: 1})
 	}
 	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
-		return adoption.RecordIn(ctx, tx, visible[0], 1, adoption.AdoptionCreate, "fixture", receipt, "boss", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(ctx, tx, visible[0], 1, adoption.AdoptionCreate, "fixture", receipt, "boss", time.Now())
 	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecordJanitorProjects(ctx); err != nil {
 		t.Fatal(err)
 	}
 	return s, &rules, ctx, repo
@@ -386,6 +389,9 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if err := s.RecordJanitorProjects(ctx); err != nil {
+				t.Fatal(err)
+			}
 			rows, _, _, err := s.JanitorProjects(ctx)
 			if err != nil || len(rows) != 1 {
 				t.Fatalf("rows=%+v: %v", rows, err)
@@ -397,7 +403,7 @@ func TestJanitorProjectsClassifiesCompletedFacts(t *testing.T) {
 	}
 }
 
-func (janitorReadDefinitions) ScheduledWorkflowNames(context.Context, ids.ID) (map[string]bool, error) {
+func (janitorReadDefinitions) ScheduledWorkflowNamesIn(context.Context, database.Queryer, ids.ID) (map[string]bool, error) {
 	return map[string]bool{}, nil
 }
 
@@ -434,7 +440,7 @@ func TestScanAttentionSharedObservationFailureRemainsUnknownForEachProject(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	dbtest.FailNextStatement(t, s.db, "-- name: JanitorProjectLabels")
+	dbtest.FailNextStatement(t, s.db, "-- name: JanitorRecords")
 	rows, err := s.ScanAttention(ctx, visible)
 	if err != nil || len(rows) != len(visible) {
 		t.Fatalf("lost source coverage: %+v %v", rows, err)

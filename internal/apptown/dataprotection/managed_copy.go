@@ -262,7 +262,7 @@ func (s *Service) takeStoreCopy(ctx context.Context, t *tracker, dep *deployment
 		return s.takeAWSSet(ctx, t, dep, target, trigger)
 	}
 	if s.applied != nil {
-		defer s.applied(dep.TargetID)
+		defer s.applied(dep.TargetID, dep.ID)
 	}
 	items, err := s.managedList(ctx, dep, target)
 	if err != nil {

@@ -105,7 +105,7 @@ func (s *StopScope) AbandonIn(ctx context.Context, tx *database.Tx, in StopWork)
 		}
 	}
 	if !change.IsZero() {
-		if err := TouchChangeIn(ctx, tx, s.project, change); err != nil {
+		if err := TouchChangeIn(ctx, tx, s.project, change, s.owner.now()); err != nil {
 			return nil, err
 		}
 	}
@@ -308,6 +308,9 @@ func (s abandonments) abandonIn(ctx context.Context, tx *database.Tx, req Abando
 			}
 		}
 		if err := q.EndAutomatedChange(ctx, workflowsql.EndAutomatedChangeParams{ID: changeID, Outcome: "abandoned", Reason: req.Reason, EndedAt: sql.NullTime{Time: now, Valid: true}}); err != nil {
+			return nil, err
+		}
+		if err := recordJanitorChangeIn(ctx, tx, changeID, now); err != nil {
 			return nil, err
 		}
 		if err := audit.At(now).RecordIn(ctx, tx, req.Who, projectID, "change.abandoned", fmt.Sprintf("change %d", changeID), abandonAudit{Reason: req.Reason, ClosedAs: req.closedAs}); err != nil {

@@ -16,7 +16,7 @@ import type { JanitorView, JanitorHistoryView, JanitorProject, StandingRevision 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const at = '2026-11-12T10:00:00Z'
 const actor = { name: 'Sam', principal: 'person', via: 'session' }
-const queue = (name: string, stopped = false) => ({ title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'AppTown could not finish this update' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0, changeSummary: '' })
+const queue = (name: string, stopped = false) => ({ workflow: '', stateSince: at, title: name === 'updates' ? 'Dependency updates' : name === 'packs' ? 'Pack updates' : 'Security fixes', queue: name, state: stopped ? 'stopped' : 'up_to_date', words: stopped ? 'AppTown could not finish this update' : 'up to date', failed: stopped ? 3 : 0, reason: '', since: at, files: [], packages: [], changeNumber: 0, changeSummary: '' })
 const project = (id: string): JanitorProject => ({ projectId: id, slug: id, name: `${id} app`, level: 'routine', state: { word: 'up to date', unknown: false, help: '' },
  queues: [queue('security'), queue('updates'), queue('packs')],
  scheduleProblem: '' })

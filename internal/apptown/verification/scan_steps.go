@@ -97,7 +97,10 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		observation.Reason, _ = evidence["reason"].(string)
 		if err := task.InAttempt(ScanKind, func(tx *database.Tx, attempt int64) error {
 			observation.Attempt = attempt
-			return conformance.RecordScanObservationIn(context.WithoutCancel(task.Context()), tx, observation)
+			if err := conformance.RecordScanObservationIn(context.WithoutCancel(task.Context()), tx, observation); err != nil {
+				return err
+			}
+			return task.RecordJanitorScansIn(context.WithoutCancel(task.Context()), tx)
 		}); err != nil {
 			status = workflow.StatusError
 			delete(evidence, "scanObservationId")

@@ -376,7 +376,7 @@ func TestStoppedSecurityQueueSuppressesFaultedTargetsUntilTryAgain(t *testing.T)
 	if err := s.TryQueueAgain(t.Context(), initial.ProjectID, "security", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	state, err := s.QueueState(t.Context(), initial.ProjectID, "security")
+	state, err := s.StoredQueue(t.Context(), initial.ProjectID, "security")
 	if err != nil || state.Stopped() {
 		t.Fatalf("explicit retry did not end episode: %+v %v", state, err)
 	}

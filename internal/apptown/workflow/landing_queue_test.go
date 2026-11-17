@@ -22,10 +22,11 @@ func queuedLandingService(t *testing.T) (*Service, ids.ID) {
 	db := testDB(t)
 	project := workflowTestProject(t, db, "queue", "Queue", "")
 	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
-		return adoption.RecordIn(t.Context(), tx, project, 1, adoption.AdoptionCreate, "queue", adoption.EmptyReceipt(), "alice", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, project, 1, adoption.AdoptionCreate, "queue", adoption.EmptyReceipt(), "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedSyntheticJanitorQueues(t, db, project, "updates")
 	adopted, err := adoption.CurrentReceiptIDIn(t.Context(), db, project)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +145,7 @@ func TestCurrentAcceptedQueueWorkWaitsToLandDespiteEarlierFailure(t *testing.T) 
 					t.Fatal(err)
 				}
 			}
-			state, err := s.QueueState(t.Context(), ch.ProjectID, "updates")
+			state, err := s.StoredQueue(t.Context(), ch.ProjectID, "updates")
 			if err != nil || state.State != "landing" || state.Words != "waiting to land" || state.Failed != 1 {
 				t.Fatalf("current queue: %+v %v", state, err)
 			}
@@ -162,7 +163,7 @@ func TestLandingUpliftAlwaysBlocksAnotherAdoption(t *testing.T) {
 			rule := enableStanding(t, rules, ctx, JanitorChoices{Dependencies: "off", Packs: true})
 			s := rig.Work
 			if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
-				return adoption.RecordIn(t.Context(), tx, rig.ProjectID, 1, adoption.AdoptionCreate, "packs", adoption.EmptyReceipt(), "boss", time.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, rig.ProjectID, 1, adoption.AdoptionCreate, "packs", adoption.EmptyReceipt(), "boss", time.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

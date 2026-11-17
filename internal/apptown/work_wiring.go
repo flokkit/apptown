@@ -314,8 +314,8 @@ func (r releaseData) RestoreForRelease(ctx context.Context, projectID ids.ID, na
 // observation projection; deployment retains the rules for what is serving.
 type scanSubjects struct{ deployment *deployment.Service }
 
-func (s scanSubjects) RunningImages(ctx context.Context, project ids.ID) ([]workflow.RunningImages, error) {
-	rows, err := s.deployment.RunningImages(ctx, project)
+func (s scanSubjects) RunningImagesIn(ctx context.Context, db database.Queryer, project ids.ID) ([]workflow.RunningImages, error) {
+	rows, err := s.deployment.RunningImagesIn(ctx, db, project)
 	if err != nil {
 		return nil, err
 	}

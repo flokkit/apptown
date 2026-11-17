@@ -68,7 +68,7 @@ func TestFreshWritableChatReceivesDeclaredContextAtStartingCommit(t *testing.T) 
 			receipt := prior.Receipt
 			receipt.Guidance = append(receipt.Guidance, adoption.ReceiptBlock{Name: b.Name, BlockID: b.ID, Version: 1})
 			if err := w.a.DB.InTx(t.Context(), func(tx *database.Tx) error {
-				return adoption.RecordIn(t.Context(), tx, p.ID, prior.Revision+1, adoption.AdoptionCreate, "declared context", receipt, "boss", time.Now())
+				return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, p.ID, prior.Revision+1, adoption.AdoptionCreate, "declared context", receipt, "boss", time.Now())
 			}); err != nil {
 				t.Fatal(err)
 			}

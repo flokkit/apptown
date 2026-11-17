@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/database"
 	"maps"
 	"slices"
 	"strings"
@@ -57,11 +58,10 @@ type RunningImages struct {
 
 type scanSchedules interface {
 	ScansSource(context.Context, ids.ID) (bool, error)
-	ScansSourceFrom(context.Context, ids.ID, ProcedureFacts) (bool, error)
 }
 
 type runningImages interface {
-	RunningImages(context.Context, ids.ID) ([]RunningImages, error)
+	RunningImagesIn(context.Context, database.Queryer, ids.ID) ([]RunningImages, error)
 }
 
 // LatestMainScans reads software observations without starting work. Only exact
@@ -75,7 +75,11 @@ func (s *Service) LatestMainScans(ctx context.Context, projectID ids.ID, earlier
 }
 
 func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier int, scheduled func() (bool, error)) (MainScans, error) {
-	p, err := workflowsql.New(s.db.SQL()).ProjectByID(ctx, projectID)
+	return s.latestMainScansIn(ctx, s.db, projectID, earlier, scheduled)
+}
+
+func (s *Service) latestMainScansIn(ctx context.Context, db database.Queryer, projectID ids.ID, earlier int, scheduled func() (bool, error)) (MainScans, error) {
+	p, err := workflowsql.New(db.SQL()).ProjectByID(ctx, projectID)
 	if err != nil {
 		return MainScans{}, err
 	}
@@ -95,11 +99,11 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 	if s.runningImages == nil {
 		return MainScans{}, fmt.Errorf("running software observations are unavailable")
 	}
-	running, err := s.runningImages.RunningImages(ctx, projectID)
+	running, err := s.runningImages.RunningImagesIn(ctx, db, projectID)
 	if err != nil {
 		return MainScans{}, err
 	}
-	heads, err := conformance.ScanObservationHeadsIn(ctx, s.db, projectID)
+	heads, err := conformance.ScanObservationHeadsIn(ctx, db, projectID)
 	if err != nil {
 		return MainScans{}, err
 	}
@@ -108,7 +112,7 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 		return MainScans{}, err
 	}
 	selection := selectScanHeads(mainTree, running, heads)
-	observations, err := conformance.ScanObservationsByIDIn(ctx, s.db, projectID, selection.candidates)
+	observations, err := conformance.ScanObservationsByIDIn(ctx, db, projectID, selection.candidates)
 	if err != nil {
 		return MainScans{}, err
 	}
@@ -140,7 +144,7 @@ func (s *Service) latestMainScans(ctx context.Context, projectID ids.ID, earlier
 				missing = append(missing, id)
 			}
 		}
-		older, err := conformance.ScanObservationsByIDIn(ctx, s.db, projectID, missing)
+		older, err := conformance.ScanObservationsByIDIn(ctx, db, projectID, missing)
 		if err != nil {
 			return MainScans{}, err
 		}

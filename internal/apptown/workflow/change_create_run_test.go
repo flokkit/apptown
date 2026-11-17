@@ -35,7 +35,7 @@ func invocationRunnerFixture(t *testing.T, runner Runner) (*Service, InvokeChang
 		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return err
 		}
-		return adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "operator", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "operator", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestCreateAndRunRejectsBeforeEffectsAndRollsBackAdmission(t *testing.T) {
 						return def, err
 					}
 					err = s.db.InTx(ctx, func(tx *database.Tx) error {
-						return adoption.RecordIn(ctx, tx, req.ProjectID, 2, adoption.AdoptionCreate, "concurrent adoption", adoption.EmptyReceipt(), "operator", time.Now())
+						return adoption.New(nil, adoption.Dependencies{}).RecordIn(ctx, tx, req.ProjectID, 2, adoption.AdoptionCreate, "concurrent adoption", adoption.EmptyReceipt(), "operator", time.Now())
 					})
 					return def, err
 				}

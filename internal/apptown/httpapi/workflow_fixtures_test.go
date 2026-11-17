@@ -95,7 +95,7 @@ func workflowHTTPFixtureWithData(t *testing.T, withRun bool, definitions map[str
 			if err := adoption.InitializeIn(ctx, tx, projectID, 0, ""); err != nil {
 				return err
 			}
-			return adoption.RecordIn(ctx, tx, projectID, 1, adoption.AdoptionCreate, "HTTP fixture", adoption.EmptyReceipt(), "fixture", time.Now())
+			return adoption.New(nil, adoption.Dependencies{}).RecordIn(ctx, tx, projectID, 1, adoption.AdoptionCreate, "HTTP fixture", adoption.EmptyReceipt(), "fixture", time.Now())
 		}); err != nil {
 			t.Fatal(err)
 		}

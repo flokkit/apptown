@@ -261,13 +261,6 @@ func (s *Service) RunDetailObservation(ctx context.Context, key string, _ map[st
 	if err != nil {
 		return nil, jobs.Permanent(err)
 	}
-	parts := strings.Split(key, "/")
-	if len(parts) == 4 {
-		if _, err := ids.Parse(parts[3]); err != nil {
-			return nil, jobs.Permanent(err)
-		}
-		key = strings.Join(parts[:3], "/")
-	}
 	current, err := s.DetailObservationKey(ctx, id)
 	if err != nil {
 		return nil, err
@@ -275,6 +268,21 @@ func (s *Service) RunDetailObservation(ctx context.Context, key string, _ map[st
 	if current != key {
 		return nil, nil
 	}
+	dep, err := s.Deployments.ByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, release, err := s.hosts.HoldCallSlot(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	if err := s.observeDetails(ctx, id); err != nil {
 		return nil, err
 	}
@@ -288,5 +296,5 @@ func (s *Service) DetailObservationKey(ctx context.Context, id ids.ID) (string, 
 		return "", err
 	}
 	identity, err := s.detailIdentity(ctx, dep)
-	return dep.ID.String() + "/" + strconv.FormatInt(dep.ObservedGeneration, 10) + "/" + identity, err
+	return dep.ID.String() + "/" + strconv.FormatInt(dep.ObservedGeneration, 10) + "/" + identity + "/" + dep.ChecksOwedAt.UTC().Format(time.RFC3339Nano), err
 }

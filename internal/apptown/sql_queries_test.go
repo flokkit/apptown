@@ -59,7 +59,7 @@ func TestOptionalCurrentAdoptionPreservesAbsence(t *testing.T) {
 		t.Fatalf("unknown project: %+v", got)
 	}
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionEdit, "created", adoption.EmptyReceipt(), "alice", time.Now())
+		return adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, id, 1, adoption.AdoptionEdit, "created", adoption.EmptyReceipt(), "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

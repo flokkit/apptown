@@ -81,7 +81,7 @@ func TestChangesCheckExplainsIntroducedFindingsBelowFailOn(t *testing.T) {
 	receipt := adoption.EmptyReceipt()
 	receipt.Guidance = []adoption.ReceiptBlock{{Name: block.Name, BlockID: block.ID, Version: 1}}
 	if _, err := database.Transact(t.Context(), f.DB, func(tx *database.Tx) (bool, error) {
-		return true, adoption.RecordIn(t.Context(), tx, f.ProjectID, 1, adoption.AdoptionEdit, "checks", receipt, "tester", time.Now())
+		return true, adoption.New(nil, adoption.Dependencies{}).RecordIn(t.Context(), tx, f.ProjectID, 1, adoption.AdoptionEdit, "checks", receipt, "tester", time.Now())
 	}); err != nil {
 		t.Fatal(err)
 	}

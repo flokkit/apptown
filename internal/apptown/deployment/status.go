@@ -8,7 +8,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/operations"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -29,56 +28,124 @@ type DeploymentStatus struct {
 }
 
 func (s *Service) displayObservation(ctx context.Context, r listingRecord) (RuntimeObservation, error) {
-	o := s.observations.read(r, s.now())
-	if s.operations != nil {
-		subject := SubjectOf(r.deployment)
-		live, err := s.operations.LiveOn(ctx, subject)
-		if err != nil {
-			return o, err
-		}
-		if live != nil && live.Kind == OperationTakeDown {
-			o.Status = DeploymentStatus{Word: progressLabelTakingDown, Reason: fmt.Sprintf("taking it down (operation %d)", live.ID)}
-			return o, nil
-		}
-		ended, err := s.operations.LatestEnded(ctx, subject, OperationTakeDown)
-		if err != nil {
-			return o, err
-		}
-		if ended != nil && ended.State != operations.Succeeded && ended.FinishedAt.Time.After(r.deployment.lastActAt()) {
-			o.Status = DeploymentStatus{Word: progressLabelFailed, Reason: "take-down did not finish: " + ended.Detail}
-			return o, nil
-		}
-	}
-	// What serves, also while a newer release is on its way.
-	applied, err := s.servingRelease(ctx, r.deployment)
+	rows, err := s.displayObservations(ctx, []listingRecord{r})
 	if err != nil {
-		return o, err
+		return RuntimeObservation{}, err
 	}
-	release, err := deploymentsql.New(s.db.SQL()).LatestDeploymentRelease(ctx, r.deployment.ID)
-	var releasing *releaseProgress
-	if found, err := database.Lookup(err); err != nil {
-		return o, err
-	} else if found && (release.State == "releasing" || release.State == "failed" && (o.AttemptedAt.Before(release.StageFinishedAt.Time) || r.deployment.ObservedGeneration == 0)) {
-		// A failed release keeps the answer until runtime evidence can speak
-		// for an older release; with nothing ever applied there is none.
-		releasing = &releaseProgress{Number: release.Number, Stage: release.Stage}
-		if release.State == "failed" {
-			releasing.Failure = release.Failure
-		}
+	return rows[0], nil
+}
+
+// displayObservations reads owner facts once for the listed deployments.
+func (s *Service) displayObservations(ctx context.Context, rows []listingRecord) ([]RuntimeObservation, error) {
+	idsList, subjects := []ids.ID{}, []string{}
+	for _, r := range rows {
+		idsList = append(idsList, r.deployment.ID)
+		subjects = append(subjects, SubjectOf(r.deployment))
 	}
-	if releasing != nil {
-		o.Status = deploymentAnswer(r.deployment, o, Diagnostics{}, releasing, applied)
-		return o, nil
+	q := deploymentsql.New(s.db.SQL())
+	releases, err := q.LatestDeploymentReleases(ctx, idsList)
+	if err != nil {
+		return nil, err
 	}
-	var d Diagnostics
-	if r.deployment.Container != "" && r.deployment.ObservedGeneration > 0 {
-		d, err = s.collectDiagnostics(ctx, r.deployment.ProjectID, r.deployment.Name)
+	latest := map[ids.ID]deploymentsql.LatestDeploymentReleasesRow{}
+	for _, r := range releases {
+		latest[r.DeploymentID] = r
+	}
+	servingRows, err := q.ServingReleases(ctx, idsList)
+	if err != nil {
+		return nil, err
+	}
+	serving := map[ids.ID]*Release{}
+	for _, r := range servingRows {
+		v, err := s.Releases.record(r, nil)
 		if err != nil {
-			return o, err
+			return nil, err
+		}
+		serving[r.ID] = v
+	}
+	profiles, err := q.AppliedProfiles(ctx, idsList)
+	if err != nil {
+		return nil, err
+	}
+	applied := map[ids.ID]AppliedProfile{}
+	for _, r := range profiles {
+		v, err := appliedFrom(r.Applied)
+		if err != nil {
+			return nil, err
+		}
+		applied[r.ID] = v
+	}
+	live, ended := map[string]*operations.Operation{}, map[string]*operations.Operation{}
+	if s.operations != nil {
+		live, ended, err = s.operations.SubjectProgress(ctx, subjects, OperationTakeDown)
+		if err != nil {
+			return nil, err
 		}
 	}
-	o.Status = deploymentAnswer(r.deployment, o, d, releasing, applied)
-	return o, nil
+	readings := map[ids.ID]hostReading{}
+	for _, r := range rows {
+		if r.target == nil || r.target.runsNoContainers() || r.target.reportsParts() || r.deployment.Container == "" {
+			continue
+		}
+		if _, ok := readings[r.target.ID]; ok {
+			continue
+		}
+		reading, err := NewHostSnapshots(s.db, s.now).reading(ctx, r.target)
+		if err != nil {
+			return nil, err
+		}
+		readings[r.target.ID] = reading
+	}
+	out := make([]RuntimeObservation, len(rows))
+	for i, r := range rows {
+		dep := r.deployment
+		o := s.observations.read(r, s.now())
+		subject := SubjectOf(dep)
+		if op := live[subject]; op != nil && op.Kind == OperationTakeDown {
+			o.Status = DeploymentStatus{Word: progressLabelTakingDown, Reason: fmt.Sprintf("taking it down (operation %d)", op.ID)}
+			out[i] = o
+			continue
+		}
+		if op := ended[subject]; op != nil && op.State != operations.Succeeded && op.FinishedAt.Time.After(dep.lastActAt()) {
+			o.Status = DeploymentStatus{Word: progressLabelFailed, Reason: "take-down did not finish: " + op.Detail}
+			out[i] = o
+			continue
+		}
+		release := latest[dep.ID]
+		var releasing *releaseProgress
+		if release.State == "releasing" || release.State == "failed" && (o.AttemptedAt.Before(release.StageFinishedAt.Time) || dep.ObservedGeneration == 0) {
+			releasing = &releaseProgress{Number: release.Number, Stage: release.Stage}
+			if release.State == "failed" {
+				releasing.Failure = release.Failure
+			}
+		}
+		d := Diagnostics{Runtime: diagnosedObservation(o)}
+		if releasing == nil && dep.Container != "" && dep.ObservedGeneration > 0 {
+			if r.target.reportsParts() {
+				why := ""
+				switch {
+				case o.Err != nil:
+					why = "its latest observation failed: " + safeReason(o.Err)
+				case o.ObservedAt.IsZero():
+					why = "not observed yet"
+				case o.Stale:
+					why = "its last observation is out of date"
+				}
+				diagnoseReportedPartsRecord(dep, applied[dep.ID], o, why, &d)
+			} else {
+				var reading hostReading
+				if r.target != nil {
+					reading = readings[r.target.ID]
+				}
+				if err := s.diagnosePartsRecord(dep, r.target, r.project, applied[dep.ID], reading, &d); err != nil {
+					return nil, err
+				}
+			}
+		}
+		o.Status = deploymentAnswer(dep, o, d, releasing, serving[dep.ServingReleaseID])
+		out[i] = o
+	}
+	return out, nil
 }
 
 type releaseProgress struct {
