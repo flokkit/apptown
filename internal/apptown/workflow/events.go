@@ -26,7 +26,23 @@ func recordEvent(ctx context.Context, db database.Queryer, runID ids.ID, kind st
 	if at.IsZero() {
 		return fmt.Errorf("workflow event %q needs AppTown's time", kind)
 	}
-	n, err := workflowsql.New(db.SQL()).InsertRunEvent(ctx, workflowsql.InsertRunEventParams{ID: ids.New(at), RunID: runID, At: at, Kind: kind, PayloadJson: payload})
+	q := workflowsql.New(db.SQL())
+	run, err := q.JanitorRunChange(ctx, runID)
+	if err != nil {
+		return err
+	}
+	attempts, err := q.QueueAttempt(ctx, run.ChangeID)
+	if err != nil {
+		return err
+	}
+	if len(attempts) > 0 && attempts[0].Queue != "" {
+		// The event's foreign key locks the run. Take the Janitor writer's
+		// project lock first, matching step transactions' project/run order.
+		if _, err := q.ProjectForUpdate(ctx, run.ProjectID); err != nil {
+			return err
+		}
+	}
+	n, err := q.InsertRunEvent(ctx, workflowsql.InsertRunEventParams{ID: ids.New(at), RunID: runID, At: at, Kind: kind, PayloadJson: payload})
 	if err != nil {
 		return err
 	}

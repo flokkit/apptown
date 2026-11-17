@@ -4907,6 +4907,12 @@ app:
 	}
 	// Page reads use recorded background evidence. Collect the disposable
 	// hosts before the camera checks their capacity and inventory.
+	// Seeding the cloud connection also syncs the built-in target. Match
+	// inventory evidence against its current settings revision.
+	productionHost, err = a.Deployment.Targets.ByID(ctx, productionHost.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	readHostsForTest(t, a)
 	// The local audit also covers installations that cannot run project chats.
 	// Rebuild admission after the tour, whose recorded chats need a local runtime.
@@ -5320,7 +5326,7 @@ spec:
 			t.Fatal(err)
 		}
 		if inv.Unknown || inv.Invalidated {
-			return "the built-in host's inventory is unknown"
+			return fmt.Sprintf("the built-in host's inventory: unknown=%t, invalidated=%t, failure=%s", inv.Unknown, inv.Invalidated, inv.LastFailure)
 		}
 		return ""
 	}
