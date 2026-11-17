@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestIntranetStartAssociatesExistingStacksAtomically(t *testing.T) {
@@ -56,7 +57,7 @@ func TestIntranetStartAssociatesExistingStacksAtomically(t *testing.T) {
 		}
 	}
 	q := deploymentsql.New(s.db.SQL())
-	before, err := q.OwnedByDeployment(t.Context(), dep.ID)
+	before, err := q.OwnedByDeployments(t.Context(), []ids.ID{dep.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestIntranetStartAssociatesExistingStacksAtomically(t *testing.T) {
 	if err != nil || !strings.Contains(fmt.Sprint(stacked.Handle), "legacy-app") || reflect.DeepEqual(stacked.Handle, dep.Handle) {
 		t.Fatalf("stack association not recorded: %+v %v", stacked, err)
 	}
-	after, err := q.OwnedByDeployment(t.Context(), dep.ID)
+	after, err := q.OwnedByDeployments(t.Context(), []ids.ID{dep.ID})
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("association rewrote creation receipts: before=%+v after=%+v err=%v", before, after, err)
 	}

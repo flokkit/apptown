@@ -30,7 +30,7 @@ func TestDeploymentConditionsSeparateAttemptRuntimeAndHoldGenerations(t *testing
 	d := deployment.OperationalObservation{ID: idstest.N(1), Name: "office", ObservedGeneration: 1, DesiredGeneration: 2, Readiness: deployment.ReadinessFailed, UpdatedAt: at.Format(time.RFC3339Nano), Runtime: deployment.RuntimeObservation{State: deployment.RuntimeRunning, ObservedAt: at}, Hold: &deployment.CrashLoopHold{Confirmed: true, At: at.Format(time.RFC3339Nano)}}
 	read := func() Snapshot {
 		t.Helper()
-		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at }}).ProjectSnapshot(t.Context(), idstest.N(2))
+		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at }}).projectSnapshotForTest(t.Context(), idstest.N(2))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -83,7 +83,7 @@ func TestDeploymentRuntimeFirstCheckAndStaleReading(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(time.Hour) }}
-			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || got.Known != tc.known || got.Stale != tc.runtime.Stale || len(got.Items) != tc.wantItems {
 				t.Fatalf("runtime coverage: %+v %v", got, err)
 			}
@@ -112,7 +112,7 @@ func TestDeploymentRuntimeMissedReadingWaitsOutTheGrace(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: tc.runtime}}}, Now: func() time.Time { return at.Add(tc.age) }}
-			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || (len(got.Items) > 0) != tc.listed || got.Known == tc.listed || got.Stale != tc.listed {
 				t.Fatalf("grace: %+v %v", got, err)
 			}
@@ -125,7 +125,7 @@ func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	d := deployment.OperationalObservation{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, ObservedAt: at, Stale: true}, Hold: &deployment.CrashLoopHold{Confirmed: true, At: at.Format(time.RFC3339Nano)}}
-	got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Minute) }}).ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Minute) }}).projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 1 || !strings.Contains(got.Items[0].Title, "Stopped after repeated crashes") {
 		t.Fatalf("crash hold during grace: %+v %v", got, err)
 	}
@@ -145,7 +145,7 @@ func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 		now := at.Add(time.Minute)
 		read := func(want int) {
 			t.Helper()
-			got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || len(got.Items) != want {
 				t.Fatalf("attempted %v: %+v %v", attempted, got, err)
 			}
@@ -171,7 +171,7 @@ func TestNothingAppliedRaisesNoRuntimeCondition(t *testing.T) {
 		{State: deployment.RuntimeUnknown, AttemptedAt: at, Err: errors.New("deployment replacement is in progress"), Stale: true},
 	} {
 		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "staging", DesiredGeneration: 1, Runtime: runtime}
-		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Hour) }}).ProjectSnapshot(t.Context(), idstest.N(2))
+		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return at.Add(time.Hour) }}).projectSnapshotForTest(t.Context(), idstest.N(2))
 		if err != nil || !got.Known || got.Stale || len(got.Items) != 0 {
 			t.Fatalf("nothing applied, runtime %+v: %+v %v", runtime, got, err)
 		}
@@ -205,7 +205,7 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 			}
 			read := func(now time.Time) []Item {
 				t.Helper()
-				got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).ProjectSnapshot(t.Context(), idstest.N(2))
+				got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).projectSnapshotForTest(t.Context(), idstest.N(2))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -234,4 +234,12 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (s Deployments) projectSnapshotForTest(ctx context.Context, id ids.ID) (Snapshot, error) {
+	snapshots, err := s.Snapshot(ctx, []ids.ID{id})
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return snapshots[id].Snapshot, snapshots[id].Err
 }

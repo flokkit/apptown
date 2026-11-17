@@ -33,15 +33,13 @@ type declarations interface {
 // Inventory is the records' side of what is at a target.
 type Inventory struct {
 	deployments *Deployments
-	needs       NeedStore
-	retained    *Retained
 	targets     *Targets
 	providers   *Providers
 	declared    declarations
 }
 
 func newInventory(db *database.DB, declared declarations) *Inventory {
-	return &Inventory{deployments: NewDeployments(db), needs: NewNeedStore(db, nil), retained: NewRetained(db), declared: declared}
+	return &Inventory{deployments: NewDeployments(db), declared: declared}
 }
 
 // Recorded is what AppTown's own records say is at a target: the app
@@ -51,11 +49,65 @@ func newInventory(db *database.DB, declared declarations) *Inventory {
 // every managed need instance on a cloud target, and what was retained.
 // Only a true orphan then reads unrecorded.
 func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resource, error) {
-	var out []deploy.Resource
-	envs, err := inv.deployments.OnTarget(ctx, t.ID)
-	if err != nil {
-		return nil, fmt.Errorf("reading the deployments on %s: %w", t.Name, err)
+	records, err := inv.RecordedTargets(ctx, []*Target{t})
+	return records[t.ID], err
+}
+
+// RecordedTargets derives records for precisely the targets in this request.
+func (inv *Inventory) RecordedTargets(ctx context.Context, targets []*Target) (map[ids.ID][]deploy.Resource, error) {
+	targetIDs := make([]ids.ID, 0, len(targets))
+	for _, t := range targets {
+		targetIDs = append(targetIDs, t.ID)
 	}
+	placements, err := inv.deployments.OnTargets(ctx, targetIDs)
+	if err != nil {
+		return nil, err
+	}
+	deploymentIDs := []ids.ID{}
+	for _, t := range targets {
+		for _, d := range placements[t.ID] {
+			deploymentIDs = append(deploymentIDs, d.ID)
+		}
+	}
+	q := deploymentsql.New(inv.deployments.db.SQL())
+	owned, err := ownedByDeployments(ctx, q, deploymentIDs)
+	if err != nil {
+		return nil, err
+	}
+	needs, err := (NeedStore{db: inv.deployments.db}).forDeployments(ctx, deploymentIDs)
+	if err != nil {
+		return nil, err
+	}
+	retainedRows, err := NewRetained(inv.deployments.db).list(ctx, deploymentsql.RetainedResourcesParams{TargetsOnly: true, TargetIds: targetIDs, Disposition: RetainedOpen.String()})
+	if err != nil {
+		return nil, err
+	}
+	retained := map[ids.ID][]RetainedResource{}
+	for _, r := range retainedRows {
+		retained[r.TargetID] = append(retained[r.TargetID], r)
+	}
+	declarations := map[ids.ID]Declared{}
+	declared := func(id ids.ID) Declared {
+		if d, ok := declarations[id]; ok {
+			return d
+		}
+		d, _ := inv.declared.Declared(ctx, id)
+		declarations[id] = d
+		return d
+	}
+	out := make(map[ids.ID][]deploy.Resource, len(targets))
+	for _, t := range targets {
+		records, err := inventoryRecords(t, placements[t.ID], owned, needs, retained[t.ID], declared)
+		if err != nil {
+			return nil, err
+		}
+		out[t.ID] = records
+	}
+	return out, nil
+}
+
+func inventoryRecords(t *Target, envs []ProjectDeployment, ownership map[ids.ID][]deploy.Owned, needs map[ids.ID][]NeedInstance, retained []RetainedResource, declared func(ids.ID) Declared) ([]deploy.Resource, error) {
+	var out []deploy.Resource
 	for _, e := range envs {
 		host := deploy.ResourceHost{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, DeploymentLabel: inventoryDeploymentLabel(&e.Deployment), Generation: e.ObservedGeneration}
 		switch t.Kind {
@@ -74,23 +126,20 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 					return nil, fmt.Errorf("naming %s/%s on its host: %w", e.Project, e.Name, err)
 				}
 				out = append(out, deploy.Resource{Kind: "container", Name: e.Container, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-				if d, ok := inv.declared.Declared(ctx, e.ProjectID); ok {
-					if d.KeepsData {
-						out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-					}
-					for _, need := range d.Needs {
-						h := host
-						h.Need = need
-						out = append(out, deploy.Resource{Kind: "container", Name: names.Service(need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
-					}
+				d := declared(e.ProjectID)
+				if d.KeepsData {
+					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 				}
+				for _, need := range d.Needs {
+					h := host
+					h.Need = need
+					out = append(out, deploy.Resource{Kind: "container", Name: names.Service(need), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{h}})
+				}
+
 			}
 			// What the deployment recorded creating is its own: the
 			// infrastructure page never offers it for removal by name.
-			owned, err := ownedIn(ctx, deploymentsql.New(inv.deployments.db.SQL()), e.ID)
-			if err != nil {
-				return nil, fmt.Errorf("reading what %s/%s owns: %w", e.Project, e.Name, err)
-			}
+			owned := ownership[e.ID]
 			for _, o := range owned {
 				h := host
 				h.Need = o.Need
@@ -120,10 +169,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 			continue
 		}
 		out = append(out, deploy.Resource{Kind: "app", Name: appName, ID: appID, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-		insts, err := inv.needs.ForDeployment(ctx, e.ID)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s/%s's needs: %w", e.Project, e.Name, err)
-		}
+		insts := needs[e.ID]
 		for _, n := range insts {
 			if n.Mode != "managed" {
 				continue
@@ -135,10 +181,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 		}
 		// An object store's key, which the account lists; its bucket, which
 		// the account's API does not, is named with it.
-		owned, err := inv.deployments.Owned(ctx, e.ID)
-		if err != nil {
-			return nil, fmt.Errorf("reading %s/%s's owned list: %w", e.Project, e.Name, err)
-		}
+		owned := ownership[e.ID]
 		for _, o := range owned {
 			if o.Kind != digitalocean.KindSpacesKey {
 				continue
@@ -152,10 +195,6 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 			out = append(out, deploy.Resource{Kind: digitalocean.KindSpacesKey, Name: o.Name, ID: o.ID, Detail: detail, Record: deploy.RecordRecorded,
 				Hosts: []deploy.ResourceHost{{ProjectID: e.ProjectID, DeploymentID: e.ID, Project: e.Project, Deployment: e.Name, DeploymentLabel: inventoryDeploymentLabel(&e.Deployment), Need: o.Need}}})
 		}
-	}
-	retained, err := inv.retained.openForTarget(ctx, t.ID)
-	if err != nil {
-		return nil, fmt.Errorf("reading what was left at %s: %w", t.Name, err)
 	}
 	for _, r := range retained {
 		// A retained database is a resource of the provider's inventory.

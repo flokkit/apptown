@@ -294,13 +294,9 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		}
 		byDeployment[row.DeploymentID] = append(byDeployment[row.DeploymentID], need)
 	}
-	ownedRows, err := q.OwnedByDeployments(ctx, deploymentIDs)
+	owned, err := ownedByDeployments(ctx, q, deploymentIDs)
 	if err != nil {
 		return nil, err
-	}
-	owned := map[ids.ID][]deploy.Owned{}
-	for _, r := range ownedRows {
-		owned[r.DeploymentID] = append(owned[r.DeploymentID], deploy.Owned{Kind: r.Kind, ID: r.Ident, Name: r.Name, Data: r.HoldsData, Need: r.Need})
 	}
 	for i, row := range rows {
 		e, err := appliedDeploymentRecord(row.Deployment, row.LastAppliedAt, nil)

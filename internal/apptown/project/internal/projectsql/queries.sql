@@ -198,3 +198,6 @@ UPDATE project_creation_requests SET input_hash=$2,resolved_group=$3,result_json
 -- name: PublishGeneratedDescription :exec
 UPDATE projects SET blurb=$2, settings_revision=settings_revision+1
 WHERE id=$1 AND blurb_source='generated' AND blurb<>$2;
+
+-- name: ProjectsByIDs :many
+SELECT * FROM projects WHERE id=ANY($1::uuid[]);

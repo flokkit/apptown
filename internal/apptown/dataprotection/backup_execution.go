@@ -935,7 +935,7 @@ func (s *Service) BackupPlan(ctx context.Context, projectID ids.ID, slug, name s
 	if err != nil {
 		return nil, fmt.Sprintf("no standing deployment named %q", name)
 	}
-	reading, err := NewProtectionObserver(s, nil).Snapshot(ctx, dep.ID)
+	reading, _, err := NewProtectionObserver(s, nil).snapshot(ctx, dep.ID)
 	if err != nil {
 		return nil, err.Error()
 	}

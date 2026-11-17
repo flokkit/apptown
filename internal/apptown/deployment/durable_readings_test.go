@@ -231,7 +231,7 @@ func TestOfflineCapacityKeepsSuccessfulTimeAndHostMemoryUse(t *testing.T) {
 				if got.Memory.HostUsed == nil || got.Memory.HostUsed.Value != 40 || got.Memory.HostUsed.ReadAt != first {
 					t.Errorf("failed check lost host memory use: %+v", got.Memory.HostUsed)
 				}
-				snapshot, err := observer.Snapshot(t.Context(), target)
+				snapshot, err := observer.snapshotForTest(t.Context(), target)
 				if err != nil {
 					t.Fatal(err)
 				}

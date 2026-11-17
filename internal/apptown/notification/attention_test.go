@@ -131,3 +131,32 @@ func (r *runtimeEvidence) Operational(ctx context.Context, projects []ids.ID) (m
 	}
 	return out, nil
 }
+
+func (p attentionProject) ByIDs(ctx context.Context, projects []ids.ID) (map[ids.ID]project.Project, error) {
+	out := map[ids.ID]project.Project{}
+	for _, id := range projects {
+		out[id], _ = p.ByID(ctx, id)
+	}
+	return out, nil
+}
+func (p protectedDeployment) ForProjects(ctx context.Context, projects []ids.ID) (map[ids.ID][]*deployment.Deployment, error) {
+	out := map[ids.ID][]*deployment.Deployment{}
+	for _, id := range projects {
+		out[id], _ = p.ForProject(ctx, id)
+	}
+	return out, nil
+}
+func (p interruptedProtection) Snapshots(ctx context.Context, subjects []ids.ID) (map[ids.ID]dataprotection.ProtectionSnapshot, error) {
+	out := map[ids.ID]dataprotection.ProtectionSnapshot{}
+	for _, id := range subjects {
+		out[id], _ = p.Snapshot(ctx, id)
+	}
+	return out, nil
+}
+func (s staleIntegration) RecordedHealths(ctx context.Context, bindings []integration.Binding, _ map[string][]integration.AttachedProject) (map[string]integration.Health, error) {
+	out := map[string]integration.Health{}
+	for _, b := range bindings {
+		out[b.Name], _ = s.RecordedHealth(ctx, b.Name)
+	}
+	return out, nil
+}

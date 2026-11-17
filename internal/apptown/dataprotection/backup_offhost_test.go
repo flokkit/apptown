@@ -569,14 +569,14 @@ func TestProtectionIdentitySurvivesAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, before, err := w.s.protectionIdentity(t.Context(), dep.ID)
+	_, before, err := NewProtectionObserver(w.s.Service, nil).resolve(t.Context(), dep.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := w.s.outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "reading-admission"}); err != nil {
 		t.Fatal(err)
 	}
-	_, after, err := w.s.protectionIdentity(t.Context(), dep.ID)
+	_, after, err := NewProtectionObserver(w.s.Service, nil).resolve(t.Context(), dep.ID)
 	if err != nil || after != before {
 		t.Fatalf("admission invalidated protection: %s %s %v", before, after, err)
 	}
@@ -700,7 +700,7 @@ func TestBackupFinishingDuringProtectionOwesARunnableCheck(t *testing.T) {
 	if _, err := observer.RunJob(ctx, q.keys[1], nil); err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := observer.Snapshot(ctx, dep.ID)
+	snapshot, err := observer.snapshotForTest(ctx, dep.ID)
 	if err != nil || snapshot.ObservedAt.IsZero() || snapshot.Unknown {
 		t.Fatalf("new check did not run: %+v %v", snapshot, err)
 	}

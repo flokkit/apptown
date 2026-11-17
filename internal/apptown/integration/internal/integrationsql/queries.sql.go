@@ -296,6 +296,45 @@ func (q *Queries) BindingHealth(ctx context.Context, name string) (json.RawMessa
 	return payload, err
 }
 
+const bindingHealths = `-- name: BindingHealths :many
+SELECT i.id, i.version, i.name, r.payload FROM integration_readings r JOIN integrations i ON i.id=r.id AND i.version=r.version
+`
+
+type BindingHealthsRow struct {
+	ID      ids.ID
+	Version int64
+	Name    string
+	Payload json.RawMessage
+}
+
+func (q *Queries) BindingHealths(ctx context.Context) ([]BindingHealthsRow, error) {
+	rows, err := q.db.QueryContext(ctx, bindingHealths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BindingHealthsRow
+	for rows.Next() {
+		var i BindingHealthsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Version,
+			&i.Name,
+			&i.Payload,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const bindingUsers = `-- name: BindingUsers :many
 SELECT i.name AS binding, p.capability, pr.slug, pr.name AS project_name
 FROM project_integrations p

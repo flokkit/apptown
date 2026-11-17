@@ -74,13 +74,21 @@ func (s *Deployments) Owned(ctx context.Context, deployment ids.ID) ([]deploy.Ow
 }
 
 func ownedIn(ctx context.Context, q *deploymentsql.Queries, deployment ids.ID) ([]deploy.Owned, error) {
-	rows, err := q.OwnedByDeployment(ctx, deployment)
+	owned, err := ownedByDeployments(ctx, q, []ids.ID{deployment})
+	return owned[deployment], err
+}
+
+func ownedByDeployments(ctx context.Context, q *deploymentsql.Queries, deployments []ids.ID) (map[ids.ID][]deploy.Owned, error) {
+	rows, err := q.OwnedByDeployments(ctx, deployments)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]deploy.Owned, 0, len(rows))
+	out := map[ids.ID][]deploy.Owned{}
+	for _, id := range deployments {
+		out[id] = []deploy.Owned{}
+	}
 	for _, r := range rows {
-		out = append(out, deploy.Owned{Kind: r.Kind, ID: r.Ident, Name: r.Name, Data: r.HoldsData, Need: r.Need})
+		out[r.DeploymentID] = append(out[r.DeploymentID], deploy.Owned{Kind: r.Kind, ID: r.Ident, Name: r.Name, Data: r.HoldsData, Need: r.Need})
 	}
 	return out, nil
 }

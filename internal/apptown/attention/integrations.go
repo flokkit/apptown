@@ -16,7 +16,7 @@ type Integrations struct {
 		StandingByProvider(context.Context) (map[string][]deployment.ProviderDeployment, error)
 	}
 	Service interface {
-		RecordedHealth(context.Context, string) (integration.Health, error)
+		RecordedHealths(context.Context, []integration.Binding, map[string][]integration.AttachedProject) (map[string]integration.Health, error)
 	}
 	Bindings interface {
 		All(context.Context) ([]integration.Binding, error)
@@ -39,12 +39,13 @@ func (s Integrations) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
+	health, err := s.Service.RecordedHealths(ctx, bindings, projects)
+	if err != nil {
+		return Snapshot{}, err
+	}
 	out := Snapshot{Known: true}
 	for _, b := range bindings {
-		h, err := s.Service.RecordedHealth(ctx, b.Name)
-		if err != nil {
-			return Snapshot{}, err
-		}
+		h := health[b.Name]
 		label := b.DisplayLabel
 		if label == "" {
 			label = b.Name

@@ -54,17 +54,57 @@ func NewHostSnapshots(db *database.DB, now func() time.Time) *HostSnapshots {
 
 // reading resolves the settings revision without contacting the provider.
 func (s *HostSnapshots) reading(ctx context.Context, t *Target) (hostReading, error) {
-	row, err := deploymentsql.New(s.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.ID.String(), Kind: hostReadingKind})
-	if errors.Is(err, sql.ErrNoRows) || err == nil && row.Identity != strconv.FormatInt(t.SettingsRevision, 10) {
-		return hostReading{}, nil
-	}
+	readings, err := s.readings(ctx, []*Target{t})
+	return readings[t.ID], err
+}
+
+type hostSamplesKey struct{}
+type hostSamples struct {
+	readings   map[ids.ID]hostReading
+	placements map[ids.ID][]ProjectDeployment
+	targets    map[ids.ID]*Target
+}
+
+// WithHostSamples reads one request's host evidence and keeps it with its placements.
+func (s *Service) WithHostSamples(ctx context.Context, targets []*Target, placements map[ids.ID][]ProjectDeployment) (context.Context, error) {
+	readings, err := NewHostSnapshots(s.db, s.now).readings(ctx, targets)
 	if err != nil {
-		return hostReading{}, err
+		return ctx, err
 	}
-	var r hostReading
-	err = json.Unmarshal(row.Payload, &r)
-	r.Invalidated = row.CompleteActCounter < row.ActCounter
-	return r, err
+	samples := hostSamples{readings: readings, placements: placements, targets: map[ids.ID]*Target{}}
+	for _, t := range targets {
+		samples.targets[t.ID] = t
+	}
+	return context.WithValue(ctx, hostSamplesKey{}, samples), nil
+}
+func (s *HostSnapshots) readings(ctx context.Context, targets []*Target) (map[ids.ID]hostReading, error) {
+	if samples, ok := ctx.Value(hostSamplesKey{}).(hostSamples); ok {
+		return samples.readings, nil
+	}
+	subjects := make([]string, 0, len(targets))
+	bySubject := map[string]*Target{}
+	for _, t := range targets {
+		subjects = append(subjects, t.ID.String())
+		bySubject[t.ID.String()] = t
+	}
+	rows, err := deploymentsql.New(s.db.SQL()).TargetReadings(ctx, deploymentsql.TargetReadingsParams{Column1: subjects, Kind: hostReadingKind})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ids.ID]hostReading, len(targets))
+	for _, row := range rows {
+		t := bySubject[row.Subject]
+		if row.Identity != strconv.FormatInt(t.SettingsRevision, 10) {
+			continue
+		}
+		var r hostReading
+		if err := json.Unmarshal(row.Payload, &r); err != nil {
+			return nil, err
+		}
+		r.Invalidated = row.CompleteActCounter < row.ActCounter
+		out[t.ID] = r
+	}
+	return out, nil
 }
 
 func mergeHostSection[T any](old *docker.HostSection[T], next docker.HostSection[T]) bool {
@@ -300,15 +340,27 @@ type HostReachability struct {
 // its deployment before reading; no connection check is performed here.
 // A target without a stored host reading has no confirmed outage.
 func (s *Service) HostReachability(ctx context.Context, targetID ids.ID) (HostReachability, error) {
-	t, err := s.Targets.ByID(ctx, targetID)
+	var t *Target
+	var deps []ProjectDeployment
+	var err error
+	if samples, ok := ctx.Value(hostSamplesKey{}).(hostSamples); ok {
+		t, deps = samples.targets[targetID], samples.placements[targetID]
+	} else {
+		t, err = s.Targets.ByID(ctx, targetID)
+		if err == nil {
+			deps, err = s.Deployments.OnTarget(ctx, targetID)
+		}
+	}
 	if err != nil {
 		return HostReachability{}, err
 	}
+	if t == nil {
+		return HostReachability{}, sql.ErrNoRows
+	}
 	r, err := NewHostSnapshots(s.db, s.now).reading(ctx, t)
-	if err != nil || !r.HostDown {
+	if err != nil {
 		return HostReachability{}, err
 	}
-	deps, err := s.Deployments.OnTarget(ctx, targetID)
 	// Count standing deployments, the ones the target page lists; previews
 	// and restored copies belong to a change or a restore, not to the host.
 	standing := 0

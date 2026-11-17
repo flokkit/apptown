@@ -61,3 +61,7 @@ func TestExpiredIntegrationIsUnknownAndKindsWithoutChecksNeverCount(t *testing.T
 		t.Fatalf("unknown coverage: %+v %v", got, err)
 	}
 }
+
+func (s integrationEvidence) RecordedHealths(context.Context, []integration.Binding, map[string][]integration.AttachedProject) (map[string]integration.Health, error) {
+	return s.health, nil
+}

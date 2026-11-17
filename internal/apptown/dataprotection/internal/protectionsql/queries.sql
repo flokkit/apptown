@@ -222,3 +222,6 @@ WHERE protection_readings.identity=EXCLUDED.identity OR protection_readings.gene
 
 -- name: KeptBackupReleases :many
 SELECT DISTINCT running_release_id FROM backups WHERE status<>'pruned' AND running_release_id IS NOT NULL;
+
+-- name: Readings :many
+SELECT subject, identity, payload FROM protection_readings WHERE subject=ANY($1::text[]) AND kind='protection';

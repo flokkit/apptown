@@ -601,7 +601,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	// cannot renew native evidence retained by that owner's inner cache.
 	q := &protectionObservationRequests{}
 	observer := NewProtectionObserver(w.s.Service, q)
-	cold, err := observer.Snapshot(ctx, dep.ID)
+	cold, err := observer.snapshotForTest(ctx, dep.ID)
 	if err != nil || cold.Unknown || q.calls != 0 {
 		t.Fatalf("cold protection: %+v %v", cold, err)
 	}
@@ -612,7 +612,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	if err := observer.run(ctx, dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	warm, err := observer.Snapshot(ctx, dep.ID)
+	warm, err := observer.snapshotForTest(ctx, dep.ID)
 	if err != nil || warm.ObservedAt.IsZero() || len(warm.Items) == 0 || warm.Stale {
 		t.Fatalf("observed protection lost inner age: %+v %v", warm, err)
 	}
@@ -1094,7 +1094,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	calls := 0
 	fail, replace := false, false
 	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, CopyLabel: CopyStale.label(), Volume: "/private-store", Native: &NativeBackups{ObservedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{outsideNotAssessed}}}
-	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
+	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }), read: func(context.Context, ids.ID, string) (*Protection, error) {
 		calls++
 		if replace {
 			identity = strings.Repeat("b", 64)
@@ -1105,7 +1105,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		return result, nil
 	}}
 	for range 3 {
-		got, err := o.Snapshot(t.Context(), dep.ID)
+		got, err := o.snapshotForTest(t.Context(), dep.ID)
 		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || calls != 0 || q.calls != 0 {
 			t.Fatalf("cold read: %+v %v", got, err)
 		}
@@ -1113,7 +1113,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	got, err := o.Snapshot(t.Context(), dep.ID)
+	got, err := o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Unknown || got.Stale || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale || strings.Contains(got.Items[0].Key, "private") {
 		t.Fatalf("first evidence: %+v %v", got, err)
 	}
@@ -1122,7 +1122,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), dep.ID)
+	got, err = o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Stale || got.Items[0].NativeAt != first || got.Items[0].Copy != CopyStale || got.ObservedAt != now {
 		t.Fatalf("wrapper renewed native evidence or caller changed owner: %+v %v", got, err)
 	}
@@ -1131,7 +1131,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	if err := o.run(t.Context(), dep.ID, identity); err == nil {
 		t.Fatal("provider error lost")
 	}
-	got, err = o.Snapshot(t.Context(), dep.ID)
+	got, err = o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Unknown || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
 		t.Fatalf("failure erased warning: %+v %v", got, err)
 	}
@@ -1141,7 +1141,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	if err := o.run(t.Context(), dep.ID, old); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), dep.ID)
+	got, err = o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Unknown || got.AttemptedAt.IsZero() || !got.Waiting || got.Reason != "" {
 		t.Fatalf("old generation published under replacement: %+v %v", got, err)
 	}
@@ -1151,7 +1151,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), dep.ID)
+	got, err = o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Unknown || got.Stale || got.Items[0].Copy != CopyFresh {
 		t.Fatalf("recovery not observed: %+v %v", got, err)
 	}
@@ -1166,20 +1166,20 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	q := &protectionObservationRequests{}
-	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(ctx context.Context, _ ids.ID, _ string) (*Protection, error) {
+	o := &ProtectionObserver{db: testDB(t), queue: q, now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }), read: func(ctx context.Context, _ ids.ID, _ string) (*Protection, error) {
 		close(started)
 		<-ctx.Done()
 		// Even a misbehaving adapter returning success after cancellation cannot
 		// publish a new reading under an ended job lifetime.
 		return &Protection{}, nil
 	}}
-	if _, err := o.Snapshot(t.Context(), dep.ID); err != nil {
+	if _, err := o.snapshotForTest(t.Context(), dep.ID); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
 	go func() { done <- o.run(ctx, dep.ID, identity) }()
 	<-started
-	got, err := o.Snapshot(t.Context(), dep.ID)
+	got, err := o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || q.calls != 0 {
 		t.Fatalf("blocked read affected snapshot: %+v %v", got, err)
 	}
@@ -1187,7 +1187,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 	if err := <-done; !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancellation lost: %v", err)
 	}
-	got, err = o.Snapshot(t.Context(), dep.ID)
+	got, err = o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() || !got.AttemptedAt.IsZero() {
 		t.Fatalf("canceled result published: %+v %v", got, err)
 	}

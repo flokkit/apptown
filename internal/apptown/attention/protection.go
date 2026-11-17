@@ -17,30 +17,47 @@ import (
 // the authorized project. It never interprets backup tables or calls providers.
 type Protection struct {
 	Projects interface {
-		ByID(context.Context, ids.ID) (project.Project, error)
+		ByIDs(context.Context, []ids.ID) (map[ids.ID]project.Project, error)
 	}
 	Deployments interface {
-		ForProject(context.Context, ids.ID) ([]*deployment.Deployment, error)
+		ForProjects(context.Context, []ids.ID) (map[ids.ID][]*deployment.Deployment, error)
 	}
 	Observer interface {
-		Snapshot(context.Context, ids.ID) (dataprotection.ProtectionSnapshot, error)
+		Snapshots(context.Context, []ids.ID) (map[ids.ID]dataprotection.ProtectionSnapshot, error)
 	}
 	Hosts hostReachabilityReader
 	Now   func() time.Time
 }
 
-func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
+func (p Protection) Snapshot(ctx context.Context, projectIDs []ids.ID) (map[ids.ID]ScanSnapshot, error) {
+	out := map[ids.ID]ScanSnapshot{}
 	if p.Projects == nil || p.Deployments == nil || p.Observer == nil {
-		return Snapshot{}, nil
+		return out, nil
 	}
-	project, err := p.Projects.ByID(ctx, id)
+	projects, err := readProjects(ctx, p.Projects, projectIDs)
 	if err != nil {
-		return Snapshot{}, err
+		return nil, err
 	}
-	deps, err := p.Deployments.ForProject(ctx, id)
+	deps, err := p.Deployments.ForProjects(ctx, projectIDs)
 	if err != nil {
-		return Snapshot{}, err
+		return nil, err
 	}
+	subjects := []ids.ID{}
+	for _, ds := range deps {
+		for _, dep := range ds {
+			if dep.Kind == deployment.Standing && (dep.ObservedGeneration != 0 || dep.LastApplied != nil) {
+				subjects = append(subjects, dep.ID)
+			}
+		}
+	}
+	readings, readErr := p.Observer.Snapshots(ctx, subjects)
+	for _, id := range projectIDs {
+		snap, err := p.projectSnapshot(ctx, projects[id], deps[id], readings, readErr)
+		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
+	}
+	return out, nil
+}
+func (p Protection) projectSnapshot(ctx context.Context, project project.Project, deps []*deployment.Deployment, readings map[ids.ID]dataprotection.ProtectionSnapshot, readErr error) (Snapshot, error) {
 	projectName := project.Name
 	if projectName == "" {
 		projectName = project.Slug
@@ -60,7 +77,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		}
 		down := false
 		if p.Hosts != nil && !dep.TargetID.IsZero() {
-			host, err := p.Hosts.HostReachability(ctx, dep.TargetID)
+			host, err := hostReachability(ctx, p.Hosts, dep.TargetID)
 			if err != nil {
 				return Snapshot{}, err
 			}
@@ -70,7 +87,7 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		if down {
 			folded++
 		}
-		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
+		reading := readings[dep.ID]
 		label := dep.DisplayLabel
 		if label == "" {
 			label = dep.Name

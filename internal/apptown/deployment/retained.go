@@ -299,10 +299,6 @@ func (s *Retained) ForProject(ctx context.Context, projectID ids.ID) ([]Retained
 	return s.list(ctx, deploymentsql.RetainedResourcesParams{ProjectOnly: true, ProjectID: projectID})
 }
 
-// openForTarget is what is still held at a target from torn-down deployments.
-func (s *Retained) openForTarget(ctx context.Context, targetID ids.ID) ([]RetainedResource, error) {
-	return s.list(ctx, deploymentsql.RetainedResourcesParams{TargetOnly: true, TargetID: targetID, Disposition: RetainedOpen.String()})
-}
 func (s *Retained) CountOpen(ctx context.Context, targetID ids.ID) (int, error) {
 	n, err := deploymentsql.New(s.db.SQL()).RetainedOpenCount(ctx, deploymentsql.RetainedOpenCountParams{TargetID: targetID, Disposition: RetainedOpen.String()})
 	return int(n), err

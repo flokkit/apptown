@@ -38,7 +38,7 @@ func TestNoDataAccessTargetRecordsNothingDeclared(t *testing.T) {
 	if err := o.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	reading, err := o.Snapshot(t.Context(), dep.ID)
+	reading, err := o.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || reading.Unknown || reading.Waiting || reading.Unassessed || reading.Reason != "" || len(reading.Items) != 0 || reading.ObservedAt.IsZero() {
 		t.Fatalf("empty deployment raised Attention evidence: %+v %v", reading, err)
 	}
@@ -70,11 +70,11 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	identity := strings.Repeat("a", 64)
 	result := &Protection{}
 	var readErr error
-	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) { return result, readErr }}
+	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }), read: func(context.Context, ids.ID, string) (*Protection, error) { return result, readErr }}
 	run := func() ProtectionSnapshot {
 		t.Helper()
 		_ = observer.run(t.Context(), dep.ID, identity)
-		got, err := observer.Snapshot(t.Context(), dep.ID)
+		got, err := observer.snapshotForTest(t.Context(), dep.ID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +84,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 		t.Fatalf("successful empty check: %+v", got)
 	}
 	now = at.Add(9 * time.Minute)
-	got, _ := observer.Snapshot(t.Context(), dep.ID)
+	got, _ := observer.snapshotForTest(t.Context(), dep.ID)
 	if got.Unknown || got.Stale {
 		t.Fatalf("nine minutes is not overdue: %+v", got)
 	}
@@ -93,7 +93,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	if err := observer.run(t.Context(), dep.ID, identity); err == nil || err.Error() != result.Unknown {
 		t.Fatalf("held-data failure was reported as a successful job: %v", err)
 	}
-	got, _ = observer.Snapshot(t.Context(), dep.ID)
+	got, _ = observer.snapshotForTest(t.Context(), dep.ID)
 	if got.Unknown || got.Stale || got.FailedAt != now || got.ObservedAt != at || got.AttemptedAt != now || got.Reason != "The deployment's data could not be read." {
 		t.Fatalf("failed held-data check hidden: %+v", got)
 	}
@@ -115,7 +115,7 @@ func TestProtectionFailureExplainsRetainedEvidenceAndRecovery(t *testing.T) {
 	readErr = nil
 	_ = run()
 	now = now.Add(76 * time.Minute)
-	got, _ = observer.Snapshot(t.Context(), dep.ID)
+	got, _ = observer.snapshotForTest(t.Context(), dep.ID)
 	if got.Unknown || !got.Stale || got.Reason != "" {
 		t.Fatalf("overdue evidence claimed known: %+v", got)
 	}
@@ -148,18 +148,18 @@ func TestProtectionReadingSurvivesRestartAndBecomesUnknownAfterSixHours(t *testi
 	first := now
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, LastApplied: &deployment.AppliedAttempt{At: now, Generation: 1}}
 	resolve := func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }
-	observer := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve, read: func(context.Context, ids.ID, string) (*Protection, error) { return &Protection{}, nil }}
+	observer := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(resolve), read: func(context.Context, ids.ID, string) (*Protection, error) { return &Protection{}, nil }}
 	if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
 		t.Fatal(err)
 	}
-	restarted := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolve: resolve}
+	restarted := &ProtectionObserver{db: db, now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(resolve)}
 	now = first.Add(50 * time.Minute)
-	got, err := restarted.Snapshot(t.Context(), dep.ID)
+	got, err := restarted.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Unknown || got.Stale || got.ObservedAt != first {
 		t.Fatalf("restart: %+v %v", got, err)
 	}
 	now = first.Add(6*time.Hour + time.Second)
-	got, err = restarted.Snapshot(t.Context(), dep.ID)
+	got, err = restarted.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Unknown {
 		t.Fatalf("expiry: %+v %v", got, err)
 	}
@@ -257,7 +257,7 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 			now := at
 			dep := &deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, Kind: deployment.Standing}
 			result := &Protection{}
-			observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }, read: func(context.Context, ids.ID, string) (*Protection, error) { return result, nil }}
+			observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return now }, resolveMany: fixedProtectionSubjects(func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, "identity", nil }), read: func(context.Context, ids.ID, string) (*Protection, error) { return result, nil }}
 			if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
 				t.Fatal(err)
 			}
@@ -267,8 +267,8 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 			if err := observer.run(t.Context(), dep.ID, "identity"); err == nil {
 				t.Fatal("failed reading reported success")
 			}
-			restarted := &ProtectionObserver{db: observer.db, now: observer.now, resolve: observer.resolve}
-			got, err := restarted.Snapshot(t.Context(), dep.ID)
+			restarted := &ProtectionObserver{db: observer.db, now: observer.now, resolveMany: observer.resolveMany}
+			got, err := restarted.snapshotForTest(t.Context(), dep.ID)
 			if err != nil || got.Reason != tc.reason || got.NextStep != tc.action || got.AttemptedAt != now || got.ObservedAt != at {
 				t.Fatalf("recorded failure: %+v %v", got, err)
 			}
@@ -277,7 +277,7 @@ func TestProtectionDataFailureRecordsCauseAndUsefulAction(t *testing.T) {
 			if err := observer.run(t.Context(), dep.ID, "identity"); err != nil {
 				t.Fatal(err)
 			}
-			got, err = restarted.Snapshot(t.Context(), dep.ID)
+			got, err = restarted.snapshotForTest(t.Context(), dep.ID)
 			if err != nil || got.Reason != "" || got.NextStep != "" || got.ObservedAt != now {
 				t.Fatalf("recovered check kept failure instructions: %+v %v", got, err)
 			}
@@ -301,7 +301,7 @@ func TestNewDeploymentWaitsButRestoreAdoptionStillAssessesProtection(t *testing.
 	if err := o.run(ctx, dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := o.Snapshot(ctx, dep.ID)
+	pending, err := o.snapshotForTest(ctx, dep.ID)
 	if err != nil || !pending.Waiting || !pending.AttemptedAt.IsZero() || pending.Reason != "Not released yet." {
 		t.Fatalf("unreleased: %+v %v", pending, err)
 	}
@@ -337,7 +337,7 @@ func TestNewDeploymentWaitsButRestoreAdoptionStillAssessesProtection(t *testing.
 		t.Fatal(err)
 	}
 	_ = o.run(ctx, dep.ID, identity)
-	got, err := o.Snapshot(ctx, dep.ID)
+	got, err := o.snapshotForTest(ctx, dep.ID)
 	if err != nil || got.Waiting || got.AttemptedAt.IsZero() {
 		t.Fatalf("restore-adopted assessment suppressed: %+v %v", got, err)
 	}
@@ -355,7 +355,7 @@ func TestEmptyRevisionWithSuccessfulAttemptStillReportsContractFailure(t *testin
 	// sql-guarantee: reproduce adoption’s empty revision; no Docker operation performs restore adoption.
 	mustExec(t, db, `UPDATE deployments SET release_sha='' WHERE id=$1`, dep.ID)
 	collectProtectionForTest(t, s, pid, "main")
-	got, err := NewProtectionObserver(s.Service, nil).Snapshot(t.Context(), dep.ID)
+	got, err := NewProtectionObserver(s.Service, nil).snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Waiting || !got.Unknown || got.AttemptedAt.IsZero() || got.Reason != "AppTown could not read this deployment's release contract." {
 		t.Fatalf("applied without revision: %+v %v", got, err)
 	}
@@ -366,20 +366,20 @@ func TestChangedProtectionKeepsDisplayWithoutReusingEvidence(t *testing.T) {
 	at := time.Now()
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}}
 	identity := "first"
-	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return at }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
+	observer := &ProtectionObserver{db: testDB(t), now: func() time.Time { return at }, resolveMany: fixedProtectionSubjects(func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return dep, identity, nil }), read: func(context.Context, ids.ID, string) (*Protection, error) {
 		return &Protection{Items: []ItemProtection{{Need: "postgres", Copy: CopyFresh, CopyLabel: CopyFresh.label()}}, Operations: &DataOperations{}}, nil
 	}}
 	if err := observer.run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
 	identity = "second"
-	got, err := observer.Snapshot(t.Context(), dep.ID)
+	got, err := observer.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || !got.Waiting || !got.Unknown || !got.Stale || got.Protection == nil || len(got.Protection.Items) != 1 || len(got.Items) != 0 || got.Identity != "first" || !got.ObservedAt.Equal(at) {
 		t.Fatalf("old display became evidence or was lost: %+v %v", got, err)
 	}
 	observer.read = func(context.Context, ids.ID, string) (*Protection, error) { return nil, errors.New("failed") }
 	_ = observer.run(t.Context(), dep.ID, identity)
-	got, err = observer.Snapshot(t.Context(), dep.ID)
+	got, err = observer.snapshotForTest(t.Context(), dep.ID)
 	if err != nil || got.Waiting || !got.Unknown || len(got.Items) != 0 || got.Identity != "first" || got.Protection == nil {
 		t.Fatalf("failed new check borrowed evidence: %+v %v", got, err)
 	}
@@ -408,7 +408,7 @@ func TestOldProtectionPayloadCannotOfferOperationsForTheNewGeneration(t *testing
 	if err != nil || !got.Reading.Waiting || !got.Reading.Unknown || got.Operations != nil || got.TakeDown != "" || len(got.Items) != len(old.Items) || got.Reading.Identity != old.Reading.Identity || !got.Reading.ObservedAt.Equal(old.Reading.ObservedAt) {
 		t.Fatalf("old payload authorized operations or was discarded: %+v %v", got, err)
 	}
-	snapshot, err := NewProtectionObserver(w.s.Service, nil).Snapshot(t.Context(), dep.ID)
+	snapshot, err := NewProtectionObserver(w.s.Service, nil).snapshotForTest(t.Context(), dep.ID)
 	if err != nil || len(snapshot.Items) != 0 {
 		t.Fatalf("old items became Attention evidence: %+v %v", snapshot, err)
 	}
@@ -438,4 +438,23 @@ func TestProviderBackupFreshnessAgreesWithProtectionCoverage(t *testing.T) {
 			t.Fatalf("age %s: native %+v / coverage %+v", age, native, snapshot)
 		}
 	}
+}
+
+func fixedProtectionSubjects(resolve func(context.Context, ids.ID) (*deployment.Deployment, string, error)) func(context.Context, []ids.ID) (map[ids.ID]protectionSubject, error) {
+	return func(ctx context.Context, subjects []ids.ID) (map[ids.ID]protectionSubject, error) {
+		out := map[ids.ID]protectionSubject{}
+		for _, id := range subjects {
+			dep, identity, err := resolve(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			out[id] = protectionSubject{dep, identity}
+		}
+		return out, nil
+	}
+}
+
+func (o *ProtectionObserver) snapshotForTest(ctx context.Context, id ids.ID) (ProtectionSnapshot, error) {
+	snapshots, err := o.Snapshots(ctx, []ids.ID{id})
+	return snapshots[id], err
 }

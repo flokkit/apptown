@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,11 +51,17 @@ func NewCapacityObserver(service *Service) *CapacityObserver {
 
 // Snapshot takes the current authorized target record. A changed configuration
 // starts unassessed rather than inheriting the previous target's disk warning.
-func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (CapacitySnapshot, error) {
-	r, err := o.load(ctx, target)
-	if err != nil {
-		return CapacitySnapshot{Unknown: true, Stale: true}, err
+
+func (o *CapacityObserver) Snapshots(ctx context.Context, targets []*Target) (map[ids.ID]CapacitySnapshot, error) {
+	records, err := o.loadMany(ctx, targets)
+	out := make(map[ids.ID]CapacitySnapshot, len(records))
+	for id, r := range records {
+		out[id] = o.capacitySnapshot(r)
 	}
+	return out, err
+}
+
+func (o *CapacityObserver) capacitySnapshot(r capacityRecord) CapacitySnapshot {
 	c := capacityAt(r.Capacity, o.now())
 	out := CapacitySnapshot{Disk: c.Disk, ObservedAt: c.ReadAt, AttemptedAt: r.AttemptedAt, Reason: r.Reason, Unknown: c.ReadAt.IsZero() || o.now().Sub(c.ReadAt) > 6*time.Hour, Stale: c.Stale, FailedAt: r.FailedAt}
 	out.Unknown = out.Unknown || capacityFailure(c) != ""
@@ -66,7 +71,7 @@ func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (Capaci
 		out.DiskUnknown = !c.Disk.Free.Known
 		out.Stale = out.Stale || c.Disk.StaleAt(o.now())
 	}
-	return out, nil
+	return out
 }
 
 type capacityRecord struct {
@@ -79,19 +84,36 @@ type capacityRecord struct {
 }
 
 func (o *CapacityObserver) load(ctx context.Context, t *Target) (capacityRecord, error) {
-	row, err := deploymentsql.New(o.db.SQL()).Reading(ctx, deploymentsql.ReadingParams{Subject: t.ID.String(), Kind: "capacity"})
-	if errors.Is(err, sql.ErrNoRows) {
-		return capacityRecord{}, nil
+	records, err := o.loadMany(ctx, []*Target{t})
+	return records[t.ID], err
+}
+func (o *CapacityObserver) loadMany(ctx context.Context, targets []*Target) (map[ids.ID]capacityRecord, error) {
+	subjects := make([]string, 0, len(targets))
+	bySubject := make(map[string]*Target, len(targets))
+	for _, t := range targets {
+		subjects = append(subjects, t.ID.String())
+		bySubject[t.ID.String()] = t
 	}
+	rows, err := deploymentsql.New(o.db.SQL()).TargetReadings(ctx, deploymentsql.TargetReadingsParams{Column1: subjects, Kind: "capacity"})
 	if err != nil {
-		return capacityRecord{}, err
+		return nil, err
 	}
-	if row.Identity != fmt.Sprint(t.SettingsRevision) {
-		return capacityRecord{}, nil
+	out := make(map[ids.ID]capacityRecord, len(targets))
+	for _, t := range targets {
+		out[t.ID] = capacityRecord{}
 	}
-	var r capacityRecord
-	err = json.Unmarshal(row.Payload, &r)
-	return r, err
+	for _, row := range rows {
+		t := bySubject[row.Subject]
+		if row.Identity != fmt.Sprint(t.SettingsRevision) {
+			continue
+		}
+		var r capacityRecord
+		if err := json.Unmarshal(row.Payload, &r); err != nil {
+			return nil, err
+		}
+		out[t.ID] = r
+	}
+	return out, nil
 }
 
 // Run publishes only evidence for the target configuration it checked.

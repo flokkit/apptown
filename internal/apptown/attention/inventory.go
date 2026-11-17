@@ -37,7 +37,7 @@ type Inventory struct {
 		All(context.Context) ([]*deployment.Target, error)
 	}
 	Records interface {
-		Recorded(context.Context, *deployment.Target) ([]deploy.Resource, error)
+		RecordedTargets(context.Context, []*deployment.Target) (map[ids.ID][]deploy.Resource, error)
 	}
 	Observer interface {
 		Snapshot(context.Context, *deployment.Target) (InventoryReading, error)
@@ -50,10 +50,11 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 	if s == nil || s.Targets == nil || s.Records == nil || s.Observer == nil {
 		return Snapshot{}, nil
 	}
-	targets, err := s.Targets.All(ctx)
+	targets, err := readTargets(ctx, s.Targets)
 	if err != nil {
 		return Snapshot{}, err
 	}
+	recordsByTarget, recordErr := s.Records.RecordedTargets(ctx, targets)
 	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)()}
 	subjects, folded := 0, 0
 	for _, t := range targets {
@@ -62,7 +63,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		down := false
 		if s.Hosts != nil {
-			host, err := s.Hosts.HostReachability(ctx, t.ID)
+			host, err := hostReachability(ctx, s.Hosts, t.ID)
 			if err != nil {
 				return Snapshot{}, err
 			}
@@ -91,7 +92,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		if down {
 			folded++
 		}
-		records, recordErr := s.Records.Recorded(ctx, t)
+		records := recordsByTarget[t.ID]
 		sample, readErr := s.Observer.Snapshot(ctx, t)
 		unknown := recordErr != nil || readErr != nil || sample.Unknown || sample.ObservedAt.IsZero()
 		out.Known = out.Known && (!unknown || down)

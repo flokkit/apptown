@@ -98,46 +98,58 @@ func (s *Service) RecordedHealth(ctx context.Context, name string) (Health, erro
 	if err != nil {
 		return Health{}, err
 	}
-	automatic := b.HasAutomaticCheck()
-	if !automatic {
-		return Health{StateLabel: HealthUnknown, Detail: "No automatic check."}, nil
-	}
-	raw, err := integrationsql.New(s.Bindings.db.SQL()).BindingHealth(ctx, name)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Health{Automatic: automatic, StateLabel: HealthUnknown, Detail: "Waiting for the first background check."}, nil
-	}
+	uses, err := s.Attachments.ProjectsByBinding(ctx)
 	if err != nil {
 		return Health{}, err
 	}
-	var h Health
-	if err := json.Unmarshal(raw, &h); err != nil {
-		return Health{}, err
+	health, err := s.RecordedHealths(ctx, []Binding{*b}, uses)
+	return health[name], err
+}
+
+// RecordedHealths classifies current-version evidence using the caller's bindings and attachments.
+func (s *Service) RecordedHealths(ctx context.Context, bindings []Binding, uses map[string][]AttachedProject) (map[string]Health, error) {
+	rows, err := integrationsql.New(s.Bindings.db.SQL()).BindingHealths(ctx)
+	if err != nil {
+		return nil, err
 	}
-	h.Automatic = automatic
-	if h.StateLabel == HealthNotSetUp {
-		h.NotSetUp = true
-		uses, err := s.Attachments.ProjectsByBinding(ctx)
-		if err != nil {
-			return Health{}, err
+	out := make(map[string]Health, len(bindings))
+	for _, b := range bindings {
+		h := Health{Automatic: b.HasAutomaticCheck(), StateLabel: HealthUnknown, Detail: "Waiting for the first background check."}
+		if !h.Automatic {
+			h.Detail = "No automatic check."
+			out[b.Name] = h
+			continue
 		}
-		if len(uses[name]) > 0 {
-			h.NotSetUp = false
-			h.StateLabel = HealthFailed
-			h.Detail = "A required integration is not set up. An administrator must add its configuration."
+		for _, row := range rows {
+			if row.ID == b.ID && row.Version == int64(b.Version) {
+				if err := json.Unmarshal(row.Payload, &h); err != nil {
+					return nil, err
+				}
+				h.Automatic = true
+				break
+			}
 		}
+		if h.StateLabel == HealthNotSetUp {
+			h.NotSetUp = true
+			if len(uses[b.Name]) > 0 {
+				h.NotSetUp = false
+				h.StateLabel = HealthFailed
+				h.Detail = "A required integration is not set up. An administrator must add its configuration."
+			}
+		}
+		h.LastResult = h.StateLabel
+		if at, err := time.Parse(time.RFC3339, h.CheckedAt); err == nil {
+			age := s.now().Sub(at)
+			h.Stale = age > healthStaleAfter
+			if age > 6*time.Hour {
+				h.StateLabel = HealthUnknown
+				h.Expired = true
+				h.Detail = "The last check is more than six hours old. An administrator can test this connection."
+			}
+		}
+		out[b.Name] = h
 	}
-	h.LastResult = h.StateLabel
-	at, err := time.Parse(time.RFC3339, h.CheckedAt)
-	if err == nil {
-		age := s.now().Sub(at)
-		h.Stale = age > healthStaleAfter
-		if automatic && age > 6*time.Hour {
-			h.StateLabel = HealthUnknown
-			h.Expired = true
-			h.Detail = "The last check is more than six hours old. An administrator can test this connection."
-		}
-	}
-	return h, nil
+	return out, nil
 }
 
 // healthObservationKey coalesces work only for the same binding settings.
