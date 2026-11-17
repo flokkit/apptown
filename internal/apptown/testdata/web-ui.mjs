@@ -40,7 +40,7 @@ await context.addInitScript(() => {
 // The affected pages still receive every viewport and disclosure check.
 const cameraContentExclusions = {
   'target-unknown': 'The unreachable target shows a capacity-check failure without a memory summary; whether unknown memory must always be shown is an open content decision.',
-  conformance: 'Overview uses unknown states; whether unavailable execution needs a separate red marker is an open content decision.',
+  'maintenance-standards': 'Overview uses unknown states; whether unavailable execution needs a separate red marker is an open content decision.',
   'conformance-project-mixed': 'Project detail groups unavailable execution under Couldn’t run with unknown states; whether it needs a separate red marker is the same open content decision.',
 };
 // Where the run's time goes: its phases, and each shot's parts (load, settle,
@@ -94,7 +94,7 @@ try {
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
     return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.filter(c => c.closedAs !== 'nothing-to-change' && c.type !== 'scheduled').length, quietChanges: activity.history.filter(c => c.closedAs === 'nothing-to-change').map(c => c.title), historyItems: activity.history.map(c => ({title: c.title, closedAs: c.closedAs})), backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
-  if (process.env.DESIGN_PAGES?.split(',').includes('janitor')) {
+  if (process.env.DESIGN_PAGES?.split(',').includes('maintenance')) {
     const janitor = await page.evaluate(async () => {
       const current = await (await fetch('/api/v1/janitor')).json();
       const history = await (await fetch('/api/v1/janitor/history')).json();
@@ -253,10 +253,10 @@ try {
     'attention-condition-disk': '/attention/checks/' + encodeURIComponent((infraCases.pending.items.find(i => /garden-shed/.test(JSON.stringify(i)) && /disk/i.test(JSON.stringify(i))) ?? { key: 'missing-garden-shed-disk-condition' }).key), updates: '/updates',
     'target-offers': '/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
     'memory-decisions-empty': '/projects/shared-notes/memory/decisions', 'target-cloud': '/targets/design-cloud', infrastructure: '/targets', jobs: '/jobs', 'infrastructure-new': '/targets/new',
-    conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews', 'text-roles': '/text-roles',
-    'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations',
+    'maintenance-standards': '/maintenance/standards', checks: '/maintenance/standards/checks', reviews: '/maintenance/standards/reviews', 'text-roles': '/text-roles',
+    'what-ifs': '/maintenance/standards/what-ifs', remediations: '/maintenance/standards/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
-    janitor: '/janitor', 'janitor-settings': '/janitor/settings', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
+    maintenance: '/maintenance', 'maintenance-updates': '/maintenance/updates', 'maintenance-settings': '/maintenance/settings', 'maintenance-redirect': '/janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
@@ -278,16 +278,16 @@ try {
     'change-progress-failed': `/changes/${seeded.failed}?tab=overview`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
     'change-failed': `/changes/${seeded.failed}`, 'overview-empty': '/projects/shared-notes',
-    'eval-scorecard': `/evals/${seeded.evaluation}`, 'what-if': `/conformance/what-ifs/${seeded.whatif}`,
-    remediation: `/conformance/remediations/${seeded.remediation}`, operation: `/operations/${seeded.operation}`,
+    'eval-scorecard': `/evals/${seeded.evaluation}`, 'what-if': `/maintenance/standards/what-ifs/${seeded.whatif}`,
+    remediation: `/maintenance/standards/remediations/${seeded.remediation}`, operation: `/operations/${seeded.operation}`,
     'invite-pending': seeded.invite,
-    'conformance-project': '/conformance/projects/club-newsletter',
-    'conformance-project-mixed': '/conformance/projects/lunch-orders',
+    'conformance-project': '/maintenance/standards/projects/club-newsletter',
+    'conformance-project-mixed': '/maintenance/standards/projects/lunch-orders',
     'deployment-infrastructure-help': '/targets/built-in-docker',
     'people-actions': '/people/accounts',
-    'review': `/conformance/reviews/${seeded.review}`,
-    'review-checks': `/conformance/reviews/${seeded.review}/checks`,
-    'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
+    'review': `/maintenance/standards/reviews/${seeded.review}`,
+    'review-checks': `/maintenance/standards/reviews/${seeded.review}/checks`,
+    'review-project': `/maintenance/standards/reviews/${seeded.review}/projects/club-newsletter`,
 
   };
   for (const tab of ['general', 'working', 'models', 'services', 'secrets', 'members', 'usage']) routes['settings-' + tab] = '/projects/club-newsletter/settings/' + tab;
@@ -332,7 +332,7 @@ try {
   for (const tab of ['overview', 'conversation', 'details']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'new-project-runs': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies/new', 'workflow-new': '/workflows', 'infrastructure-connection': '/targets/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
-  if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
+  if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/maintenance/standards/reviews?cameraRunning=1';
   Object.assign(routes, { features: '/features', 'feature-off': '/evals' });
   // Pages in a state a person opens: the Targets page with a section's help
   // open, a connection's access, a stopped deployment, a change's preview
@@ -370,11 +370,11 @@ try {
     'workflow': `/workflows/${encodeURIComponent(linked.workflow)}`,
     'pack-version': `${routes.pack}/versions/1`, 'pack-projects': `${routes.pack}/projects`,
     'integration-projects': `/integrations/${linked.integration}/projects`, 'service-projects': `/services/${linked.service}/projects`,
-    'check-projects': `/conformance/checks/${encodeURIComponent(linked.check)}/projects`,
-    'review-check-projects': `/conformance/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}/projects`,
-    'check-record': `/conformance/checks/${encodeURIComponent(linked.check)}`,
-    'review-check-record': `/conformance/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}`,
-    'what-if-project': `/conformance/what-ifs/${seeded.whatif}/projects/club-newsletter`,
+    'check-projects': `/maintenance/standards/checks/${encodeURIComponent(linked.check)}/projects`,
+    'review-check-projects': `/maintenance/standards/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}/projects`,
+    'check-record': `/maintenance/standards/checks/${encodeURIComponent(linked.check)}`,
+    'review-check-record': `/maintenance/standards/reviews/${seeded.review}/checks/${encodeURIComponent(linked.check)}`,
+    'what-if-project': `/maintenance/standards/what-ifs/${seeded.whatif}/projects/club-newsletter`,
     'past-chats': '/projects/club-newsletter/chats', 'past-chat': `/projects/club-newsletter/chats/${process.env.DESIGN_PROJECT_CHAT}`,
     'release-log': '/projects/club-newsletter/releases/1/log',
   });
@@ -601,7 +601,7 @@ try {
               await page.keyboard.press('Escape');
             }
           }
-          if (!process.env.DESIGN_BASELINE && !cameraContentExclusions[screen] && (screen === 'conformance' || screen === 'conformance-project-mixed')) {
+          if (!process.env.DESIGN_BASELINE && !cameraContentExclusions[screen] && (screen === 'maintenance-standards' || screen === 'conformance-project-mixed')) {
             const notes = page.locator('.conformance-broken');
             if (!(await notes.count())) throw new Error('unavailable checks must remain visible');
             const colors = await notes.evaluateAll(els => els.map(el => getComputedStyle(el).color));
@@ -739,8 +739,14 @@ try {
           await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
           const words = await page.locator('body').innerText();
           await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
-          // Approvals live on the Janitor settings page, not the overview.
-          if (screen === 'janitor-settings') {
+          if (screen === 'maintenance-redirect' && new URL(page.url()).pathname !== '/maintenance') throw new Error('old Janitor address did not redirect');
+          if (screen === 'maintenance') {
+            await page.getByRole('table', {name: 'Needs you', exact: true}).waitFor();
+            if (!words.includes('Needs you')) throw new Error('Maintenance decisions missing');
+          }
+          if (screen === 'maintenance-updates' && !words.includes('Last 7 days')) throw new Error('Janitor history missing');
+          // Settings save as they change.
+          if (screen === 'maintenance-settings') {
             await page.getByLabel('Dependencies', {exact: true}).waitFor({ state: 'visible' });
             // Settings save as they change: switches, no Save button.
             await page.getByRole('switch', {name: 'Security fixes', exact: true}).waitFor({ state: 'visible' });

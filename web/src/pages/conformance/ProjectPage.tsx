@@ -80,7 +80,7 @@ function ProjectReviews({ slug }: { slug: string }) {
       <StaleNote q={q} />
       {hist.length === 0 && <p className="muted small">No reviews yet.</p>}
       {hist.length > 0 && <ListTable className="small" label="Review history" rows={[...hist].reverse()} rowKey={h => String(h.reviewId)} columns={[
-        { key: 'review', label: 'Review', phone: 'name', render: h => <Link to={`/conformance/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link> },
+        { key: 'review', label: 'Review', phone: 'name', render: h => <Link to={`/maintenance/standards/reviews/${h.reviewId}/projects/${slug}`}>Review · {fmtWhen(h.at)}</Link> },
         { key: 'findings', label: 'Findings', phone: 'state', kind: 'number', render: h => h.findings },
         { key: 'flagged', label: 'Possible problems', kind: 'number', render: h => h.flagged },
         { key: 'unassessed', label: 'Not judged', kind: 'number', render: h => h.unassessed },
@@ -106,7 +106,7 @@ function LaneSection({ lane, title, hint, groups, view, exceptions, readOnly, on
   // Lanes with nothing to do here are a table of checks; each row opens the
   // check's page, which holds its evidence across projects and how it judges.
   if (!['findings', 'broken', 'flagged'].includes(lane)) {
-    const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
+    const base = reviewId ? `/maintenance/standards/reviews/${reviewId}` : '/maintenance/standards'
     const key = (v: Verdict) => `${v.block}@${v.version}·${v.check}`
     return <Section title={title} count={list.length} note={hint}>
       <ListTable label={title} rows={list} rowKey={v => String(v.id || key(v))} rowTo={v => `${base}/checks/${encodeURIComponent(key(v))}`} columns={[
@@ -162,7 +162,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
 
   return (
     <div>
-      <PageHead page="conformance" title={p.name || slug} actions={!readOnly && <span className="row project-page-check-row-div-2">
+      <PageHead page="maintenance" title={p.name || slug} actions={!readOnly && <span className="row project-page-check-row-div-2">
         {fixable > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
         <button className="primary" disabled={busy} onClick={() => onRunOne(slug)}>Check this project</button>
       </span>} />
@@ -200,7 +200,7 @@ function FixedSection({ slug }: { slug: string }) {
       {rows.map((r) => (
         <ListRow key={r.fix.id} className="card small fixed-list-row" identity={<>
           <span className="mono">{r.fix.check}</span> — fixed {r.fix.changeIds.length === 1 ? <>by <Link to={`/changes/${r.fix.changeIds[0]}`}>{r.fix.changeNumbers[0] ? `change ${r.fix.changeNumbers[0]}` : 'a change'}</Link></> : r.fix.changeIds.length > 1 ? <>by one of changes {r.fix.changeIds.map((id, i) => <Fragment key={id ?? i}>{i > 0 ? ', ' : ''}<Link to={`/changes/${id}`}>{r.fix.changeNumbers[i] || 'a change'}</Link></Fragment>)}</> : `by commits ${r.fix.commits}`}
-          , verified by <Link to={`/conformance/reviews/${r.fix.reviewId}/projects/${slug}`}>{r.fix.reviewNumber ? `review #${r.fix.reviewNumber}` : 'a review'}</Link>{r.fix.acceptedBy ? `, accepted by ${r.fix.acceptedBy}` : ''} <span className="muted">· {fmtWhen(r.fix.at)}</span>
+          , verified by <Link to={`/maintenance/standards/reviews/${r.fix.reviewId}/projects/${slug}`}>{r.fix.reviewNumber ? `review #${r.fix.reviewNumber}` : 'a review'}</Link>{r.fix.acceptedBy ? `, accepted by ${r.fix.acceptedBy}` : ''} <span className="muted">· {fmtWhen(r.fix.at)}</span>
           {r.fix.also && r.fix.also.length > 0 && <span className="muted"> · also fixed: {r.fix.also.join(', ')}</span>}</>} />
       ))}
     </Section>

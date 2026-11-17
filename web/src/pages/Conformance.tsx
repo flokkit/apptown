@@ -31,14 +31,15 @@ import './conformance.css'
 
 // --- the page ---------------------------------------------------------------------------------------
 
-// The tabs with help of their own (PageHead's SUB_HELP.conformance).
+// The Standards views with help of their own.
 const TAB_HELP: Partial<Record<string, string>> = { checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations' }
 
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'what-ifs' }) {
   const { reviewId, slug, remId, checkKey } = useParams()
+  const record = !!(reviewId || slug || remId || checkKey)
   const rid = reviewId ?? ''
  const enabled = useFeature()
-  const base = rid ? `/conformance/reviews/${rid}` : '/conformance'
+  const base = rid ? `/maintenance/standards/reviews/${rid}` : '/maintenance/standards'
   const { run: act, busy: starting, err: actErr } = useAction()
   const remediation = useStartRemediation()
   // The review being followed to its end: its activity polls quickly and the
@@ -49,7 +50,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   // An AppTown with nothing adopted answers projects: null; the lists below
   // treat that as none (it once crashed the page on a fresh AppTown).
   const view = useMemo(() => viewQ.data ? { ...viewQ.data, projects: viewQ.data.projects ?? [] } : undefined, [viewQ.data])
-  usePageName(`/conformance/reviews/${rid}`, view?.lens.review ? `Review #${view.lens.review.number}` : undefined)
+  usePageName(`/maintenance/standards/reviews/${rid}`, view?.lens.review ? `Review #${view.lens.review.number}` : undefined)
   const liveQ = useGet<ConformanceReviewDetail>(following ? `/conformance/reviews/${following}` : null, { poll: 700 })
   // A review detail names its review; one without it (gone) has nothing to follow.
   const liveData = liveQ.data
@@ -93,15 +94,14 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
   const title = checkKey ? view?.checkDefs[checkKey]?.title || 'Check'
     : rid && tab !== 'project' ? `Review #${view?.lens.review?.number ?? ''}`
     : tab === 'project' ? project?.name || slug
-    : { projects: 'Conformance', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', 'what-ifs': 'Pack upgrades' }[tab]
+    : { projects: 'Standards', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', 'what-ifs': 'Pack upgrades' }[tab]
 
   return (
     <div>
       {/* The page's actions sit on the title's line: one primary, Check now;
           fixing every finding is a plain button beside it. While a review
           runs, its progress takes their place. */}
-      {tab === 'what-ifs' && <PageHead page="packUpgrades" />}
-      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="conformance" title={title} sub={checkKey ? 'this check' : TAB_HELP[tab]} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
+      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="maintenance" title={record ? title : undefined} compact={!record} sub={checkKey ? 'this check' : TAB_HELP[tab]} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
@@ -117,7 +117,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
       {/* A past review's own pages are its projects and its checks; the
-          area's pages are in the sidebar. */}
+          area's lists are on Maintenance's Standards tab. */}
       {readOnly && tab !== 'project' && <Tabs className="tabs conformance-tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>

@@ -7,9 +7,9 @@ bring one back when it does not.
 
 Every project adopts some ways of working. Some of those carry **checks**: a
 shell script, a maintained scanner, a probe of the running app, or a rubric a
-model judges. The **Conformance** page answers one question for every
-project: *does it meet what it adopted?* Its pages are in the sidebar under
-**Conformance**:
+model judges. The **Standards** tab on **Maintenance** answers one question for every
+project: *does it meet what it adopted?* Its views are under
+**Maintenance › Standards**:
 
 - **Projects**: one row per app, those needing attention first: what to do
   next ("Fix: *the check*", "Not known: *why*"), how many checks couldn't

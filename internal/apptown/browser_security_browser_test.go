@@ -3642,6 +3642,9 @@ var newsletterNeon = map[string]string{
 // Redirects are covered at their destinations. The wildcard has no finite
 // address set; a separate not-found capture exercises its rendered page.
 var cameraRouteExclusions = map[string]string{
+	"/janitor":                    "redirects to /maintenance; maintenance-redirect checks the old address",
+	"/janitor/settings":           "literal redirect to /maintenance/settings; covered by routing tests",
+	"/conformance/*":              "redirects raw paths to /maintenance/standards; encoded keys covered by routing tests",
 	"/invite/:token":              "consumed once and removed from the address bar; invite-pending captures acceptance at /invite",
 	"/docs":                       "redirects to the first guide; docs captures /docs/guides/quickstart",
 	"/projects/:slug/workflows/*": "redirects to /projects/:slug/settings/working",
@@ -5213,7 +5216,7 @@ spec:
 		}
 		// The final camera stop starts an actual review, after the other
 		// tabs have been photographed with their available Check/Fix actions.
-		if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" && r.URL.Path == "/conformance/reviews" && r.URL.Query().Get("cameraRunning") == "1" {
+		if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" && r.URL.Path == "/maintenance/standards/reviews" && r.URL.Query().Get("cameraRunning") == "1" {
 			startCameraReview.Do(func() {
 				var running *conformance.Execution
 				running, cameraReviewErr = a.conformance.BeginReview(testConformanceContext("sam"), conformance.ReviewRequest{Trigger: "manual"})

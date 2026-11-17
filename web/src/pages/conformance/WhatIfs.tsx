@@ -92,8 +92,8 @@ export function WhatIfsList() {
       <Section title="What-ifs" count={list.length || undefined}>
       {list.length === 0 && <p className="muted small">None run yet.</p>}
       {list.length > 0 && (
-        <ListTable label="What-ifs" rows={list.slice(0, limit)} rowKey={w => w.id ?? `${w.pack}@${w.version}@${w.createdAt}`} rowTo={w => `/conformance/what-ifs/${w.id}`} columns={[
-          { key: 'pack', label: 'Pack version', phone: 'name', render: w => <><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <span className="muted small"> · and other workflows to newest</span>}</> },
+        <ListTable label="What-ifs" rows={list.slice(0, limit)} rowKey={w => w.id ?? `${w.pack}@${w.version}@${w.createdAt}`} rowTo={w => `/maintenance/standards/what-ifs/${w.id}`} columns={[
+          { key: 'pack', label: 'Pack version', phone: 'name', render: w => <><Link to={`/maintenance/standards/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <span className="muted small"> · and other workflows to newest</span>}</> },
           { key: 'answers', label: 'Results', render: w => {
             const counts: Record<string, number> = {}
             for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1

@@ -46,7 +46,7 @@ it('links a queued remediation that covers a finding before its change exists', 
   const queued = { projectId: 'project', block: 'hygiene', version: 1, check: 'clean', changeId: null, number: 0, remediationId: 'job', remediationNumber: 3 }
   const html = renderToStaticMarkup(<MemoryRouter><BeingFixed change={queued} /></MemoryRouter>)
   expect(html).toContain('queued in')
-  expect(html).toContain('href="/conformance/remediations/job"')
+  expect(html).toContain('href="/maintenance/standards/remediations/job"')
   expect(html).not.toContain('change #0')
 })
 
@@ -60,7 +60,7 @@ it('shows each judgement’s commit, date and numbered source, and warns about o
     expect(html).toContain('commit <span class="mono">abcdef12</span>')
     expect(html).toContain('7 Nov')
     expect(html).toContain(`${source} #12`)
-    expect(html).toContain('href="/conformance/reviews/r"')
+    expect(html).toContain('href="/maintenance/standards/reviews/r"')
     expect(html).toContain('judged on an older commit')
   }
   const html = renderToStaticMarkup(<JudgedAt v={{} as Verdict} reviews={[]} />)
@@ -107,8 +107,8 @@ it('keeps the fleet roll-up to one line per project and leaves check evidence to
   const view = { lens: { kind: 'current' }, projects: [{ slug: 'shop', standing: 'conforms-so-far', sentence: 'Old evidence', lanes: { unassessed: 1 }, notKnown: [], adopted: [] }],
     byProject: { shop: [{ check: 'clean', sha: 'abcdef123456', at: '2026-11-07T03:02:00Z', reviewId: 'r', state: 'stale', lane: 'unassessed' }] },
     reviews: [{ id: 'r', number: 12, trigger: 'landing' }], checkDefs: {} } as unknown as ConformanceView
-  const html = renderToStaticMarkup(<MemoryRouter><ProjectsList view={view} base="/conformance" /></MemoryRouter>)
+  const html = renderToStaticMarkup(<MemoryRouter><ProjectsList view={view} base="/maintenance/standards" /></MemoryRouter>)
   expect(html).toContain('Current state')
   expect(html).not.toContain('judged at')
-  expect(html).toContain('href="/conformance/projects/shop"')
+  expect(html).toContain('href="/maintenance/standards/projects/shop"')
 })

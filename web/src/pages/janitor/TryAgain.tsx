@@ -22,7 +22,7 @@ export function TryAgain({ queue, slug, current, reload, refusedRun = false, chi
         setResult(result)
       })}>Try again</button>
   const details = <>
-    {result?.starts.map((s, i) => s.refused ? <span className="error" key={i}> · {s.refused}</span> : s.whatIfId ? <span key={i}> · <Link to={`/conformance/what-ifs/${s.whatIfId}`}>assessment started</Link></span> : s.current ? <span key={i}> · up to date</span> : null)}
+    {result?.starts.map((s, i) => s.refused ? <span className="error" key={i}> · {s.refused}</span> : s.whatIfId ? <span key={i}> · <Link to={`/maintenance/standards/what-ifs/${s.whatIfId}`}>assessment started</Link></span> : s.current ? <span key={i}> · up to date</span> : null)}
     {action.err && <span className="error"> · {action.err}</span>}
   </>
   return children ? children(details, button) : <>{button}{details}</>

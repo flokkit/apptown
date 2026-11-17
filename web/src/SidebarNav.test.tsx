@@ -34,3 +34,20 @@ it.each(['notes', 'decisions'])('Memory has the shared group controls and active
     expect(el.querySelector('a[href="/projects/a/settings/decisions"]')).toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it.each([[true, true], [true, false], [false, true], [false, false]])('offers Maintenance for project read %s and conformance read %s', async (projects, conformance) => {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async url => new Response(JSON.stringify(url.endsWith('/authz/me') ? { instance: { 'project:read': projects, 'conformance:read': conformance, 'instance:updates': true } } : {})))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/maintenance/settings']}><SidebarNav /></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    const setup = el.querySelector('.nav-group')!
+    const top = [...el.children].slice(0, [...el.children].indexOf(setup)).map(e => e.matches('a') ? e.textContent : e.querySelector('a')?.textContent)
+    expect(top).toEqual(['Home', 'Projects', 'Deployments', ...(projects || conformance ? ['Maintenance'] : [])])
+    expect(el.querySelector('a[href="/maintenance"]')?.classList.contains('active')).toBe(projects || conformance ? true : undefined)
+    expect(el.querySelector('a[href="/janitor"]')).toBeNull()
+    expect(el.querySelector('a[href="/conformance"]')).toBeNull()
+    expect(el.querySelector('a[href="/updates"]')?.textContent).toBe('AppTown updates')
+    expect(el.querySelector('a[href="/updates"]')?.nextElementSibling?.className).toBe('spacer')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

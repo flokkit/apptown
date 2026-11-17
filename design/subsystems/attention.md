@@ -18,7 +18,7 @@ it can still describe. Neither a failed read nor incomplete observation coverage
 means all clear.
 
 App-check conditions use the evaluator classification supplied by Conformance.
-Undecided AI evaluations stay on project Conformance, with their reasons and
+Undecided AI evaluations stay on the project record under Maintenance › Standards, with their reasons and
 actions. Evidence-related uncertainty, provider session failures and caps generate no
 Attention or Home item. AppTown setup and execution failures remain visible
 with the reason and next action, as do deterministic operational errors and

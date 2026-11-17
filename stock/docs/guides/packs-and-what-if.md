@@ -27,7 +27,7 @@ Every run records the version it used.
   in a new pack** and change your copy.
 - Saving a pack publishes the version new projects get and existing projects
   are offered. `apptown pack versions <pack>` lists publications. Existing
-  projects move through adoption Changes. **Keep packs current** on the Janitor page
+  projects move through adoption Changes. **Keep packs current** on Maintenance’s Settings tab
   lets the janitor assess new publications, repair any code they need, and
   land and release them when every required check is met. It also catches up
   projects when enabled. The project level `off` and release holds still apply;
@@ -58,7 +58,7 @@ Every run records the version it used.
   before you run it and recorded with the what-if, and they apply only to
   projects already on those packs. Eligible projects then include those
   current on this pack but behind on their own.
-  Every what-if is listed under **Conformance → Pack upgrades**, which also
+  Every what-if is listed under **Maintenance › Standards › Pack upgrades**, which also
   lists the projects behind on a pack and can start a what-if itself. Its pack
   link opens the publication. Tick projects and
   **Adopt** to open one adoption Change per project with exactly what was

@@ -54,7 +54,7 @@ export default function WhatIfPage() {
   const w = q.data
   // The what-if's own page is the parent of each project's result: its name,
   // not its id, is the way back.
-  usePageName(`/conformance/what-ifs/${id}`, w ? `What-if: ${w.pack} v${w.version}` : undefined)
+  usePageName(`/maintenance/standards/what-ifs/${id}`, w ? `What-if: ${w.pack} v${w.version}` : undefined)
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
   if (w && slug) {
     const p = w.projects.find(p => p.projectSlug === slug)
@@ -230,10 +230,10 @@ function Table({ w }: { w: WhatIf }) {
           return <input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
             checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} />
         } },
-        { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
+        { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/maintenance/standards/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
         { key: 'answer', label: 'Answer', phone: 'state', render: p => <Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /> },
         { key: 'score', label: 'Score', render: p => <><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</> },
-        { key: 'details', label: 'Details', render: p => <Link to={`/conformance/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
+        { key: 'details', label: 'Details', render: p => <Link to={`/maintenance/standards/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
         { key: 'adoption', label: 'Adoption', render: p => <AdoptedCell a={adopted[p.projectId ?? '']} /> },
       ]} />
       </div>

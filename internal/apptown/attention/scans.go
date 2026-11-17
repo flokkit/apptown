@@ -39,7 +39,7 @@ func scanSnapshot(p workflow.ScanAttentionProject) Snapshot {
 		return Snapshot{Name: "Scans", Known: true, Items: []Item{}}
 	}
 	id, scans := p.ProjectID, p.Scans
-	href := "/conformance/projects/" + p.Slug
+	href := "/maintenance/standards/projects/" + p.Slug
 	out := Snapshot{Name: "Scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
 	if !scans.Known && !scans.NoRepository && !scans.Unscheduled && (scans.Failed || scans.Stale) {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})

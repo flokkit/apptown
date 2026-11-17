@@ -12,7 +12,7 @@ import { DeploymentPage } from './pages/project/settings/Deployments'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { ProjectMark } from './ProjectListRow'
-import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, ShieldCheck, Users } from 'lucide-react'
+import { Blocks, BookOpen, BookText, ChartColumn, ChevronDown, ChevronRight, FlaskConical, FolderKanban, GitPullRequest, House, LayoutDashboard, MessageSquare, MessageSquareWarning, Plug, RefreshCw, Rocket, Settings, Shield, Users } from 'lucide-react'
 import { createChatChange } from './pages/project/ChangeButton'
 import { PRODUCT } from './brand'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -24,7 +24,8 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'rea
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
-import Janitor from './pages/Janitor'
+import Maintenance, { ConformanceRedirect } from './pages/Maintenance'
+import { NeedsYou, UpdatesHistory } from './pages/Janitor'
 import JanitorSettings from './pages/janitor/Settings'
 import AttentionPage from './pages/Attention'
 import Projects from './pages/Projects'
@@ -140,14 +141,7 @@ export function SidebarNav() {
           ...(feature('backups') ? [{ to: '/backups', label: 'Backups', active: pathname === '/backups' }] : []),
         ] : []),
       ]} />
-      {mayOpen('conformance') && <Drawer label="Conformance" icon={<ShieldCheck aria-hidden size={16} />} to={feature('conformance-estate') ? '/conformance' : '/conformance/reviews'} active={pathname.startsWith('/conformance')} items={[
-        ...(feature('conformance-estate') ? [{ to: '/conformance', label: 'Projects', active: pathname === '/conformance' || pathname.startsWith('/conformance/projects') }] : []),
-        { to: '/conformance/reviews', label: 'Reviews', active: pathname.startsWith('/conformance/reviews') },
-        ...(feature('conformance-estate') ? [{ to: '/conformance/checks', label: 'Checks', active: pathname.startsWith('/conformance/checks') }] : []),
-        { to: '/conformance/remediations', label: 'Remediations', active: pathname.startsWith('/conformance/remediations') },
-        ...(feature('what-ifs') ? [{ to: '/conformance/what-ifs', label: 'Pack upgrades', active: pathname.startsWith('/conformance/what-ifs') }] : []),
-      ]} />}
-      {permission("janitor") && <NavLink to="/janitor" className={cls}><RefreshCw aria-hidden size={16} />Janitor</NavLink>}
+      {(permission('maintenance') || mayOpen('conformance')) && <NavLink to="/maintenance" className={cls}><RefreshCw aria-hidden size={16} />Maintenance</NavLink>}
       <div className="nav-group">Setup</div>
  <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
       <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
@@ -163,7 +157,7 @@ export function SidebarNav() {
       {mayOpen('evals') && <NavLink to="/evals" className={cls}><FlaskConical aria-hidden size={16} />Evals</NavLink>}
       {mayOpen('people') && <Drawer label="People" icon={<Users aria-hidden size={16} />} to="/people/accounts" active={pathname.startsWith('/people')} items={PEOPLE_PAGES.map(([key, label]) => ({ to: `/people/${key}`, label, active: pathname.startsWith(`/people/${key}`) }))} />}
       <NavLink to="/usage" className={cls}><ChartColumn aria-hidden size={16} />Usage</NavLink>
-      {mayUpdate && feature('updates') && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />Updates</NavLink>}
+      {mayUpdate && feature('updates') && <NavLink to="/updates" className={cls}><RefreshCw aria-hidden size={16} />{PRODUCT} updates</NavLink>}
       <div className="spacer" />
       <NavBottom cls={cls} complaints={mayOpen('complaints')} me={me ?? null} />
     </>
@@ -213,7 +207,7 @@ function ToProjectWorking() {
 
 
 export default function App() {
-  const { pathname: routePath } = useLocation()
+  const { pathname: routePath, search, hash } = useLocation()
   const [user, setUser] = useState(currentUser())
   // /auth/me is reachable without a session; it says whether a login
   // door exists (internal mode) and who is behind it if signed in.
@@ -296,22 +290,22 @@ export default function App() {
           <Route path="/complaints" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="new" /></InstanceGate></CoreArea>} />
           <Route path="/complaints/answered" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="answered" /></InstanceGate></CoreArea>} />
           <Route path="/complaints/archive" element={<CoreArea area="complaints"><InstanceGate page="complaints"><Complaints tab="archived" /></InstanceGate></CoreArea>} />
-          <Route path="/conformance" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/checks/:checkKey/projects" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks/:checkKey/projects" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/checks/:checkKey" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks/:checkKey" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/checks" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="reviews" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews/:reviewId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews/:reviewId/checks" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/reviews/:reviewId/projects/:slug" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/projects/:slug" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/what-ifs" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><Conformance tab="what-ifs" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/what-ifs/:id/projects/:slug" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/what-ifs/:id" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/remediations" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediations" /></InstanceGate></FeatureGate>} />
-          <Route path="/conformance/remediations/:remId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Maintenance><StandardsEntry /></Maintenance></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/checks/:checkKey/projects" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews/:reviewId/checks/:checkKey/projects" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><CheckProjects /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/checks/:checkKey" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews/:reviewId/checks/:checkKey" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/checks" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Maintenance><Conformance tab="checks" /></Maintenance></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Maintenance><Conformance tab="reviews" /></Maintenance></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews/:reviewId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="projects" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews/:reviewId/checks" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="checks" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/reviews/:reviewId/projects/:slug" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/projects/:slug" element={<FeatureGate area="conformance-estate"><InstanceGate page="conformance"><Conformance tab="project" /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/what-ifs" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><Maintenance><Conformance tab="what-ifs" /></Maintenance></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/what-ifs/:id" element={<FeatureGate area="what-ifs"><InstanceGate page="conformance"><WhatIfPage /></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/remediations" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Maintenance><Conformance tab="remediations" /></Maintenance></InstanceGate></FeatureGate>} />
+          <Route path="/maintenance/standards/remediations/:remId" element={<FeatureGate area="conformance"><InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate></FeatureGate>} />
           <Route path="/projects/_new" element={<CoreArea area="projects"><NewProject /></CoreArea>} />
           <Route path="/projects/:slug/releases/:number/log" element={<CoreArea area="releases"><ReleaseLogPage /></CoreArea>} />
           <Route path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>} />
@@ -360,8 +354,12 @@ export default function App() {
           <Route path="/services" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/services/:name" element={<CoreArea area="setup"><InstanceGate page="integrations"><Integrations /></InstanceGate></CoreArea>} />
           <Route path="/policies" element={<CoreArea area="ways"><WaysOfWorking tab="policies" /></CoreArea>} />
-          <Route path="/janitor" element={<CoreArea area="projects"><InstanceGate page="janitor"><Janitor /></InstanceGate></CoreArea>} />
-          <Route path="/janitor/settings" element={<CoreArea area="projects"><InstanceGate page="janitor"><JanitorSettings /></InstanceGate></CoreArea>} />
+          <Route path="/maintenance" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><NeedsYou /></InstanceGate></Maintenance></CoreArea>} />
+          <Route path="/maintenance/updates" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><UpdatesHistory /></InstanceGate></Maintenance></CoreArea>} />
+          <Route path="/maintenance/settings" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><JanitorSettings /></InstanceGate></Maintenance></CoreArea>} />
+          <Route path="/janitor" element={<CoreArea area="record"><Navigate replace to={{ pathname: '/maintenance', search, hash }} /></CoreArea>} />
+          <Route path="/janitor/settings" element={<CoreArea area="record"><Navigate replace to={{ pathname: '/maintenance/settings', search, hash }} /></CoreArea>} />
+          <Route path="/conformance/*" element={<CoreArea area="record"><ConformanceRedirect /></CoreArea>} />
           <Route path="/packs" element={<CoreArea area="ways"><WaysOfWorking tab="packs" /></CoreArea>} />
           <Route path="/packs/:name" element={<CoreArea area="ways"><PackPage /></CoreArea>} />
           <Route path="/account" element={<CoreArea area="people"><MyExternalSignIn /></CoreArea>} />
@@ -388,4 +386,8 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+function StandardsEntry() {
+  return useFeature()('conformance-estate') ? <Conformance tab="projects" /> : <Navigate replace to="/maintenance/standards/reviews" />
 }

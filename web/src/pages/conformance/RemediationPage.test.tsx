@@ -37,7 +37,7 @@ it('shows queued reasons and links the changes and remediation that hold them', 
     for (const { reason } of reasons) expect(el.textContent).toContain(reason)
     expect(el.querySelector('a[href="/changes/four"]')?.textContent).toBe('change 4')
     expect(el.querySelector('a[href="/changes/five"]')?.textContent).toBe('change 5')
-    expect(el.querySelector('a[href="/conformance/remediations/other-job"]')?.textContent).toBe('remediation 3')
+    expect(el.querySelector('a[href="/maintenance/standards/remediations/other-job"]')?.textContent).toBe('remediation 3')
     expect(el.textContent).not.toContain('old retry feedback')
   } finally { done() }
 })

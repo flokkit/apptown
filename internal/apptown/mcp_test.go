@@ -15,6 +15,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -842,5 +843,25 @@ func TestMCPRefusesAnOversizedContract(t *testing.T) {
 	res := mcp_call(t, a, tok, "get_application_contract", map[string]any{"slug": "big"})
 	if res["isError"] != true || !strings.Contains(res["content"].([]any)[0].(map[string]any)["text"].(string), "over") {
 		t.Fatalf("an oversized contract: %v", res)
+	}
+}
+
+func TestMCPProjectStandingLinksMaintenance(t *testing.T) {
+	t.Parallel()
+	a := conformanceTestApp(t)
+	setTestFeatureAs(t, a, "mcp", true, "t")
+	tgLocalSh(t, a)
+	id, _, _ := fleetRepo(t, a, "shop", map[string]string{"a.txt": "clean"})
+	adopt(t, a, id, "hygiene", 1, checksJSON(shCheck("no-fixme", noFixmeSh, "high")))
+	if _, _, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("t"), "manual", conformance.ReviewOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	tok := mcp_token(t, a, "laptop", "t", "member")
+	res := mcp_call(t, a, tok, "get_project", map[string]any{"slug": "shop"})
+	content, _ := res["structuredContent"].(map[string]any)
+	standing, _ := content["conformance"].(map[string]any)
+	link, _ := standing["webUrl"].(string)
+	if !strings.HasSuffix(link, "/maintenance/standards/projects/shop") {
+		t.Fatalf("project standing link: %v", res)
 	}
 }

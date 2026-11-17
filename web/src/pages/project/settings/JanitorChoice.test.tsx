@@ -44,7 +44,7 @@ it('keeps a pinned choice visible and editable when dependencies are off everywh
   const { el } = await mount({ instance: 'off', choice: 'routine' })
   expect(el.querySelector('select')!.value).toBe('routine')
   expect(el.querySelector('select')!.disabled).toBe(false)
-  expect(el.querySelector('a[href="/janitor/settings"]')?.textContent).toBe('Dependency updates are off everywhere')
+  expect(el.querySelector('a[href="/maintenance/settings"]')?.textContent).toBe('Dependency updates are off everywhere')
   expect(el.textContent).toContain('Sam, ')
 })
 it('shows a failed read instead of an unread select', async () => {

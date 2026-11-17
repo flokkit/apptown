@@ -369,7 +369,7 @@ function Line({ r, to }: { r: Receipt; to: string }) {
         <span className="receipt-state"><Status word={r.statusLabel} /></span>
         <span className="ch-line-what">
           <span className="ch-line-title">{r.title}</span>
-          {r.brief && <span className="ch-line-sentence">{r.standing ? <Link to="/janitor">{r.brief}</Link> : r.brief}</span>}
+          {r.brief && <span className="ch-line-sentence">{r.standing ? <Link to="/maintenance">{r.brief}</Link> : r.brief}</span>}
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{r.when}</span>

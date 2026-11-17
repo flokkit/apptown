@@ -100,20 +100,20 @@ export function StepCard({ step, onChange, hideApproveForm, landingMeans, head, 
         <div className="muted small">eval-authorised, not a person's approval: {step.evidence.evalAuthorised}</div>
       )}
       {step.type === 'approval' && (step.status === 'pass' || step.status === 'fail') && step.evidence.approver != null && (
-        <div className="muted small">{step.evidence.decision === 'approve' ? 'approved' : 'rejected'} by {vote ? vote.standing ? <Link to="/janitor">{voteWords(vote)}</Link> : voteWords(vote) : voterWords(step.evidence.approver, closingVia(step.evidence))}{!vote?.standing && step.evidence.comment ? `: “${step.evidence.comment}”` : ''}</div>
+        <div className="muted small">{step.evidence.decision === 'approve' ? 'approved' : 'rejected'} by {vote ? vote.standing ? <Link to="/maintenance">{voteWords(vote)}</Link> : voteWords(vote) : voterWords(step.evidence.approver, closingVia(step.evidence))}{!vote?.standing && step.evidence.comment ? `: “${step.evidence.comment}”` : ''}</div>
       )}
       {/* What each approving vote was shown the commit adds, as it was
           recorded with the vote: the saved list, not today's question. */}
       {step.type === 'approval' && (step.evidence.decisions ?? []).filter((d) => d.adds).map((d) => (
         <div key={`adds-${d.approver}-${d.at ?? ''}`} className="saved-adds">
-          <div className="muted small">shown to {d.standing ? <Link to="/janitor">{voteWords(d)}</Link> : voteWords(d)} when {d.decision === 'approve' ? 'approving' : 'deciding'}:</div>
+          <div className="muted small">shown to {d.standing ? <Link to="/maintenance">{voteWords(d)}</Link> : voteWords(d)} when {d.decision === 'approve' ? 'approving' : 'deciding'}:</div>
           <AddsSection adds={d.adds!} />
         </div>
       ))}
       {step.type === 'approval' && step.evidence.decisions && ((step.evidence.quorum ?? 0) > 1 || step.evidence.decisions.length > 1) && (
         <div className="muted small">
           {step.status === 'pending' && <>{step.evidence.approvals ?? 0} of {step.evidence.quorum} OKs so far · </>}
-          {step.evidence.decisions.map((d, i) => <span key={i}>{i > 0 && ", "}{d.standing ? <Link to="/janitor">{voteWords(d)}</Link> : voteWords(d)} {d.decision === 'approve' ? '✓' : '✗'}</span>)}
+          {step.evidence.decisions.map((d, i) => <span key={i}>{i > 0 && ", "}{d.standing ? <Link to="/maintenance">{voteWords(d)}</Link> : voteWords(d)} {d.decision === 'approve' ? '✓' : '✗'}</span>)}
         </div>
       )}
 

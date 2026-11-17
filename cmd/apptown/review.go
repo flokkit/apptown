@@ -30,7 +30,7 @@ func cmdReview(args []string) error {
 	if err := api.post("/conformance/review", body, &rev); err != nil {
 		return err
 	}
-	link := fmt.Sprintf("%s/conformance/reviews/%s", api.base, rev.ID)
+	link := fmt.Sprintf("%s/maintenance/standards/reviews/%s", api.base, rev.ID)
 	fmt.Printf("%s conformance review %d of %s %s\n", bold("▶"), rev.Number, scope, dim(link))
 	if *noFollow {
 		return nil

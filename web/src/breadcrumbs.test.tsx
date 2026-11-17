@@ -14,7 +14,7 @@ vi.mock('./data', async original => ({ ...await original<typeof import('./data')
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 it('walks every route with one linked trail ending at its parent page', () => {
-  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*'))
+  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*') && !p.startsWith('/janitor'))
   expect([...PAGE_ROUTES]).toEqual(routes)
   for (const route of routes) {
     const path = route.replace(/:([a-zA-Z]+)/g, 'example-$1')
@@ -41,7 +41,7 @@ it('walks every route with one linked trail ending at its parent page', () => {
 })
 
 it('shows only a back link to the parent on a phone, or the logo where the parent is home and no project is in scope', () => {
-  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*'))
+  const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*') && !p.startsWith('/janitor'))
   for (const route of routes) {
     const path = route.replace(/:([a-zA-Z]+)/g, 'example-$1')
     const parent = routeAncestors(path).filter(c => c.to !== '/').at(-1)
@@ -107,4 +107,10 @@ it('gives every tab of one page the same parent', () => {
   }
   // A record under a tab keeps the tab as its parent.
   expect(routeAncestors('/targets/a/resources/r1').at(-1)?.to).toBe('/targets/a/resources')
+})
+
+it('links Standards review records back through Maintenance', () => {
+  expect(routeAncestors('/maintenance/standards/reviews/r1').slice(1)).toEqual([
+    {to:'/maintenance',label:'Maintenance'}, {to:'/maintenance/standards',label:'Standards'}, {to:'/maintenance/standards/reviews',label:'Reviews'},
+  ])
 })

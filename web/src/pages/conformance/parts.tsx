@@ -126,7 +126,7 @@ export function LensBanner({ view }: { view: ConformanceView }) {
           {r.status === 'queued' && <div className="muted small conformance-lens-note">Queued.</div>}
           {r.status === 'running' && <div className="muted small conformance-lens-note">Still running · {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || 0)}.</div>}
         </div>
-        <Link to="/conformance" className="subtle small">Back to current →</Link>
+        <Link to="/maintenance/standards" className="subtle small">Back to current →</Link>
       </div>
     </div>
   )
@@ -152,7 +152,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
             {open> 0 && <> · <span className="conformance-finding-total text-name">{open} findings</span></>}
           </span>
         </div>
-        {!running && <Link to={`/conformance/reviews/${r.id}`} className="subtle small">open this review →</Link>}
+        {!running && <Link to={`/maintenance/standards/reviews/${r.id}`} className="subtle small">open this review →</Link>}
       </div>
       <div className="conformance-feed-scroll">
         {feed.length === 0 && <div className="muted small conformance-feed-empty">{r.status === 'queued' ? 'Not started yet.' : running ? 'Starting…' : 'No checks recorded.'}</div>}
@@ -200,7 +200,7 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
         <span className="muted">
           {open> 0 ? <span className="conformance-finding-total text-name">{open} findings</span> : `${d.verdicts.length} checks`}
           {unknown > 0 && <> · {unknown} not known</>}
-          {' · '}<Link to={`/conformance/reviews/${r.id}`} className="subtle">watch</Link>
+          {' · '}<Link to={`/maintenance/standards/reviews/${r.id}`} className="subtle">watch</Link>
         </span>
       </div>
       <div className="bar-track"><div className="bar-fill conformance-progress-fill" style={{ '--progress': `${pct}%` } as CSSProperties} /></div>
@@ -213,7 +213,7 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
 // is on the check's own page, which the line links to.
 export function HowJudged({ def, brief = false }: { def?: CheckDefinition; brief?: boolean }) {
   const { reviewId } = useParams()
-  const base = reviewId ? `/conformance/reviews/${reviewId}` : '/conformance'
+  const base = reviewId ? `/maintenance/standards/reviews/${reviewId}` : '/maintenance/standards'
   if (!def) return null
   if (brief) return <div className="muted small conformance-how-brief">Judged by <strong>{EVAL[def.evaluator] ?? def.evaluator}</strong> · {def.judgedWhere} · severity {def.severity} · <Link to={`${base}/checks/${encodeURIComponent(def.key)}`}>how this check judges →</Link></div>
   const how = def.evaluator === 'sh' ? def.sh : def.evaluator === 'llm' ? def.rubric : def.evaluator === 'tool' ? def.tool : def.probe
@@ -244,7 +244,7 @@ export function JudgedAt({ v, reviews, olderNote = true }: { v: Verdict; reviews
   const source = review?.trigger === 'landing' ? 'landing' : review?.trigger === 'remediation' ? 'remediation' : 'review'
   return <div className="muted small">
     commit <span className="mono">{shortSha(v.sha)}</span> · {fmtWhen(v.at)} · via{' '}
-    {review ? <Link to={`/conformance/reviews/${review.id}`}>{source} #{review.number}</Link> : 'unknown source'}
+    {review ? <Link to={`/maintenance/standards/reviews/${review.id}`}>{source} #{review.number}</Link> : 'unknown source'}
     {olderNote && v.state === 'stale' && <span> · judged on an older commit</span>}
   </div>
 }
@@ -292,7 +292,7 @@ export function useStartRemediation() {
   const { run, busy, err } = useAction()
   const start = async (scope: string, ref: string) => {
     const r = await run(() => post<RemediationStarted>('/conformance/remediations', { scope, ref }))
-    if (r) nav(`/conformance/remediations/${r.remediation.id}`)
+    if (r) nav(`/maintenance/standards/remediations/${r.remediation.id}`)
   }
   return { start, busy, err }
 }
@@ -309,5 +309,5 @@ export function fixableFindings(view: ConformanceView, vs: Verdict[]) {
 export function BeingFixed({ change }: { change: ConformanceView['openRemediations'][number] }) {
   return change.changeId
     ? <span className="muted small">being fixed in <Link to={`/changes/${change.changeId}`}>change #{change.number}</Link></span>
-    : <span className="muted small">queued in <Link to={`/conformance/remediations/${change.remediationId}`}>remediation #{change.remediationNumber}</Link></span>
+    : <span className="muted small">queued in <Link to={`/maintenance/standards/remediations/${change.remediationId}`}>remediation #{change.remediationNumber}</Link></span>
 }

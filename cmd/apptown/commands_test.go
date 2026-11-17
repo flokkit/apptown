@@ -898,7 +898,7 @@ func TestReviewStartsAScopedReviewAndSummarisesIt(t *testing.T) {
 		return 404, `{"error":"no"}`
 	})
 	out, err := run(t, "review", "-p", "shop")
-	if err != nil || !strings.Contains(out, "review 17 of shop") || !strings.Contains(out, "now shop") ||
+	if err != nil || !strings.Contains(out, "/maintenance/standards/reviews/00000000-0011-7000-8000-000000000000") || !strings.Contains(out, "review 17 of shop") || !strings.Contains(out, "now shop") ||
 		!strings.Contains(out, "2 conforms, 1 does-not-conform") || !strings.Contains(out, "shop · readme-plain (low)") {
 		t.Fatalf("review: %v\n%s", err, out)
 	}
