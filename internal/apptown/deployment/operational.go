@@ -16,7 +16,10 @@ type OperationalObservation struct {
 	LastApplied  *AppliedAttempt
 	// lastActAt is when the deployment's own last act ended: a reading
 	// begun earlier cannot say what runs after it.
-	LastActAt                             time.Time
+	LastActAt time.Time
+	// ReadingDue is when a runtime reading begun after LastActAt should have
+	// been published, by the observer's schedule; zero with no act.
+	ReadingDue                            time.Time
 	ID, TargetID                          ids.ID
 	Name, DisplayLabel, UpdatedAt         string
 	Kind                                  Kind
@@ -71,7 +74,11 @@ func (s *Service) operational(ctx context.Context, records []listingRecord) ([]O
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, OperationalObservation{RuntimeState: d.RuntimeState, LastApplied: r.summary.LastApplied, LastActAt: d.lastActAt(), ID: d.ID, TargetID: d.TargetID, Name: d.Name, DisplayLabel: d.DisplayLabel, UpdatedAt: d.UpdatedAt, Kind: d.Kind, DesiredGeneration: d.DesiredGeneration, ObservedGeneration: d.ObservedGeneration, Readiness: d.Readiness, Runtime: s.observations.read(r, s.now()), Hold: hold})
+		var due time.Time
+		if at := d.lastActAt(); !at.IsZero() {
+			due = at.Add(firstReadingWithin)
+		}
+		out = append(out, OperationalObservation{ReadingDue: due, RuntimeState: d.RuntimeState, LastApplied: r.summary.LastApplied, LastActAt: d.lastActAt(), ID: d.ID, TargetID: d.TargetID, Name: d.Name, DisplayLabel: d.DisplayLabel, UpdatedAt: d.UpdatedAt, Kind: d.Kind, DesiredGeneration: d.DesiredGeneration, ObservedGeneration: d.ObservedGeneration, Readiness: d.Readiness, Runtime: s.observations.read(r, s.now()), Hold: hold})
 	}
 	return out, ctx.Err()
 }

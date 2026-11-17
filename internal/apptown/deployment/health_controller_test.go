@@ -502,6 +502,11 @@ func TestRecordedCrashLoopHoldUsesTheDeploymentRecordAndExpiresWithItsGeneration
 		if reads != 0 {
 			t.Fatalf("read audit history %d times", reads)
 		}
+		// The wait for a reading after the settled release follows the
+		// observer's schedule: a sweep, the interval, a sweep, a margin.
+		if r := rows[pid][0]; r.LastActAt.IsZero() || !r.ReadingDue.Equal(r.LastActAt.Add(firstReadingWithin)) || firstReadingWithin != 55*time.Second {
+			t.Fatalf("reading due %v after the act at %v", r.ReadingDue, r.LastActAt)
+		}
 		if held {
 			settle("replacement")
 		}

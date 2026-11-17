@@ -131,13 +131,14 @@ func TestDeploymentGraceNeverHidesACrashHold(t *testing.T) {
 	}
 }
 
-// Grace is anchored to the deployment's last act, including a first release and a rebuild;
-// metadata edits cannot extend it and an unattempted observer cannot wait forever.
+// The wait is anchored to the deployment's last act and ends at the owner's
+// ReadingDue, including a first release and a rebuild; metadata edits cannot
+// extend it and an unattempted observer cannot wait forever.
 func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
 	for _, attempted := range []bool{false, true} {
-		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, LastActAt: at, Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}}
+		d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", LastApplied: &deployment.AppliedAttempt{At: at, Generation: 1}, LastActAt: at, ReadingDue: at.Add(90 * time.Second), Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}}
 		if attempted {
 			d.Runtime.AttemptedAt = at
 			d.Runtime.Err = errors.New("not read")
@@ -154,7 +155,7 @@ func TestRuntimeGraceUsesLastSuccessfulAttempt(t *testing.T) {
 		d.UpdatedAt = now.Format(time.RFC3339Nano)
 		now = at.Add(2 * time.Minute)
 		read(1)
-		d.LastApplied, d.LastActAt = &deployment.AppliedAttempt{At: now, Generation: 2}, now
+		d.LastApplied, d.LastActAt, d.ReadingDue = &deployment.AppliedAttempt{At: now, Generation: 2}, now, now.Add(90*time.Second)
 		read(0)
 		now = now.Add(2 * time.Minute)
 		read(1)
@@ -199,7 +200,7 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 		{"stopped before the act, crash hold", "running", deployment.RuntimeObservation{State: deployment.RuntimeStopped, AttemptedAt: before, ObservedAt: after}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			d := deployment.OperationalObservation{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", RuntimeState: tc.state, LastApplied: &deployment.AppliedAttempt{At: acted.Add(-time.Hour), Generation: 1}, LastActAt: acted, Runtime: tc.runtime}
+			d := deployment.OperationalObservation{ID: idstest.N(1), ObservedGeneration: 1, Name: "office", RuntimeState: tc.state, LastApplied: &deployment.AppliedAttempt{At: acted.Add(-time.Hour), Generation: 1}, LastActAt: acted, ReadingDue: acted.Add(90 * time.Second), Runtime: tc.runtime}
 			if tc.hold {
 				d.Hold = &deployment.CrashLoopHold{Confirmed: true, At: acted.Format(time.RFC3339Nano)}
 			}
@@ -209,11 +210,11 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if now.Sub(acted) < runtimeGrace && !got.Withheld {
-					t.Fatal("runtime grace must withhold recovery assessment")
+				if now.Before(d.ReadingDue) && !got.Withheld {
+					t.Fatal("the wait for a reading must withhold recovery assessment")
 				}
-				if now.Sub(acted) >= runtimeGrace && got.Withheld {
-					t.Fatal("withheld assessment outlived runtime grace")
+				if !now.Before(d.ReadingDue) && got.Withheld {
+					t.Fatal("withheld assessment outlived the reading's due time")
 				}
 				return got.Items
 			}
@@ -229,10 +230,51 @@ func TestRuntimeItemsWaitForAReadingBegunAfterTheAct(t *testing.T) {
 			if runtime != 0 || (holds == 1) != tc.hold {
 				t.Fatalf("during the grace: runtime items %d, crash holds %d", runtime, holds)
 			}
-			if items := read(acted.Add(3 * time.Minute)); len(items) == 0 {
+			if items := read(acted.Add(2 * time.Minute)); len(items) == 0 {
 				t.Fatal("past the grace the runtime items did not return")
 			}
 		})
+	}
+}
+
+// A release in progress raises no runtime item however long it runs: the
+// observer does not read a replacement, and the wait for a reading starts
+// when the release ends. After it, the item appears only once the first
+// reading after the release is overdue.
+func TestARunningReleaseRaisesNoRuntimeItemUntilItsReadingIsDue(t *testing.T) {
+	t.Parallel()
+	applied := time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC)
+	admitted := applied.Add(time.Hour)
+	var releasing, reconciled deployment.Readiness
+	if err := releasing.UnmarshalJSON([]byte(`"reconciling"`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := reconciled.UnmarshalJSON([]byte(`"reconciled"`)); err != nil {
+		t.Fatal(err)
+	}
+	d := deployment.OperationalObservation{ID: idstest.N(1), Name: "main", DesiredGeneration: 2, ObservedGeneration: 1, Readiness: releasing,
+		LastApplied: &deployment.AppliedAttempt{At: applied, Generation: 1}, LastActAt: applied, ReadingDue: applied.Add(time.Minute),
+		Runtime: deployment.RuntimeObservation{State: deployment.RuntimeUnknown, AttemptedAt: admitted.Add(4 * time.Minute), Err: errors.New("deployment replacement is in progress"), Stale: true}}
+	read := func(now time.Time) Snapshot {
+		t.Helper()
+		got, err := (Deployments{Projects: protectionProject{}, Runtime: operationalEvidence{[]deployment.OperationalObservation{d}}, Now: func() time.Time { return now }}).projectSnapshotForTest(t.Context(), idstest.N(2))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := read(admitted.Add(5 * time.Minute)); len(got.Items) != 0 || !got.Withheld {
+		t.Fatalf("five minutes into a release: %+v", got)
+	}
+	finished := admitted.Add(6 * time.Minute)
+	d.Readiness, d.ObservedGeneration = reconciled, 2
+	d.LastApplied, d.LastActAt, d.ReadingDue = &deployment.AppliedAttempt{At: finished, Generation: 2}, finished, finished.Add(55*time.Second)
+	d.Runtime = deployment.RuntimeObservation{State: deployment.RuntimeUnknown, Stale: true}
+	if got := read(finished.Add(50 * time.Second)); len(got.Items) != 0 || !got.Withheld {
+		t.Fatalf("before the first reading after the release is due: %+v", got)
+	}
+	if got := read(finished.Add(55 * time.Second)); len(got.Items) != 1 || !strings.HasSuffix(got.Items[0].Key, "/runtime") {
+		t.Fatalf("the first reading after the release is overdue: %+v", got)
 	}
 }
 

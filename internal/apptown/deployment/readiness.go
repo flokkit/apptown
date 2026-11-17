@@ -36,6 +36,9 @@ var (
 
 func (s Readiness) String() string { return readinessCodec.String(s) }
 
+// Releasing is true from a generation's admission until its attempt settles.
+func (s Readiness) Releasing() bool { return s == reconciling }
+
 // admitted is the rule when a new generation is admitted: whatever stood
 // before, the deployment is now reconciling toward it.
 func (s Readiness) admitted() (Readiness, error) {

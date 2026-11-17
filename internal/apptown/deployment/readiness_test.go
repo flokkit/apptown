@@ -36,6 +36,17 @@ func TestReadinessFollowsTheAttempt(t *testing.T) {
 	}
 }
 
+// Only a generation being reconciled is a release in progress; Attention
+// withholds the runtime status on it alone.
+func TestOnlyReconcilingIsAReleaseInProgress(t *testing.T) {
+	t.Parallel()
+	for i, name := range readinessCodec.Names {
+		if got := Readiness(i + 1); got.Releasing() != (name == "reconciling") {
+			t.Fatalf("%s releasing: %v", name, got.Releasing())
+		}
+	}
+}
+
 func TestReadinessStorage(t *testing.T) {
 	t.Parallel()
 	var zero Readiness

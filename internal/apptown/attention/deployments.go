@@ -13,7 +13,7 @@ import (
 )
 
 // runtimeGrace is how long a deployment's last good runtime reading still
-// stands in for it. A reading that is late or failed once (the host busy
+// stands in for it, apart from the deployment's own acts (ReadingDue). A reading that is late or failed once (the host busy
 // with another app's release, AppTown just restarted) is not news; only a
 // status missing for longer is listed. The deployment's own page still shows
 // the reading's age at once.
@@ -82,11 +82,13 @@ func (s Deployments) projectSnapshot(ctx context.Context, p project.Project, row
 		}
 		r := d.Runtime
 		unknown := r.Err != nil || r.State == deployment.RuntimeUnknown || r.ObservedAt.IsZero()
-		// The deployment's own act gives the observer time to read the new
-		// runtime: a reading begun before the act, or taken while a runtime
-		// control is under way, says nothing about what runs after it.
+		// A release in progress has no runtime to read yet; its own end (done,
+		// failed, or uncertain after a lost runner) ends the wait. After the
+		// deployment's own act the observer has until ReadingDue, its schedule,
+		// to read the new runtime: a reading begun before the act, or taken
+		// while a runtime control is under way, says nothing about what runs now.
 		acting := d.RuntimeState == "starting" || d.RuntimeState == "stopping" || d.RuntimeState == "restarting"
-		withheld := !d.LastActAt.IsZero() && now.Sub(d.LastActAt) < runtimeGrace && (acting || !r.AttemptedAt.After(d.LastActAt))
+		withheld := d.Readiness.Releasing() || now.Before(d.ReadingDue) && (acting || !r.AttemptedAt.After(d.LastActAt))
 		late := withheld || (unknown || r.Stale) && !r.ObservedAt.IsZero() && now.Sub(r.ObservedAt) < runtimeGrace
 		// A deployment with nothing applied has no runtime to read; its
 		// readings (often a refusal while its first deploy runs) say nothing.
