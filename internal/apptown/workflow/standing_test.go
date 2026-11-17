@@ -101,7 +101,7 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 	a, s, _, ctx, in := standingFixture(t)
 	enableStanding(t, s, ctx, in)
 	dbtest.FailNextStatement(t, a.DB, "-- name: InsertStandingRevision :exec")
-	if err := DisableRestoredStandingRules(ctx, a.DB, time.Now()); err == nil {
+	if err := StartJanitorChoices(ctx, a.DB, time.Now(), true); err == nil {
 		t.Fatal("restore ignored required disabling write")
 	}
 	h, err := s.History(ctx)
@@ -109,7 +109,7 @@ func TestRestoredStandingConsentIsDisabledOnceWithHistoryPreserved(t *testing.T)
 		t.Fatalf("failed restore disabling partly committed: %+v %v", h, err)
 	}
 	for range 2 {
-		if err := DisableRestoredStandingRules(ctx, a.DB, time.Now()); err != nil {
+		if err := StartJanitorChoices(ctx, a.DB, time.Now(), true); err != nil {
 			t.Fatal(err)
 		}
 	}

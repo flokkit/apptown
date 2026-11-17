@@ -761,3 +761,66 @@ func (p scheduleStandingProcedure) StandingProcedures(ctx context.Context, q dat
 	}
 	return out, nil
 }
+
+func TestDefaultJanitorChoicesFiresDueScheduleWithoutPersonSaving(t *testing.T) {
+	t.Parallel()
+	w := newScheduleWorld(t)
+	body := `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: standing-clock}
+spec:
+  kind: pipeline
+  role: working
+  on:
+    schedule: {cron: "* * * * *", aggressiveCron: "*/2 * * * *", queue: updates, standing: true}
+  stages:
+    - name: update
+      steps:
+        - name: command
+          uses: script
+          with: {run: "false"}
+        - name: accept
+          uses: approval
+          with:
+            means: I reviewed the declared fix
+            standing: {class: routine-update, means: the declared fix is within the bound and checks are met}
+`
+	if _, _, err := w.ways.PublishWorkflow(t.Context(), body, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	w.packWorkflow(t, w.project.ID, "standing-clock")
+	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	base := time.Date(2026, 11, 12, 0, 0, 0, 0, time.UTC)
+	if err := workflow.StartJanitorChoices(t.Context(), w.schedules.DB, base, false); err != nil {
+		t.Fatal(err)
+	}
+	rule, level, refusal, err := standingEligibilityOne(*w.schedules.Standing, t.Context(), w.project.ID, "standing-clock")
+	if err != nil || refusal != "" || level != "routine" || rule.Issuer.Name != "AppTown" {
+		t.Fatalf("default eligibility: %+v %q %q %v", rule, level, refusal, err)
+	}
+	w.schedules.FireDueSchedules(t.Context(), base)
+	w.schedules.FireDueSchedules(t.Context(), base.Add(time.Minute))
+	records, err := workflow.ScheduleRecordsIn(t.Context(), w.schedules.DB, w.project.ID)
+	if err != nil || records["standing-clock"].RuleID != rule.RuleID || records["standing-clock"].RuleRevision != 1 {
+		t.Fatalf("default firing authority: %+v %v", records, err)
+	}
+	firing := records["standing-clock"]
+	if firing.ChangeID.IsZero() || firing.Outcome != workflow.ScheduleOpened {
+		t.Fatalf("due firing did not open a Change: %+v", firing)
+	}
+	runs, err := w.work.ChangeRuns(w.engine, firing.ChangeID, workflow.ChangeRuns{})
+	if err != nil || len(runs) != 1 || runs[0].WorkflowName != "standing-clock" || runs[0].ChangeID != firing.ChangeID {
+		t.Fatalf("due firing did not open its Run: %+v %v", runs, err)
+	}
+	run := runs[0]
+
+	var inputs struct {
+		Level                        string `json:"level"`
+		BaseImages, ToolchainPatches bool
+	}
+	if err := json.Unmarshal([]byte(run.InputsJSON), &inputs); err != nil || inputs.Level != "routine" || !inputs.BaseImages || !inputs.ToolchainPatches {
+		t.Fatalf("default run inputs: %+v %v", inputs, err)
+	}
+}

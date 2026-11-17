@@ -88,11 +88,7 @@ func (s StandingRules) standingFacts(ctx context.Context, q database.Queryer, ru
 			permissions = append(permissions, access.Permission{Capability: cap, Resource: f.resource})
 		}
 	}
-	var facts identity.StandingIssuerFacts
-	err := access.ErrAuthorityUnavailable
-	if s.deps.Identity != nil {
-		facts, err = s.deps.Identity.StandingIssuerAllowsIn(ctx, q, rule.Issuer.Principal, permissions...)
-	}
+	facts, err := s.standingIssuerIn(ctx, q, rule, permissions...)
 	for i := range out {
 		out[i].issuer = standingIssuerFacts{facts: facts, err: err}
 		if err == nil {
@@ -100,4 +96,16 @@ func (s StandingRules) standingFacts(ctx context.Context, q database.Queryer, ru
 		}
 	}
 	return out
+}
+
+// standingIssuerIn judges the exact installation issuer as root. Person-issued
+// choices retain current account, grant and membership checks at every effect.
+func (s StandingRules) standingIssuerIn(ctx context.Context, q database.Queryer, rule StandingRevision, permissions ...access.Permission) (identity.StandingIssuerFacts, error) {
+	if rule.Issuer == appTownIssuer {
+		return identity.StandingIssuerFacts{Actor: appTownIssuer, Grants: []access.Grant{{RoleName: access.RoleInstanceAdmin, ScopeType: access.ScopeInstance}}, Allowed: make([]error, len(permissions))}, nil
+	}
+	if s.deps.Identity == nil {
+		return identity.StandingIssuerFacts{}, access.ErrAuthorityUnavailable
+	}
+	return s.deps.Identity.StandingIssuerAllowsIn(ctx, q, rule.Issuer.Principal, permissions...)
 }

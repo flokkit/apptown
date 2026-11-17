@@ -197,6 +197,12 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the landing's checks raised something to look at since the acceptance: " + strings.Join(news, "; ") + "; a person must look and approve this step"}
 			continue
 		}
+		// AppTown's exact standing issuer has root authority, already judged
+		// above. People still need the captured step's approver check.
+		if accepted.Standing != nil && accepted.Standing.Issuer == appTownIssuer {
+			out[step.ID] = nil
+			continue
+		}
 		if s.eligible == nil {
 			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "approval eligibility is unavailable"}
 			continue

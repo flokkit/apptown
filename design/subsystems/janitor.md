@@ -3,11 +3,15 @@
 Maintenance settings records what to keep updated: dependencies (`off`, `routine`
 for patch and minor, or `aggressive` including major), security fixes, base images,
 toolchain patches for security fixes, and packs. Security fixes require dependency
-updates; toolchain patches require security fixes. Everything starts off.
+updates; toolchain patches require security fixes. The Janitor starts on:
+dependencies use routine patch and minor updates, with security fixes, base
+images, toolchain patches for security fixes and packs all on.
 
 One current record in Workflow's standing-rule tables contains those choices,
-the verified person's principal, name and time. Saves append a revision at the
-expected head under a lock. Only a verified person acting directly with
+the issuer's principal, name and time. At start, Workflow's `StartJanitorChoices` writes
+revision 1 as AppTown before recovery, only when no record exists. Existing
+records are untouched. Maintenance settings shows “Set by AppTown” until a person
+changes the choices. Saves append a revision at the expected head under a lock. Only a verified person acting directly with
 `instance:manage-standing-approval` may save. An agent cannot give consent.
 The choices contain no workflow names, versions or approval meanings. Each Change
 records its procedures, assessment, checks and vote, including its standing meaning.
@@ -24,8 +28,12 @@ that is off.
 At each effect AppTown resolves the adopted working and landing procedures, or
 the frozen target for pack adoption. A working procedure needs a standing trigger:
 publication requires packs; schedule requires an effective dependency level.
-Current issuer account, approve and land permissions, approval selectors,
-independent-approval policy, repository reach and release health still apply.
+The exact AppTown system issuer has the installation's root authority, without
+a user account. Person-issued choices use the issuer's current account, approve
+and land permissions and approval selectors. Independent-approval policy,
+repository reach and release health still apply to both. Standing landing carry
+checks current eligibility and every other carry condition; person-issued
+acceptance also checks the captured landing step's approvers.
 Changing a workflow's version or standing meaning does not invalidate choices.
 A save between acceptance and the merge claim refuses landing. The merge claim
 locks the rule head through commit; an already claimed effect may finish.
@@ -39,8 +47,9 @@ ordinary adoption checks its target without standing consent. A yes in advance
 requires unchanged code and every required step met.
 
 Supported instance restore turns the current choices off before recovery and
-preserves earlier revisions. Historical Change attribution reads its exact rule
-ID and revision. Current decisions never select from historical heads.
+preserves earlier revisions. Default choices are written before restore disabling,
+so a backup without choices also stays off after recovery. Historical Change
+attribution reads its exact rule ID and revision. Current decisions never select from historical heads.
 
 The API provides `GET /api/v1/janitor/choices`, `PUT /api/v1/janitor/choices`
 with `{choices, expectedRevision}`, `GET /api/v1/janitor/choices/history` and

@@ -9,10 +9,14 @@ settings. Changes to workflow versions or approval meanings keep these choices
 in place; each Change records exactly what ran.
 
 Migration 242 converts saved approvals into one current choices record and
-preserves earlier revisions for attribution. Installations without saved
-approvals start with everything off. Live installations receive the migration
-through the release's normal upgrade step. Accepted work that still references
-an old approval cannot land after conversion; the next scheduled run starts
+preserves earlier revisions for attribution. On first start, a fresh installation
+or an upgraded instance that has never saved choices gets routine patch and minor
+dependency updates, security fixes, base images, toolchain patches for security
+fixes and packs all on, set by AppTown. Saved choices are untouched. Turn choices
+off in Maintenance settings, or turn the Janitor off for a project in its
+Settings › General. Restore turns choices off before recovery. Live installations
+receive the migration through the release's normal upgrade step. Accepted work
+that still references an old approval cannot land after conversion; the next scheduled run starts
 fresh work.
 
 ## Static sites pin their server

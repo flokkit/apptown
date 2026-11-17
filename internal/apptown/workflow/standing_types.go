@@ -10,7 +10,20 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// JanitorChoices records what a person permits AppTown to keep updated.
+var defaultJanitorChoices = JanitorChoices{Dependencies: "routine", SecurityFixes: true, BaseImages: true, ToolchainPatches: true, Packs: true}
+
+// appTownIssuer names the installation's default authority, not a user row.
+// Its fixed principal is reserved for AppTown-issued Janitor choices.
+var appTownIssuer = func() access.Actor {
+	const principal = "019a8c00-0000-7000-8000-000000000001"
+	id, err := ids.Parse(principal)
+	if err != nil {
+		panic(err)
+	}
+	return access.Actor{Name: "AppTown", Principal: id, Via: access.SystemInstrument}
+}()
+
+// JanitorChoices records what AppTown keeps updated.
 type JanitorChoices struct {
 	Dependencies     string `json:"dependencies"`
 	SecurityFixes    bool   `json:"securityFixes"`

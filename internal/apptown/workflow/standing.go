@@ -61,7 +61,7 @@ func (s StandingRules) require(ctx context.Context, capability access.Capability
 	return err
 }
 
-// Current reads the administrator's saved choices.
+// Current reads the saved choices and their issuer.
 func (s StandingRules) Current(ctx context.Context) (*StandingRevision, error) {
 	if err := s.require(ctx, access.CapInstanceStandingApproval, access.Resource{Type: "instance"}); err != nil {
 		return nil, err
