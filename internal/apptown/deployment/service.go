@@ -183,7 +183,7 @@ func (s *Service) setClock(now func() time.Time) {
 	s.clock = now
 	s.Releases.clock, s.Bundles.clock, s.Outcomes.clock, s.Targets.clock = now, now, now, now
 	s.Deployments.clock, s.needs.clock = now, now
-	s.Inventory.deployments.clock, s.Inventory.needs.clock = now, now
+	s.Inventory.deployments.clock = now
 }
 
 // InfrastructureChanged notifies the post-act collaborator after a removal.

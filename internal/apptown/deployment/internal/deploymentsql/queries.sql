@@ -6,12 +6,6 @@ SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT J
 -- name: DeploymentByName :one
 SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.project_id=$1 AND d.name=$2;
 
--- A restored copy is not one of the project's deployments: it is shown on
--- its source's card only (RestoredCopiesOf), never in listings, health,
--- conformance or the sweeps that read these.
--- name: DeploymentsForProject :many
-SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id;
-
 -- name: PreviewDeployments :many
 SELECT * FROM deployments WHERE kind=$1 ORDER BY id;
 
@@ -217,9 +211,6 @@ SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=sqlc.arg(project
 SELECT count(*) FROM deployments d JOIN targets t ON t.id=d.target_id
   WHERE d.project_id=sqlc.arg(project_id) AND d.id<>sqlc.arg(excluding) AND t.kind=sqlc.arg(kind) AND t.provider=sqlc.arg(provider);
 
--- name: OwnedByDeployment :many
-SELECT * FROM deployment_owned WHERE deployment_id=sqlc.arg(deployment_id) ORDER BY id;
-
 -- name: OpenRetainedDataForName :many
 SELECT * FROM retained_resources WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) AND target_id=sqlc.arg(target_id) AND holds_data AND disposition=sqlc.arg(open_state) ORDER BY id;
 
@@ -311,10 +302,10 @@ UPDATE releases r SET state=sqlc.arg(failed_state), failed_stage=stage, stage_fi
 -- Reports over Delivery tables and project identity.
 
 -- name: Placements :many
-SELECT sqlc.embed(e),p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT sqlc.arg(target_only)::boolean OR e.target_id IS NOT DISTINCT FROM sqlc.arg(target_id)) AND (NOT sqlc.arg(name_only)::boolean OR e.name=sqlc.arg(name)) AND (NOT sqlc.arg(idle_standing)::boolean OR (e.kind=sqlc.arg(standing_state) AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN (sqlc.arg(running_state),sqlc.arg(uncertain_state))))) ORDER BY p.slug,e.name;
+SELECT sqlc.embed(e),p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT sqlc.arg(targets_only)::boolean OR e.target_id=ANY(sqlc.arg(target_ids)::uuid[]) OR (e.target_id IS NULL AND array_position(sqlc.arg(target_ids)::uuid[], NULL) IS NOT NULL)) AND (NOT sqlc.arg(name_only)::boolean OR e.name=sqlc.arg(name)) AND (NOT sqlc.arg(idle_standing)::boolean OR (e.kind=sqlc.arg(standing_state) AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN (sqlc.arg(running_state),sqlc.arg(uncertain_state))))) ORDER BY p.slug,e.name;
 
 -- name: RetainedResources :many
-SELECT sqlc.embed(r),COALESCE(p.slug,'')::text AS project,COALESCE(t.name,'')::text AS target FROM retained_resources r LEFT JOIN projects p ON p.id=r.project_id LEFT JOIN targets t ON t.id=r.target_id WHERE (NOT sqlc.arg(project_only)::boolean OR r.project_id=sqlc.arg(project_id)) AND (NOT sqlc.arg(target_only)::boolean OR r.target_id IS NOT DISTINCT FROM sqlc.arg(target_id)) AND (sqlc.arg(disposition)::text='' OR r.disposition=sqlc.arg(disposition)) ORDER BY r.id DESC;
+SELECT sqlc.embed(r),COALESCE(p.slug,'')::text AS project,COALESCE(t.name,'')::text AS target FROM retained_resources r LEFT JOIN projects p ON p.id=r.project_id LEFT JOIN targets t ON t.id=r.target_id WHERE (NOT sqlc.arg(project_only)::boolean OR r.project_id=sqlc.arg(project_id)) AND (NOT sqlc.arg(targets_only)::boolean OR r.target_id=ANY(sqlc.arg(target_ids)::uuid[]) OR (r.target_id IS NULL AND array_position(sqlc.arg(target_ids)::uuid[], NULL) IS NOT NULL)) AND (sqlc.arg(disposition)::text='' OR r.disposition=sqlc.arg(disposition)) ORDER BY r.id DESC;
 
 -- name: BoundTargetDeployments :one
 SELECT COALESCE(string_agg(p.slug || '/' || e.name, ', ' ORDER BY p.slug, e.name), '')
@@ -794,3 +785,14 @@ SELECT r.* FROM releases r JOIN deployments d ON d.serving_release_id=r.id WHERE
 
 -- name: AppliedProfiles :many
 SELECT d.id, i.applied FROM deployments d JOIN deployment_attempt_inputs i ON i.attempt_id=d.serving_attempt_id WHERE d.id=ANY($1::uuid[]);
+
+-- name: TargetReadings :many
+SELECT subject, identity, payload, act_counter, complete_act_counter FROM deployment_readings WHERE subject=ANY($1::text[]) AND kind=$2;
+
+-- A restored copy is not one of the project's deployments: it is shown on
+-- its source's card only (RestoredCopiesOf), never in listings, health,
+-- conformance or the sweeps that read these.
+-- name: Deployments :many
+SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id
+WHERE (NOT sqlc.arg(ids_only)::boolean OR d.id=ANY(sqlc.arg(ids)::uuid[]))
+AND (NOT sqlc.arg(projects_only)::boolean OR (d.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND d.kind<>'restored-copy')) ORDER BY d.kind DESC,d.id;

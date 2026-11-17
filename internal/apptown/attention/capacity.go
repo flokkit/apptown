@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Capacity reads current target records and cached owner observations after the
@@ -18,7 +19,7 @@ type Capacity struct {
 		All(context.Context) ([]*deployment.Target, error)
 	}
 	Observer interface {
-		Snapshot(context.Context, *deployment.Target) (deployment.CapacitySnapshot, error)
+		Snapshots(context.Context, []*deployment.Target) (map[ids.ID]deployment.CapacitySnapshot, error)
 	}
 	Hosts hostReachabilityReader
 	Now   func() time.Time
@@ -28,10 +29,17 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 	if c.Targets == nil || c.Observer == nil {
 		return Snapshot{}, nil
 	}
-	targets, err := c.Targets.All(ctx)
+	targets, err := readTargets(ctx, c.Targets)
 	if err != nil {
 		return Snapshot{}, err
 	}
+	eligible := make([]*deployment.Target, 0, len(targets))
+	for _, t := range targets {
+		if t.Status != deployment.TargetRetired && (t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer) {
+			eligible = append(eligible, t)
+		}
+	}
+	readings, readErr := c.Observer.Snapshots(ctx, eligible)
 	now := clock.Or(c.Now)()
 	out := Snapshot{Known: true, ObservedAt: now}
 	for _, target := range targets {
@@ -40,14 +48,14 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		down := false
 		if c.Hosts != nil {
-			host, err := c.Hosts.HostReachability(ctx, target.ID)
+			host, err := hostReachability(ctx, c.Hosts, target.ID)
 			if err != nil {
 				return Snapshot{}, err
 			}
 			down = host.Down
 			out.Folded = out.Folded || down
 		}
-		reading, readErr := c.Observer.Snapshot(ctx, target)
+		reading := readings[target.ID]
 		if !down && (reading.Unknown || readErr != nil) {
 			out.Known = false
 		}

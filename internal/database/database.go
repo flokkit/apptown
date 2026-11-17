@@ -31,7 +31,7 @@ type statementFault struct {
 }
 type statementObserver struct {
 	fragment string
-	observe  func([]any)
+	observe  func(string, []any)
 }
 
 // pendingFault fails the first statement containing fragment after skip
@@ -48,7 +48,7 @@ var ErrInjectedFailure = fmt.Errorf("injected statement failure")
 func (f *statementFault) check(query string, args ...any) error {
 	if f != nil {
 		if observer := f.observer.Load(); observer != nil && strings.Contains(query, observer.fragment) {
-			observer.observe(args)
+			observer.observe(query, args)
 		}
 		if next := f.next.Load(); next != nil && next.fragment != "" && strings.Contains(query, next.fragment) && next.skip.Add(-1) < 0 {
 			if next.more.Add(-1) >= 0 || f.next.CompareAndSwap(next, nil) {
@@ -386,8 +386,13 @@ func (d *DB) FailStatementAfter(fragment string, skip int) func() {
 // ObserveStatements installs a test observer on this pool and its transactions.
 // The callback runs synchronously and must be safe for concurrent statements.
 // Production leaves the observer empty, like statement failure injection.
-func (d *DB) ObserveStatements(fragment string, observe func([]any)) func() {
-	observer := &statementObserver{fragment: fragment, observe: observe}
+func (d *DB) ObserveStatements(fragment string, observe func([]any), names ...func(string)) func() {
+	observer := &statementObserver{fragment: fragment, observe: func(query string, args []any) {
+		for _, name := range names {
+			name(query)
+		}
+		observe(args)
+	}}
 	d.faults.observer.Store(observer)
 	return func() { d.faults.observer.CompareAndSwap(observer, nil) }
 }

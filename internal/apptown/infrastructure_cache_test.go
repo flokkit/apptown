@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -793,11 +795,13 @@ func TestDockerActQueuesReadingsWithoutWritingHostSnapshot(t *testing.T) {
 	if err != nil || detail.Reading.AttemptedAt.IsZero() || detail.Reading.Waiting {
 		t.Fatalf("detail not checked: %+v %v", detail, err)
 	}
-	protection, err := a.protectionObserver.Snapshot(ctx, dep.ID)
+	protections, err := a.protectionObserver.Snapshots(ctx, []ids.ID{dep.ID})
+	protection := protections[dep.ID]
 	if err != nil || protection.AttemptedAt.IsZero() || protection.Waiting {
 		t.Fatalf("protection not checked: %+v %v", protection, err)
 	}
-	capacity, err := a.capacityObserver.Snapshot(ctx, target)
+	capacities, err := a.capacityObserver.Snapshots(ctx, []*deployment.Target{target})
+	capacity := capacities[target.ID]
 	if err != nil || !capacity.AttemptedAt.IsZero() {
 		t.Fatalf("Docker capacity collected outside the lap: %+v %v", capacity, err)
 	}
@@ -1047,4 +1051,68 @@ func TestCapacityJobsBelongOnlyToPortainerAndCloud(t *testing.T) {
 		checks.Applied(target.ID, ids.Nil)
 	}
 	check(2)
+}
+
+// The project set stays fixed: bindings, populated standing deployments and
+// Docker hosts must not add round trips to the full instance view.
+func TestAttentionBatchQueryCount(t *testing.T) {
+	a := authzActors(t)
+	ctx := asPerson("boss")
+	counts := []map[string]int{}
+	for i := 0; i < 8; i++ {
+		if _, err := a.Integrations.Bindings.Save(ctx, fmt.Sprintf("batch-%d", i), integration.CapRegistry, "oci", `{}`, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+		target, err := a.targets.Put(ctx, &deployment.Target{Name: fmt.Sprintf("batch-%d", i), Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Address: map[string]any{"host": "ssh://user@host"}, Status: deployment.TargetReady})
+		if err != nil {
+			t.Fatal(err)
+		}
+		dep, err := a.deployments.EnsureStanding(ctx, idstest.N(1), fmt.Sprintf("batch-%d", i), target.ID, deployment.Attributes{}.WithDefaults())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.deployments.ReserveHostPort(ctx, dep.ProjectID, dep.Name, fmt.Sprintf("batch-container-%d", i), 42000+i); err != nil {
+			t.Fatal(err)
+		}
+		attempt, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: target.ID, Key: fmt.Sprintf("batch-%d", i), Inputs: deployment.Inputs{Applied: deployment.AppliedProfile{Parts: map[string]deployment.AppliedPart{"web": {}}}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active"}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := a.deployments.OwnerOf(dep).Created(ctx, deploy.Owned{Kind: "volume", ID: fmt.Sprintf("batch-volume-%d", i)}); err != nil {
+			t.Fatal(err)
+		}
+		if i != 1 && i != 7 {
+			continue
+		}
+		named := map[string]int{}
+		var mu sync.Mutex
+		stop := a.DB.ObserveStatements("", func([]any) {}, func(query string) {
+			name := strings.SplitN(query, "\n", 2)[0]
+			mu.Lock()
+			named[name]++
+			mu.Unlock()
+		})
+		_, err = attentionFor(a).Read(ctx)
+		stop()
+		if err != nil {
+			t.Fatal(err)
+		}
+		counts = append(counts, named)
+	}
+	if !reflect.DeepEqual(counts[0], counts[1]) {
+		for name, n := range counts[1] {
+			if n != counts[0][name] {
+				t.Errorf("%s: 2 subjects = %d, 8 subjects = %d", name, counts[0][name], n)
+			}
+		}
+		for name, n := range counts[0] {
+			if _, ok := counts[1][name]; !ok {
+				t.Errorf("%s disappeared (%d reads)", name, n)
+			}
+		}
+	}
+	t.Logf("named queries: %v", counts)
 }

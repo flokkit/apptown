@@ -52,17 +52,26 @@ type NeedInstance struct {
 
 // ForDeployment lists a deployment's need instances by need.
 func (s NeedStore) ForDeployment(ctx context.Context, deploymentID ids.ID) ([]NeedInstance, error) {
-	rows, err := deploymentsql.New(s.db.SQL()).NeedInstances(ctx, []ids.ID{deploymentID})
-	out := []NeedInstance{}
+	all, err := s.forDeployments(ctx, []ids.ID{deploymentID})
+	return all[deploymentID], err
+}
+
+// forDeployments lists each deployment's need instances by need.
+func (s NeedStore) forDeployments(ctx context.Context, deploymentIDs []ids.ID) (map[ids.ID][]NeedInstance, error) {
+	rows, err := deploymentsql.New(s.db.SQL()).NeedInstances(ctx, deploymentIDs)
 	if err != nil {
-		return []NeedInstance{}, err
+		return nil, err
+	}
+	out := map[ids.ID][]NeedInstance{}
+	for _, id := range deploymentIDs {
+		out[id] = []NeedInstance{}
 	}
 	for _, r := range rows {
 		n := NeedInstance{Need: r.Need, Mode: r.Mode, Handle: jsonMap(string(r.HandleJson))}
 		if err := n.Status.Scan(r.Status); err != nil {
-			return []NeedInstance{}, err
+			return nil, err
 		}
-		out = append(out, n)
+		out[r.DeploymentID] = append(out[r.DeploymentID], n)
 	}
 	return out, nil
 }

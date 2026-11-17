@@ -40,7 +40,8 @@ func (s *Deployments) placements(ctx context.Context, in deploymentsql.Placement
 
 // OnTarget is every deployment bound to a target, previews included.
 func (s *Deployments) OnTarget(ctx context.Context, targetID ids.ID) ([]ProjectDeployment, error) {
-	return s.placements(ctx, deploymentsql.PlacementsParams{TargetOnly: true, TargetID: targetID})
+	rows, err := s.OnTargets(ctx, []ids.ID{targetID})
+	return rows[targetID], err
 }
 
 // All is every deployment across the instance.
@@ -258,4 +259,17 @@ type RestoredPlacement struct {
 func (s *Deployments) PlaceRestoredCopy(ctx context.Context, p RestoredPlacement) (*Deployment, error) {
 	return deploymentRecord(deploymentsql.New(s.db.SQL()).InsertRestoredCopyDeployment(ctx, deploymentsql.InsertRestoredCopyDeploymentParams{ID: ids.New(p.At), ProjectID: p.ProjectID,
 		Name: p.Name, TargetID: p.TargetID, DataClass: p.DataClass, BackupID: p.BackupID, At: p.At}))
+}
+
+// OnTargets lists the request's target placements once.
+func (s *Deployments) OnTargets(ctx context.Context, targets []ids.ID) (map[ids.ID][]ProjectDeployment, error) {
+	if samples, ok := ctx.Value(hostSamplesKey{}).(hostSamples); ok {
+		return samples.placements, nil
+	}
+	rows, err := s.placements(ctx, deploymentsql.PlacementsParams{TargetsOnly: true, TargetIds: targets})
+	out := map[ids.ID][]ProjectDeployment{}
+	for _, d := range rows {
+		out[d.TargetID] = append(out[d.TargetID], d)
+	}
+	return out, err
 }

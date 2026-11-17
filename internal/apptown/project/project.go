@@ -292,3 +292,16 @@ func (s *Projects) OriginalRequest(ctx context.Context, id ids.ID) (string, erro
 	}
 	return audit.CreationRequest(ctx, s.db, id)
 }
+
+// ByIDs reads the authorized projects in one statement.
+func (s *Projects) ByIDs(ctx context.Context, projectIDs []ids.ID) (map[ids.ID]Project, error) {
+	rows, err := projectsql.New(s.db.SQL()).ProjectsByIDs(ctx, projectIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ids.ID]Project, len(rows))
+	for _, row := range rows {
+		out[row.ID] = record(row)
+	}
+	return out, nil
+}

@@ -263,7 +263,14 @@ func markActedIn(ctx context.Context, db deploymentsql.DBTX, id ids.ID, at time.
 }
 
 func (s *Deployments) ByID(ctx context.Context, id ids.ID) (*Deployment, error) {
-	return deploymentByIDRecord(deploymentsql.New(s.db.SQL()).DeploymentByID(ctx, id))
+	rows, err := s.ByIDs(ctx, []ids.ID{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return rows[0], nil
 }
 
 func (s *Deployments) ByName(ctx context.Context, projectID ids.ID, name string) (*Deployment, error) {
@@ -276,17 +283,37 @@ func (s *Deployments) ForProject(ctx context.Context, projectID ids.ID) ([]*Depl
 }
 
 func deploymentsForProjectIn(ctx context.Context, db database.Queryer, projectID ids.ID) ([]*Deployment, error) {
-	rows, err := deploymentsql.New(db.SQL()).DeploymentsForProject(ctx, projectID)
+	rows, err := deploymentsForProjectsIn(ctx, db, []ids.ID{projectID})
+	return rows[projectID], err
+}
+
+func (s *Deployments) ForProjects(ctx context.Context, projects []ids.ID) (map[ids.ID][]*Deployment, error) {
+	return deploymentsForProjectsIn(ctx, s.db, projects)
+}
+func deploymentsForProjectsIn(ctx context.Context, db database.Queryer, projects []ids.ID) (map[ids.ID][]*Deployment, error) {
+	rows, err := readDeployments(ctx, db, deploymentsql.DeploymentsParams{ProjectsOnly: true, ProjectIds: projects})
+	out := map[ids.ID][]*Deployment{}
+	for _, d := range rows {
+		out[d.ProjectID] = append(out[d.ProjectID], d)
+	}
+	return out, err
+}
+func (s *Deployments) ByIDs(ctx context.Context, ids []ids.ID) ([]*Deployment, error) {
+	return readDeployments(ctx, s.db, deploymentsql.DeploymentsParams{IdsOnly: true, Ids: ids})
+}
+
+func readDeployments(ctx context.Context, db database.Queryer, selection deploymentsql.DeploymentsParams) ([]*Deployment, error) {
+	rows, err := deploymentsql.New(db.SQL()).Deployments(ctx, selection)
 	if err != nil {
 		return nil, err
 	}
-	var out []*Deployment
+	out := make([]*Deployment, 0, len(rows))
 	for _, r := range rows {
-		e, err := appliedDeploymentRecord(r.Deployment, r.LastAppliedAt, nil)
+		d, err := appliedDeploymentRecord(r.Deployment, r.LastAppliedAt, nil)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, e)
+		out = append(out, d)
 	}
 	return out, nil
 }

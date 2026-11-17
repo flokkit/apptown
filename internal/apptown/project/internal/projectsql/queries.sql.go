@@ -842,6 +842,51 @@ func (q *Queries) ProjectRowForShare(ctx context.Context, id ids.ID) (ids.ID, er
 	return id, err
 }
 
+const projectsByIDs = `-- name: ProjectsByIDs :many
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[])
+`
+
+func (q *Queries) ProjectsByIDs(ctx context.Context, dollar_1 []ids.ID) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, projectsByIDs, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.DefaultBranch,
+			&i.Namespace,
+			&i.Icon,
+			&i.Blurb,
+			&i.ReleaseDomain,
+			&i.ModelProfile,
+			&i.OwnerGroup,
+			&i.DefaultApprovers,
+			&i.CreatedAt,
+			&i.RequireIndependentApproval,
+			&i.SettingsRevision,
+			&i.Purpose,
+			&i.ServingLabel,
+			&i.BlurbSource,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const projectsByNamespaceAndName = `-- name: ProjectsByNamespaceAndName :many
 SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects ORDER BY namespace, name
 `

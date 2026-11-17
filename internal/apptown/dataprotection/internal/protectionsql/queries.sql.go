@@ -1273,6 +1273,39 @@ func (q *Queries) Reading(ctx context.Context, arg ReadingParams) (ReadingRow, e
 	return i, err
 }
 
+const readings = `-- name: Readings :many
+SELECT subject, identity, payload FROM protection_readings WHERE subject=ANY($1::text[]) AND kind='protection'
+`
+
+type ReadingsRow struct {
+	Subject  string
+	Identity string
+	Payload  json.RawMessage
+}
+
+func (q *Queries) Readings(ctx context.Context, dollar_1 []string) ([]ReadingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, readings, pq.Array(dollar_1))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadingsRow
+	for rows.Next() {
+		var i ReadingsRow
+		if err := rows.Scan(&i.Subject, &i.Identity, &i.Payload); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordRehearsalPlace = `-- name: RecordRehearsalPlace :exec
 INSERT INTO rehearsal_places (operation_id, project_id, place_json, recorded_at) VALUES ($1, $2, $3, $4)
 `

@@ -3,6 +3,7 @@ package attention
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/ids"
 	"strings"
 	"testing"
 	"time"
@@ -231,4 +232,12 @@ func TestDockerHostNeverReadIsNotAnOldReading(t *testing.T) {
 	if queued := read(InventoryReading{}); len(queued) != 0 {
 		t.Fatalf("queued first check warned: %+v", queued)
 	}
+}
+
+func (r *recordedInventory) RecordedTargets(ctx context.Context, targets []*deployment.Target) (map[ids.ID][]deploy.Resource, error) {
+	out := map[ids.ID][]deploy.Resource{}
+	for _, t := range targets {
+		out[t.ID] = r.rows
+	}
+	return out, r.err
 }

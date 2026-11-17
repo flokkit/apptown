@@ -23,28 +23,13 @@ const runtimeGrace = 2 * time.Minute
 // A missing runtime never establishes an unintentional stop.
 type Deployments struct {
 	Projects interface {
-		ByID(context.Context, ids.ID) (project.Project, error)
+		ByIDs(context.Context, []ids.ID) (map[ids.ID]project.Project, error)
 	}
 	Runtime interface {
 		Operational(context.Context, []ids.ID) (map[ids.ID][]deployment.OperationalObservation, error)
 	}
 	Hosts hostReachabilityReader
 	Now   func() time.Time
-}
-
-func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, error) {
-	if s.Projects == nil || s.Runtime == nil {
-		return Snapshot{}, nil
-	}
-	p, err := s.Projects.ByID(ctx, id)
-	if err != nil {
-		return Snapshot{}, err
-	}
-	rows, err := s.Runtime.Operational(ctx, []ids.ID{id})
-	if err != nil {
-		return Snapshot{}, err
-	}
-	return s.projectSnapshot(ctx, p, rows[id])
 }
 
 // Snapshot collects authorized deployment observations once for the fleet.
@@ -63,12 +48,12 @@ func (s Deployments) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.I
 		}
 		return out, nil
 	}
+	records, err := readProjects(ctx, s.Projects, projects)
+	if err != nil {
+		return nil, err
+	}
 	for _, id := range projects {
-		p, err := s.Projects.ByID(ctx, id)
-		var snap Snapshot
-		if err == nil {
-			snap, err = s.projectSnapshot(ctx, p, rows[id])
-		}
+		snap, err := s.projectSnapshot(ctx, records[id], rows[id])
 		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
 	}
 	return out, nil
@@ -85,7 +70,7 @@ func (s Deployments) projectSnapshot(ctx context.Context, p project.Project, row
 	for _, d := range rows {
 		down := false
 		if s.Hosts != nil && !d.TargetID.IsZero() {
-			host, err := s.Hosts.HostReachability(ctx, d.TargetID)
+			host, err := hostReachability(ctx, s.Hosts, d.TargetID)
 			if err != nil {
 				return Snapshot{}, err
 			}

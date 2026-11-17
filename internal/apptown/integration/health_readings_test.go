@@ -294,3 +294,56 @@ func TestHealthHelpUsesItsFreshnessOwner(t *testing.T) {
 		t.Fatalf("help: %s", raw)
 	}
 }
+
+// One owner read preserves result, attachment and age classifications while
+// rejecting evidence for a different binding version, even with an old list.
+func TestRecordedHealthBatchKeepsClassificationsAndVersionFence(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 11, 18, 0, 0, 0, 0, time.UTC)
+	db := testDB(t)
+	s := NewService(db, Dependencies{Now: func() time.Time { return now }})
+	for _, name := range []string{"failed", "unset", "stale", "expired"} {
+		if _, err := s.Bindings.Upsert(t.Context(), name, CapSecrets, "infisical", `{}`, false); err != nil {
+			t.Fatal(err)
+		}
+		at := now
+		if name == "stale" {
+			at = now.Add(-2 * time.Hour)
+		}
+		if name == "expired" {
+			at = now.Add(-7 * time.Hour)
+		}
+		h := Health{Detail: "Connection refused."}.At(at)
+		if name == "unset" {
+			h = Health{NotSetUp: true}.ForDisplay()
+		}
+		b, _ := s.Bindings.ByName(t.Context(), name)
+		if err := s.saveHealth(t.Context(), *b, h); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bindings, err := s.Bindings.All(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	attachments := map[string][]AttachedProject{"unset": {{Slug: "app"}}}
+	count, stop := db.CountStatements("")
+	got, err := s.RecordedHealths(t.Context(), bindings, attachments)
+	stop()
+	if err != nil || count() != 1 {
+		t.Fatalf("batch: %v, %d queries", err, count())
+	}
+	if got["failed"].StateLabel != HealthFailed || got["unset"].StateLabel != HealthFailed || !got["stale"].Stale || got["stale"].Expired || !got["expired"].Expired || got["expired"].LastResult != HealthFailed {
+		t.Fatalf("classifications: %+v", got)
+	}
+	if got["stale"].CheckedAt != now.Add(-2*time.Hour).Format(time.RFC3339) {
+		t.Fatal("evidence time changed")
+	}
+	if _, err := s.Bindings.Upsert(t.Context(), "failed", CapSecrets, "infisical", `{"changed":true}`, false); err != nil {
+		t.Fatal(err)
+	}
+	got, err = s.RecordedHealths(t.Context(), bindings, attachments)
+	if err != nil || got["failed"].CheckedAt != "" || got["failed"].StateLabel != HealthUnknown {
+		t.Fatalf("old binding inherited evidence: %+v %v", got["failed"], err)
+	}
+}

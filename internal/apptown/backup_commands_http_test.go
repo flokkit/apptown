@@ -112,7 +112,8 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 		}
 	}
 	moveClock(a, 50*time.Minute)
-	snapshot, err := (attention.Protection{Projects: a.Projects, Deployments: a.deployments, Observer: a.protectionObserver, Now: a.cfg.clock.Now}).ProjectSnapshot(t.Context(), idstest.N(1))
+	snapshots, err := (attention.Protection{Projects: a.Projects, Deployments: a.deployments, Observer: a.protectionObserver, Now: a.cfg.clock.Now}).Snapshot(t.Context(), []ids.ID{idstest.N(1)})
+	snapshot := snapshots[idstest.N(1)].Snapshot
 	moveClock(a, -50*time.Minute)
 	if err != nil || !snapshot.Known || snapshot.Stale {
 		t.Fatalf("50-minute backup reading is not current: %+v %v", snapshot, err)

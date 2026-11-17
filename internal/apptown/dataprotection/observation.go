@@ -74,16 +74,16 @@ type ProtectionSnapshot struct {
 // read path resolves only current local identity and returns recorded evidence.
 // Caller authority must be checked before selecting a deployment for Snapshot.
 type ProtectionObserver struct {
-	db      *database.DB
-	queue   protectionObservationQueue
-	now     func() time.Time
-	resolve func(context.Context, ids.ID) (*deployment.Deployment, string, error)
-	read    func(context.Context, ids.ID, string) (*Protection, error)
-	hold    func(context.Context, ids.ID) (context.Context, func(), error)
+	db          *database.DB
+	queue       protectionObservationQueue
+	now         func() time.Time
+	resolveMany func(context.Context, []ids.ID) (map[ids.ID]protectionSubject, error)
+	read        func(context.Context, ids.ID, string) (*Protection, error)
+	hold        func(context.Context, ids.ID) (context.Context, func(), error)
 }
 
 func NewProtectionObserver(service *Service, queue protectionObservationQueue) *ProtectionObserver {
-	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.collectProtection, resolve: service.protectionIdentity, hold: func(ctx context.Context, id ids.ID) (context.Context, func(), error) {
+	return &ProtectionObserver{db: service.db, queue: queue, now: service.now, read: service.collectProtection, resolveMany: service.protectionIdentities, hold: func(ctx context.Context, id ids.ID) (context.Context, func(), error) {
 		target, err := service.targets.ByID(ctx, id)
 		if err != nil {
 			return ctx, nil, err
@@ -92,20 +92,54 @@ func NewProtectionObserver(service *Service, queue protectionObservationQueue) *
 	}}
 }
 
-func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
-	dep, err := s.deployments.ByID(ctx, id)
+func (o *ProtectionObserver) resolve(ctx context.Context, id ids.ID) (*deployment.Deployment, string, error) {
+	subjects, err := o.resolveMany(ctx, []ids.ID{id})
+	subject := subjects[id]
+	return subject.dep, subject.identity, err
+}
+
+type protectionSubject struct {
+	dep      *deployment.Deployment
+	identity string
+}
+
+func (s *Service) protectionIdentities(ctx context.Context, deploymentIDs []ids.ID) (map[ids.ID]protectionSubject, error) {
+	deps, err := s.deployments.ByIDs(ctx, deploymentIDs)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	target, err := s.targets.ByID(ctx, dep.TargetID)
+	targets, err := s.targets.All(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	// Bind held-data facts to settled placement and target configuration.
 	store, err := s.store(ctx)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
+	out := make(map[ids.ID]protectionSubject, len(deps))
+	for _, dep := range deps {
+		var target *deployment.Target
+		for _, t := range targets {
+			if t.ID == dep.TargetID {
+				target = t
+				break
+			}
+		}
+		if target == nil {
+			return nil, sql.ErrNoRows
+		}
+		identity, err := protectionIdentity(dep, target, store)
+		if err != nil {
+			return nil, err
+		}
+		out[dep.ID] = protectionSubject{dep, identity}
+	}
+	if len(out) != len(deploymentIDs) {
+		return nil, sql.ErrNoRows
+	}
+	return out, nil
+}
+func protectionIdentity(dep *deployment.Deployment, target *deployment.Target, store *BackupStore) (string, error) {
 	raw, err := json.Marshal(struct {
 		ChecksOwedAt   time.Time
 		Deployment     any
@@ -113,49 +147,78 @@ func (s *Service) protectionIdentity(ctx context.Context, id ids.ID) (*deploymen
 		Store          *BackupStore
 	}{dep.ChecksOwedAt, dep.ReadingBasis(), target.SettingsRevision, store})
 	if err != nil {
-		return nil, "", err
+		return "", err
 	}
-	return dep, fmt.Sprintf("%x", sha256.Sum256(raw)), nil
+	return fmt.Sprintf("%x", sha256.Sum256(raw)), nil
 }
 
-func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (ProtectionSnapshot, error) {
-	snapshot, _, err := o.snapshot(ctx, id)
-	return snapshot, err
+// Snapshots resolves identity inputs and recorded evidence once for the batch.
+func (o *ProtectionObserver) Snapshots(ctx context.Context, deploymentIDs []ids.ID) (map[ids.ID]ProtectionSnapshot, error) {
+	subjects, err := o.resolveMany(ctx, deploymentIDs)
+	if err != nil {
+		return nil, err
+	}
+	return o.snapshots(ctx, subjects)
+}
+func (o *ProtectionObserver) snapshots(ctx context.Context, subjects map[ids.ID]protectionSubject) (map[ids.ID]ProtectionSnapshot, error) {
+	readings, err := o.loadMany(ctx, subjects)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ids.ID]ProtectionSnapshot, len(subjects))
+	for id, subject := range subjects {
+		dep := subject.dep
+		if dep.Kind != deployment.Standing {
+			return nil, errors.New("protection observations require a standing deployment")
+		}
+		if dep.LastApplied == nil && dep.ServingReleaseID.IsZero() {
+			out[id] = ProtectionSnapshot{Unknown: true, Waiting: true, Reason: "Not released yet."}
+			continue
+		}
+		out[id] = protectionSnapshotAt(readings[id], o.now())
+	}
+	return out, nil
 }
 
-// snapshot also returns the current identity, separately from the displayed
-// value's identity. That distinction must not be persisted as observation data.
+// snapshot also returns the current identity separately from displayed evidence.
 func (o *ProtectionObserver) snapshot(ctx context.Context, id ids.ID) (ProtectionSnapshot, string, error) {
-	if err := ctx.Err(); err != nil {
-		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
-	}
-	dep, identity, err := o.resolve(ctx, id)
+	subjects, err := o.resolveMany(ctx, []ids.ID{id})
 	if err != nil {
 		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
 	}
-	if dep.Kind != deployment.Standing {
-		return ProtectionSnapshot{Unknown: true}, "", errors.New("protection observations require a standing deployment")
-	}
-	if dep.LastApplied == nil && dep.ServingReleaseID.IsZero() { // nothing applied or adopted
-		return ProtectionSnapshot{Unknown: true, Waiting: true, Reason: "Not released yet."}, identity, nil
-	}
-	r, err := o.load(ctx, id, identity)
-	if err != nil {
-		return ProtectionSnapshot{Unknown: true, Stale: true}, "", err
-	}
-	return protectionSnapshotAt(r, o.now()), identity, nil
+	snapshots, err := o.snapshots(ctx, subjects)
+	return snapshots[id], subjects[id].identity, err
 }
 func (o *ProtectionObserver) load(ctx context.Context, id ids.ID, identity string) (ProtectionSnapshot, error) {
-	row, err := protectionsql.New(o.db.SQL()).Reading(ctx, protectionsql.ReadingParams{Subject: id.String(), Kind: "protection"})
-	if errors.Is(err, sql.ErrNoRows) {
-		return ProtectionSnapshot{}, nil
+	readings, err := o.loadMany(ctx, map[ids.ID]protectionSubject{id: {identity: identity}})
+	return readings[id], err
+}
+func (o *ProtectionObserver) loadMany(ctx context.Context, subjects map[ids.ID]protectionSubject) (map[ids.ID]ProtectionSnapshot, error) {
+	names := make([]string, 0, len(subjects))
+	byName := make(map[string]ids.ID, len(subjects))
+	for id := range subjects {
+		names = append(names, id.String())
+		byName[id.String()] = id
 	}
+	rows, err := protectionsql.New(o.db.SQL()).Readings(ctx, names)
 	if err != nil {
-		return ProtectionSnapshot{}, err
+		return nil, err
 	}
+	out := make(map[ids.ID]ProtectionSnapshot, len(subjects))
+	for _, row := range rows {
+		id := byName[row.Subject]
+		out[id], err = protectionReading(row.Payload, row.Identity, subjects[id].identity)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func protectionReading(payload []byte, rowIdentity, identity string) (ProtectionSnapshot, error) {
 	var out ProtectionSnapshot
-	err = json.Unmarshal(row.Payload, &out)
-	if row.Identity != identity {
+	err := json.Unmarshal(payload, &out)
+	if rowIdentity != identity {
 		out = ProtectionSnapshot{Protection: out.Protection, Plan: out.Plan, Identity: out.Identity, ObservedAt: out.ObservedAt, AttemptedAt: out.AttemptedAt}
 		out.Unknown = true
 		out.Stale = true

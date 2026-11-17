@@ -56,7 +56,7 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 		t.Run(tc.name, func(t *testing.T) {
 			evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{ObservedAt: at, OffHost: true, Items: []dataprotection.ProtectionItemObservation{{Key: "data", Need: "database", Copy: dataprotection.CopyFresh}}, Rehearsed: tc.recorded, RehearsalPassed: tc.outcome == dataprotection.RehearsalPassed, RehearsalOutcome: tc.outcome, RehearsalAt: at, RestoreTested: tc.recorded, RestoreOutcome: tc.outcome, RestoreAt: at, AttemptedAt: at.Add(time.Minute)}}
 			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production", DisplayLabel: "Office"}}}, Observer: evidence, Now: func() time.Time { return at }}
-			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || got.Known != tc.known {
 				t.Fatalf("coverage %+v %v", got, err)
 			}
@@ -101,7 +101,7 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 	}}}
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, Name: "Office", DataClass: "production", DesiredGeneration: 3, ObservedGeneration: 2}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{dep}}, Observer: evidence, Now: func() time.Time { return at.Add(time.Minute) }}
-	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 2 || !got.Stale || got.ObservedAt != at {
 		t.Fatalf("copy evidence %+v %v", got, err)
 	}
@@ -115,7 +115,7 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 	}
 	dep.DataClass = "development"
 	evidence.value.Unknown = true
-	got, err = source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err = source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || got.Known || len(got.Items) != 0 {
 		t.Fatalf("nonproduction acquired a backup requirement %+v %v", got, err)
 	}
@@ -138,7 +138,7 @@ func TestProtectionFirstCheckAndStaleReading(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: &protectionEvidence{value: tc.reading}, Now: func() time.Time { return at.Add(time.Hour) }}
-			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || got.Known == tc.reading.Unknown || got.Stale != tc.reading.Stale || len(got.Items) != tc.wantItems {
 				t.Fatalf("protection coverage: %+v %v", got, err)
 			}
@@ -174,7 +174,7 @@ func TestProtectionCoverageWords(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, ObservedGeneration: 1, Name: "internal-name", DisplayLabel: tc.label}}}, Observer: &protectionEvidence{value: tc.reading, err: tc.readErr}, Now: func() time.Time { return at }}
-			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 			if err != nil || got.Reason != tc.want || got.AttemptedAt != tc.reading.AttemptedAt || got.NextStep != strings.Split(tc.want, ": ")[0]+": "+tc.nextStep {
 				t.Fatalf("coverage: %+v %v", got, err)
 			}
@@ -185,8 +185,8 @@ func TestProtectionCoverageWords(t *testing.T) {
 // byDeployment answers each deployment's own backup reading.
 type byDeployment map[ids.ID]dataprotection.ProtectionSnapshot
 
-func (b byDeployment) Snapshot(_ context.Context, id ids.ID) (dataprotection.ProtectionSnapshot, error) {
-	return b[id], nil
+func (p byDeployment) Snapshot(_ context.Context, id ids.ID) (dataprotection.ProtectionSnapshot, error) {
+	return p[id], nil
 }
 
 // A healthy deployment beside a failing one adds no next step: the row names
@@ -207,7 +207,7 @@ func TestProtectionNextStepNamesOnlyDeploymentsWithAProblem(t *testing.T) {
 		},
 		Now: func() time.Time { return at },
 	}
-	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestWaitingProtectionDoesNotReportOldEvidenceAsAttention(t *testing.T) {
 	t.Parallel()
 	evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{Waiting: true, Unknown: true, Stale: true, AttemptedAt: time.Now(), Items: []dataprotection.ProtectionItemObservation{{Copy: dataprotection.CopyNone}}}}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Name: "office", Kind: deployment.Standing, ObservedGeneration: 1, DataClass: "production"}}}, Observer: evidence}
-	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 0 || got.Known {
 		t.Fatalf("waiting reading reported a problem: %+v %v", got, err)
 	}
@@ -230,7 +230,7 @@ func TestWaitingProtectionDoesNotReportOldEvidenceAsAttention(t *testing.T) {
 	}
 	evidence.value.Waiting = false
 	evidence.value.Reason = "AppTown could not read this deployment's release contract."
-	got, err = source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err = source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) == 0 {
 		t.Fatalf("failed assessment suppressed: %+v %v", got, err)
 	}
@@ -242,8 +242,57 @@ func TestADeploymentNotReleasedYetLeavesBackupCoverageKnown(t *testing.T) {
 	t.Parallel()
 	evidence := &protectionEvidence{value: dataprotection.ProtectionSnapshot{Waiting: true, Unknown: true, Stale: true}}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Name: "staging", Kind: deployment.Standing, DataClass: "production"}}}, Observer: evidence}
-	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+	got, err := source.projectSnapshotForTest(t.Context(), idstest.N(2))
 	if err != nil || !got.Known || len(got.Items) != 0 || got.Reason != "" {
 		t.Fatalf("a deployment not released yet was waited on: %+v %v", got, err)
 	}
+}
+
+func (p protectionProject) ByIDs(ctx context.Context, projects []ids.ID) (map[ids.ID]project.Project, error) {
+	out := map[ids.ID]project.Project{}
+	for _, id := range projects {
+		v, err := p.ByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[id] = v
+	}
+	return out, nil
+}
+func (p protectionDeployments) ForProjects(ctx context.Context, projects []ids.ID) (map[ids.ID][]*deployment.Deployment, error) {
+	out := map[ids.ID][]*deployment.Deployment{}
+	for _, id := range projects {
+		out[id] = p.rows
+	}
+	return out, nil
+}
+func (p *protectionEvidence) Snapshots(ctx context.Context, projects []ids.ID) (map[ids.ID]dataprotection.ProtectionSnapshot, error) {
+	out := map[ids.ID]dataprotection.ProtectionSnapshot{}
+	for _, id := range projects {
+		v, err := p.Snapshot(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[id] = v
+	}
+	return out, nil
+}
+func (p byDeployment) Snapshots(ctx context.Context, projects []ids.ID) (map[ids.ID]dataprotection.ProtectionSnapshot, error) {
+	out := map[ids.ID]dataprotection.ProtectionSnapshot{}
+	for _, id := range projects {
+		v, err := p.Snapshot(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out[id] = v
+	}
+	return out, nil
+}
+
+func (p Protection) projectSnapshotForTest(ctx context.Context, id ids.ID) (Snapshot, error) {
+	snapshots, err := p.Snapshot(ctx, []ids.ID{id})
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return snapshots[id].Snapshot, snapshots[id].Err
 }

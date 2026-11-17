@@ -741,3 +741,15 @@ func TestCurrentMemberKnowsSharedFilesystemDespiteFailedSibling(t *testing.T) {
 		t.Fatalf("failed sibling hid current space: %+v %v", got, err)
 	}
 }
+
+func (c *capacityEvidence) Snapshots(ctx context.Context, targets []*deployment.Target) (map[ids.ID]deployment.CapacitySnapshot, error) {
+	out := map[ids.ID]deployment.CapacitySnapshot{}
+	for _, t := range targets {
+		v, err := c.Snapshot(ctx, t)
+		if err != nil {
+			return nil, err
+		}
+		out[t.ID] = v
+	}
+	return out, nil
+}

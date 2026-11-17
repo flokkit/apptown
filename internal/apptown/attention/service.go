@@ -65,10 +65,8 @@ type instanceReader interface {
 	Snapshot(context.Context) (Snapshot, error)
 }
 
-// projectReader reads only the named authorized project's snapshot. A snapshot
-// for an old deployment identity must never become current under a newer one.
 type projectReader interface {
-	ProjectSnapshot(context.Context, ids.ID) (Snapshot, error)
+	Snapshot(context.Context, []ids.ID) (map[ids.ID]ScanSnapshot, error)
 }
 
 type hostReachabilityReader interface {
@@ -83,6 +81,9 @@ type ScanSnapshot struct {
 }
 
 type Sources struct {
+	Records interface {
+		Prepare(context.Context, []ids.ID, bool) (context.Context, error)
+	}
 	Notifications    instanceReader
 	ReleaseApprovals instanceReader
 	Integrations     instanceReader
@@ -93,13 +94,9 @@ type Sources struct {
 	Capacity    instanceReader
 	Inventory   instanceReader
 	Workers     instanceReader
-	Deployments interface {
-		Snapshot(context.Context, []ids.ID) (map[ids.ID]ScanSnapshot, error)
-	}
-	Protection projectReader
-	Scans      interface {
-		Snapshot(context.Context, []ids.ID) (map[ids.ID]ScanSnapshot, error)
-	}
+	Deployments projectReader
+	Protection  projectReader
+	Scans       projectReader
 }
 
 // Coverage reports source availability separately from the visible item count.
@@ -159,10 +156,16 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 	if instanceErr != nil && fault.KindOf(instanceErr) != fault.Forbidden {
 		return empty, instanceErr
 	}
-	ctx = context.WithValue(ctx, hostReadCacheKey{}, make(hostReadCache))
+	if s.sources.Records != nil {
+		ctx, err = s.sources.Records.Prepare(ctx, projects, instanceErr == nil)
+		if err != nil {
+			return empty, err
+		}
+	}
+	ctx = context.WithValue(ctx, instanceAccessKey{}, instanceErr == nil)
 	out := empty
 	if s.sources.ReleaseApprovals != nil {
-		snapshot, readErr := s.observe(ctx, "release-approval", s.sources.ReleaseApprovals.Snapshot)
+		snapshot, readErr := s.sources.ReleaseApprovals.Snapshot(ctx)
 		if kind := fault.KindOf(readErr); kind == fault.Forbidden || kind == fault.Unauthenticated {
 			return empty, readErr
 		}
@@ -181,7 +184,7 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 		} {
 			snapshot, readErr := Snapshot{}, error(nil)
 			if source.source != nil {
-				snapshot, readErr = s.observe(ctx, source.key, source.source.Snapshot)
+				snapshot, readErr = source.source.Snapshot(ctx)
 			}
 			if kind := fault.KindOf(readErr); kind == fault.Forbidden || kind == fault.Unauthenticated {
 				return empty, readErr
@@ -200,58 +203,31 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 		seen[project] = true
 		distinctProjects = append(distinctProjects, project)
 	}
-	if s.sources.Deployments != nil {
-		snapshots, err := s.sources.Deployments.Snapshot(ctx, distinctProjects)
-		if err != nil {
-			return empty, err
+	// Each owner retains its own visibility and observation rules.
+	for _, source := range []struct {
+		key, name string
+		reader    projectReader
+	}{
+		{"deployments", "Deployment health", s.sources.Deployments},
+		{"protection", "Data protection", s.sources.Protection},
+		{"scans", "Scans", s.sources.Scans},
+	} {
+		snapshots := map[ids.ID]ScanSnapshot{}
+		if source.reader != nil {
+			snapshots, err = source.reader.Snapshot(ctx, distinctProjects)
+			if err != nil {
+				return empty, err
+			}
 		}
 		for _, id := range distinctProjects {
-			if snap, ok := snapshots[id]; ok {
-				if kind := fault.KindOf(snap.Err); kind == fault.Forbidden || kind == fault.Unauthenticated {
-					return empty, snap.Err
-				}
-				out.add("deployments/"+id.String(), "Deployment health", snap.Snapshot, snap.Err)
+			snap, ok := snapshots[id]
+			if !ok && source.reader != nil && source.key != "protection" {
+				continue
 			}
-		}
-	} else {
-		for _, id := range distinctProjects {
-			out.add("deployments/"+id.String(), "Deployment health", Snapshot{}, nil)
-		}
-	}
-	for _, project := range distinctProjects {
-		for _, source := range []struct {
-			key, name string
-			source    projectReader
-		}{
-			{"protection", "Data protection", s.sources.Protection},
-		} {
-			snapshot, readErr := Snapshot{}, error(nil)
-			if source.source != nil {
-				snapshot, readErr = s.observe(ctx, source.key+"/"+project.String(), func(ctx context.Context) (Snapshot, error) { return source.source.ProjectSnapshot(ctx, project) })
+			if kind := fault.KindOf(snap.Err); kind == fault.Forbidden || kind == fault.Unauthenticated {
+				return empty, snap.Err
 			}
-			if kind := fault.KindOf(readErr); kind == fault.Forbidden || kind == fault.Unauthenticated {
-				return empty, readErr
-			}
-			out.add(source.key+"/"+project.String(), source.name, snapshot, readErr)
-		}
-	}
-	// Scans has its own project-read visibility decision and is collected once.
-	if s.sources.Scans != nil {
-		snapshots, err := s.sources.Scans.Snapshot(ctx, distinctProjects)
-		if err != nil {
-			return empty, err
-		}
-		for _, project := range distinctProjects {
-			if snapshot, ok := snapshots[project]; ok {
-				if kind := fault.KindOf(snapshot.Err); kind == fault.Forbidden || kind == fault.Unauthenticated {
-					return empty, snapshot.Err
-				}
-				out.add("scans/"+project.String(), "Scans", snapshot.Snapshot, snapshot.Err)
-			}
-		}
-	} else {
-		for project := range seen {
-			out.add("scans/"+project.String(), "Scans", Snapshot{}, nil)
+			out.add(source.key+"/"+id.String(), source.name, snap.Snapshot, snap.Err)
 		}
 	}
 	// Integration visibility is the same instance permission as its list, not
@@ -371,12 +347,6 @@ func (v *View) countConditions() {
 			}
 		}
 	}
-}
-
-// sourceEvidence contains owner observations, never caller grants or a View.
-// It is selected only after current authority admits this source and subject.
-func (s *Service) observe(ctx context.Context, key string, read func(context.Context) (Snapshot, error)) (Snapshot, error) {
-	return read(ctx)
 }
 
 func (v Item) MarshalJSON() ([]byte, error) {

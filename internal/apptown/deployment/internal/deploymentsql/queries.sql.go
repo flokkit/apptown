@@ -1125,11 +1125,20 @@ func (q *Queries) DeploymentOverrides(ctx context.Context, deploymentID ids.ID) 
 	return items, nil
 }
 
-const deploymentsForProject = `-- name: DeploymentsForProject :many
-SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, d.feed_revision, d.feed_authority_json, d.promoted_from_id, d.approval_role, d.runtime_state, d.runtime_actor, d.runtime_at, d.runtime_error, d.act_at, d.serving_release_id, d.serving_attempt_id, d.routine_updates, d.routine_updates_revision, d.checks_owed_at, d.hold, a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id WHERE d.project_id=$1 AND d.kind<>'restored-copy' ORDER BY d.kind DESC,d.id
+const deployments = `-- name: Deployments :many
+SELECT d.id, d.project_id, d.name, d.host_label, d.host_port, d.container, d.release_run, d.updated_at, d.release_sha, d.image_digest, d.kind, d.change_id, d.target_id, d.handle_json, d.desired_generation, d.observed_generation, d.readiness, d.feed, d.audience, d.data_class, d.url, d.start_from_backup, d.started_from_at, d.restore_check, d.display_label, d.feed_revision, d.feed_authority_json, d.promoted_from_id, d.approval_role, d.runtime_state, d.runtime_actor, d.runtime_at, d.runtime_error, d.act_at, d.serving_release_id, d.serving_attempt_id, d.routine_updates, d.routine_updates_revision, d.checks_owed_at, d.hold, a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id
+WHERE (NOT $1::boolean OR d.id=ANY($2::uuid[]))
+AND (NOT $3::boolean OR (d.project_id=ANY($4::uuid[]) AND d.kind<>'restored-copy')) ORDER BY d.kind DESC,d.id
 `
 
-type DeploymentsForProjectRow struct {
+type DeploymentsParams struct {
+	IdsOnly      bool
+	Ids          []ids.ID
+	ProjectsOnly bool
+	ProjectIds   []ids.ID
+}
+
+type DeploymentsRow struct {
 	Deployment    Deployment
 	LastAppliedAt sql.NullTime
 }
@@ -1137,15 +1146,20 @@ type DeploymentsForProjectRow struct {
 // A restored copy is not one of the project's deployments: it is shown on
 // its source's card only (RestoredCopiesOf), never in listings, health,
 // conformance or the sweeps that read these.
-func (q *Queries) DeploymentsForProject(ctx context.Context, projectID ids.ID) ([]DeploymentsForProjectRow, error) {
-	rows, err := q.db.QueryContext(ctx, deploymentsForProject, projectID)
+func (q *Queries) Deployments(ctx context.Context, arg DeploymentsParams) ([]DeploymentsRow, error) {
+	rows, err := q.db.QueryContext(ctx, deployments,
+		arg.IdsOnly,
+		pq.Array(arg.Ids),
+		arg.ProjectsOnly,
+		pq.Array(arg.ProjectIds),
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []DeploymentsForProjectRow
+	var items []DeploymentsRow
 	for rows.Next() {
-		var i DeploymentsForProjectRow
+		var i DeploymentsRow
 		if err := rows.Scan(
 			&i.Deployment.ID,
 			&i.Deployment.ProjectID,
@@ -3349,43 +3363,6 @@ func (q *Queries) OweChecks(ctx context.Context, arg OweChecksParams) error {
 	return err
 }
 
-const ownedByDeployment = `-- name: OwnedByDeployment :many
-SELECT id, deployment_id, kind, ident, name, holds_data, need, recorded_at, note FROM deployment_owned WHERE deployment_id=$1 ORDER BY id
-`
-
-func (q *Queries) OwnedByDeployment(ctx context.Context, deploymentID ids.ID) ([]DeploymentOwned, error) {
-	rows, err := q.db.QueryContext(ctx, ownedByDeployment, deploymentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []DeploymentOwned
-	for rows.Next() {
-		var i DeploymentOwned
-		if err := rows.Scan(
-			&i.ID,
-			&i.DeploymentID,
-			&i.Kind,
-			&i.Ident,
-			&i.Name,
-			&i.HoldsData,
-			&i.Need,
-			&i.RecordedAt,
-			&i.Note,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const ownedByDeployments = `-- name: OwnedByDeployments :many
 SELECT id, deployment_id, kind, ident, name, holds_data, need, recorded_at, note FROM deployment_owned WHERE deployment_id=ANY($1::uuid[]) ORDER BY id
 `
@@ -3425,12 +3402,12 @@ func (q *Queries) OwnedByDeployments(ctx context.Context, dollar_1 []ids.ID) ([]
 
 const placements = `-- name: Placements :many
 
-SELECT e.id, e.project_id, e.name, e.host_label, e.host_port, e.container, e.release_run, e.updated_at, e.release_sha, e.image_digest, e.kind, e.change_id, e.target_id, e.handle_json, e.desired_generation, e.observed_generation, e.readiness, e.feed, e.audience, e.data_class, e.url, e.start_from_backup, e.started_from_at, e.restore_check, e.display_label, e.feed_revision, e.feed_authority_json, e.promoted_from_id, e.approval_role, e.runtime_state, e.runtime_actor, e.runtime_at, e.runtime_error, e.act_at, e.serving_release_id, e.serving_attempt_id, e.routine_updates, e.routine_updates_revision, e.checks_owed_at, e.hold,p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT $1::boolean OR e.target_id IS NOT DISTINCT FROM $2) AND (NOT $3::boolean OR e.name=$4) AND (NOT $5::boolean OR (e.kind=$6 AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN ($7,$8)))) ORDER BY p.slug,e.name
+SELECT e.id, e.project_id, e.name, e.host_label, e.host_port, e.container, e.release_run, e.updated_at, e.release_sha, e.image_digest, e.kind, e.change_id, e.target_id, e.handle_json, e.desired_generation, e.observed_generation, e.readiness, e.feed, e.audience, e.data_class, e.url, e.start_from_backup, e.started_from_at, e.restore_check, e.display_label, e.feed_revision, e.feed_authority_json, e.promoted_from_id, e.approval_role, e.runtime_state, e.runtime_actor, e.runtime_at, e.runtime_error, e.act_at, e.serving_release_id, e.serving_attempt_id, e.routine_updates, e.routine_updates_revision, e.checks_owed_at, e.hold,p.slug FROM deployments e JOIN projects p ON p.id=e.project_id WHERE e.kind<>'restored-copy' AND (NOT $1::boolean OR e.target_id=ANY($2::uuid[]) OR (e.target_id IS NULL AND array_position($2::uuid[], NULL) IS NOT NULL)) AND (NOT $3::boolean OR e.name=$4) AND (NOT $5::boolean OR (e.kind=$6 AND NOT EXISTS(SELECT 1 FROM deployment_attempts a WHERE a.deployment_id=e.id AND a.status IN ($7,$8)))) ORDER BY p.slug,e.name
 `
 
 type PlacementsParams struct {
-	TargetOnly     bool
-	TargetID       ids.ID
+	TargetsOnly    bool
+	TargetIds      []ids.ID
 	NameOnly       bool
 	Name           string
 	IdleStanding   bool
@@ -3447,8 +3424,8 @@ type PlacementsRow struct {
 // Reports over Delivery tables and project identity.
 func (q *Queries) Placements(ctx context.Context, arg PlacementsParams) ([]PlacementsRow, error) {
 	rows, err := q.db.QueryContext(ctx, placements,
-		arg.TargetOnly,
-		arg.TargetID,
+		arg.TargetsOnly,
+		pq.Array(arg.TargetIds),
 		arg.NameOnly,
 		arg.Name,
 		arg.IdleStanding,
@@ -5388,14 +5365,14 @@ func (q *Queries) RetainedOpenCount(ctx context.Context, arg RetainedOpenCountPa
 }
 
 const retainedResources = `-- name: RetainedResources :many
-SELECT r.id, r.project_id, r.deployment, r.target_id, r.need, r.handle_json, r.retained_by, r.retained_by_principal, r.retained_by_via, r.retained_at, r.disposition, r.note, r.settled_by, r.settled_by_principal, r.settled_by_via, r.settled_at, r.holds_data,COALESCE(p.slug,'')::text AS project,COALESCE(t.name,'')::text AS target FROM retained_resources r LEFT JOIN projects p ON p.id=r.project_id LEFT JOIN targets t ON t.id=r.target_id WHERE (NOT $1::boolean OR r.project_id=$2) AND (NOT $3::boolean OR r.target_id IS NOT DISTINCT FROM $4) AND ($5::text='' OR r.disposition=$5) ORDER BY r.id DESC
+SELECT r.id, r.project_id, r.deployment, r.target_id, r.need, r.handle_json, r.retained_by, r.retained_by_principal, r.retained_by_via, r.retained_at, r.disposition, r.note, r.settled_by, r.settled_by_principal, r.settled_by_via, r.settled_at, r.holds_data,COALESCE(p.slug,'')::text AS project,COALESCE(t.name,'')::text AS target FROM retained_resources r LEFT JOIN projects p ON p.id=r.project_id LEFT JOIN targets t ON t.id=r.target_id WHERE (NOT $1::boolean OR r.project_id=$2) AND (NOT $3::boolean OR r.target_id=ANY($4::uuid[]) OR (r.target_id IS NULL AND array_position($4::uuid[], NULL) IS NOT NULL)) AND ($5::text='' OR r.disposition=$5) ORDER BY r.id DESC
 `
 
 type RetainedResourcesParams struct {
 	ProjectOnly bool
 	ProjectID   ids.ID
-	TargetOnly  bool
-	TargetID    ids.ID
+	TargetsOnly bool
+	TargetIds   []ids.ID
 	Disposition string
 }
 
@@ -5409,8 +5386,8 @@ func (q *Queries) RetainedResources(ctx context.Context, arg RetainedResourcesPa
 	rows, err := q.db.QueryContext(ctx, retainedResources,
 		arg.ProjectOnly,
 		arg.ProjectID,
-		arg.TargetOnly,
-		arg.TargetID,
+		arg.TargetsOnly,
+		pq.Array(arg.TargetIds),
 		arg.Disposition,
 	)
 	if err != nil {
@@ -6424,6 +6401,52 @@ func (q *Queries) TargetHasReleaseDefault(ctx context.Context, targetID ids.ID) 
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const targetReadings = `-- name: TargetReadings :many
+SELECT subject, identity, payload, act_counter, complete_act_counter FROM deployment_readings WHERE subject=ANY($1::text[]) AND kind=$2
+`
+
+type TargetReadingsParams struct {
+	Column1 []string
+	Kind    string
+}
+
+type TargetReadingsRow struct {
+	Subject            string
+	Identity           string
+	Payload            json.RawMessage
+	ActCounter         int64
+	CompleteActCounter int64
+}
+
+func (q *Queries) TargetReadings(ctx context.Context, arg TargetReadingsParams) ([]TargetReadingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, targetReadings, pq.Array(arg.Column1), arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TargetReadingsRow
+	for rows.Next() {
+		var i TargetReadingsRow
+		if err := rows.Scan(
+			&i.Subject,
+			&i.Identity,
+			&i.Payload,
+			&i.ActCounter,
+			&i.CompleteActCounter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const targets = `-- name: Targets :many

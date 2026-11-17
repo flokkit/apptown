@@ -685,7 +685,7 @@ func TestAnUnreadPortainerDiskSaysWhyAppTownCannotReadIt(t *testing.T) {
 			if _, err := backgroundCapacity(t, p.s, IntranetTargetName); err != nil {
 				t.Fatal(err)
 			}
-			snap, err := NewCapacityObserver(p.s).Snapshot(t.Context(), target)
+			snap, err := NewCapacityObserver(p.s).snapshotForTest(t.Context(), target)
 			if err != nil || snap.Disk == nil || snap.Disk.Free.Known {
 				t.Fatalf("the disk: %+v %v", snap.Disk, err)
 			}
@@ -816,7 +816,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		return TargetCapacity{ReadAt: now, Disk: &DiskCapacity{Total: known(100), Free: known(1), Low: true, ReadAt: first}}, nil
 	}}
 	for range 3 {
-		got, err := o.Snapshot(t.Context(), &target)
+		got, err := o.snapshotForTest(t.Context(), &target)
 		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || reads != 0 {
 			t.Fatalf("snapshot collected provider evidence: %+v %v reads%d", got, err, reads)
 		}
@@ -824,7 +824,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	got, err := o.Snapshot(t.Context(), &target)
+	got, err := o.snapshotForTest(t.Context(), &target)
 	if err != nil || got.Unknown || got.Stale || got.AttemptedAt != now || got.Disk == nil || !got.Disk.Low {
 		t.Fatalf("fresh: %+v %v", got, err)
 	}
@@ -833,7 +833,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), &target)
+	got, err = o.snapshotForTest(t.Context(), &target)
 	if err != nil || !got.Stale || got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
 		t.Fatalf("wrapper renewed disk evidence or mutation escaped: %+v %v", got, err)
 	}
@@ -842,7 +842,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, 1); err == nil {
 		t.Fatal("provider failure lost")
 	}
-	got, err = o.Snapshot(t.Context(), &target)
+	got, err = o.snapshotForTest(t.Context(), &target)
 	if err != nil || got.Unknown || got.Disk == nil || !got.Disk.Low || got.Disk.ReadAt != first {
 		t.Fatalf("failure cleared pressure: %+v %v", got, err)
 	}
@@ -851,7 +851,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), &target)
+	got, err = o.snapshotForTest(t.Context(), &target)
 	if err != nil || !got.Unknown || got.Disk != nil {
 		t.Fatalf("old revision became current: %+v %v", got, err)
 	}
@@ -860,7 +860,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), &target)
+	got, err = o.snapshotForTest(t.Context(), &target)
 	if err != nil || got.Unknown || got.Stale || got.Disk == nil || got.Disk.ReadAt != now {
 		t.Fatalf("new revision recovery: %+v %v", got, err)
 	}
@@ -882,13 +882,13 @@ func TestCapacitySnapshotDoesNotWaitForAnActiveProviderRead(t *testing.T) {
 			return TargetCapacity{}, ctx.Err()
 		}
 	}}
-	if _, err := o.Snapshot(ctx, &target); err != nil {
+	if _, err := o.snapshotForTest(ctx, &target); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
 	go func() { done <- o.Run(ctx, target.ID, target.SettingsRevision) }()
 	<-started
-	got, err := o.Snapshot(ctx, &target)
+	got, err := o.snapshotForTest(ctx, &target)
 	if err != nil || !got.Unknown {
 		t.Fatalf("active read changed snapshot contract: %+v %v", got, err)
 	}
@@ -896,7 +896,7 @@ func TestCapacitySnapshotDoesNotWaitForAnActiveProviderRead(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(ctx, &target)
+	got, err = o.snapshotForTest(ctx, &target)
 	if err != nil || got.Unknown || got.Stale || got.Disk == nil {
 		t.Fatalf("completed read not published: %+v %v", got, err)
 	}
@@ -923,12 +923,12 @@ func TestFirstCapacityFailureRecordsAttemptWithoutInventingDiskEvidence(t *testi
 		func(context.Context, *Target) (TargetCapacity, error) { return TargetCapacity{ReadAt: now}, nil },
 	} {
 		o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: read}
-		before, _ := o.Snapshot(t.Context(), &target)
+		before, _ := o.snapshotForTest(t.Context(), &target)
 		if !before.AttemptedAt.IsZero() {
 			t.Fatal("queued check claimed an attempt")
 		}
 		_ = o.Run(t.Context(), target.ID, target.SettingsRevision)
-		after, err := o.Snapshot(t.Context(), &target)
+		after, err := o.snapshotForTest(t.Context(), &target)
 		if err != nil || after.AttemptedAt != now || !after.Unknown || !after.ObservedAt.IsZero() || after.Disk != nil {
 			t.Fatalf("failed first attempt: %+v %v", after, err)
 		}
@@ -946,11 +946,11 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 	o := &CapacityObserver{db: testDB(t), now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
 		return TargetCapacity{ReadAt: now, Memory: &memory, CPU: &cpu, Disk: &DiskCapacity{Total: known(100), Free: known(90), ReadAt: now}}, nil
 	}}
-	_, _ = o.Snapshot(t.Context(), &target)
+	_, _ = o.snapshotForTest(t.Context(), &target)
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	got, err := o.Snapshot(t.Context(), &target)
+	got, err := o.snapshotForTest(t.Context(), &target)
 	if err != nil || !got.Unknown || got.Stale || got.Reason != "Container memory use could not all be read." || got.Disk == nil || !got.Disk.Free.Known {
 		t.Fatalf("memory failure lost or disk invalidated: %+v %v", got, err)
 	}
@@ -958,7 +958,7 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
-	got, err = o.Snapshot(t.Context(), &target)
+	got, err = o.snapshotForTest(t.Context(), &target)
 	if err != nil || got.Unknown || got.Stale || got.Reason != "" {
 		t.Fatalf("memory recovery not assessed: %+v %v", got, err)
 	}
@@ -1120,4 +1120,9 @@ func capacityContainers(lines string, ids []string) []byte {
 		out = append(out, string(raw))
 	}
 	return []byte(strings.Join(out, "\n"))
+}
+
+func (o *CapacityObserver) snapshotForTest(ctx context.Context, target *Target) (CapacitySnapshot, error) {
+	snapshots, err := o.Snapshots(ctx, []*Target{target})
+	return snapshots[target.ID], err
 }
