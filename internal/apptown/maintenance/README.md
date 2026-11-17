@@ -53,8 +53,8 @@ filesystem in the maintenance database tables, bound to the configured worker.
 Restart preserves those readings. A failed check retains each filesystem's
 values and original time and records the failed attempt and safe reason.
 Free disk is fresh for fifteen minutes, then last seen with its age, and unknown
-after six hours; disk size remains valid for seven days. Attention raises an age
-item before six hours only when the latest check failed. These display readings
+after six hours; disk size remains valid for seven days. Attention says disk space is not known after a failed attempt or fifteen
+minutes without a successful reading; it hides retained figures. These display readings
 do not change worker or Docker admission, which read disk independently.
 
 Work owns workspace cleanup (`workflow.Service.Workspaces`), on the existing
@@ -69,6 +69,12 @@ these resources does not authorize their deletion. Docker sizes are rounded.
 Database size comes from PostgreSQL, including when the database is external.
 Categories can overlap and are never summed as a filesystem's used space.
 Usage shows these measurements and their times, including unknown categories.
-Attention warns strictly above 80% full as well as the existing admission
-conditions. Its existing failed, stale and unknown observation rules still apply.
+Attention warns below twice the refusal floor. Worker roles with the same
+non-empty filesystem id share one display row and warning; a current successful
+member supplies its figures. Stored roles remain distinct, matched by What on
+failure, so an unavailable Docker root does not erase its previous evidence.
+The worker bounds Docker space reads to ten seconds and category measurements
+to the remainder of fifteen seconds from request entry. The observer bounds
+the worker call to twenty seconds within its thirty-second job. A deadline
+keeps successful sibling readings; explicit cancellation stores nothing.
 Cache expiry after 14 days and pressure eviction are not implemented.

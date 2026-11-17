@@ -542,3 +542,56 @@ type categoryTasks struct{ dockerShortOfDisk }
 func (categoryTasks) DiskCategories(context.Context) []diskspace.Category {
 	return []diskspace.Category{{Name: "Images", Bytes: 1234, ReadAt: time.Now()}}
 }
+
+// Both calls cooperate with cancellation, as the Docker adapter does.
+type slowDiskTasks struct {
+	*executionfake.Tasks
+	slowSpace bool
+	started   time.Time
+}
+
+func (d slowDiskTasks) DataDisk(ctx context.Context) (string, diskspace.Space, error) {
+	if d.slowSpace {
+		<-ctx.Done()
+		return "", diskspace.Space{}, ctx.Err()
+	}
+	return "/docker", diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 7 << 30}, nil
+}
+func (d slowDiskTasks) DiskCategories(ctx context.Context) []diskspace.Category {
+	deadline, ok := ctx.Deadline()
+	if !ok || deadline.Sub(d.started) > 16*time.Second {
+		return []diskspace.Category{{Name: "Images", Unknown: "request has no entry bound"}}
+	}
+	<-ctx.Done()
+	return []diskspace.Category{{Name: "Images", Unknown: "Docker use could not be measured."}}
+}
+func TestWorkerDiskSpaceSurvivesSlowDockerAndCategories(t *testing.T) {
+	for _, slowSpace := range []bool{false, true} {
+		t.Run(fmt.Sprint(slowSpace), func(t *testing.T) {
+			t.Parallel()
+			ca := workertest.NewCA(t)
+			tasks := slowDiskTasks{Tasks: &executionfake.Tasks{}, slowSpace: slowSpace, started: time.Now()}
+			srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks})
+			driver := execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+			ctx, cancel := context.WithTimeout(t.Context(), 18*time.Second)
+			defer cancel()
+			started := time.Now()
+			disks, err := driver.Disks(ctx)
+			if err != nil || time.Since(started) > 17*time.Second || len(disks) != 2 {
+				t.Fatalf("disk request exceeded bound: %+v %v (%v)", disks, err, time.Since(started))
+			}
+			if disks[0].Unknown != "" || disks[0].TotalBytes == 0 {
+				t.Fatalf("state figures lost: %+v", disks)
+			}
+			if slowSpace && (disks[1].Unknown != "Docker did not answer in time" || disks[1].ReadAt.Sub(disks[0].ReadAt) > 12*time.Second) {
+				t.Fatalf("Docker space did not keep own bound: %+v", disks)
+			}
+			if !slowSpace && disks[1].Unknown != "" {
+				t.Fatalf("category failure erased space: %+v", disks)
+			}
+			if len(disks[1].Categories) != 1 || disks[1].Categories[0].Unknown != "Docker use could not be measured." {
+				t.Fatalf("categories not bounded at entry: %+v", disks)
+			}
+		})
+	}
+}

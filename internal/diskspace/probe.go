@@ -31,7 +31,7 @@ func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now f
 		return Space{}, fmt.Errorf("no df image: the tool versions name it")
 	}
 	var space Space
-	_, err := readStanding(ctx, dk, image, root, "df -Pk /d", now, plain, func(answer []byte) error { var err error; space, err = parseDF(answer); return err })
+	_, err := readStanding(ctx, dk, image, root, "df -Pk /d && stat -f -c %i /d", now, plain, func(answer []byte) error { var err error; space, err = parseDF(answer); return err })
 	return space, err
 }
 

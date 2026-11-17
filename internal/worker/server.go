@@ -750,17 +750,24 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 // (their containers, images and private Docker), as its task driver reads
 // it. A driver that reads no Docker disk reports none.
 func (s *Server) disks(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
 	space, err := s.stateDisk()
 	out := []diskspace.Reading{diskspace.NewReading("the worker's state folder", s.State, space, err, s.now())}
 	if d, ok := s.Tasks.(dataDisk); ok {
-		root, space, err := d.DataDisk(r.Context())
+		diskCtx, stop := context.WithTimeout(ctx, 10*time.Second)
+		root, space, err := d.DataDisk(diskCtx)
+		stop()
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = errors.New("Docker did not answer in time")
+		}
 		out = append(out, diskspace.NewReading("the worker's Docker data (tasks, images, private Docker)", root, space, err, s.now()))
 	}
-	out[0].Categories = []diskspace.Category{diskspace.Folder(r.Context(), "Workspaces", filepath.Join(s.State, "workspaces"), s.now())}
+	out[0].Categories = []diskspace.Category{diskspace.Folder(ctx, "Workspaces", filepath.Join(s.State, "workspaces"), s.now())}
 	if d, ok := s.Tasks.(interface {
 		DiskCategories(context.Context) []diskspace.Category
 	}); ok && len(out) > 1 {
-		out[1].Categories = d.DiskCategories(r.Context())
+		out[1].Categories = d.DiskCategories(ctx)
 	}
 	writeJSON(w, out)
 }

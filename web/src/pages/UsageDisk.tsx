@@ -20,7 +20,7 @@ export function UsageDisk() {
           return <article className="usage-disk" key={d.what + (d.path ?? '')}>
             <CapacityStrip name={d.what} total={d.totalBytes} used={!d.unknown && !d.stale && !d.error && !q.refreshFailed && d.totalBytes !== undefined && d.freeBytes !== undefined ? Math.max(0, d.totalBytes - d.freeBytes) : undefined} />
             {age !== 'checked now' && <p className="muted small">{age}</p>}
-            {d.error && <p className="error small">{d.error} These are the last measured values.</p>}
+            {d.error && <p className="error small">{d.error}</p>}
             {d.categories?.length ? <dl className="usage-disk-categories">{d.categories.map(c => <div key={c.name}><dt>{c.name}</dt><dd>{c.unknown || d.unknown ? 'unknown' : fmtBytes(c.bytes)}{c.readAt !== d.readAt && <span className="muted small"> · {readingAge(c.readAt, d.stale)}</span>}</dd></div>)}</dl> : <p className="muted small">Category sizes are unknown.</p>}
           </article>
         })}

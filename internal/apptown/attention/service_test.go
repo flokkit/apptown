@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -185,7 +186,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 	if got.Items[1].StatusLabel != labelLow {
 		t.Fatalf("low disk became failed: %+v", got.Items[1])
 	}
-	if got.Items[0].Title != "worker state: Disk check failed" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "worker cache: Disk space blocks new work" || got.Items[2].Title != "controller: Disk space could not be assessed" {
+	if got.Items[0].Title != "worker state: disk space not known" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "worker cache: Disk space blocks new work" || got.Items[2].Title != "controller: disk space not known" {
 		t.Fatalf("condition meaning lost: %+v", got)
 	}
 	for _, item := range got.Items {
@@ -270,7 +271,7 @@ func TestDiskConditionsExplainRoomAndActualAdmissionBoundary(t *testing.T) {
 	if !strings.Contains(got.Items[0].Detail, "2.0 GiB free of 100.0 GiB") || !strings.Contains(got.Items[0].Detail, "controller admission is not protected") {
 		t.Fatalf("controller guarantee %+v", got.Items[0])
 	}
-	if !strings.Contains(got.Items[1].Detail, "refuses new tasks") || strings.Contains(got.Items[1].Detail, "private error") {
+	if !got.Items[1].Unknown || strings.Contains(got.Items[1].Detail, "private error") {
 		t.Fatalf("worker guarantee %+v", got.Items[1])
 	}
 }
@@ -482,9 +483,9 @@ func TestOwnerRevocationStopsOtherProjectSources(t *testing.T) {
 }
 
 // A failed current read must be visible even when its retained evidence was
-// healthy. Old pressure remains visible alongside the unread state until a
+// healthy. Retained pressure is hidden from the unread state until a
 // successful read recovers that exact filesystem.
-func TestDiskUnreadRetainsPressureAndExplainsEveryFilesystem(t *testing.T) {
+func TestDiskUnreadHidesPressureAndExplainsEveryFilesystem(t *testing.T) {
 	for _, kind := range []string{"controller", "worker state", "worker Docker"} {
 		for _, pressure := range []bool{false, true} {
 			t.Run(kind+map[bool]string{false: "/healthy", true: "/low"}[pressure], func(t *testing.T) {
@@ -492,19 +493,12 @@ func TestDiskUnreadRetainsPressureAndExplainsEveryFilesystem(t *testing.T) {
 				evidence := &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Unknown: true, Disks: []maintenance.DiskObservation{{Controller: kind == "controller", Stale: true, Unknown: true, Reading: diskspace.Reading{What: kind, Path: "/owned", ReadAt: at, Low: pressure, Refuses: pressure && kind != "controller"}}}}}
 				source := Disks{Observer: evidence}
 				got, err := source.Snapshot(t.Context())
-				if err != nil || got.Known || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != at || !strings.Contains(got.Items[0].Detail, "latest disk reading is unavailable") {
+				if err != nil || got.Known || len(got.Items) != 1 || !got.Items[0].Stale || got.Items[0].ObservedAt != at || !strings.Contains(got.Items[0].Detail, "There is no recent disk reading.") {
 					t.Fatalf("unread filesystem disappeared or renewed evidence: %+v %v", got, err)
 				}
 				item := got.Items[0]
-				if pressure && !strings.Contains(item.Detail, "Last successful reading") {
-					t.Fatalf("previous pressure disappeared: %+v", item)
-				}
-				if kind == "controller" {
-					if !strings.Contains(item.Detail, "controller admission is not protected") || strings.Contains(item.Detail, "worker refuses") {
-						t.Fatalf("invented controller admission: %+v", item)
-					}
-				} else if !strings.Contains(item.Detail, "worker refuses new tasks") {
-					t.Fatalf("missing actual worker admission: %+v", item)
+				if !item.Unknown || item.StatusLabel != labelUnknown || strings.Contains(item.Detail, "Last successful") {
+					t.Fatalf("unknown exposes retained pressure: %+v", item)
 				}
 				evidence.value = maintenance.DiskSnapshot{ObservedAt: at.Add(time.Minute), Disks: []maintenance.DiskObservation{{Controller: kind == "controller", Reading: diskspace.Reading{What: kind, Path: "/owned", ReadAt: at.Add(time.Minute)}}}}
 				got, err = source.Snapshot(t.Context())
@@ -594,36 +588,80 @@ func TestDefaultNextStepNamesAnActionForAnyReader(t *testing.T) {
 	}
 }
 
-func TestDiskAttentionStartsAboveEightyPercentAndRetainsUnknownAndStale(t *testing.T) {
+// Space warnings use the floor rule alone; old and failed evidence says only
+// that space is not known, independently of whether it used to be low.
+func TestDiskUnknownHidesFiguresAndOnlyCurrentLowWarns(t *testing.T) {
 	t.Parallel()
 	at := time.Now()
-	for _, free := range []int64{21, 20, 19} {
-		evidence := &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{{Reading: diskspace.Reading{What: "worker", TotalBytes: 100, FreeBytes: free, ReadAt: at, Categories: []diskspace.Category{{Name: "Images", Bytes: 3 << 30}}}}}}}
-		source := Disks{Observer: evidence}
-		got, err := source.Snapshot(t.Context())
-		if err != nil || (len(got.Items) > 0) != (free < 20) {
-			t.Fatalf("free=%d: %+v %v", free, got, err)
-		}
-		if free == 19 {
-			if !strings.Contains(got.Items[0].Title, "81% full") || !strings.Contains(got.Items[0].Detail, "Images 3.0 GiB") {
-				t.Fatalf("missing pressure detail: %+v", got)
-			}
-			evidence.value.Disks[0].Stale = true
-			evidence.value.Disks[0].FailedAt = at
-			got, _ = source.Snapshot(t.Context())
-			if !got.Items[0].Stale || !strings.Contains(got.Items[0].Title, "failed") {
-				t.Fatalf("lost failed reading: %+v", got)
-			}
-			evidence.value.Disks[0].Unknown = true
-			got, _ = source.Snapshot(t.Context())
-			if got.Known || !got.Items[0].Unknown || strings.Contains(got.Items[0].Title, "81%") {
-				t.Fatalf("unknown reported current: %+v", got)
-			}
+	for _, low := range []bool{false, true} {
+		for _, state := range []string{"overdue", "failed", "unread", "current"} {
+			t.Run(fmt.Sprintf("%s/low=%v", state, low), func(t *testing.T) {
+				d := maintenance.DiskObservation{Reading: diskspace.NewReading("worker", "/state", diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 19 << 30}, nil, at)}
+				if low {
+					d.Reading.FreeBytes = 7 << 30
+					d.Reading.Low = true
+				}
+				switch state {
+				case "overdue":
+					d.Stale = true
+				case "failed":
+					d.FailedAt = at.Add(time.Second)
+					d.Reason = "The disk check did not finish in time."
+				case "unread":
+					d.Reading.ReadAt = time.Time{}
+				}
+				source := Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{d}}}}
+				got, err := source.Snapshot(t.Context())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if state == "current" && !low {
+					if len(got.Items) != 0 {
+						t.Fatalf("extra percentage rule: %+v", got)
+					}
+					return
+				}
+				if len(got.Items) != 1 {
+					t.Fatalf("missing disk condition: %+v", got)
+				}
+				item := got.Items[0]
+				if state == "current" {
+					if item.Unknown || item.Title != "worker: Disk space is low" || !strings.Contains(item.Detail, "7.0 GiB") {
+						t.Fatalf("current low: %+v", item)
+					}
+				} else {
+					if !item.Unknown || item.StatusLabel != labelUnknown || item.Title != "worker: disk space not known" || strings.ContainsAny(item.Detail, "0123456789") || strings.Contains(item.Detail, "failed") {
+						t.Fatalf("unknown leaks figures: %+v", item)
+					}
+					if state == "failed" && item.Detail != d.Reason {
+						t.Fatalf("failure reason: %+v", item)
+					}
+				}
+			})
 		}
 	}
 }
 
-func TestBlockedWorkerDiskKeepsFullnessAndLargestCategory(t *testing.T) {
+func TestDiskSameFilesystemHasOneWarning(t *testing.T) {
+	at := time.Now()
+	a := maintenance.DiskObservation{Reading: diskspace.NewReading("state", "/state", diskspace.Space{Filesystem: "abc", TotalBytes: 100 << 30, FreeBytes: 7 << 30}, nil, at)}
+	b := a
+	b.Reading.What = "Docker"
+	b.Reading.Path = "/docker"
+	for _, id := range []string{"abc", "def", ""} {
+		b.Reading.Filesystem = id
+		got, err := (Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{a, b}}}}).Snapshot(t.Context())
+		want := 2
+		if id == "abc" {
+			want = 1
+		}
+		if err != nil || len(got.Items) != want {
+			t.Fatalf("id=%q: %+v %v", id, got, err)
+		}
+	}
+}
+
+func TestBlockedWorkerDiskExplainsAdmission(t *testing.T) {
 	t.Parallel()
 	at := time.Now()
 	source := Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Disks: []maintenance.DiskObservation{{Reading: diskspace.Reading{What: "worker apps", TotalBytes: 100 << 30, FreeBytes: 1 << 30, Refuses: true, Low: true, ReadAt: at, Categories: []diskspace.Category{{Name: "Volumes", Bytes: 80 << 30}}}}}}}}
@@ -631,7 +669,7 @@ func TestBlockedWorkerDiskKeepsFullnessAndLargestCategory(t *testing.T) {
 	if err != nil || len(got.Items) != 1 {
 		t.Fatalf("conditions: %+v %v", got, err)
 	}
-	if !strings.Contains(got.Items[0].Title, "99% full") || !strings.Contains(got.Items[0].Title, "blocked") || !strings.Contains(got.Items[0].Detail, "Volumes 80.0 GiB") || !strings.Contains(got.Items[0].Detail, "admission threshold") {
+	if !strings.Contains(got.Items[0].Title, "Disk space blocks new work") || !strings.Contains(got.Items[0].Detail, "1.0 GiB free") || !strings.Contains(got.Items[0].Detail, "admission threshold") {
 		t.Fatalf("blocked disk lost its pressure evidence: %+v", got.Items[0])
 	}
 }
@@ -687,4 +725,19 @@ func (f projectRead) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.I
 		out[id] = ScanSnapshot{Snapshot: snap, Err: err}
 	}
 	return out, nil
+}
+
+func TestCurrentMemberKnowsSharedFilesystemDespiteFailedSibling(t *testing.T) {
+	at := time.Now()
+	a := maintenance.DiskObservation{Reading: diskspace.NewReading("state", "/state", diskspace.Space{Filesystem: "abc", TotalBytes: 100 << 30, FreeBytes: 7 << 30}, nil, at)}
+	b := a
+	b.Reading.What = "Docker"
+	b.Reading.ReadAt = at.Add(-7 * time.Hour)
+	b.FailedAt = at
+	b.Stale = true
+	b.Unknown = true
+	got, err := (Disks{Observer: &diskEvidence{maintenance.DiskSnapshot{ObservedAt: at, Unknown: true, Stale: true, Disks: []maintenance.DiskObservation{b, a}}}}).Snapshot(t.Context())
+	if err != nil || !got.Known || got.Stale || len(got.Items) != 1 || got.Items[0].Unknown || got.Items[0].Stale {
+		t.Fatalf("failed sibling hid current space: %+v %v", got, err)
+	}
 }

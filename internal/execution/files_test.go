@@ -48,7 +48,7 @@ case "$*" in
 "cp apptown-reader-disk-reader-"*)
   if [ -f "` + dir + `/silent" ]; then : > "$3"
   elif [ -f "` + dir + `/df" ]; then cp "` + dir + `/df" "$3"
-  else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n' > "$3"; fi
+  else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n6f515dedc9c260d3\n' > "$3"; fi
   exit 0;;
 esac
 echo "$@" >> "` + calls + `"
@@ -118,7 +118,7 @@ func TestALocalTaskIsRefusedOnADiskShortOfSpace(t *testing.T) {
 	df, unread, exists := filepath.Join(dir, "df"), filepath.Join(dir, "unread"), filepath.Join(dir, "exists")
 	reading := func(totalKiB, freeKiB int64) {
 		t.Helper()
-		body := fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x %d %d %d 99%% /d\n", totalKiB, totalKiB-freeKiB, freeKiB)
+		body := fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x %d %d %d 99%% /d\n6f515dedc9c260d3\n", totalKiB, totalKiB-freeKiB, freeKiB)
 		if err := os.WriteFile(df, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}

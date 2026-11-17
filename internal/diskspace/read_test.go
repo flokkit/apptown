@@ -19,14 +19,14 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 		code   int
 		valid  bool
 	}{
-		{"roomy", []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 1000 100 900 10% /d\n"), 0, true},
+		{"roomy", []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 1000 100 900 10% /d\n6f515dedc9c260d3\n"), 0, true},
 		{"empty", []byte{}, 0, false}, {"missing", nil, 0, false},
 		{"malformed", []byte("Filesystem\n/dev/x lots\n"), 0, false},
 		{"failed", []byte("partial"), 1, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			d := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-				if c.Script != "df -Pk /d" {
+				if c.Script != "df -Pk /d && stat -f -c %i /d" {
 					return containerresulttest.Answer{}, false
 				}
 				if c.Image != "chosen-image" || !slices.Contains(c.Args, "/var/lib/docker:/d:ro") {

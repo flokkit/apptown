@@ -99,8 +99,8 @@ func (o *DiskObserver) store(ctx context.Context, snapshot DiskSnapshot) error {
 }
 
 // Run refreshes the complete controller/worker sample. It is called by the
-// bounded maintenance job, not by a request handler. Failed worker coverage
-// retains its earlier disk warnings rather than erasing them from the view.
+// bounded maintenance job, not by a request handler. Failed reads retain their
+// earlier evidence; successful siblings are stored even when the job expires.
 func (o *DiskObserver) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -128,19 +128,6 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 		return loadErr
 	}
 	snapshot.AttemptedAt = now
-	if err := ctx.Err(); err != nil {
-		snapshot.Unknown = true
-		snapshot.LastFailedAt = now
-		snapshot.LastFailure = "The disk check did not finish."
-		for i := range snapshot.Disks {
-			snapshot.Disks[i].FailedAt = now
-			snapshot.Disks[i] = failedDisk(snapshot.Disks[i], now, "The disk check did not finish.")
-		}
-		if len(snapshot.Disks) == 0 {
-			snapshot.Disks = []DiskObservation{failedDisk(DiskObservation{Controller: true, Reading: diskspace.Reading{What: "this AppTown's data folder", Path: o.disks.DataDir, Unknown: "The disk check did not finish", ReadAt: now}}, now, "The disk check did not finish.")}
-		}
-		return errors.Join(err, o.store(ctx, snapshot))
-	}
 	prior := snapshot.Disks
 	next := DiskSnapshot{LastFailedAt: snapshot.LastFailedAt, LastFailure: snapshot.LastFailure, Disks: []DiskObservation{}, ObservedAt: now, AttemptedAt: now}
 	for i, reading := range readings {
@@ -150,7 +137,7 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 			}
 			fresh := DiskObservation{Reading: reading, Controller: i < controllerCount}
 			for _, old := range prior {
-				if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
+				if old.Reading.What == reading.What {
 					fresh.LastFailedAt, fresh.LastFailure = old.LastFailedAt, old.LastFailure
 				}
 			}
@@ -159,7 +146,11 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 		}
 		next.Unknown = true
 		next.LastFailedAt = now
-		next.LastFailure = "The disk check failed."
+		next.LastFailure = "The disk reading is unavailable."
+		reason := "The disk reading is unavailable."
+		if reading.Unknown == "Docker did not answer in time" {
+			reason = "Docker did not answer in time."
+		}
 		// The controller is the first reading; individually unread worker
 		// filesystems retain only their own matching evidence.
 		retained := false
@@ -167,9 +158,9 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 			if (i < controllerCount) != old.Controller {
 				continue
 			}
-			if old.Reading.What == reading.What && old.Reading.Path == reading.Path {
+			if old.Reading.What == reading.What {
 				old.FailedAt = now
-				old.Reason = "The disk check failed."
+				old.Reason = reason
 				old.LastFailedAt = now
 				old.LastFailure = old.Reason
 				next.Disks = append(next.Disks, old)
@@ -177,13 +168,17 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 			}
 		}
 		if !retained {
-			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: reading, Controller: i < controllerCount}, now, "The disk check failed."))
+			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: reading, Controller: i < controllerCount}, now, reason))
 		}
 	}
 	if workerErr != nil {
+		reason := "The worker disk reading is unavailable."
+		if errors.Is(workerErr, context.DeadlineExceeded) {
+			reason = "The worker did not answer in time."
+		}
 		next.Unknown = true
 		next.LastFailedAt = now
-		next.LastFailure = "The disk check failed."
+		next.LastFailure = "The disk reading is unavailable."
 		hasPriorWorker := false
 		for _, old := range prior {
 			if !old.Controller {
@@ -196,16 +191,16 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 					continue
 				}
 				old.FailedAt = now
-				old.Reason = "The disk check failed."
+				old.Reason = reason
 				old.LastFailedAt = now
 				old.LastFailure = old.Reason
 				next.Disks = append(next.Disks, old)
 			}
 		} else {
-			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: diskspace.Reading{What: "the worker's disks", Unknown: workerErr.Error(), ReadAt: now}}, now, "The worker disk check failed."))
+			next.Disks = append(next.Disks, failedDisk(DiskObservation{Reading: diskspace.Reading{What: "the worker's disks", Unknown: workerErr.Error(), ReadAt: now}}, now, reason))
 		}
 	}
-	return o.store(ctx, next)
+	return errors.Join(ctx.Err(), o.store(ctx, next))
 }
 
 // Read returns the latest recorded disks for infrastructure pages.
@@ -215,12 +210,12 @@ func (o *DiskObserver) Read(ctx context.Context) []diskspace.Reading {
 		return []diskspace.Reading{{Unknown: err.Error()}}
 	}
 	out := make([]diskspace.Reading, 0, len(snapshot.Disks))
-	for _, disk := range snapshot.Disks {
+	for _, disk := range snapshot.DisplayDisks() {
 		reading := disk.Reading
 		reading.Stale = disk.Stale
 		reading.FailedAt, reading.Error = disk.FailedAt, disk.Reason
-		if disk.Unknown {
-			reading.Unknown = "The last successful disk reading is too old or unavailable"
+		if !disk.Known() {
+			reading.Unknown = "There is no recent disk reading."
 		}
 		out = append(out, reading)
 	}
@@ -233,4 +228,35 @@ func failedDisk(d DiskObservation, at time.Time, reason string) DiskObservation 
 	d.LastFailedAt = at
 	d.LastFailure = reason
 	return d
+}
+
+// Known reports whether this disk has current, successful space evidence.
+func (d DiskObservation) Known() bool {
+	return !d.Unknown && !d.Stale && !d.Reading.ReadAt.IsZero() && d.Reading.Unknown == "" && !d.FailedAt.After(d.Reading.ReadAt)
+}
+
+// DisplayDisks joins worker roles on the same identified filesystem. Stored
+// roles remain separate so a failed probe retains its own successful evidence.
+func (s DiskSnapshot) DisplayDisks() []DiskObservation {
+	out := make([]DiskObservation, 0, len(s.Disks))
+	for _, disk := range s.Disks {
+		joined := false
+		for i, prior := range out {
+			if disk.Controller || prior.Controller || disk.Reading.Filesystem == "" || disk.Reading.Filesystem != prior.Reading.Filesystem {
+				continue
+			}
+			categories := append(append([]diskspace.Category(nil), prior.Reading.Categories...), disk.Reading.Categories...)
+			if disk.Known() && !prior.Known() || disk.Known() == prior.Known() && disk.Reading.ReadAt.After(prior.Reading.ReadAt) {
+				out[i] = disk
+			}
+			out[i].Reading.What = "the worker's disk (state folder and Docker data: tasks, images, private Docker)"
+			out[i].Reading.Categories = categories
+			joined = true
+			break
+		}
+		if !joined {
+			out = append(out, disk)
+		}
+	}
+	return out
 }

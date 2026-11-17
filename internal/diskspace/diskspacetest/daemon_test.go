@@ -27,7 +27,7 @@ func TestDiskFakeLeavesOtherResultCommandsWithTheirOwner(t *testing.T) {
 		}
 		return nil, fmt.Errorf("unexpected command %v", args)
 	}
-	for _, tc := range []struct{ script, want string }{{"df -Pk /d", "disk"}, {"other command", "other"}, {"df -Pk /d", "disk"}} {
+	for _, tc := range []struct{ script, want string }{{"df -Pk /d && stat -f -c %i /d", "disk"}, {"other command", "other"}, {"df -Pk /d && stat -f -c %i /d", "disk"}} {
 		read := containerresult.Run
 		if tc.want == "disk" {
 			read = func(ctx context.Context, dk containerresult.Docker, s containerresult.Spec) ([]byte, error) {

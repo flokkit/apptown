@@ -231,3 +231,112 @@ func TestFirstWorkerDiskFailureRemainsRecordedAfterRecovery(t *testing.T) {
 		t.Fatalf("recovery erased last failed check: %+v %v", recovered, err)
 	}
 }
+
+// A cooperative worker consumes only its own wait, never the entire job.
+type waitingDiskWorker struct {
+	readings []diskspace.Reading
+	block    bool
+}
+
+func (w *waitingDiskWorker) Disks(ctx context.Context) ([]diskspace.Reading, error) {
+	if !w.block {
+		return w.readings, nil
+	}
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestDiskWorkerBoundAndOuterDeadlineKeepSuccessfulController(t *testing.T) {
+	for _, outer := range []time.Duration{25 * time.Second, 100 * time.Millisecond} {
+		t.Run(outer.String(), func(t *testing.T) {
+			t.Parallel()
+			now := time.Now().UTC()
+			first := now
+			worker := &waitingDiskWorker{readings: []diskspace.Reading{diskspace.NewReading("worker state", "/state", diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 7 << 30}, nil, first)}}
+			dir := t.TempDir()
+			disks := Disks{DataDir: dir, Worker: worker, Now: func() time.Time { return now }}
+			o := NewDiskObserver(databaseSuite.New(t), disks, disks.Now)
+			if err := o.Run(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			now = now.Add(time.Minute)
+			worker.block = true
+			ctx, cancel := context.WithTimeout(t.Context(), outer)
+			defer cancel()
+			started := time.Now()
+			err := o.Run(ctx)
+			if outer > time.Second {
+				if err != nil || time.Since(started) > 23*time.Second || ctx.Err() != nil {
+					t.Fatalf("worker exhausted job: %v after %v", err, time.Since(started))
+				}
+			} else if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("lost job deadline: %v", err)
+			}
+			got, err := o.Snapshot(t.Context())
+			if err != nil || len(got.Disks) != 2 {
+				t.Fatalf("snapshot: %+v %v", got, err)
+			}
+			if d := got.Disks[0]; d.Reading.ReadAt != now || !d.FailedAt.IsZero() {
+				t.Fatalf("successful controller discarded: %+v", d)
+			}
+			if d := got.Disks[1]; d.Reading.ReadAt != first || d.FailedAt != now {
+				t.Fatalf("worker evidence renewed or lost: %+v", d)
+			}
+		})
+	}
+}
+
+func TestDiskMergeRetainsEmptyPathFailureAndReplacesSuccessfulPath(t *testing.T) {
+	now := time.Now().UTC()
+	first := now
+	space := diskspace.Space{Filesystem: "6f515dedc9c260d3", TotalBytes: 100 << 30, FreeBytes: 7 << 30}
+	state := diskspace.NewReading("the worker's state folder", "/state", space, nil, now)
+	docker := diskspace.NewReading("the worker's Docker data (tasks, images, private Docker)", "/docker", space, nil, now)
+	state.Categories = []diskspace.Category{{Name: "Workspaces", Bytes: 100}}
+	docker.Categories = []diskspace.Category{{Name: "Images", Bytes: 200}}
+	w := &observedWorker{readings: []diskspace.Reading{state, docker}}
+	disks := Disks{DataDir: t.TempDir(), Worker: w, Now: func() time.Time { return now }}
+	o := NewDiskObserver(databaseSuite.New(t), disks, disks.Now)
+	for step := range 3 {
+		if step == 1 {
+			now = now.Add(time.Minute)
+			w.readings[0].ReadAt = now
+			w.readings[1] = diskspace.NewReading(docker.What, "", diskspace.Space{}, errors.New("Docker did not answer in time"), now)
+		}
+		if step == 2 {
+			now = now.Add(time.Minute)
+			w.readings[0].ReadAt = now
+			docker.ReadAt = now
+			docker.Path = "/new-docker"
+			w.readings[1] = docker
+		}
+		if err := o.Run(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		got, err := o.Snapshot(t.Context())
+		if err != nil || len(got.Disks) != 3 {
+			t.Fatalf("stored roles: %+v %v", got, err)
+		}
+		d := got.Disks[2]
+		if step == 1 && (d.Reading.Path != "/docker" || d.Reading.ReadAt != first || d.Reading.FreeBytes != space.FreeBytes || d.Reading.Filesystem != space.Filesystem || len(d.Reading.Categories) != 1 || d.FailedAt != now || d.LastFailedAt != now || d.LastFailure == "") {
+			t.Fatalf("failed probe erased evidence: %+v", d)
+		}
+		if step == 2 && (d.Reading.Path != "/new-docker" || d.Reading.ReadAt != now || !d.FailedAt.IsZero() || d.LastFailedAt.IsZero()) {
+			t.Fatalf("recovery did not replace evidence: %+v", d)
+		}
+		rows := o.Read(t.Context())
+		if len(rows) != 2 || rows[1].Unknown != "" || rows[1].ReadAt != now || len(rows[1].Categories) != 2 {
+			t.Fatalf("step %d displayed duplicate or unknown disk: %+v", step, rows)
+		}
+	}
+	// A real filesystem change is accepted on success and splits the display.
+	now = now.Add(time.Minute)
+	w.readings[1].Filesystem = "different"
+	w.readings[1].ReadAt = now
+	if err := o.Run(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if rows := o.Read(t.Context()); len(rows) != 3 {
+		t.Fatalf("new filesystem retained old id: %+v", rows)
+	}
+}

@@ -443,7 +443,7 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 	const gib = int64(1) << 30
 	df := func(total, free int64) func() ([]byte, error) {
 		return func() ([]byte, error) {
-			return []byte(fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x %d %d %d 99%% /d\n", total>>10, (total-free)>>10, free>>10)), nil
+			return []byte(fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x %d %d %d 99%% /d\n6f515dedc9c260d3\n", total>>10, (total-free)>>10, free>>10)), nil
 		}
 	}
 	for _, tc := range []struct {

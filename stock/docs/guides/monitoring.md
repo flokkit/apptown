@@ -47,7 +47,11 @@ permission to open one. Parser diagnostics are under Technical details.
 
 Usage shows used and total space for each AppTown disk, alongside measured
 workspace, database, local backup, Docker volume, image and build cache sizes.
-A coloured capacity bar and an Attention item warn above 80% full.
+The capacity bar changes colour above 80% full. Attention warns below twice
+the refusal floor (a twentieth of the disk, clamped to 1–20 GiB).
+Worker state and Docker data on the same filesystem share one row and warning.
+Attention says disk space is not known when a reading is missing, failed or
+over fifteen minutes old, with the reason and no space figures.
 An unknown reading has an empty bar. Old readings show when they were last seen;
 a failed check keeps the last measured values visible.
 

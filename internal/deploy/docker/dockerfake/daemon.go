@@ -811,7 +811,7 @@ func (d *Daemon) SetDisk(totalBytes, freeBytes int64) {
 }
 
 func dfLines(total, free int64) string {
-	return fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data %d %d %d 10%% /d\n", total>>10, (total-free)>>10, free>>10)
+	return fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data %d %d %d 10%% /d\n6f515dedc9c260d3\n", total>>10, (total-free)>>10, free>>10)
 }
 
 // IsDiskRead identifies this daemon's disk commands, including completed reads.
