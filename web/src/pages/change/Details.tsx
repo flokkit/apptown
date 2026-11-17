@@ -14,7 +14,7 @@ import { Screenshots } from '../../Screenshots'
 import { fmtPrice, fmtStamp, fmtTokens } from '../../format'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { Attachments, RequestEntry, changeReport, changeTitle } from './Head'
+import { Attachments, RequestEntry, changeReport } from './Head'
 import { StepActions, StepCard } from './Steps'
 import { AddArtifact, AdrLinks, ArtifactBody } from './Tabs'
 import { stepTitle } from './Evidence'
@@ -131,7 +131,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
       || (recordId === 'preview' ? previewEntry : recordId === 'review' ? reviewEntry : undefined)
     const artifact = story.flatMap(e => e.records).find(a => `record-${a.id}` === recordId)
     return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact ? recordTitle(artifact) : 'Record'}</h1>
-      <p className="muted small">From <Link to={`/changes/${view.change.id}`}>change {view.change.number} · {changeTitle(view.change)}</Link></p>
+      <p className="muted small">From <Link to={`/changes/${view.change.id}`}>change {view.change.number} · {view.change.title}</Link></p>
       {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
       {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />
         : recordId === 'checks' ? recordStory.some(e => e.text.startsWith('Checks:')) ? recordStory.filter(e => e.text.startsWith('Checks:')).map(e => <EntryEvidence key={e.key} entry={e} view={view} reload={reload} />) : <p>{recordsRead ? 'No checks were recorded.' : 'This record has not been read.'}</p>

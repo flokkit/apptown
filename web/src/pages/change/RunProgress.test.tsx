@@ -248,14 +248,14 @@ it('keeps called-stage bars live while closed and retains them after a failed re
  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(child))))
  try {
   await act(async () => root.render(<QueryClientProvider client={client}><RunProgress view={v} /></QueryClientProvider>))
-  await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('button')?.getAttribute('aria-label')).toBe('Progress: child checks step 1 of 1') })
+  await vi.waitFor(async () => { await act(async () => {}); expect(el.querySelector('button')?.getAttribute('aria-label')).toBe('Progress: Tests · step 1 of 1') })
   expect(document.querySelector('.popover')).toBeNull()
   expect(el.querySelector('[aria-label="Steps"] .current')).not.toBeNull()
   vi.mocked(fetch).mockRejectedValue(new Error('offline'))
   await act(async () => { await client.invalidateQueries({ queryKey: getKey('/runs/child/trace') }) })
   act(() => el.querySelector<HTMLButtonElement>('button')!.click())
   await vi.waitFor(async () => { await act(async () => {}); expect(document.querySelector('.popover .stale-note')).not.toBeNull() })
-  expect(el.querySelector('button')?.getAttribute('aria-label')).toBe('Progress: child checks step 1 of 1')
+  expect(el.querySelector('button')?.getAttribute('aria-label')).toBe('Progress: Tests · step 1 of 1')
   expect(el.querySelector('[aria-label="Steps"] .current')).not.toBeNull()
  } finally { act(() => root.unmount()); el.remove(); client.clear(); vi.unstubAllGlobals() }
 })
@@ -289,4 +289,26 @@ it('names the ordered stages, emphasises the current stage and colours failed st
  v.detail!.run.currentStage = 'gates'
  el.innerHTML = html(v)
  expect(el.querySelector('.ch-now-stages strong.bad')?.textContent).toBe('Gates')
+})
+
+it('names phases and the current step on the closed trigger without native tooltips', () => {
+ const v = view()
+ v.detail!.stages = ['gates', 'land', 'ship']
+ const el = document.createElement('div'), root = createRoot(el)
+ act(() => root.render(<MemoryRouter><QueryClientProvider client={newQueryClient()}><RunProgress view={v} /></QueryClientProvider></MemoryRouter>))
+ try {
+  const trigger = el.querySelector('.ch-progress-trigger')!
+  expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  expect([...trigger.querySelectorAll('.ch-progress-names > *')].map(s => s.textContent)).toEqual(['Gates', 'Land', 'Ship'])
+  expect(trigger.querySelector('.ch-progress-names strong')?.textContent).toBe('Land')
+  expect(trigger.querySelector('.ch-progress-where')?.textContent).toBe('Build · step 3 of 4')
+  expect(trigger.querySelectorAll('[title]')).toHaveLength(0)
+  v.detail!.steps[2].progress = 'failed'
+  act(() => root.render(<MemoryRouter><QueryClientProvider client={newQueryClient()}><RunProgress view={{...v}} /></QueryClientProvider></MemoryRouter>))
+  expect(el.querySelector('.ch-progress-where')?.textContent).toBe('Build · failed')
+  expect(el.querySelector('.ch-progress-names strong.bad')?.textContent).toBe('Land')
+  v.detail!.stages = ['gates', 'land']; v.detail!.steps.forEach(s => s.progress = 'done'); v.detail!.run.status = 'done'; v.change.state = 'shipped'
+  act(() => root.render(<MemoryRouter><QueryClientProvider client={newQueryClient()}><RunProgress view={{...v}} /></QueryClientProvider></MemoryRouter>))
+  expect(el.querySelector('.ch-progress-where')?.textContent).toBe('Landed · 4 of 4 steps')
+ } finally { act(() => root.unmount()) }
 })

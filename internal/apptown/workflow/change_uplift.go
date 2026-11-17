@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flokkit/apptown/internal/fault"
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // targetRecorder is adoption's named participant. It joins Work's project-first
@@ -155,7 +155,7 @@ func upliftBrief(in Uplift) (string, string) {
 		}
 		lines = append(lines, line)
 	}
-	title := "Adopt the way of working: " + strings.Join(in.Words, ", ")
+	title := strs.Truncate("Adopt the way of working: "+strings.Join(in.Words, ", "), 99)
 	basis := ""
 	if in.Basis != "" {
 		basis = "\n" + in.Basis + "\n"

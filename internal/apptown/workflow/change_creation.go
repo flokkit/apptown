@@ -155,6 +155,9 @@ type changeOrigin struct {
 }
 
 func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who string, created CreatedChange, origin changeOrigin, at time.Time) (CreatedChange, error) {
+	if err := validateChangeTitle(in.Title); err != nil {
+		return CreatedChange{}, err
+	}
 	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" {
 		return CreatedChange{}, fmt.Errorf("invalid Change creation request")
 	}

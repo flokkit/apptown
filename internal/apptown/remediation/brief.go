@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Brief is AppTown-generated acceptance criterion an agent works
@@ -112,9 +113,9 @@ func AcceptanceCheck(sc conformance.DeclaredCheck) workflow.AcceptanceCheck {
 
 func ChangeTitle(sc conformance.DeclaredCheck) string {
 	if title := strings.TrimSpace(sc.Check.Title); title != "" {
-		return title
+		return strs.Truncate(title, 99)
 	}
-	return fmt.Sprintf("Conform to %s@%d · %s", sc.Block, sc.Version, sc.Check.Name)
+	return strs.Truncate(fmt.Sprintf("Conform to %s@%d · %s", sc.Block, sc.Version, sc.Check.Name), 99)
 }
 
 // remediationLane picks the lane a remediation Change is worked on: the

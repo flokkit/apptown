@@ -797,7 +797,8 @@ func apiDescription() (map[string]any, error) {
 		"info": map[string]any{
 			"title":   "AppTown HTTP API",
 			"version": "v1",
-			"description": "Every route an AppTown serves, generated from its route table. " +
+			"description": "Change titles are a short statement of the goal, around 60 characters, for example \"Report test counts to AppTown\". Exact instructions go in the body. Caller-supplied titles over 100 characters, including edits, return 400. " +
+				"Every route an AppTown serves, generated from its route table. " +
 				"The HTTP API is experimental in 1.0: routes and shapes may change in a 1.x release, " +
 				"and the release notes name each change. The stable surfaces are the CLI's core loop " +
 				"(with --json) and the MCP tools; see What 1.0 promises. Request and response shapes " +

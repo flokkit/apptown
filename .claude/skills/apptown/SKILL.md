@@ -5,6 +5,11 @@ description: Invoke and drive AppTown workflows from the CLI — open changes, a
 
 # Driving AppTown workflows
 
+A change title is a short statement of the goal, around 60 characters, for
+example "Report test counts to AppTown". Put exact instructions in the body
+(`--body` in the CLI, `intent` in MCP). Caller-supplied titles over 100
+characters are refused, including title edits.
+
 AppTown runs workflows on changes: a change's run moves through YAML-defined
 stages, and a run advances **only** when the current stage's gate (checks +
 approvals) passes. Your job as an agent is to achieve goals *by invoking
@@ -23,7 +28,7 @@ Binary: `bin/apptown` (or `apptown` on PATH). Configuration:
 ```sh
 apptown projects                          # what exists
 apptown workflows -p <slug>               # available workflows = your action space
-apptown invoke -p <slug> -w <workflow> -t "<title>" --body "<why>"   # start a run
+apptown invoke -p <slug> -w <workflow> -t "Report test counts to AppTown" --body "<exact instructions>"   # start a run
 apptown status <run-id>                   # stages, current checks, STEP IDs
 apptown advance <run-id>                  # try the gate; failure lists blockers
 ```

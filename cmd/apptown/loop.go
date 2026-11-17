@@ -41,7 +41,7 @@ func cmdWorkVerb(verb string, args []string) error {
 	project := fs.String("p", "", "project slug (default: APPTOWN_PROJECT or cwd)")
 	yes := fs.Bool("y", false, "auto-approve gates and landing (recorded as you)")
 	noFollow := fs.Bool("no-follow", false, "start the run and return")
-	title := fs.String("t", "", "change title (default: derived from the task)")
+	title := fs.String("t", "", "the goal in a few words (about 60 characters); the task text carries the instructions")
 	asJSON := fs.Bool("json", false, "print what was opened as JSON and return (no following, no questions)")
 	body := strings.TrimSpace(strings.Join(parseArgs(fs, args), " "))
 	if spec.needsBody && body == "" {

@@ -180,7 +180,8 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 }
 
 // ChangeChecks includes the working run carried by the current landing. The
-// selection and verdict belong here so every change view uses the same facts.
+// landing result supersedes the working result by step name, whatever its
+// status. Selection and verdict belong here so change views use the same facts.
 func (s *Service) ChangeChecks(ctx context.Context, latest *RunSnapshot) (ChecksSummary, error) {
 	if latest == nil {
 		return summarizeChecks(nil), nil
@@ -206,7 +207,15 @@ func (s *Service) ChangeChecks(ctx context.Context, latest *RunSnapshot) (Checks
 			if err != nil {
 				return ChecksSummary{}, err
 			}
-			steps = append(work.Steps, steps...)
+			repeated := map[string]bool{}
+			for _, step := range latest.Steps {
+				repeated[step.Name] = true
+			}
+			for _, step := range work.Steps {
+				if !repeated[step.Name] {
+					steps = append(steps, step)
+				}
+			}
 			break
 		}
 	}

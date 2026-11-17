@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -253,4 +254,29 @@ func createdReceipts(t *testing.T, db database.Queryer, id ids.ID) int {
 	return auditCount(t, db, "change.created", func(e audit.Entry) bool {
 		return e.Actor == "alice via mcp/test" && jsonMatches(t, e.Payload, fmt.Sprintf("changeId=%d", id))
 	})
+}
+
+func TestCallerTitleCreationAtMost100Runes(t *testing.T) {
+	t.Parallel()
+	c, draft := creationFixture(t)
+	draft.Title = strings.Repeat("界", 101)
+	if ch, err := c.Create(t.Context(), draft, "alice"); ch != nil || fault.KindOf(err) != fault.Invalid || err.Error() != "Title is the goal in a few words; put the instructions in the body." {
+		t.Fatalf("creation: %+v %v", ch, err)
+	}
+	draft.Title = strings.Repeat("界", 100)
+	if ch, err := c.Create(t.Context(), draft, "alice"); err != nil || ch.Title != draft.Title {
+		t.Fatalf("100 runes: %+v %v", ch, err)
+	}
+}
+
+func TestExistingLongTitleRemainsReadable(t *testing.T) {
+	t.Parallel()
+	c, draft := creationFixture(t)
+	words := strings.Repeat("界", 150)
+	// sql-guarantee: a historical title above the current write limit cannot be created through admission.
+	id := insertChangeForTest(t, c.records.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: draft.ProjectID, Type: "feature", Title: words, State: ChangeInProgress.String(), TitleOwnership: "human", AcceptanceJson: []byte(`{}`)})
+	ch, err := readChange(t.Context(), c.records.db, id)
+	if err != nil || ch.Title != words {
+		t.Fatalf("historical title: %+v %v", ch, err)
+	}
 }

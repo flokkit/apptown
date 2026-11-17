@@ -1,4 +1,4 @@
-import { cloneElement, useCallback, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode, type RefObject } from 'react'
+import { cloneElement, useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useNarrow } from './chrome'
 import { Modal } from './Modal'
@@ -12,8 +12,8 @@ const focusable = 'a[href], button:not(:disabled), input:not(:disabled), select:
 // close, focus returns to the trigger only from inside the panel, so a click
 // into a field elsewhere keeps the field's focus. Scrolling the trigger out of
 // sight closes the panel.
-export function Popover({ anchor, onClose, children, id, placement = 'below', align = 'end', className = '', onPointerEnter, onPointerLeave, takeFocus = true }: {
-  anchor: RefObject<HTMLElement>; onClose: () => void; children: ReactNode; id: string
+export function Popover({ anchor, onClose, children, id, placement = 'below', align = 'end', className = '', style, onPointerEnter, onPointerLeave, takeFocus = true }: {
+  style?: CSSProperties; anchor: RefObject<HTMLElement>; onClose: () => void; children: ReactNode; id: string
   placement?: 'above' | 'below'; align?: 'start' | 'end'; className?: string; takeFocus?: boolean
   onPointerEnter?: (event: React.PointerEvent) => void; onPointerLeave?: (event: React.PointerEvent) => void
 }) {
@@ -26,15 +26,22 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', al
       const left = viewport?.offsetLeft ?? 0, top = viewport?.offsetTop ?? 0
       const width = viewport?.width ?? window.innerWidth, height = viewport?.height ?? window.innerHeight
       element.style.maxWidth = `min(var(--popover-max-width, ${width - 16}px), ${width - 16}px)`
-      element.style.maxHeight = `${height - 16}px`
       const rect = trigger.getBoundingClientRect(), box = element.getBoundingClientRect()
       // A panel belongs beside its control: once the control has scrolled
       // out of sight, close rather than pin the panel over unrelated rows.
       if (rect.bottom < top || rect.top > top + height) { onClose(); return }
+      // A panel never covers its own control: that would block the control
+      // and the pointer. It goes on the side that fits, or else the side with
+      // more room, and scrolls within that room.
       const below = rect.bottom + 6
-      const y = placement === 'above' || below + box.height > top + height - 8 ? rect.top - box.height - 6 : below
+      const roomBelow = top + height - 8 - below, roomAbove = rect.top - 6 - (top + 8)
+      const natural = element.scrollHeight + element.offsetHeight - element.clientHeight
+      const up = placement === 'above' ? natural <= roomAbove || roomAbove >= roomBelow : natural > roomBelow && (natural <= roomAbove || roomAbove > roomBelow)
+      const room = Math.max(0, up ? roomAbove : roomBelow)
+      element.style.maxHeight = `${room}px`
+      const y = up ? rect.top - 6 - Math.min(natural, room) : below
       element.style.left = `${Math.max(left + 8, Math.min(align === 'start' ? rect.left : rect.right - box.width, left + width - box.width - 8))}px`
-      element.style.top = `${Math.max(top + 8, Math.min(y, top + height - box.height - 8))}px`
+      element.style.top = `${y}px`
     }
     position()
     if (takeFocus) (element.querySelector<HTMLElement>(focusable) ?? element).focus()
@@ -65,7 +72,7 @@ export function Popover({ anchor, onClose, children, id, placement = 'below', al
     // Focus is taken once, as the panel opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor, onClose, placement, align])
-  return createPortal(<div ref={panel} id={id} tabIndex={-1} className={`popover ${className}`} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>{children}</div>, document.body)
+  return createPortal(<div ref={panel} id={id} tabIndex={-1} className={`popover ${className}`} style={style} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>{children}</div>, document.body)
 }
 
 // hover: a mouse resting on the trigger opens the same panel a click does,

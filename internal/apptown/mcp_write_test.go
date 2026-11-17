@@ -278,3 +278,12 @@ func TestPeopleCannotPickSystemWorkflows(t *testing.T) {
 		})
 	}
 }
+
+func TestMCPCallerTitleRefusalCarriesTheGoalGuidance(t *testing.T) {
+	t.Parallel()
+	a, boss := mcpWriteFixture(t)
+	res := mcp_call(t, a, boss, "create_change", map[string]any{"slug": "app", "title": strings.Repeat("界", 101)})
+	if res["isError"] != true || !strings.Contains(fmt.Sprint(res["content"]), "Title is the goal in a few words; put the instructions in the body.") {
+		t.Fatalf("title refusal: %v", res)
+	}
+}

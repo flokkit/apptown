@@ -1,5 +1,10 @@
 # Connect a coding agent or the CLI
 
+A change title is a short statement of the goal, around 60 characters, for
+example "Report test counts to AppTown". Put exact instructions in the body
+(`--body` in the CLI, `intent` in MCP). Caller-supplied titles over 100
+characters are refused, including title edits.
+
 MCP for outside agents starts turned off. An administrator turns it on in
 Setup → Features, or runs `apptown features on mcp`. See [Features](features.md).
 

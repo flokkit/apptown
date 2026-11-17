@@ -191,6 +191,8 @@ details.console-about { margin: 0; }
 }
 /* Keep the composer's intrinsic height before allocating room to history.
    Short viewports scroll the surrounding content instead of clipping controls. */
+.ch-page-chat { overflow-y: auto; }
+.ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body { min-height: min-content; }
 .ch-page-chat .ch-tab-body { overflow-y: auto; }
 .ch-page-chat :is(.conversation-split, .conversation-chat, .console, .chat-pane) { min-height: auto; }
 .ch-page-chat .ch-tab-body > .page-section { max-height: 20dvh; min-height: 0; overflow-y: auto; flex-shrink: 0; }

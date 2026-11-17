@@ -243,3 +243,21 @@ it('uses only the current change read for scope across projects, failed reads an
   expect(el.querySelector('output')?.textContent).toBe('no project')
  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('places the progress strip after the header and outside the state row, before tabs', async () => {
+ Element.prototype.scrollIntoView = () => {}
+ vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
+ const v = { ...view('shipped'), projectSlug: 'notes', change: { id:'X', title:'Goal', state:'shipped' }, detail: {run:{id:'run',status:'done',currentStage:'gates'}, stages:['gates'],steps:[], next:[]}, runs:[], next:[] } as unknown as ChangeView
+ const client = newQueryClient(); client.setQueryData(getKey('/changes/X'), v)
+ vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(v))))
+ const el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/changes/X']}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+  const strip = el.querySelector('.ch-progress')!
+  expect(strip).not.toBeNull()
+  expect(strip.parentElement?.classList.contains('ch-page')).toBe(true)
+  expect(strip.previousElementSibling?.tagName).toBe('HEADER')
+  expect(strip.closest('.ch-state-head')).toBeNull()
+  expect(strip.compareDocumentPosition(el.querySelector('.ch-tabs')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+ } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

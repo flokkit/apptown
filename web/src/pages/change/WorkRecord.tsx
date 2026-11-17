@@ -13,7 +13,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 import { fmtStamp } from '../../format'
 import { useSetProjectScope } from '../../projectScope'
 import { parseUnifiedDiff } from '../../DiffView'
-import { changeTitle, firstLine } from './Head'
+import { firstLine } from './Head'
 import { recordKindName, runStory, StoryEntry } from './story'
 import { renderMd } from '../../md'
 import { useTechnicalDetail } from './TechnicalDetail'
@@ -74,7 +74,7 @@ export default function WorkRecordPage({ section }: { section?: RecordSection })
   const [params] = useSearchParams()
   const run = params.get('run')
   const change = useGet<ChangeView>(`/changes/${encodeURIComponent(id ?? '')}`, { poll: 3000 })
-  const changeName = change.data ? `Change ${change.data.change.number} · ${changeTitle(change.data.change)}` : id || 'Change'
+  const changeName = change.data ? `Change ${change.data.change.number} · ${change.data.change.title}` : id || 'Change'
   useEffect(() => {
     setPageContext({ names: { [`/changes/${id}`]: changeName, [`/changes/${id}/work/${stepId}`]: 'Work record' } })
     return () => setPageContext({})

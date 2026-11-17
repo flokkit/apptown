@@ -3,7 +3,6 @@ import { StaleNote, type Gated } from '../../ReadGate'
 import type { MainConflict } from '../../wire.gen'
 import { ChangeHeader } from './Head'
 import { nextStep } from './next'
-import { RunProgress } from './RunProgress'
 
 // The state names the viewer's next action when it is their turn.
 // The decision card holds the actions and their meaning.
@@ -25,7 +24,6 @@ export function StatePanel({ view, reading }: { view: ChangeView; reading?: Gate
         {headline && <div className="ch-state-head">
           <span className={`ch-dot ${tone}`} aria-hidden="true" />
           <span className="ch-headline">{headline}</span>
-          <RunProgress view={view} reading={reading} />
         </div>}
         {stale && <div className="ch-sentence">Last recorded state: {next.headline}</div>}
         {view.returnedBy && <div className="ch-sentence">Sent back by {view.returnedBy.by}: {view.returnedBy.note}</div>}

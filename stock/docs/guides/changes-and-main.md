@@ -283,6 +283,8 @@ month. The `dependency-updates` pack declares `schedules: [dependency-uplift]`.
   missed while AppTown was stopped are not made up: one fires at the next
   look, then the schedule continues from there.
 - **By hand.** Run one now like any other change:
+  The title is a short statement of the goal, around 60 characters (for
+  example "Report test counts to AppTown"); exact instructions go in `--body`.
   `apptown invoke -p <slug> -w dependency-uplift -t "Dependency uplift"`.
 - **Changing the cadence.** The cron is part of the workflow version a
   project adopted, so a different cadence is a new workflow version that the

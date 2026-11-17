@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
@@ -67,5 +69,25 @@ func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
 	}
 	if got := firstMessageTitle("  Build\n a game. Then add music. "); got != "Build a game." {
 		t.Fatalf("first sentence: %q", got)
+	}
+}
+
+func TestFirstMessageTitleCutsAtAWordBoundary(t *testing.T) {
+	request := "Add one line at the end of the application configuration including a greeting for visitors"
+	want := "Add one line at the end of the application configuration…"
+	if got := firstMessageTitle(request); got != want || len(got) > 64 {
+		t.Fatalf("word boundary: got %q, want %q", got, want)
+	}
+}
+
+func TestCallerTitlePinsAtMost100Runes(t *testing.T) {
+	t.Parallel()
+	old := changeTitle{"existing", titleGenerated}
+	if _, applied, err := old.decide(changeTitleEdit{act: pinTitle, words: strings.Repeat("界", 101)}); applied || fault.KindOf(err) != fault.Invalid || err.Error() != "Title is the goal in a few words; put the instructions in the body." {
+		t.Fatalf("pin: %v %v", applied, err)
+	}
+	words := strings.Repeat("界", 100)
+	if next, applied, err := old.decide(changeTitleEdit{act: pinTitle, words: words}); err != nil || !applied || next.words != words {
+		t.Fatalf("100 runes: %+v %v %v", next, applied, err)
 	}
 }
