@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/imageline"
@@ -18,6 +19,7 @@ import (
 // A bound HTTPS mirror uses the same deployments trust as image pulls.
 func TestRegistryReadingsUseDeploymentsTrustForMirror(t *testing.T) {
 	// Serial: this test installs process-wide trust.
+	var heads atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/v2/":
@@ -25,7 +27,15 @@ func TestRegistryReadingsUseDeploymentsTrustForMirror(t *testing.T) {
 		case strings.HasSuffix(r.URL.Path, "/tags/list"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"name": "library/caddy", "tags": []string{"2.11.9-alpine"}})
 		case strings.Contains(r.URL.Path, "/manifests/"):
-			w.Header().Set("Docker-Content-Digest", "sha256:"+strings.Repeat("a", 64))
+			if r.Method != "HEAD" {
+				t.Errorf("manifest method %s", r.Method)
+			}
+			heads.Add(1)
+			digest := "sha256:" + strings.Repeat("a", 64)
+			if strings.HasSuffix(r.URL.Path, "/2.11.8-alpine") {
+				digest = "sha256:" + strings.Repeat("b", 64)
+			}
+			w.Header().Set("Docker-Content-Digest", digest)
 			w.Header().Set("Content-Type", "application/vnd.oci.image.index.v1+json")
 			w.Header().Set("Content-Length", "200")
 		default:
@@ -55,5 +65,16 @@ func TestRegistryReadingsUseDeploymentsTrustForMirror(t *testing.T) {
 	s := New(suite.New(t), nil, func(context.Context) (string, error) { return server.URL, nil })
 	if _, err := s.Answer(t.Context(), "caddy:2-alpine", imageline.Line); err != nil {
 		t.Fatalf("configured deployments CA was ignored: %v", err)
+	}
+	// Candidate proof is always a new HEAD, even after Answer cached this line.
+	before := heads.Load()
+	for range 2 {
+		digest, err := s.Digest(t.Context(), "caddy:2.11.8-alpine")
+		if err != nil || digest != "sha256:"+strings.Repeat("b", 64) {
+			t.Fatalf("candidate proof: %s %v", digest, err)
+		}
+	}
+	if heads.Load() != before+2 {
+		t.Fatalf("candidate proof reused a cached reading: %d HEADs", heads.Load()-before)
 	}
 }

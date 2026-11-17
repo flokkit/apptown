@@ -35,8 +35,7 @@ type MainScans struct {
 	Known        bool `json:"known"`
 	Stale        bool `json:"stale"`
 	// Failed: a current scan ran and its scanner could not judge the software.
-	// Unlike code or images newer than the last scan, which the next scheduled
-	// scan answers, a failure needs a person.
+	// Its source scan schedule retries within an hour while this remains true.
 	Failed   bool      `json:"-"`
 	LastScan time.Time `json:"lastScan"`
 }

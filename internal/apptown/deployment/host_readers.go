@@ -72,10 +72,11 @@ func (r HostReaders) Run(ctx context.Context) {
 				defer wg.Done()
 				defer close(done)
 				for life.Err() == nil {
-					if err := r.lap(life, id); err != nil && life.Err() == nil {
+					nextAt := r.Snapshots.now().Add(interval)
+					if err := r.lap(life, id, nextAt); err != nil && life.Err() == nil {
 						log.Printf("host reading %s: %v", id, err)
 					}
-					timer := time.NewTimer(interval)
+					timer := time.NewTimer(max(0, nextAt.Sub(r.Snapshots.now())))
 					select {
 					case <-life.Done():
 						timer.Stop()
@@ -109,7 +110,7 @@ func (r HostReaders) Run(ctx context.Context) {
 	}
 }
 
-func (r HostReaders) lap(ctx context.Context, id ids.ID) error {
+func (r HostReaders) lap(ctx context.Context, id ids.ID, nextAt time.Time) error {
 	t, err := r.Targets.ByID(ctx, id)
 	if err != nil {
 		return err
@@ -136,7 +137,7 @@ func (r HostReaders) lap(ctx context.Context, id ids.ID) error {
 	if t.Origin == OriginBuiltIn && r.Providers.databaseContainer != "" {
 		also = []string{r.Providers.databaseContainer}
 	}
-	fresh, started, err := r.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory)
+	fresh, started, err := r.Snapshots.collect(ctx, t, dk, docker.HostQuery{Host: true, Containers: true, Resources: true, Images: true, ImageRefs: refs}, also, r.Inventory, nextAt)
 	if err != nil || fresh == nil || r.Jobs == nil {
 		return err
 	}

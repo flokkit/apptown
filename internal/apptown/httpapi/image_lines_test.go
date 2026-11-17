@@ -45,3 +45,7 @@ func TestImageLinesHTTPKeepsTheRecordedAnswerAndRefusal(t *testing.T) {
 		}
 	}
 }
+
+func (r *imageReading) Digest(context.Context, string) (string, error) {
+	return "sha256:" + strings.Repeat("a", 64), r.err
+}

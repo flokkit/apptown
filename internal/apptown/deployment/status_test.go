@@ -137,7 +137,7 @@ func TestHostSweepSuppliesAllDeploymentPartsWithOneListing(t *testing.T) {
 	// instant could not witness them.
 	w.advance(time.Second)
 	reader := HostReaders{Snapshots: NewHostSnapshots(w.s.db, w.s.now), Targets: w.s.Targets, Hosts: w.s.hosts, Providers: w.s.providers}
-	if err := reader.lap(t.Context(), w.main.TargetID); err != nil {
+	if err := reader.lap(t.Context(), w.main.TargetID, reader.Snapshots.now().Add(hostReadInterval)); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"main", "second", "third"} {

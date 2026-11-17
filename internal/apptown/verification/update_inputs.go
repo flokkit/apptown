@@ -120,6 +120,7 @@ type dockerStage struct {
 
 var tagVersion = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*`)
 var inputWords = regexp.MustCompile(`\S+`)
+var declaredVersion = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
 var patchVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func dockerBaseInputs(raw []byte) dockerInputs {
@@ -220,12 +221,13 @@ func dockerBaseInputs(raw []byte) dockerInputs {
 	return out
 }
 
-// ImageUpdates binds image moves to the registry reading shown to the agent.
+// ImageUpdates bounds image moves and witnesses candidate digests at the registry.
 type ImageUpdates struct {
-	Resolver imagelines.Resolver
-	Scope    imageline.Scope
-	Security bool
-	Readings *[]imagelines.Reading
+	Resolver     imagelines.Resolver
+	declarations []string
+	Scope        imageline.Scope
+	Security     bool
+	Readings     *[]imagelines.Reading
 }
 
 // UpdateScope is the image scope authorized by the dependency level.
@@ -248,31 +250,36 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 	if p.Resolver == nil {
 		return fault.New(fault.Unavailable, "image registry readings are unavailable")
 	}
-	answer, err := p.Resolver.Answer(ctx, old, p.Scope)
+	line, scope, err := imageline.UpdateLine(old, p.Scope, p.declarations)
+	if err != nil {
+		return err
+	}
+	if err := imageline.Allows(old, next, line, scope); err != nil {
+		return err
+	}
+	answer, err := p.Resolver.Answer(ctx, line, scope)
 	if err != nil {
 		return fault.Wrap(fault.Unavailable, fmt.Errorf("image update is unknown: %w", err))
 	}
 	if p.Readings != nil {
 		*p.Readings = append(*p.Readings, answer)
 	}
-	nextTag, nextDigest, _ := strings.Cut(next, "@")
-	ref, err := name.NewTag(nextTag)
+	_, nextDigest, _ := strings.Cut(next, "@")
+	digest, err := p.Resolver.Digest(ctx, next)
 	if err != nil {
-		return err
+		return fault.Wrap(fault.Unavailable, fmt.Errorf("image update is unknown: %w", err))
 	}
-	wanted, err := name.NewTag(answer.Tag)
-	if err != nil {
-		return err
+	if nextDigest != digest {
+		return fmt.Errorf("image %s does not match the registry digest %s", next, digest)
 	}
-	if ref.Name() != wanted.Name() || nextDigest != answer.Digest {
-		return fmt.Errorf("image %s must equal the registry answer %s (%s)", next, answer.Image(), answer.Evidence())
-	}
+
 	return nil
 }
 
 // CompareUpdateInputs is the shared deterministic boundary for agent updates.
 // Security targets alone permit exact same-minor toolchain patch moves.
 func CompareUpdateInputs(ctx context.Context, before, after map[string]any, baseImages, allowToolchainPatch bool, images ImageUpdates) error {
+	images.declarations = declaredTools(before)
 	keys := make([]string, 0, len(before)+len(after))
 	for k := range before {
 		keys = append(keys, k)
@@ -387,4 +394,38 @@ func toolchainPatch(a, b any) bool {
 		return true
 	}
 	return false
+}
+
+// declaredTools consumes the tool inputs already extracted from the before tree;
+// environment and application declarations are not toolchain versions.
+func declaredTools(inputs map[string]any) []string {
+	var out []string
+	add := func(v string) {
+		if declaredVersion.MatchString(v) {
+			out = append(out, v)
+		}
+	}
+	for path, value := range inputs {
+		base := filepath.Base(path)
+		if tools, ok := value.(map[string]any); ok && strings.HasSuffix(base, ".toml") {
+			for _, v := range tools {
+				if v, ok := v.(string); ok {
+					add(v)
+				}
+			}
+		}
+		if raw, ok := value.(string); ok {
+			if base == ".tool-versions" {
+				for _, line := range strings.Split(raw, "\n") {
+					fields := strings.Fields(line)
+					if len(fields) == 2 {
+						add(fields[1])
+					}
+				}
+			} else if strings.HasPrefix(base, ".") && strings.HasSuffix(base, "-version") {
+				add(strings.TrimSpace(raw))
+			}
+		}
+	}
+	return out
 }

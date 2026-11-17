@@ -78,7 +78,7 @@ func mergeHostSection[T any](old *docker.HostSection[T], next docker.HostSection
 // collect captures act provenance before any host command. A
 // failed attempt is persisted as evidence, not retried as a second host read.
 // fresh is this read's container listing (nil when it failed), begun at started.
-func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope, q docker.HostQuery, also []string, records *Inventory) (fresh *[]docker.HostContainer, started time.Time, err error) {
+func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope, q docker.HostQuery, also []string, records *Inventory, nextAt time.Time) (fresh *[]docker.HostContainer, started time.Time, err error) {
 	queries := deploymentsql.New(s.db.SQL())
 	row, err := queries.StartHostSnapshot(ctx, deploymentsql.StartHostSnapshotParams{ID: ids.New(s.now()), Subject: t.ID.String(), Identity: strconv.FormatInt(t.SettingsRevision, 10)})
 	if err != nil {
@@ -140,7 +140,7 @@ func (s *HostSnapshots) collect(ctx context.Context, t *Target, dk docker.Scope,
 	if facts.Containers.Reason != "" {
 		prior.ContainerFailure = safeReason(readErr)
 	}
-	prior.NextAt = s.now().Add(hostReadInterval)
+	prior.NextAt = nextAt
 	prior.LastError = ""
 	prior.Outcome = "read"
 	if readErr != nil {

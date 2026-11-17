@@ -34,6 +34,7 @@ type scheduleWorld struct {
 	adoption  *adoption.Service
 	project   project.Project
 	engine    context.Context
+	dataDir   string
 }
 
 func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) scheduleWorld {
@@ -64,12 +65,12 @@ func newScheduleWorld(t *testing.T, runners ...map[string]workflow.Runner) sched
 			automatic = append(automatic, kind)
 		}
 	}
-	work := workflow.New(context.Background(), db, workflow.Dependencies{JanitorDefinitions: adopt, Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
+	work := workflow.New(context.Background(), db, workflow.Dependencies{RunningImages: scheduleRunningImages{}, ScanSchedules: scheduleScans{}, JanitorDefinitions: adopt, Standing: &rules, Abandonment: scheduleAbandonment{}, Retention: scheduleRetention{}, Automatic: automatic, Runners: selected, Authority: authority, Repositories: locks, Resolve: preparation.Resolve, LandingWork: preparation,
 		Git: workflow.GitWorkspace{DataDir: dataDir}, DataDir: dataDir})
 	t.Cleanup(work.Stop)
 	engine := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "engine"}, Verified: true, Receipt: "system"})
 	return scheduleWorld{schedules: changeactions.Schedules{Standing: &rules, Actions: changeactions.New(work, db), Adoption: adopt, Projects: projects, DB: db},
-		work: work, ways: ways, adoption: adopt, project: *p, engine: engine}
+		work: work, ways: ways, adoption: adopt, project: *p, engine: engine, dataDir: dataDir}
 }
 
 // runs are the project's runs.
@@ -823,4 +824,18 @@ spec:
 	if err := json.Unmarshal([]byte(run.InputsJSON), &inputs); err != nil || inputs.Level != "routine" || !inputs.BaseImages || !inputs.ToolchainPatches {
 		t.Fatalf("default run inputs: %+v %v", inputs, err)
 	}
+}
+
+// The scheduler fixture has no deployed software; source observations remain real.
+type scheduleRunningImages struct{}
+
+func (scheduleRunningImages) RunningImages(context.Context, ids.ID) ([]workflow.RunningImages, error) {
+	return nil, nil
+}
+
+type scheduleScans struct{}
+
+func (scheduleScans) ScansSource(context.Context, ids.ID) (bool, error) { return true, nil }
+func (scheduleScans) ScansSourceFrom(context.Context, ids.ID, workflow.ProcedureFacts) (bool, error) {
+	return true, nil
 }

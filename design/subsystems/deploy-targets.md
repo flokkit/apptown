@@ -256,7 +256,9 @@ Each active Docker target has one background reader loop, started with the
 daemon and cancelled when its target retires. Unreachable targets keep their
 loop; the built-in target has none when local Docker is disabled. Between laps
 the loop resolves current target settings. It reads host, containers, volumes
-and networks, and recorded images sequentially, then waits twenty seconds.
+and networks, and recorded images sequentially. Laps start twenty seconds
+apart, measured before settings and scope preparation. The stored `NextAt`
+uses that deadline. A longer lap starts the next immediately, without overlap.
 Only this loop stores the host reading. Capacity, detail, protection,
 preview, runtime and health readers collect independently. A failed section
 retains its last successful value and time; a section never read stays unknown. A missing-resource claim is set only by a collection

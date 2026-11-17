@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -90,5 +91,33 @@ func TestLineNormalizationAndScopes(t *testing.T) {
 	}
 	if _, err := Parse("caddy:2", "oops"); err == nil {
 		t.Fatal("unknown scope accepted")
+	}
+}
+
+func TestDigestHeadsTheCandidateThroughMirrorAndTransport(t *testing.T) {
+	t.Parallel()
+	const digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	var heads atomic.Int32
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/":
+			w.WriteHeader(http.StatusOK)
+		case "/v2/library/node/manifests/24.22.3-slim":
+			if r.Method != "HEAD" {
+				t.Errorf("candidate used %s", r.Method)
+			}
+			heads.Add(1)
+			w.Header().Set("Docker-Content-Digest", digest)
+			w.Header().Set("Content-Type", "application/vnd.oci.image.index.v1+json")
+			w.Header().Set("Content-Length", "200")
+		default:
+			t.Errorf("unexpected registry read %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	got, err := Digest(t.Context(), "node:24.22.3-slim", Access{Mirror: server.URL, Transport: server.Client().Transport})
+	if err != nil || got != digest || heads.Load() != 1 {
+		t.Fatalf("candidate HEAD: %s heads=%d %v", got, heads.Load(), err)
 	}
 }

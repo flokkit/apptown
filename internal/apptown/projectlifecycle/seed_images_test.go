@@ -139,3 +139,7 @@ func TestSeedPinsOnlyExternalFromInstructions(t *testing.T) {
 		t.Fatalf("operands or formatting changed:\n%s", got)
 	}
 }
+
+func (r seedResolver) Digest(context.Context, string) (string, error) {
+	return "sha256:" + strings.Repeat("a", 64), nil
+}

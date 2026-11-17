@@ -101,24 +101,9 @@ func Newest(ctx context.Context, ref string, scope Scope, access Access) (Answer
 	if err != nil {
 		return Answer{}, err
 	}
-	repo := s.Repository
-	if repo.RegistryStr() == name.DefaultRegistry && access.Mirror != "" {
-		u, err := url.Parse(access.Mirror)
-		if err != nil || u.Host == "" || u.Path != "" && u.Path != "/" || u.Scheme != "https" && u.Scheme != "http" {
-			return Answer{}, fmt.Errorf("invalid Docker Hub mirror URL %q", access.Mirror)
-		}
-		opts := []name.Option{}
-		if u.Scheme == "http" {
-			opts = append(opts, name.Insecure)
-		}
-		repo, err = name.NewRepository(u.Host+"/"+repo.RepositoryStr(), opts...)
-		if err != nil {
-			return Answer{}, err
-		}
-	}
-	options := []remote.Option{remote.WithContext(ctx)}
-	if access.Transport != nil {
-		options = append(options, remote.WithTransport(access.Transport))
+	repo, options, err := registryAccess(ctx, s.Repository, access)
+	if err != nil {
+		return Answer{}, err
 	}
 	tags, err := remote.List(repo, options...)
 	if err != nil {
@@ -150,4 +135,92 @@ func Newest(ctx context.Context, ref string, scope Scope, access Access) (Answer
 		return Answer{}, fmt.Errorf("%s: %w", repo.RegistryStr(), err)
 	}
 	return Answer{Tag: s.Repository.Tag(chosen).Name(), Digest: desc.Digest.String(), Registry: repo.RegistryStr()}, nil
+}
+
+// Digest reads the current tag's digest without a cached registry reading.
+func Digest(ctx context.Context, ref string, access Access) (string, error) {
+	operand, _, _ := strings.Cut(ref, "@")
+	tag, err := name.NewTag(operand)
+	if err != nil {
+		return "", err
+	}
+	repo, options, err := registryAccess(ctx, tag.Context(), access)
+	if err != nil {
+		return "", err
+	}
+	desc, err := remote.Head(repo.Tag(tag.TagStr()), options...)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", repo.RegistryStr(), err)
+	}
+	return desc.Digest.String(), nil
+}
+
+func registryAccess(ctx context.Context, original name.Repository, access Access) (name.Repository, []remote.Option, error) {
+	repo := original
+	if repo.RegistryStr() == name.DefaultRegistry && access.Mirror != "" {
+		u, err := url.Parse(access.Mirror)
+		if err != nil || u.Host == "" || u.Path != "" && u.Path != "/" || u.Scheme != "https" && u.Scheme != "http" {
+			return name.Repository{}, nil, fmt.Errorf("invalid Docker Hub mirror URL %q", access.Mirror)
+		}
+		opts := []name.Option{}
+		if u.Scheme == "http" {
+			opts = append(opts, name.Insecure)
+		}
+		repo, err = name.NewRepository(u.Host+"/"+repo.RepositoryStr(), opts...)
+		if err != nil {
+			return name.Repository{}, nil, err
+		}
+	}
+	options := []remote.Option{remote.WithContext(ctx)}
+	if access.Transport != nil {
+		options = append(options, remote.WithTransport(access.Transport))
+	}
+	return repo, options, nil
+}
+
+// UpdateLine chooses the longest numeric declaration agreeing with the current
+// tag on their shared components. Other images retain the supplied scope.
+func UpdateLine(ref string, scope Scope, declarations []string) (string, Scope, error) {
+	s, err := Parse(ref, Line)
+	if err != nil {
+		return "", scope, err
+	}
+	chosen := ""
+	for _, d := range declarations {
+		if version.FindString(d) != d || d == "" || s.Prefix == "" {
+			continue
+		}
+		if (prefix(d, s.Prefix) || prefix(s.Prefix, d)) && (chosen == "" || len(strings.Split(d, ".")) > len(strings.Split(chosen, "."))) {
+			chosen = d
+		}
+	}
+	if chosen == "" {
+		return ref, scope, nil
+	}
+	return s.Repository.Tag(chosen + s.Variant).Name(), Line, nil
+}
+
+func prefix(value, line string) bool { return value == line || strings.HasPrefix(value, line+".") }
+
+// Allows checks the selected line and prevents a version downgrade. The caller
+// separately checks repository, variant and registry digest evidence.
+func Allows(old, next, line string, scope Scope) error {
+	s, err := Parse(line, scope)
+	if err != nil {
+		return err
+	}
+	a, err := Parse(old, Line)
+	if err != nil {
+		return err
+	}
+	b, err := Parse(next, Line)
+	if err != nil {
+		return err
+	}
+	if a.Repository != b.Repository || a.Variant != b.Variant ||
+		s.Prefix != "" && !prefix(b.Prefix, s.Prefix) ||
+		a.Prefix == "" && b.Prefix != "" || a.Prefix != "" && b.Prefix != "" && newer(a.Prefix, b.Prefix) {
+		return fmt.Errorf("image %s must stay on %s without a downgrade", next, s.Key())
+	}
+	return nil
 }
