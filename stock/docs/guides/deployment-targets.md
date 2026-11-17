@@ -54,6 +54,9 @@ flowchart LR
 | The load balancer or Traefik, DNS and certificates | The app's route: Traefik labels, or a rule on your listener |
 | The credential, with the rights the setup guide lists | The app's data: volumes, databases and buckets, and their final backup |
 
+Who patches each of these, and what the provider keeps current, is in
+[Who keeps what up to date](who-keeps-what-updated.md).
+
 A take-down deletes what AppTown recorded creating for the deployment,
 with what is inside it: deleting a Fly app deletes its Machines, and
 deleting a bucket website's bucket deletes its files first.

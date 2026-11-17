@@ -223,10 +223,10 @@ describe('help wording', () => {
   })
 })
 
-it('keeps all three guides in Maintenance help', () => {
+it('keeps its guides in Maintenance help', () => {
   const el = document.createElement('div'), root = createRoot(el)
   act(() => root.render(<MemoryRouter><PageHead page="maintenance" /></MemoryRouter>))
   act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
-  expect([...el.querySelectorAll('.page-help-pop a')].map(a => a.getAttribute('href')).sort()).toEqual(['conformance', 'janitor', 'packs-and-what-if'].map(g => '/docs/guides/' + g).sort())
+  expect([...el.querySelectorAll('.page-help-pop a')].map(a => a.getAttribute('href')).sort()).toEqual(['conformance', 'janitor', 'packs-and-what-if', 'who-keeps-what-updated'].map(g => '/docs/guides/' + g).sort())
   act(() => root.unmount())
 })
