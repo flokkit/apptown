@@ -3519,6 +3519,7 @@ export type DevStaticBuild = {
 }
 
 export type Reading = {
+  filesystem?: string
   categories?: Category[]
   stale?: boolean
   failedAt?: string

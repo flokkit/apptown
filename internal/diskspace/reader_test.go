@@ -13,7 +13,7 @@ import (
 
 func readerDaemon() *containerresulttest.Daemon {
 	return &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-		return containerresulttest.Answer{Answer: []byte(diskspacetest.RoomyAnswer)}, c.Script == "df -Pk /d"
+		return containerresulttest.Answer{Answer: []byte(diskspacetest.RoomyAnswer)}, c.Script == "df -Pk /d && stat -f -c %i /d"
 	}}
 }
 

@@ -2,6 +2,7 @@ package diskspace
 
 import (
 	"fmt"
+	"strconv"
 
 	"golang.org/x/sys/unix"
 )
@@ -18,9 +19,17 @@ func Statfs(path string) (Space, error) {
 		return Space{}, fmt.Errorf("reading the filesystem of %s: %w", path, err)
 	}
 	bsize := int64(st.Bsize) // uint32 on macOS, int64 on Linux
-	s := Space{TotalBytes: int64(st.Blocks) * bsize, FreeBytes: int64(st.Bavail) * bsize}
+	s := Space{Filesystem: filesystemID(st.Fsid.Val), TotalBytes: int64(st.Blocks) * bsize, FreeBytes: int64(st.Bavail) * bsize}
 	if s.TotalBytes <= 0 {
 		return Space{}, fmt.Errorf("reading the filesystem of %s: it reports no size", path)
 	}
 	return s, nil
+}
+
+func filesystemID(val [2]int32) string {
+	id := uint64(uint32(val[0]))<<32 | uint64(uint32(val[1]))
+	if id == 0 {
+		return ""
+	}
+	return strconv.FormatUint(id, 16)
 }

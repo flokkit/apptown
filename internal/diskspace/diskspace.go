@@ -6,7 +6,7 @@
 // 1 GiB and at most 20 GiB), and a filesystem that could not be read is refused too, with
 // the reason. Work admitted above the floor can still fill the disk (two
 // admissions at once, an image larger than it looked); what fails then fails
-// as it always did. Low is a warning only: a tenth free, never below Floor.
+// as it always did. Low is a warning only: twice the refusal floor.
 package diskspace
 
 import (
@@ -20,6 +20,7 @@ import (
 // Space is one filesystem: its size and what an unprivileged writer may
 // still use, in bytes.
 type Space struct {
+	Filesystem string
 	TotalBytes int64
 	FreeBytes  int64
 }
@@ -37,9 +38,8 @@ const maxFloor = 20 << 30
 // twentieth of the filesystem, but at least MinFloor and at most MaxFloor.
 func (s Space) Floor() int64 { return max(minFloor, min(maxFloor, s.TotalBytes/20)) }
 
-// Warning is the free space below which a warning is shown: a tenth of the
-// filesystem. Small filesystems never warn later than their refusal floor.
-func (s Space) Warning() int64 { return max(s.Floor(), s.TotalBytes/10) }
+// Warning is the free space below which a warning is shown: twice the refusal floor.
+func (s Space) Warning() int64 { return 2 * s.Floor() }
 
 // Low reports advisory pressure. It does not change admission.
 func (s Space) Low() bool { return s.FreeBytes < s.Warning() }
@@ -93,23 +93,31 @@ func bytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTP"[exp])
 }
 
-// parseDF reads df -Pk's filesystem line: total and available, in
-// kibibytes. Other lines before it (a pull's progress, a notice) are left.
+// parseDF reads df -Pk's filesystem line (total and available in kibibytes)
+// followed by stat -f -c %i's kernel filesystem id.
 func parseDF(out []byte) (Space, error) {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) < 2 {
+	if len(lines) < 3 {
 		return Space{}, fmt.Errorf("df answered %q", strings.TrimSpace(string(out)))
 	}
-	f := strings.Fields(lines[len(lines)-1])
+	f := strings.Fields(lines[len(lines)-2])
 	if len(f) < 6 {
-		return Space{}, fmt.Errorf("df answered %q", lines[len(lines)-1])
+		return Space{}, fmt.Errorf("df answered %q", lines[len(lines)-2])
 	}
 	total, err1 := strconv.ParseInt(f[1], 10, 64)
 	avail, err2 := strconv.ParseInt(f[3], 10, 64)
 	if err1 != nil || err2 != nil || total <= 0 || avail < 0 {
-		return Space{}, fmt.Errorf("df answered %q", lines[len(lines)-1])
+		return Space{}, fmt.Errorf("df answered %q", lines[len(lines)-2])
 	}
-	return Space{TotalBytes: total << 10, FreeBytes: avail << 10}, nil
+	id, err := strconv.ParseUint(lines[len(lines)-1], 16, 64)
+	if err != nil {
+		return Space{}, fmt.Errorf("invalid filesystem id: %w", err)
+	}
+	filesystem := ""
+	if id != 0 {
+		filesystem = strconv.FormatUint(id, 16)
+	}
+	return Space{TotalBytes: total << 10, FreeBytes: avail << 10, Filesystem: filesystem}, nil
 }
 
 // Reading is one filesystem as read at a time, for a person and the views
@@ -118,6 +126,7 @@ func parseDF(out []byte) (Space, error) {
 // read. A filesystem not read is Unknown with the reason and refuses new
 // work; it is never shown as empty or full.
 type Reading struct {
+	Filesystem   string     `json:"filesystem,omitempty"`
 	Categories   []Category `json:"categories,omitempty"`
 	Stale        bool       `json:"stale,omitempty"`
 	FailedAt     time.Time  `json:"failedAt,omitzero"`
@@ -143,13 +152,9 @@ func NewReading(what, path string, s Space, err error, at time.Time) Reading {
 		r.Unknown, r.Refuses = err.Error(), true
 		return r
 	}
+	r.Filesystem = s.Filesystem
 	r.TotalBytes, r.FreeBytes, r.FloorBytes = s.TotalBytes, s.FreeBytes, s.Floor()
 	r.WarningBytes = s.Warning()
 	r.Refuses, r.Low = s.Refuses(), s.Low()
 	return r
-}
-
-// AboveWarning reports the fixed 80% advisory threshold, independently of admission.
-func (r Reading) AboveWarning() bool {
-	return r.Unknown == "" && r.TotalBytes > 0 && float64(r.FreeBytes)/float64(r.TotalBytes) < 0.2
 }

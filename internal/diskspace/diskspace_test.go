@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 // df's one filesystem line is read as total and free, in bytes, among
@@ -13,14 +14,14 @@ import (
 // never an empty disk.
 func TestTheDiskIsReadAsDFReportsIt(t *testing.T) {
 	t.Parallel()
-	d, err := parseDF([]byte("Unable to find image 'busybox' locally\nFilesystem           1024-blocks    Used Available Capacity Mounted on\nrpool/docker         754000000 50000000 704000000   7% /d\n"))
+	d, err := parseDF([]byte("Unable to find image 'busybox' locally\nFilesystem           1024-blocks    Used Available Capacity Mounted on\nrpool/docker         754000000 50000000 704000000   7% /d\n6f515dedc9c260d3\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if d.TotalBytes != 754000000<<10 || d.FreeBytes != 704000000<<10 {
 		t.Fatalf("disk %+v", d)
 	}
-	for _, bad := range []string{"df: /d: No such file or directory\n", "Filesystem 1024-blocks Used Available Capacity Mounted on\nx 0 0 0 0% /d\n"} {
+	for _, bad := range []string{"df: /d: No such file or directory\n", "Filesystem 1024-blocks Used Available Capacity Mounted on\nx 0 0 0 0% /d\n6f515dedc9c260d3\n"} {
 		if _, err := parseDF([]byte(bad)); err == nil {
 			t.Errorf("%q was accepted", bad)
 		}
@@ -43,20 +44,20 @@ func TestNewWorkIsRefusedBelowTheFloorAndWhenUnread(t *testing.T) {
 		s            Space
 		refused, low bool
 	}{
-		{"a small disk above 1 GiB", Space{5 * gib, gib + 1}, false, false},
-		{"a small disk at exactly 1 GiB", Space{5 * gib, gib}, false, false},
-		{"a small disk below 1 GiB, though over 5%", Space{5 * gib, gib - 1}, true, true},
-		{"a mid-size disk at exactly 5%", Space{200 * gib, 10 * gib}, false, true},
-		{"a mid-size disk below 5%, though over 1 GiB", Space{200 * gib, 10*gib - 1}, true, true},
-		{"a large disk with 20 GiB free, under 5%", Space{4096 * gib, 20 * gib}, false, true},
-		{"a large disk below 20 GiB, though over 1 GiB", Space{4096 * gib, 20*gib - 1}, true, true},
-		{"a disk between 5% and 10%", Space{100 * gib, 7 * gib}, false, true},
-		{"large disk with 40 GiB free", Space{4096 * gib, 40 * gib}, false, true},
-		{"large disk below 40 GiB", Space{4096 * gib, 40*gib - 1}, false, true},
-		{"large disk at three percent free", Space{4096 * gib, 123 * gib}, false, true},
-		{"mid-size disk at warning threshold", Space{200 * gib, 20 * gib}, false, false},
-		{"mid-size disk below warning threshold", Space{200 * gib, 20*gib - 1}, false, true},
-		{"huge healthy disk without arithmetic overflow", Space{math.MaxInt64, math.MaxInt64}, false, false},
+		{"a small disk above 1 GiB", Space{TotalBytes: 5 * gib, FreeBytes: gib + 1}, false, true},
+		{"a small disk at exactly 1 GiB", Space{TotalBytes: 5 * gib, FreeBytes: gib}, false, true},
+		{"a small disk below 1 GiB, though over 5%", Space{TotalBytes: 5 * gib, FreeBytes: gib - 1}, true, true},
+		{"a mid-size disk at exactly 5%", Space{TotalBytes: 200 * gib, FreeBytes: 10 * gib}, false, true},
+		{"a mid-size disk below 5%, though over 1 GiB", Space{TotalBytes: 200 * gib, FreeBytes: 10*gib - 1}, true, true},
+		{"a large disk with 20 GiB free, under 5%", Space{TotalBytes: 4096 * gib, FreeBytes: 20 * gib}, false, true},
+		{"a large disk below 20 GiB, though over 1 GiB", Space{TotalBytes: 4096 * gib, FreeBytes: 20*gib - 1}, true, true},
+		{"a disk between 5% and 10%", Space{TotalBytes: 100 * gib, FreeBytes: 7 * gib}, false, true},
+		{"large disk with 40 GiB free", Space{TotalBytes: 4096 * gib, FreeBytes: 40 * gib}, false, false},
+		{"large disk below 40 GiB", Space{TotalBytes: 4096 * gib, FreeBytes: 40*gib - 1}, false, true},
+		{"large disk at three percent free", Space{TotalBytes: 4096 * gib, FreeBytes: 123 * gib}, false, false},
+		{"mid-size disk at warning threshold", Space{TotalBytes: 200 * gib, FreeBytes: 20 * gib}, false, false},
+		{"mid-size disk below warning threshold", Space{TotalBytes: 200 * gib, FreeBytes: 20*gib - 1}, false, true},
+		{"huge healthy disk without arithmetic overflow", Space{TotalBytes: math.MaxInt64, FreeBytes: math.MaxInt64}, false, false},
 	} {
 		err := Admit("the disk", c.s, nil)
 		if refused := errors.Is(err, ErrRefused); refused != c.refused || c.s.Refuses() != c.refused || c.s.Low() != c.low {
@@ -71,10 +72,10 @@ func TestNewWorkIsRefusedBelowTheFloorAndWhenUnread(t *testing.T) {
 		t.Errorf("an unread disk: %v", err)
 	}
 	// Adding: what is written must still leave the floor free.
-	if err := AdmitAdding("the disk", Space{100 * gib, 10 * gib}, nil, 5*gib); err != nil {
+	if err := AdmitAdding("the disk", Space{TotalBytes: 100 * gib, FreeBytes: 10 * gib}, nil, 5*gib); err != nil {
 		t.Errorf("5 GiB onto 10 GiB free of 100 GiB was refused: %v", err)
 	}
-	if err := AdmitAdding("the disk", Space{100 * gib, 10 * gib}, nil, 5*gib+1); !errors.Is(err, ErrRefused) {
+	if err := AdmitAdding("the disk", Space{TotalBytes: 100 * gib, FreeBytes: 10 * gib}, nil, 5*gib+1); !errors.Is(err, ErrRefused) {
 		t.Errorf("writing past the floor was admitted: %v", err)
 	}
 }
@@ -87,10 +88,37 @@ func TestTheFilesystemOfAFolderIsRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.TotalBytes <= 0 || s.FreeBytes < 0 || s.FreeBytes > s.TotalBytes {
+	if s.TotalBytes <= 0 || s.FreeBytes < 0 || s.FreeBytes > s.TotalBytes || s.Filesystem == "" {
 		t.Errorf("read as %+v", s)
 	}
 	if _, err := Statfs(os.DevNull + "/absent"); err == nil {
 		t.Error("an absent folder was read")
+	}
+}
+
+func TestFilesystemIdentityAndWarningRule(t *testing.T) {
+	if got := filesystemID([2]int32{0x6f515ded, -910008109}); got != "6f515dedc9c260d3" {
+		t.Fatalf("fsid halves: %s", got)
+	}
+	if got := filesystemID([2]int32{}); got != "" {
+		t.Fatalf("zero fsid: %s", got)
+	}
+	for _, id := range []string{"6f515dedc9c260d3", "00000000"} {
+		s, err := parseDF([]byte("Filesystem 1024-blocks Used Available Capacity Mounted on\nx 100 10 90 10% /d\n" + id + "\n"))
+		want := id
+		if id == "00000000" {
+			want = ""
+		}
+		if err != nil || s.Filesystem != want {
+			t.Fatalf("df identity: %+v %v", s, err)
+		}
+		if r := NewReading("disk", "/d", s, nil, time.Now()); r.Filesystem != want {
+			t.Fatalf("reading identity: %+v", r)
+		}
+	}
+	for _, c := range []struct{ total, warning int64 }{{5 << 30, 2 << 30}, {20 << 30, 2 << 30}, {494 * (1 << 30) / 10, 2 * (494 * (1 << 30) / 10 / 20)}, {1573 * (1 << 30) / 10, 2 * (1573 * (1 << 30) / 10 / 20)}, {719000000000, 40 << 30}, {36 * (1 << 40) / 10, 40 << 30}} {
+		if got := (Space{TotalBytes: c.total}).Warning(); got != c.warning {
+			t.Errorf("%d bytes: warning %d, want %d", c.total, got, c.warning)
+		}
 	}
 }

@@ -1430,15 +1430,15 @@ keeps serving its generation. The read is made for each boot; the capacity
 view's stored reading is not trusted for admission. It is a headroom
 guard, not a reservation: two boots at once, or images larger than the free
 space, can still fill the disk, and a pull or start that then fails fails as
-before. Stop, take-down and removal never read the disk. A host below its warning threshold (a tenth free, never below the refusal floor) is shown low; below the floor its capacity and each deployment's
+before. Stop, take-down and removal never read the disk. A host below its warning threshold (twice the refusal floor) is shown low; below the floor its capacity and each deployment's
 card on it say new releases are refused. AppTown's own data folder and
 its worker's disks are shown on Infrastructure (`GET
-/infrastructure/disks`, `maintenance.Disks`), each its own reading. Display
+/infrastructure/disks`, `maintenance.Disks`). Worker roles on the same known filesystem share one display reading. Display
 readings survive restart in their owner's database. Total memory, CPU count and
 disk size last seven days. Live use and free disk are fresh for fifteen minutes,
 then shown as last seen with their age, and unknown after six hours. A failed
 check retains successful figures and records its failure separately; it does not
-make a retained figure stale before its freshness limit. Each figure
+erase the retained evidence. Attention says disk space is not known after a failed attempt or fifteen minutes without a successful reading, and hides the old figures. Each figure
 has its own time, so a partial check cannot renew an unread sibling. See
 [background infrastructure readings](deploy-targets.md#background-infrastructure-readings).
 

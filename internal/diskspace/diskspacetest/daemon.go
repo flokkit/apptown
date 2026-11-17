@@ -63,7 +63,7 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 			if strings.HasPrefix(script, "section() {") {
 				return d.kernelAnswer()
 			}
-			if script != "df -Pk /d" {
+			if script != "df -Pk /d && stat -f -c %i /d" {
 				return 0, nil, "", false
 			}
 			if d.Answer != nil {
@@ -98,7 +98,7 @@ func (d *Daemon) Owns(args []string) bool {
 }
 
 // RoomyAnswer describes a filesystem with ample space for admission.
-const RoomyAnswer = "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n"
+const RoomyAnswer = "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n6f515dedc9c260d3\n"
 
 // Roomy also answers the daemon data-folder discovery used by disk admission.
 func (d *Daemon) Roomy(args []string) ([]byte, error, bool) {

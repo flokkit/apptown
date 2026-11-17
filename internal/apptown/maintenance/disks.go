@@ -54,7 +54,9 @@ func (d Disks) read(ctx context.Context) (diskspace.Reading, []diskspace.Reading
 	if d.Worker == nil {
 		return own, nil, nil
 	}
-	worker, err := d.Worker.Disks(ctx)
+	workerCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	worker, err := d.Worker.Disks(workerCtx)
 	return own, worker, err
 }
 
