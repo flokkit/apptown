@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/stock"
+	"gopkg.in/yaml.v3"
 )
 
 // Only external image versions and digests may move. Stage and build inputs
@@ -147,5 +150,91 @@ func TestBaseImageChoiceGuardsFromVersionMoves(t *testing.T) {
 	}
 	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
 		t.Fatal("toolchain patches off allowed a patch")
+	}
+}
+
+// The deterministic boundary does not decide everything about a dependency
+// update. Manifest toolchain declarations (go.mod's toolchain line) are not
+// extracted, and a security fix's image moves and toolchain patches are only
+// checked for repository, variant, digest and minor. The shipped rubrics must
+// keep those questions with the judge, and only janitor-update may tell it
+// that AppTown already checked its image lines.
+func TestRubricsJudgeWhatTheUpdateBoundaryLeavesOpen(t *testing.T) {
+	tree := t.TempDir()
+	inputs := func(gomod string) map[string]any {
+		if err := os.WriteFile(filepath.Join(tree, "go.mod"), []byte(gomod), 0600); err != nil {
+			t.Fatal(err)
+		}
+		in, err := UpdateInputs(tree)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return in
+	}
+	before := inputs("module example\n\ngo 1.27\n\ntoolchain go1.27.3\n")
+	after := inputs("module example\n\ngo 1.27\n\ntoolchain go1.28.1\n")
+	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{}); err != nil {
+		t.Fatalf("the boundary now reads go.mod's toolchain line; revisit the rubrics: %v", err)
+	}
+	node := func(tag string) map[string]any {
+		return map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM " + tag + "\n"))}
+	}
+	if err := CompareUpdateInputs(t.Context(), node("node:24.1-alpine"), node("node:26.13.1-alpine@sha256:"+strings.Repeat("a", 64)), true, true, ImageUpdates{Security: true}); err != nil {
+		t.Fatalf("a security image move is now checked for its line; revisit the fix rubric: %v", err)
+	}
+	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, true, ImageUpdates{Security: true}); err != nil {
+		t.Fatalf("a security toolchain patch is refused without its target: %v", err)
+	}
+
+	rubric := func(name string) string {
+		raw, err := stock.FS.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Spec struct {
+				Stages []struct {
+					Steps []struct {
+						Uses string `yaml:"uses"`
+						With struct {
+							Rubric string `yaml:"rubric"`
+						} `yaml:"with"`
+					} `yaml:"steps"`
+				} `yaml:"stages"`
+			} `yaml:"spec"`
+		}
+		if err := yaml.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		for _, stage := range doc.Spec.Stages {
+			for _, step := range stage.Steps {
+				if step.Uses == "routine" {
+					return strings.Join(strings.Fields(step.With.Rubric), " ")
+				}
+			}
+		}
+		t.Fatalf("%s has no routine rubric", name)
+		return ""
+	}
+	update, fix := rubric("janitor-update.yaml"), rubric("janitor-fix.yaml")
+	for _, want := range []string{"Toolchain versions stay unchanged, including toolchain declarations in manifests such as go.mod", "do not judge those image lines"} {
+		if !strings.Contains(update, want) {
+			t.Errorf("janitor-update rubric lost %q", want)
+		}
+	}
+	for _, want := range []string{"is the smallest release that clears a named image finding", "including declarations in manifests such as go.mod", "when a named finding is in that toolchain and it is the smallest patch that fixes it"} {
+		if !strings.Contains(fix, want) {
+			t.Errorf("janitor-fix rubric lost %q", want)
+		}
+	}
+	if strings.Contains(fix, "do not judge") {
+		t.Error("janitor-fix rubric tells the judge to skip what AppTown does not check")
+	}
+	for name, text := range map[string]string{"janitor-update": update, "janitor-fix": fix} {
+		for _, gone := range []string{"final message", "agent's report", "A reference to a file is not a report", "nothing can move"} {
+			if strings.Contains(text, gone) {
+				t.Errorf("%s rubric judges the agent's account again (%q)", name, gone)
+			}
+		}
 	}
 }

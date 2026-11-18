@@ -24,14 +24,12 @@ match (for example, node:24-slim and node = "24.22.2"). A vendor version such
 as java = "temurin-21.0.5+11.0.LTS" declares only its major, 21. Use the longest agreeing
 declaration: run `apptown image newest <repo>:<declared><variant> --scope line`
 (for that example, `node:24.22.2-slim --scope line`). Match by version, not image
-name: an unrelated image sharing that version stays on the same line too; say
-so in your report. With no agreeing numeric declaration, run
+name: an unrelated image sharing that version stays on the same line too. With no agreeing numeric declaration, run
 `apptown image newest <current> --scope minor` at routine, or `--scope major`
 at aggressive. Choose the printed tag and digest. AppTown permits any registry
 build on the allowed line that is not older than the current pin; it proves
-the candidate tag's digest with a registry HEAD. If the lookup refuses,
-change nothing for that image and say so. Record its registry reading and any
-stale-reading warning in the final message. For a security target, use
+the candidate tag's digest with a registry HEAD and records its own reading.
+If the lookup refuses, change nothing for that image and say so. For a security target, use
 `--scope patch` when a smaller move clears the finding; a security fix may
 choose the smallest digest-pinned build that clears it. Leave stage references,
 scratch and operands containing `$` unchanged.
@@ -40,22 +38,20 @@ in the toolchain itself, use the smallest patch release within its minor that
 fixes it, updating every declaration, including mise, version files, go.mod's
 toolchain and the build image. Change application code only where a moved
 package needs it. Run declared tests, start-up and
-scans; if they cannot pass, report what needs a person.
+scans; if they cannot pass, say what needs a person.
 
 npm: `npm update` in every package folder (`--workspaces` for workspaces)
 moves lockfile entries, including indirect packages, within declared ranges;
 `npx npm-check-updates -t minor` (any target at aggressive) shows manifest
-moves, applied with `-u` and `npm install`; report `npm outdated --all`. uv:
-`uv lock --upgrade`, or `--upgrade-package NAME` for one package; report
-`uv tree --outdated`. Other ecosystems' dependency guidance names their
+moves, applied with `-u` and `npm install`; `npm outdated --all` shows what is left.
+uv: `uv lock --upgrade`, or `--upgrade-package NAME` for one package;
+`uv tree --outdated` shows what is left. Other ecosystems' dependency guidance names their
 commands.
 
-Your final message is what AppTown judges; write no report file.
-Everything AppTown judges goes in the final message. When nothing can move,
-start it with one sentence saying why, naming the image or package (for example
-"Waiting for a newer python:3.12-slim build: the newest build still has CVE-…").
-For every part that declares dependencies, give the command you ran to list
-newer releases and the lines of its output that show the result; for every
-external FROM and `staticServer:`, give the resolver's answer and any refusal.
-A part with no manifest or image input needs no listing. Say when a command
-could not run.
+A dependency update moves everything it can within the level; a repair never
+widens the change. Your final message is a note for
+the people who read this change, not evidence: AppTown judges the change, its
+tests, its start-up and its own scans. If you leave anything that could move
+within the level, or a named finding unfixed, say in one line each what and why
+(for example "Waiting for a newer python:3.12-slim build: the newest build
+still has CVE-…"). Otherwise no explanation is needed. Write no report file.

@@ -34,7 +34,7 @@ spec:
               with --scope line, including when the current tag is shorter than the
               declaration; otherwise use the selected level’s scope. Choose its
               printed tag and digest; on refusal leave that
-              image unchanged and report why. Do not change toolchain versions
+              image unchanged and say why. Do not change toolchain versions
               (mise, .tool-versions, version files). The only permitted change in
               .apptown/app.yaml is moving an existing staticServer, as the janitor skill says. Change application code only where a moved package
               needs it, as little as possible. Direct dependencies take stable releases
@@ -44,17 +44,13 @@ spec:
               Pin an indirect package with overrides or resolutions only where that is
               the ecosystem's normal way, never to a pre-release, and say so in the
               commit message. Run each part's
-              declared tests, then commit. If nothing can move within the level, change
-              nothing. Your final message is what AppTown judges; write no report file.
-              Everything AppTown judges goes in the final message. When nothing can move,
-              start it with one sentence saying why, naming the image or package (for example
-              "Waiting for a newer python:3.12-slim build: the newest build still has CVE-…").
-              For every part that declares dependencies, give the command you ran to list
-              newer releases and the lines of its output that show the result; for every
-              external FROM and staticServer, give the resolver answer, its reading time
-              and any stale warning or refusal. `scratch`, stage names and operands
-              containing `$` need no listing. A part with no manifest or image input
-              needs no listing. Say when a command could not run.
+              declared tests. Update everything you can within the level, then
+              commit; if nothing can move, change nothing. Your final message is a note for the people who read this change; AppTown judges
+              the change, its tests, its start-up and its own scans. If you leave
+              anything that could move within the level, say in one line each what
+              and why (for example "Waiting for a newer python:3.12-slim build: the
+              newest build still has CVE-…"). Otherwise no explanation is needed.
+              Write no report file.
       steps:
         - name: repair
           uses: agent/pi
@@ -81,31 +77,23 @@ spec:
               pinned by an override or resolution. An indirect package in a lockfile
               may be a pre-release when a stable direct dependency's declared range
               requires it. (2) No new direct dependency, unless it replaces one the update
-              removed or renamed. (3) Except for the image and toolchain moves below, every change
+              removed or renamed. (3) Except for the image moves below, every change
               outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
               configuration key the new version requires. (4) Nothing else changes: no
               features, refactors, formatting, unrelated fixes, weakened or removed
-              tests or .apptown/app.yaml changes except staticServer. AppTown checks
-              moved FROM and staticServer images against its registry resolver, keeping
-              the same repository and variant, staying on the declared line (or the
-              selected level’s scope without an agreeing numeric declaration),
-              never downgrading, and proving the candidate tag’s digest with a
-              registry HEAD. Any real build on that line is allowed. The agent
-              reports resolver refusals and stale readings. Toolchain versions stay
-              unchanged. Fail when any change falls outside
+              tests or .apptown/app.yaml changes except staticServer. Lines added to
+              PROJECT-NOTES.md are allowed.
+              AppTown has already checked every moved FROM and staticServer image
+              against its registry, the declared line and the level; do not judge
+              those image lines. Toolchain versions stay unchanged, including
+              toolchain declarations in manifests such as go.mod.
+              Fail when any change falls outside
               these, and name it. When you fail, your first sentence says in plain
               words what the change does and why that needs a person (for example:
               "Restructures the Dockerfile's build stage; your settings allow only
               image version changes."); details and citations follow. Answer unclear when
-              you cannot tell whether a code change is needed by a moved package. When the change is empty, pass when
-              the agent's final message gives, for every part that declares dependencies
-              and every image input, the command it ran and the output lines showing
-              nothing can move within the level. `scratch`, a stage name and an operand
-              containing `$` never move and need nothing; a part with no manifest or
-              Dockerfile needs nothing (read the tree). Fail when the message shows
-              something that could move within the level was left, or that a listing it
-              needed could not run. A reference to a file is not a report.
+              you cannot tell whether a code change is needed by a moved package.
         - name: tests
           uses: tests
         - name: boot

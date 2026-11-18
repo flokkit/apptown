@@ -2,7 +2,6 @@ package workflowexec
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -34,8 +33,6 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	}
 	var classified []fix.File
 	var receipt workflow.CheckReceipt
-	var judgedReports []string
-	var report string
 	var readings []imagelines.Reading
 	finish := func(status workflow.StepState, why string) {
 		verdict := workflow.VerdictError
@@ -53,9 +50,6 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		receipt.Check, receipt.Evaluator, receipt.Verdict, receipt.Detail = task.Step().Name, "routine", verdict, why
 		facts := workflow.CheckEvidence{Checks: []workflow.CheckReceipt{receipt}}
 		extra := map[string]any{"reason": why, "files": classified, "imageReadings": readings}
-		if len(judgedReports) > 0 {
-			extra["judgedReports"] = judgedReports
-		}
 		task.Settle(facts.Outcome(status, extra))
 	}
 	fail := func(err error) { receipt.AppTownFault = false; finish(workflow.StatusError, err.Error()) }
@@ -99,90 +93,74 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 
+	// The routine judges the change. An empty change has no diff to judge;
+	// whether it may close is decided by AppTown's own steps (tests, start-up,
+	// scans), never by the agent's account of why nothing moved.
 	if len(changes) == 0 {
-		steps, err := workflow.ReadScopedStepsIn(task.Context(), a.db, workflow.RunRef{ID: task.Run().ID, ProjectID: task.Run().ProjectID})
+		finish(workflow.StatusNotApplicable, "nothing changed; there is no diff to judge")
+		return
+	}
+	ds, err := a.declarations(task.Context(), task.Run())
+	if err != nil {
+		fail(err)
+		return
+	}
+	var inputs [2]map[string]any
+	for i, commit := range []string{base, sel.Commit} {
+		tree, remove, err := verification.StageCommittedTree(task.Context(), a.cfg.DataDir, sel.Repo, commit)
 		if err != nil {
 			fail(err)
 			return
 		}
-		for _, step := range steps {
-			var ev struct {
-				NothingToChange bool   `json:"nothingToChange"`
-				Output          string `json:"output"`
-			}
-			if step.Type == "agent/pi" && step.Stage == task.Step().Stage && step.Status == workflow.StatusPass && json.Unmarshal(step.Evidence, &ev) == nil && ev.NothingToChange {
-				judgedReports = append(judgedReports, step.Name)
-				report += "\nStep " + step.Name + ":\n" + ev.Output + "\n"
-			}
-		}
-		if len(judgedReports) == 0 {
-			finish(workflow.StatusNotApplicable, "nothing to change")
+		inputs[i], err = verification.UpdateInputs(tree)
+		remove()
+		if err != nil {
+			fail(err)
 			return
 		}
 	}
-	if len(changes) > 0 {
-		ds, err := a.declarations(task.Context(), task.Run())
+	paths := make([]string, 0, len(changes))
+	for _, f := range changes {
+		paths = append(paths, f.Path)
+	}
+	classified = fix.Classify(paths, ds, inputs[:]...)
+	queue, err := task.IsQueue()
+	if err != nil {
+		fail(err)
+		return
+	}
+	if queue {
+		main, err := gitexec.HubReadRef(task.Context(), sel.Repo, "refs/heads/"+source.DefaultBranch)
 		if err != nil {
 			fail(err)
 			return
 		}
-		var inputs [2]map[string]any
-		for i, commit := range []string{base, sel.Commit} {
-			tree, remove, err := verification.StageCommittedTree(task.Context(), a.cfg.DataDir, sel.Repo, commit)
-			if err != nil {
-				fail(err)
-				return
-			}
-			inputs[i], err = verification.UpdateInputs(tree)
-			remove()
-			if err != nil {
-				fail(err)
-				return
-			}
-		}
-		paths := make([]string, 0, len(changes))
-		for _, f := range changes {
-			paths = append(paths, f.Path)
-		}
-		classified = fix.Classify(paths, ds, inputs[:]...)
-		queue, err := task.IsQueue()
+		tree, err := gitexec.HubRun(task.Context(), sel.Repo, "rev-parse", sel.Commit+"^{tree}")
 		if err != nil {
 			fail(err)
 			return
 		}
-		if queue {
-			main, err := gitexec.HubReadRef(task.Context(), sel.Repo, "refs/heads/"+source.DefaultBranch)
-			if err != nil {
-				fail(err)
-				return
-			}
-			tree, err := gitexec.HubRun(task.Context(), sel.Repo, "rev-parse", sel.Commit+"^{tree}")
-			if err != nil {
-				fail(err)
-				return
-			}
-			same, why, err := task.KeepProposal(main, strings.TrimSpace(tree), classified)
-			if err != nil {
-				fail(err)
-				return
-			}
-			if same {
-				task.Settle(workflow.EncodeOutcome(workflow.StatusSkipped, map[string]any{"reason": why, "sameProposal": true}, nil))
-				if err := task.StopDuplicate(why); err != nil {
-					return
-				}
-				return
-			}
+		same, why, err := task.KeepProposal(main, strings.TrimSpace(tree), classified)
+		if err != nil {
+			fail(err)
+			return
 		}
-		if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, Readings: &readings}); err != nil {
-			if fault.KindOf(err) == fault.Unavailable {
-				receipt.Verdict = workflow.VerdictCannotAssess
-				finish(workflow.StatusError, err.Error())
-			} else {
-				finish(workflow.StatusFail, err.Error())
+		if same {
+			task.Settle(workflow.EncodeOutcome(workflow.StatusSkipped, map[string]any{"reason": why, "sameProposal": true}, nil))
+			if err := task.StopDuplicate(why); err != nil {
+				return
 			}
 			return
 		}
+	}
+	if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, Readings: &readings}); err != nil {
+		if fault.KindOf(err) == fault.Unavailable {
+			receipt.Verdict = workflow.VerdictCannotAssess
+			finish(workflow.StatusError, err.Error())
+		} else {
+			finish(workflow.StatusFail, err.Error())
+		}
+		return
 	}
 	var cfg routineConfig
 	if err := workflow.DecodeStepConfig(task.Step().Config, &cfg); err != nil {
@@ -207,20 +185,16 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			}
 		}
 	}
-	if len(judgedReports) > 0 {
-		facts += "\nChanged files: none; the change is empty\nUpdate agent's report (a claim, not evidence):\n" + report
-	} else {
-		facts += "\nChanged files:"
-		for _, class := range []string{"dependency", "toolchain", "other"} {
-			var names []string
-			for _, f := range classified {
-				if f.Class == class {
-					names = append(names, f.Path)
-				}
+	facts += "\nChanged files:"
+	for _, class := range []string{"dependency", "toolchain", "other"} {
+		var names []string
+		for _, f := range classified {
+			if f.Class == class {
+				names = append(names, f.Path)
 			}
-			if len(names) > 0 {
-				facts += "\n  " + class + ": " + strings.Join(names, ", ")
-			}
+		}
+		if len(names) > 0 {
+			facts += "\n  " + class + ": " + strings.Join(names, ", ")
 		}
 	}
 	diff, err := gitexec.Run(task.Context(), sel.Repo, "diff", base+".."+sel.Commit)
@@ -229,14 +203,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	declaration := check.Declared{Identity: check.Identity{Namespace: task.Run().WorkflowName, Version: task.Run().WorkflowVersion}, Declaration: check.Declaration{Name: task.Step().Name, Expects: "The dependency update stays within its approved level and scope.", Evaluator: "llm", Scope: check.ScopeDiff, Rubric: cfg.Rubric + facts}}
-	var item check.Item
-	if len(judgedReports) > 0 {
-		declaration.Scope = check.ScopeTree
-		declaration.Expects = "The update step's account that nothing can move within the level holds for the committed tree."
-		item = check.TreeItems([]check.Declared{declaration})[0]
-	} else {
-		item = check.DiffItems([]check.Declared{declaration}, diff)[0]
-	}
+	item := check.DiffItems([]check.Declared{declaration}, diff)[0]
 	item.Repository, item.Commit = sel.Repo, sel.Commit
 	if a.judge == nil {
 		fail(fmt.Errorf("dependency update judge is unavailable"))

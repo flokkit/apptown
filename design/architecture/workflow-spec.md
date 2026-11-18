@@ -367,8 +367,9 @@ its own report). `agent/review` is adversarial verification as a step:
   change instead of asking anyone to accept it, with the step's account as
   the reason, when the run would next wait only for an approval in the same
   stage, every other step of the stage passed or was skipped, an
-  independent review `of` the step's report passed, no review of the stage
-  left a finding, and
+  independent review `of` the step's report passed when the step declares
+  a report output (a step without one is judged by the stage's own checks,
+  never by its account), no review of the stage left a finding, and
   the change is still empty when it closes. Nothing lands. The change's
   state is abandoned, and it records how it closed (`closedAs:
   nothing-to-change`, which only this close sets), so the change page,

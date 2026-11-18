@@ -408,11 +408,9 @@ func TestEmptySecurityFixClosesAndOffersTargetsAgain(t *testing.T) {
 				agentCalls++
 				return execution.Outcome{Termination: execution.Exited, Output: piSays(report)}
 			})
-			f.commands.judge = updateJudgeFunc(func(_ context.Context, _ workflow.Source, item check.Item, diff string) (workflow.CheckReceipt, error) {
-				if diff != "" || !strings.Contains(item.Rubric, report) {
-					t.Fatalf("empty report not judged: %s, diff %s", item.Rubric, diff)
-				}
-				return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "no newer build fixes the finding"}, nil
+			f.commands.judge = updateJudgeFunc(func(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error) {
+				t.Fatal("an empty security fix asked a model to judge the agent's account")
+				return workflow.CheckReceipt{}, nil
 			})
 			f.checks = func(execution.Request) execution.Outcome { return execution.Outcome{Termination: execution.Exited} }
 			f.preview = func(task *workflow.Execution) {
