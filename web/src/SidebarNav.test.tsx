@@ -44,7 +44,10 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('offers Ma
     const setup = el.querySelector('.nav-group')!
     const top = [...el.children].slice(0, [...el.children].indexOf(setup)).map(e => e.matches('a') ? e.textContent : e.querySelector('a')?.textContent)
     expect(top).toEqual(['Home', 'Projects', 'Deployments', ...(projects || conformance ? ['Maintenance'] : [])])
-    expect(el.querySelector('a[href="/maintenance"]')?.classList.contains('active')).toBe(projects || conformance ? true : undefined)
+    // Maintenance is a drawer whose pages follow the reader's access.
+    expect(el.querySelector('.nav-drawer-head a[href="/maintenance"]')?.classList.contains('active-area')).toBe(projects || conformance ? true : undefined)
+    expect([...el.querySelectorAll('.nav-drawer-items a[href^="/maintenance"]')].map(a => a.textContent)).toEqual([...(projects ? ['Needs you'] : []), ...(conformance ? ['Standards'] : []), ...(projects ? ['Updates', 'Settings'] : [])])
+    expect(el.querySelector('.nav-drawer-items a[href="/maintenance/settings"]')?.classList.contains('active')).toBe(projects ? true : undefined)
     expect(el.querySelector('a[href="/janitor"]')).toBeNull()
     expect(el.querySelector('a[href="/conformance"]')).toBeNull()
     expect(el.querySelector('a[href="/updates"]')?.textContent).toBe('AppTown updates')

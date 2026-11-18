@@ -3,4 +3,3 @@
 # (YYYY-MM-DD) and why. Only for an advisory with no fixed version to take:
 # otherwise take the fix. The check fails on a malformed line and on a line
 # for an advisory no audited lockfile reports any more.
-GHSA-fc5q-39xc-vjpf 2026-11-18 picomatch: no fixed release yet (affected up to 4.0.7, the latest); a development-only dependency of the frontend-only and video-game seeds' test tooling

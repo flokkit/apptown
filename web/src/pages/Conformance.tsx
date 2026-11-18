@@ -31,8 +31,8 @@ import './conformance.css'
 
 // --- the page ---------------------------------------------------------------------------------------
 
-// The Standards views with help of their own.
-const TAB_HELP: Partial<Record<string, string>> = { checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations' }
+// Each Standards view's help, by tab; Projects has the help of Standards itself.
+const TAB_HELP: Partial<Record<string, string>> = { projects: 'Standards', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', 'what-ifs': 'Pack upgrades' }
 
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'what-ifs' }) {
   const { reviewId, slug, remId, checkKey } = useParams()
@@ -90,23 +90,30 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
     const readOnly = rid !== ''
   const active = tab === 'project' ? 'projects' : tab === 'remediation' ? 'remediations' : tab
 
-  const project = tab === 'project' && slug ? view?.projects.find(x => x.slug === slug) : undefined
+  // A record (a review, a check) is titled by itself; the lists are Standards.
   const title = checkKey ? view?.checkDefs[checkKey]?.title || 'Check'
-    : rid && tab !== 'project' ? `Review #${view?.lens.review?.number ?? ''}`
-    : tab === 'project' ? project?.name || slug
-    : { projects: 'Standards', project: 'Project', checks: 'Checks', reviews: 'Reviews', remediations: 'Remediations', remediation: 'Remediation', 'what-ifs': 'Pack upgrades' }[tab]
+    : rid ? `Review #${view?.lens.review?.number ?? ''}`
+    : 'Standards'
 
   return (
     <div>
       {/* The page's actions sit on the title's line: one primary, Check now;
           fixing every finding is a plain button beside it. While a review
           runs, its progress takes their place. */}
-      {tab !== 'project' && tab !== 'remediation' && tab !== 'what-ifs' && <PageHead page="maintenance" title={record ? title : undefined} compact={!record} sub={checkKey ? 'this check' : TAB_HELP[tab]} actions={!readOnly && !checkKey ? (live && isUnfinished(live.review.status)
+      {tab !== 'project' && tab !== 'remediation' && <PageHead page="maintenance" title={title} sub={checkKey ? 'this check' : rid && tab === 'projects' ? undefined : TAB_HELP[tab]} actions={!readOnly && !checkKey && tab !== 'what-ifs' ? (live && isUnfinished(live.review.status)
         ? <ReviewProgress d={live} />
         : <span className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {fixable > 0 && <button disabled={busy} title="Start a remediation over every finding: one change per project at a time, each waiting for your approval" onClick={() => remediation.start('all', '')}>Fix {fixable} {fixable === 1 ? 'problem' : 'problems'}</button>}
             <button className="primary" disabled={busy} onClick={() => run()}>{busy ? 'Starting…' : 'Check now'}</button>
           </span>) : undefined} />}
+      {/* Standards' views, under its head. */}
+      {!record && <Tabs aria-label="Standards" className="tabs conformance-tabs">
+        {enabled('conformance-estate') && <Link to="/maintenance/standards" className={tabClass(active === 'projects')}>Projects</Link>}
+        {enabled('conformance-estate') && <Link to="/maintenance/standards/checks" className={tabClass(active === 'checks')}>Checks</Link>}
+        <Link to="/maintenance/standards/reviews" className={tabClass(active === 'reviews')}>Reviews</Link>
+        <Link to="/maintenance/standards/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>
+        {enabled('what-ifs') && <Link to="/maintenance/standards/what-ifs" className={tabClass(active === 'what-ifs')}>Pack upgrades</Link>}
+      </Tabs>}
       {(tab === 'project' || tab === 'remediation') && live && isUnfinished(live.review.status) && <ReviewProgress d={live} />}
 
       {view && readOnly && <LensBanner view={view} />}
@@ -116,8 +123,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
-      {/* A past review's own pages are its projects and its checks; the
-          area's lists are on Maintenance's Standards tab. */}
+      {/* A past review's own pages are its projects and its checks. */}
       {readOnly && tab !== 'project' && <Tabs className="tabs conformance-tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>

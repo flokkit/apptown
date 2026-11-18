@@ -52,7 +52,7 @@ func TestAppChecksCountConfirmedProblemsInWords(t *testing.T) {
 }
 
 // The source row says when the apps were judged, by its oldest judgement, and
-// opens Maintenance’s Standards tab, where those judgements are listed.
+// opens Maintenance › Standards, where those judgements are listed.
 func TestAppChecksSourceIsAsOldAsItsOldestJudgementAndOpensStandards(t *testing.T) {
 	t.Parallel()
 	older, newer := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)

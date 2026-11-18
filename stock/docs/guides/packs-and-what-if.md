@@ -27,7 +27,7 @@ Every run records the version it used.
   in a new pack** and change your copy.
 - Saving a pack publishes the version new projects get and existing projects
   are offered. `apptown pack versions <pack>` lists publications. Existing
-  projects move through adoption Changes. **Keep packs current** on Maintenance’s Settings tab
+  projects move through adoption Changes. **Keep packs current** on **Maintenance › Settings**
   lets the janitor assess new publications, repair any code they need, and
   land and release them when every required check is met. It also catches up
   projects when enabled. The project level `off` and release holds still apply;

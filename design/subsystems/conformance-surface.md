@@ -1,6 +1,6 @@
 # Conformance decisions and display
 
-Maintenance’s Standards tab opens Projects, Checks, Reviews, Remediations and
+Maintenance › Standards opens Projects, Checks, Reviews, Remediations and
 Pack upgrades. Record pages use `/maintenance/standards` as their browser prefix.
 API addresses remain under `/api/v1/conformance`.
 
