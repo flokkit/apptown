@@ -41,14 +41,15 @@ func stockNodeFix(t *testing.T) []fix.Declaration {
 }
 func TestOnlyFailedSourceScansWithFixableFindingsSupplyCallTargets(t *testing.T) {
 	for _, tc := range []struct {
-		name, ecosystem string
-		status          StepState
-		want            int
+		name, ecosystem, fixedIn string
+		status                   StepState
+		want                     int
 	}{
-		{"OS package", "Debian", StatusFail, 0},
-		{"source npm", "npm", StatusFail, 1},
-		{"scanner error", "npm", StatusError, 0},
-		{"passing scan", "npm", StatusPass, 0},
+		{"OS package", "Debian", "1.0.1", StatusFail, 0},
+		{"source npm", "npm", "1.0.1", StatusFail, 1},
+		{"no published fix", "npm", "", StatusFail, 0},
+		{"scanner error", "npm", "1.0.1", StatusError, 0},
+		{"passing scan", "npm", "1.0.1", StatusPass, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []check.Finding
@@ -64,7 +65,7 @@ func TestOnlyFailedSourceScansWithFixableFindingsSupplyCallTargets(t *testing.T)
 						return
 					}
 					if err := task.InAttempt("scan", func(tx *database.Tx, attempt int64) error {
-						return conformance.RecordScanObservationIn(task.Context(), tx, conformance.ScanObservation{ProjectID: task.Run().ProjectID, RunID: task.Run().ID, StepID: task.Step().ID, Attempt: attempt, Subject: conformance.ScanSubject{On: "source"}, Scanner: "osv", Verdict: tc.status.String(), ObservedAt: time.Now(), Findings: conformance.WrapFindings([]check.Finding{{Fingerprint: "finding", Package: &check.PackageRef{Name: "example", Ecosystem: tc.ecosystem, FixedIn: "1.0.1"}}})})
+						return conformance.RecordScanObservationIn(task.Context(), tx, conformance.ScanObservation{ProjectID: task.Run().ProjectID, RunID: task.Run().ID, StepID: task.Step().ID, Attempt: attempt, Subject: conformance.ScanSubject{On: "source"}, Scanner: "osv", Verdict: tc.status.String(), ObservedAt: time.Now(), Findings: conformance.WrapFindings([]check.Finding{{Fingerprint: "finding", Package: &check.PackageRef{Name: "example", Ecosystem: tc.ecosystem, FixedIn: tc.fixedIn}}})})
 					}); err != nil {
 						t.Error(err)
 						return
@@ -183,19 +184,20 @@ func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T
 	for _, tc := range []struct {
 		name, part, severity string
 		shared               bool
-		static               string
+		static, fixedIn      string
 		want                 int
 	}{
-		{"static folder", "web", "high", false, ".", 0},
-		{"static build", "web", "high", false, "{build: ., output: dist}", 0},
-		{"public image", "web", "high", false, "", 1},
-		{"another part", "worker", "high", false, "", 0},
-		{"below threshold", "web", "medium", false, "", 0},
-		{"source package", "web", "high", true, "", 0},
+		{"static folder", "web", "high", false, ".", "1.2.4", 0},
+		{"static build", "web", "high", false, "{build: ., output: dist}", "1.2.4", 0},
+		{"public image", "web", "high", false, "", "1.2.4", 1},
+		{"no published fix", "web", "high", false, "", "", 0},
+		{"another part", "worker", "high", false, "", "1.2.4", 0},
+		{"below threshold", "web", "medium", false, "", "1.2.4", 0},
+		{"source package", "web", "high", true, "", "1.2.4", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []check.Finding
-			finding := check.Finding{Fingerprint: "image-only", Source: "trivy", Severity: tc.severity, Identifiers: []string{"CVE-image"}, Package: &check.PackageRef{Name: "libc", Ecosystem: "Alpine"}}
+			finding := check.Finding{Fingerprint: "image-only", Source: "trivy", Severity: tc.severity, Identifiers: []string{"CVE-image"}, Package: &check.PackageRef{Name: "libc", Ecosystem: "Alpine", FixedIn: tc.fixedIn}}
 			rig := stepAuthorityRunnerFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "scan", Steps: []schema.Step{
 				{Name: "source", Uses: "scan"}, {Name: "running", Uses: "scan", With: map[string]any{"on": "running", "failOn": "high"}},
 				{Name: "fix", Uses: "workflow/call"},

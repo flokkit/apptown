@@ -33,6 +33,8 @@ security target. Only the public part's running-image findings become image
 targets. Static parts run AppTown's file server, so its image findings remain
 scan observations rather than project fix targets; source dependency findings
 still have their own fix targets. Findings in other parts need a person.
+A finding whose scanner reports no fixed version is not a target; it stays on
+the Security tab, and the first scan after a fix is published makes it one.
 Image updates stay digest-pinned. The Janitor uses `apptown image newest` for
 external FROM operands and `staticServer:`; AppTown checks routine moves against
 the allowed line and refuses downgrades. Any real build on that line is allowed,

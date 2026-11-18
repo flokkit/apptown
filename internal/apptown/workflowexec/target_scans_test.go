@@ -380,7 +380,7 @@ func TestEmptySecurityFixClosesAndOffersTargetsAgain(t *testing.T) {
 			directory := identity.New(f.db, identity.Config{Projects: project.NewCatalogue(f.db)})
 			owner := conformance.New(f.db, access.Checked{Authority: directory, Projects: project.New(f.db, directory)}, nil, nil, nil)
 			scans := verification.NewScanSteps(verification.ScanDependencies{DB: f.db, Scanners: scanners, Conformance: owner, DataDir: f.dir, Progress: &progress.Feeds{}, Executor: imageExecutor})
-			finding := check.Finding{Fingerprint: "image-target", Source: "trivy", Severity: "high", Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example", Ecosystem: "npm", Version: "1.0.0"}}
+			finding := check.Finding{Fingerprint: "image-target", Source: "trivy", Severity: "high", Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example", Ecosystem: "npm", Version: "1.0.0", FixedIn: "1.0.1"}}
 			f.scan = func(task *workflow.Execution) {
 				if task.Run().WorkflowName == "janitor-fix" {
 					scans.RunScan(task)

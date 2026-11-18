@@ -111,7 +111,11 @@ func (e *Execution) fixableTargets(ctx context.Context, names []string, ds []fix
 					continue
 				}
 				for _, f := range o.Findings {
-					if f.Package == nil || previous[f.Fingerprint] || seen[f.Fingerprint] || stopped && !check.FailsAt(cfg.FailOn, f.Severity) {
+					// A finding its scanner reports no fix for is not a target:
+					// naming it would hold every change that cannot move it on a
+					// person. It stays on the scans page, and the scan after a fix
+					// is published names it.
+					if f.Package == nil || f.Package.FixedIn == "" || previous[f.Fingerprint] || seen[f.Fingerprint] || stopped && !check.FailsAt(cfg.FailOn, f.Severity) {
 						continue
 					}
 					image := o.Subject.On == "running"

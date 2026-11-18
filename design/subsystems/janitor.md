@@ -157,7 +157,12 @@ reporting scanner's parsed observation that the named target is gone. Missing,
 failed, detached or not-applicable scanners leave that target unassessed.
 
 Security targets come from failed source and running-image scans selected by
-the adopted call's `whenFailed` with `findings: fixable`. Source findings require
+the adopted call's `whenFailed` with `findings: fixable`. A target needs a fix
+version reported by its scanner: naming a finding nobody can fix would hold
+every change on a person. Findings without one stay on the scans page, and the
+scan after a fix is published names them. For images this is conservative: a
+newer distribution release might clear such a finding, and that is left to
+other updates or a person. Source findings require
 an adopted ecosystem update declaration. Running-image findings must meet the
 step's severity threshold, belong to the project's public part, and have no
 matching package and identifier in the stage's source observations. Findings
