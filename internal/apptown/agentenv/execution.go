@@ -27,6 +27,9 @@ func Execute(runner execution.Runner, ctx context.Context, backend string, req e
 		out.RunErr = errors.Join(out.RunErr, out.CleanupErr)
 		out.Output = append(out.Output, []byte("\nCleanup failed: "+out.CleanupErr.Error())...)
 	}
+	if out.Leftover != nil {
+		out.Output = append(out.Output, []byte("\nLeft for the sweep: "+out.Leftover.Error())...)
+	}
 	return out
 }
 

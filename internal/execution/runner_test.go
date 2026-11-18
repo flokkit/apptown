@@ -422,6 +422,31 @@ func TestARunKilledForMemoryIsNoAnswer(t *testing.T) {
 	}
 }
 
+// A command that exited is answered by its exit even when its container
+// could not be removed: the stopped container is a leftover for its owner's
+// sweep, not a reason to throw the answer away.
+//
+// Kills: removal sharing ten seconds with the inspections and its failure
+// read as no answer (demo, 13-18 Nov: "the tests exited 0, but their
+// container could not be cleaned up ... signal: killed").
+func TestAnExitedRunWhoseRemovalIsKilledIsStillItsAnswer(t *testing.T) {
+	bound := removeWait
+	removeWait = 100 * time.Millisecond
+	t.Cleanup(func() { removeWait = bound })
+	fake := filepath.Join(t.TempDir(), "docker")
+	// A local stand-in: the run exits 0, inspect reads an ordinary exit,
+	// and removal outlives its bound, as on a busy host.
+	writeFakeDocker(t, fake, "#!/bin/sh\ncase \"$1\" in\nrun) exit 0;;\ninspect) echo false;;\nrm) exec sleep 30;;\nesac\nexit 0\n")
+	out := (Runner{DockerBinary: fake}).Run(context.Background(), Docker,
+		Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: time.Minute})
+	if !out.Exited0() || out.CleanupErr != nil {
+		t.Fatalf("the exit is the answer: %+v", out)
+	}
+	if out.Leftover == nil || !strings.Contains(out.Leftover.Error(), "tests-1") || !strings.Contains(out.Leftover.Error(), "killed") {
+		t.Fatalf("the container left behind is recorded: %v", out.Leftover)
+	}
+}
+
 // A run Docker refused to make (exit 125, and no container afterwards) did
 // not start, and says why in Docker's own words; a container that ran and
 // exited 125 is its command's answer.

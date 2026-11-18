@@ -87,7 +87,7 @@ func (r Runner) startServices(ctx context.Context, req Request) (string, func() 
 	madeNetwork := false
 	// Removal runs after a cancelled start too: it has its own bound.
 	remove := func() error {
-		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), removeWait)
 		defer cancel()
 		var errs []error
 		for _, name := range made {

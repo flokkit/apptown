@@ -410,7 +410,9 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 					}
 					continue
 				}
-				if err != nil || inv.Unknown || inv.Invalidated {
+				// The garage's built-in host cannot read its disk, so its list
+				// may predate its last act (TestGarage).
+				if err != nil || inv.Unknown || inv.Invalidated && !(garage && target.Name == "built-in-docker") {
 					t.Fatalf("scene inventory unknown: %+v %v", inv, err)
 				}
 			}
@@ -447,7 +449,8 @@ func TestHostSnapshotScenesReadInventory(t *testing.T) {
 // capacity check fails); the data folder's disk is low; gitlab and
 // infisical are not set up (as in the tour). Three additional changes
 // hold a landing, agent work with a starting preview, and a release in
-// progress. Their paths are logged at scene start. Not part of any gate.
+// progress. Their paths are logged at scene start. Heavy CI on main runs
+// it (opt-in-tiers), so the scene keeps working.
 func TestGarage(t *testing.T) {
 	w := newTourWorld(t, true, 0)
 	if w.hold() {
@@ -464,8 +467,14 @@ func TestGarage(t *testing.T) {
 	if err := json.Unmarshal(w.scene.call("sam", "GET", "/api/v1/attention", nil), &view); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int{"integrations/docker": 0, "integrations/semgrep-strict": 0, "disks/": 0, "capacity/": 0, "checks/": 0, "inventory/": 0,
-		"tour-stopped": 0, "tour-unknown": 0, "tour-unreachable": 0, "main: Release failed": 0}
+	// How many lines each trouble gives. The unreadable disk also leaves
+	// the Docker data's space not known; the unreachable host has its
+	// deployment, its capacity and its inventory unknown; inventory has
+	// main's refused replacement, tour-unknown's database and the
+	// unreachable host.
+	want := map[string]int{"integrations/docker": 1, "integrations/semgrep-strict": 1, "disks/": 2, "capacity/": 2, "checks/": 1, "inventory/": 3,
+		"tour-stopped": 1, "tour-unknown": 1, "tour-unreachable": 3, "main: Release failed": 1}
+	got := map[string]int{}
 	for _, item := range view.Items {
 		// App checks that could not run (the scenes call no model) are not
 		// known, not the garage's confirmed check problem; only that counts.
@@ -474,17 +483,13 @@ func TestGarage(t *testing.T) {
 		}
 		for k := range want {
 			if strings.HasPrefix(item.Key, k) || strings.Contains(item.Title, k) {
-				want[k]++
+				got[k]++
 			}
 		}
 	}
-	for k, n := range want {
-		expected := 1
-		if k == "inventory/" {
-			expected = 2 // main's refused replacement and tour-unknown's database
-		}
-		if n != expected {
-			t.Errorf("the garage shows %d of %q on the attention list, want %d", n, k, expected)
+	for k, expected := range want {
+		if got[k] != expected {
+			t.Errorf("the garage shows %d of %q on the attention list, want %d", got[k], k, expected)
 		}
 	}
 	// The other runtime examples exist on the host. Only the refused
@@ -493,8 +498,11 @@ func TestGarage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A lap whose disk read fails is not complete, so the list may predate
+	// the scene's last act on the host: it may be shown as read before an
+	// act, never as unknown.
 	reading, err := w.a.Deployment.InventoryFor(t.Context(), target)
-	if err != nil || reading.Unknown || reading.Invalidated {
+	if err != nil || reading.Unknown {
 		t.Fatalf("garage inventory: %+v %v", reading, err)
 	}
 	var missing []string
@@ -5978,11 +5986,9 @@ func (s *tourScene) progress(freeze chan struct{}, frozen <-chan struct{}, daemo
 	if err != nil {
 		t.Fatal(err)
 	}
-	target, err := a.Deployment.Targets.ByName(t.Context(), "built-in-docker")
-	if err != nil {
-		t.Fatal(err)
-	}
-	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), ch.ProjectID, "main", target.ID, deployment.Attributes{}.WithDefaults())
+	// Project creation gave the project its main deployment on the local
+	// target; the release goes there.
+	dep, err := a.Deployment.Deployments.ByName(t.Context(), ch.ProjectID, "main")
 	if err != nil {
 		t.Fatal(err)
 	}

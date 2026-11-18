@@ -92,9 +92,10 @@ jobs:
           # One package at a time (-p 1): Chromium runs on the host network,
           # and a container the console test starts adds a host interface,
           # which aborts a navigation in flight (ERR_NETWORK_CHANGED).
+          # TestGarage keeps the garage preview scene (ui-preview.sh) working.
           - name: opt-in-tiers
-            args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -timeout 20m -v
-            require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
+            args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary|TestGarage)$' -timeout 20m -v
+            require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary TestGarage
     name: ${{ matrix.name }}
     # Each matrix entry owns its runner and its temporary folder.
     env:
