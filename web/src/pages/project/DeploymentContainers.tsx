@@ -48,7 +48,9 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
   const [reading, setReading] = useState<string | null>(null)
   const [err, setErr] = useState('')
   const [technical] = useTechnicalDetail()
-  if (!resources.data && !diagnostics.data) return <ReadStatus q={[resources, diagnostics]} what="its containers" />
+  // The table waits for both first answers: a row drawn from one alone would
+  // call the other's columns unknown while they are only loading.
+  if ((!resources.data && !diagnostics.data) || resources.loading || diagnostics.loading) return <ReadStatus q={[resources, diagnostics]} what="its containers" />
   const unknownNow = resources.refreshFailed || !!resources.data?.reading?.unknown || !!resources.data?.reading?.stale
   const rows: Row[] = []
   const add = (part: string) => {
@@ -82,7 +84,7 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
   const noContainers = !!diagnostics.data?.noContainers
   // Use is shown once diagnostics say there are containers to use it: a
   // bucket website's CPU and memory are not applicable, never unknown.
-  const showUse = !noContainers && !diagnostics.loading
+  const showUse = !noContainers
   const served: ListColumn<Row> = { key: 'status', label: 'Status', phone: 'state', render: r => {
     const p = r.diag
     if (!p || diagnostics.refreshFailed || p.presence === 'unknown') return <Status observation word="unknown" help={p?.reason} />

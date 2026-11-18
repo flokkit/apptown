@@ -116,3 +116,15 @@ it.each([['serving', 'working'], ['not serving', 'failed'], ['unknown', 'unknown
   for (const absent of ['CPU', 'MEMORY', 'Memory', 'Image', 'Started', 'does not report', 'Limit events']) expect(text).not.toContain(absent)
   if (presence === 'serving') expect(text).not.toContain('unknown')
 })
+
+// The table appears once both first reads have answered; until then the
+// section says it is loading rather than calling the missing half unknown.
+it.each(['resources', 'diagnostics'])('says loading, not unknown, while %s is still on its way', waiting => {
+  const client = newQueryClient()
+  if (waiting !== 'resources') client.setQueryData(getKey(`${base}/resources`), { reading: { stale: false }, parts: [part('web', { part: 'web', usedBytes: 1, limitBytes: 2, cpuCores: 0, cpuLimit: 0, image: 'i', known: true })], limits: [], limitsKnown: true } as unknown as DeploymentResources)
+  if (waiting !== 'diagnostics') client.setQueryData(getKey(`${base}/diagnostics`), { reading: { stale: false }, containers: true, parts: [diag('web')] } as unknown as DeploymentDiagnostics)
+  const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeploymentContainers slug="shop" name="main" /></MemoryRouter></QueryClientProvider>)
+  client.clear()
+  expect(html).toContain('Loading…')
+  expect(html).not.toContain('unknown')
+})

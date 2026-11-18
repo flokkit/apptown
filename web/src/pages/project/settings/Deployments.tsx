@@ -160,6 +160,8 @@ export function DeploymentPage() {
   const asked = new URLSearchParams(useLocation().search).get('tab')
   const tab = DEPLOYMENT_TABS.find(t => t.key === asked)?.key ?? 'status'
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
+  // Read beside the deployment: the deploy history needs only the project.
+  const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
   const e = q.data?.find(e => e.name === name)
   const label = e ? deploymentName(e) : 'Deployment'
   useLayoutEffect(() => {
@@ -167,7 +169,7 @@ export function DeploymentPage() {
     return () => setPageContext({})
   }, [slug, name, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
-    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} current={q.current} reload={q.reload}
+    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} releases={releases} current={q.current} reload={q.reload}
       facts={<DeploymentFacts slug={slug!} env={e} />}
       tab={tab} tabs={<Tabs className="tabs deployment-tabs" role="navigation" aria-label="about this deployment">
         {DEPLOYMENT_TABS.map(t => <Link key={t.key} to={t.key === 'status' ? '?' : `?tab=${t.key}`} className={'tab' + (t.key === tab ? ' active' : '')} aria-current={t.key === tab ? 'page' : undefined}>{t.label}</Link>)}

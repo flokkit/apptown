@@ -10,7 +10,16 @@ import { fmtStamp } from '../../format'
 
 export type ReleaseChoice = { release: ReleaseListed } | { bundle: ReleaseBundle } | { before: ReleaseListed }
 
-export function ChooseRelease({ slug, name, displayLabel, releases, current, choice, onChoose }: { slug: string; name: string; displayLabel?: string; releases: ReleaseListed[]; current: boolean; choice: ReleaseChoice | 'list' | null; onChoose: (choice: ReleaseChoice | 'list' | null) => void }) {
+type ChooseReleaseProps = { slug: string; name: string; displayLabel?: string; releases: ReleaseListed[]; current: boolean; choice: ReleaseChoice | 'list' | null; onChoose: (choice: ReleaseChoice | 'list' | null) => void }
+
+// ChooseRelease is the deploy dialog: the bundle list, or the confirmation
+// of one choice. Closed, it is nothing and reads nothing; opening it reads
+// the bundles and deployments it decides from.
+export function ChooseRelease({ choice, ...props }: ChooseReleaseProps) {
+  return choice ? <ReleaseDialog choice={choice} {...props} /> : null
+}
+
+function ReleaseDialog({ slug, name, displayLabel, releases, current, choice, onChoose }: ChooseReleaseProps & { choice: ReleaseChoice | 'list' }) {
   const bundles = useGet<ReleaseBundle[]>(`/projects/${slug}/release-bundles`)
   const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
   const deployment = deployments.data?.find(d => d.name === name)
@@ -45,7 +54,7 @@ export function ChooseRelease({ slug, name, displayLabel, releases, current, cho
       })}
       {bundles.data?.length === 0 && <p>No release bundles yet.</p>}
     </Modal>}
-    {choice && choice !== 'list' && <ConfirmRelease key={JSON.stringify(choice)} slug={slug} name={name} label={label} deployment={deployment} choice={choice} running={running} current={current && deployments.current} onClose={() => onChoose(null)} />}
+    {choice !== 'list' && <ConfirmRelease key={JSON.stringify(choice)} slug={slug} name={name} label={label} deployment={deployment} choice={choice} running={running} current={current && deployments.current} onClose={() => onChoose(null)} />}
   </>
 }
 

@@ -20,7 +20,7 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { UpdateNote } from './UpdateNote'
 import { UpdatesPage, ReleaseAvailabilityNote } from './pages/Updates'
 import { StaleScope } from './ReadGate'
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
@@ -220,12 +220,12 @@ export default function App() {
   // was read for another.
   const client = useQueryClient()
   const identity = me ? `${me.mode}:${me.user ?? ''}:${me.mode === 'open' ? user : ''}` : null
-  const lastIdentity = useRef<string | null>(null)
-  useEffect(() => {
-    if (identity === null) return
-    if (lastIdentity.current !== null && lastIdentity.current !== identity) identityChanged(client)
-    lastIdentity.current = identity
-  }, [identity, client])
+  // Pages start reading before "who am I" first answers, as the same person
+  // that answer names, so learning it is not a change: only a move from one
+  // known identity to another starts a new generation.
+  const [who, setWho] = useState({ identity, generation: 0 })
+  if (identity !== null && identity !== who.identity) setWho({ identity, generation: who.identity === null ? 0 : who.generation + 1 })
+  useEffect(() => { if (who.generation > 0) identityChanged(client) }, [who.generation, client])
   const online = useOnline()
   // Under the shell's breakpoint the sidebar is a menu that opens over the
   // page; going anywhere closes it.
@@ -271,9 +271,9 @@ export default function App() {
         <UpdateNote />
  <ReleaseAvailabilityNote />
         {!online && <div className="muted small" style={{ marginBottom: 10 }}><span title="Pages refresh when the connection returns.">Offline</span></div>}
-        {/* Keyed by identity as well: another person starts from fresh pages,
-            with no draft or local state left from the one before. */}
-        <ErrorBoundary key={`${identity ?? ''} ${routePath}`}>
+        {/* Keyed by identity generation as well: another person starts from
+            fresh pages, with no draft or local state left from the one before. */}
+        <ErrorBoundary key={`${who.generation} ${routePath}`}>
         <StaleScope>
         <Suspense fallback={<div className="muted">Loading…</div>}>
         <Routes>
