@@ -610,7 +610,7 @@ func TestEmptyAgentUpdateClosesOnAppTownsOwnSteps(t *testing.T) {
 			if status, ev := stepStatus(t, f, steps["routine"].ID); status != workflow.StatusNotApplicable || ev["judgedReports"] != nil {
 				t.Fatalf("routine %s: %+v", status, ev)
 			}
-			for _, name := range []string{"tests", "boot", "scan-source", "scan-image"} {
+			for _, name := range []string{"stable-direct-node", "stable-direct-python", "stable-direct-go", "stable-direct-ruby", "tests", "boot", "scan-source", "scan-image"} {
 				queueExecute(t, f, steps[name])
 			}
 			if _, err := f.work.Advance(f.ctx, run.ID); err != nil {

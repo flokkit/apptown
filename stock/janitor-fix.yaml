@@ -69,10 +69,11 @@ spec:
               in manifests and lockfiles stays within the level: at routine, patch and
               minor releases only, and a 0.x package stays within its minor; at
               aggressive, any newer release including majors. Never a downgrade, never a
-              new registry or source, never a pre-release for a direct dependency or one
-              pinned by an override or resolution. An indirect package in a lockfile
-              may be a pre-release when a stable direct dependency's declared range
-              requires it. (2) No new direct dependency, unless it replaces one the update
+              new registry or source, never an override or resolution that pins a
+              pre-release. AppTown itself checks npm, uv, Go module and Bundler
+              projects for direct dependencies that are pre-releases: leave their
+              other pre-release versions to it. With any other package manager, a
+              direct dependency never moves to a pre-release. (2) No new direct dependency, unless it replaces one the update
               removed or renamed. (3) Except for the image and toolchain moves below, every change
               outside dependency files is the
               smallest change a moved package needs: a renamed API, a changed import, a
@@ -95,6 +96,18 @@ spec:
               "Restructures the Dockerfile's build stage; your settings allow only
               image version changes."); details and citations follow. Answer unclear when
               you cannot tell whether a code change is needed by a moved package.
+        - name: stable-direct-node
+          uses: scan
+          with: {scanner: npm-direct-prereleases}
+        - name: stable-direct-python
+          uses: scan
+          with: {scanner: uv-direct-prereleases}
+        - name: stable-direct-go
+          uses: scan
+          with: {scanner: go-direct-prereleases}
+        - name: stable-direct-ruby
+          uses: scan
+          with: {scanner: bundle-direct-prereleases}
         - name: tests
           uses: tests
         - name: boot
