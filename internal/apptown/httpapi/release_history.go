@@ -94,12 +94,7 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 	for _, release := range out {
 		idList = append(idList, release.ID)
 	}
-	contents, err := h.work.ReleaseChanges(r.Context(), p.ID, idList)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	newChanges, err := h.deployment.Releases.NewChanges(r.Context(), p.ID, idList)
+	changes, err := newReleaseChanges(r.Context(), h.work, h.deployment.Releases, p.ID, idList)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -130,18 +125,40 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		// Non-nil even when empty: a release carrying no changes (e.g. a lan
-		// promotion) must serialize changes as [], not null — null crashed
-		// the Overview after the first intranet release.
-		out[i].Changes = []ReleaseChangeTitle{}
-		for _, change := range contents[out[i].ID] {
-			if !newChanges[out[i].ID][change.ID] {
-				continue
-			}
-			out[i].Changes = append(out[i].Changes, ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title})
-		}
+		out[i].Changes = changes[out[i].ID]
 	}
 	WriteJSON(w, 200, out)
+}
+
+// newReleaseChanges is what each release brought: Work's labels for the
+// changes it carries, kept only where Delivery says no earlier successful
+// release on the deployment carried the change (Releases.NewChanges). A
+// release's full membership holds every change its bundle was built from,
+// so a list that showed it would repeat the project's history on every row.
+// The project's releases and the fleet's releases both read it, so one
+// release shows the same changes in both. Each list is non-nil even when
+// empty: a release carrying no changes (e.g. a promotion) must serialize
+// changes as [], not null — null crashed the Overview after the first
+// intranet release.
+func newReleaseChanges(ctx context.Context, work *workflow.Service, releases *deployment.Releases, projectID ids.ID, idList []ids.ID) (map[ids.ID][]ReleaseChangeTitle, error) {
+	contents, err := work.ReleaseChanges(ctx, projectID, idList)
+	if err != nil {
+		return nil, err
+	}
+	fresh, err := releases.NewChanges(ctx, projectID, idList)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[ids.ID][]ReleaseChangeTitle, len(idList))
+	for _, id := range idList {
+		out[id] = []ReleaseChangeTitle{}
+		for _, change := range contents[id] {
+			if fresh[id][change.ID] {
+				out[id] = append(out[id], ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title})
+			}
+		}
+	}
+	return out, nil
 }
 
 // ReleaseDetail: GET /projects/{slug}/releases/{number} — the

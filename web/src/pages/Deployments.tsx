@@ -13,7 +13,7 @@ import { fmtStamp } from '../format'
 import { BackupsView } from './Backups'
 
 // Fleet pages use the same deployment and release reads as their project pages.
-import type { Departures, TierMap } from '../wire.gen'
+import type { Departure, Departures, TierMap } from '../wire.gen'
 import { PageHead } from '../PageHead'
 
 export default function Deployments({ page = 'deployments' }: { page?: 'releases' | 'deployments' | 'backups' }) {
@@ -38,21 +38,36 @@ function DeparturesBoard() {
     {moves.length === 0 ? <p className="muted small">No releases yet.</p> : (() => {
       const shown = moves.slice(0, count)
       return <Section title="" label="Deploys">
-        <ListTable label="Releases" rows={shown} rowKey={d => `${d.slug}/${d.tier}/${d.releaseNumber}/${d.at}`}
+        <div className="fleet"><ListTable label="Releases" className="releases-table" rows={shown} rowKey={d => `${d.slug}/${d.tier}/${d.releaseNumber}/${d.at}`}
           rowTo={d => `/projects/${d.slug}/releases/${d.releaseNumber}`} columns={[
-            { key: 'change', label: 'Change', phone: 'name', render: d => <>{d.changes?.length ? d.changes.map(c => <div key={c.id}><Link to={`/changes/${c.id}`}>#{c.number} {c.title}</Link></div>) : 'No change recorded'}{d.commitSha && <code>{d.commitSha.slice(0, 12)}</code>}</> },
-            { key: 'project', label: 'Project', render: d => <><ProjectMark small name={d.name || d.slug} slug={d.slug} icon={d.icon} /><Link className="int-name" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
-            { key: 'deployment', label: 'Deployment', render: d => <>{d.tier.replace(/ deployment$/, '')}{d.url && <> <a href={d.url} target="_blank" rel="noreferrer" title={d.url} aria-label={`open ${d.name || d.slug} ${d.tier}`}>↗</a></>}</> },
-            { key: 'release', label: 'Release', render: d => <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>#{d.releaseNumber}</Link> },
-            { key: 'by', label: 'By', render: d => <span className="muted">{d.who || '—'}</span> },
+            { key: 'project', label: 'Project', phone: 'name', className: 'releases-fit', render: d => <><ProjectMark small name={d.name || d.slug} slug={d.slug} icon={d.icon} /><Link to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></> },
+            { key: 'deployment', label: 'Deployment', className: 'releases-fit', render: d => <>{d.tier.replace(/ deployment$/, '')}{d.url && <> <a href={d.url} target="_blank" rel="noreferrer" title={d.url} aria-label={`open ${d.name || d.slug} ${d.tier}`}>↗</a></>}</> },
+            { key: 'release', label: 'Release', className: 'releases-fit', render: d => <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>#{d.releaseNumber}</Link> },
+            { key: 'change', label: 'Change', className: 'releases-change', render: d => <ReleaseCarries d={d} /> },
+            { key: 'by', label: 'By', className: 'releases-fit', render: d => <span className="muted">{d.who || '—'}</span> },
             { key: 'status', label: 'Status', phone: 'state', render: d => <Status word={d.state} help={d.reason && d.reason.toLowerCase() !== d.state ? d.reason : undefined} /> },
             { key: 'when', label: 'When', kind: 'time', render: d => d.at ? fmtStamp(d.at) : 'not yet' },
-          ]} />
+          ]} /></div>
       </Section>
     })()}
     {moves.length> count && <button  onClick={() => setCount(n => n + 10)} className="deployments-departures-board-button">Show 10 more</button>}
     </>
   )
+}
+
+// What a release brought, on one line: its newest change, and how many more
+// it brought, which its own page lists. The changes are those no earlier
+// successful release on the deployment carried (Releases.NewChanges), not
+// every change its bundle carries; a release of code shipped there before
+// brings none new, though its page still lists what it carries.
+function ReleaseCarries({ d }: { d: Departure }) {
+  const changes = d.changes ?? []
+  const latest = changes[changes.length - 1]
+  if (!latest) return <span className="muted">No new changes</span>
+  return <span className="releases-carries">
+    <Link className="releases-latest" to={`/changes/${latest.id}`} title={`#${latest.number} ${latest.title}`}>#{latest.number} {latest.title}</Link>
+    {changes.length > 1 && <>{' '}<Link className="releases-more" to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>and {changes.length - 1} more</Link></>}
+  </span>
 }
 
 // The fleet is one table, one row per standing deployment (DeploymentTable).

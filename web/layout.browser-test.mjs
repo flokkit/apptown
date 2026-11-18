@@ -177,6 +177,21 @@ const phoneListsFixture = await build({
     </main></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// The fleet's releases board: one release with a long newest change, a
+// count of more, and the longest status word, inside the app's shell.
+const releasesFixture = await build({
+  absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
+  stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
+    import { createRoot } from 'react-dom/client'
+    import { MemoryRouter } from 'react-router-dom'
+    import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+    import Deployments from './pages/Deployments'
+    const departures = [{releaseNumber:25,at:'2026-11-04T07:41:00Z',slug:'window-garden',name:'Window Garden',tier:'East office deployment',who:'priya',state:'waiting for approval',
+      changes:[{id:'a',number:41,title:'Adopt the way of working: apptown v54, with the newest checks'},{id:'b',number:42,title:'Add totals and display a high score on the main screen'}]}]
+    window.fetch = async () => new Response(JSON.stringify({departures}))
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><div className="layout"><aside className="sidebar" /><main className="main"><Deployments page="releases" /></main></div></MemoryRouter></QueryClientProvider>)
+  ` },
+})
 const trailFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
@@ -1169,6 +1184,37 @@ try {
     await page.locator('.fleet-table td.record-action').evaluateAll(cells => cells.forEach(cell => { cell.innerHTML = '<span class="row row-2"><div class="more-menu"><button class="subtle more-menu-button" aria-label="More actions">⋯</button></div></span>' }))
     const after = await heights()
     assert.ok(before.every((h, i) => Math.abs(h - after[i]) < 1), `deployment rows keep their height when their menus arrive at ${width}, ${size}: ${JSON.stringify({ before, after })}`)
+  }
+  // A release row fits a desktop window at every text size: with room it is
+  // one line (always at 1280px and wider at small and medium text), its
+  // newest change cut short beside the count; without, its
+  // facts wrap between words. The newest change stays visible, nothing
+  // overlaps the next column, and the page never scrolls sideways.
+  // Widths step through every desktop width the one-line layout can begin
+  // at, so its threshold is checked where it switches, not only at samples.
+  const releaseWidths = [...Array.from({ length: 27 }, (_, i) => 801 + i * 24), 1280, 1440]
+  for (const width of releaseWidths) for (const size of ['small', 'medium', 'large']) {
+    await page.setViewportSize({ width, height: 800 })
+    await page.goto('http://layout.test/')
+    await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
+    await page.addScriptTag({ content: releasesFixture.outputFiles[0].text })
+    await page.locator('.releases-table tbody tr').waitFor()
+    await fontsReady(page)
+    const m = await page.evaluate(() => {
+      const box = el => el.getBoundingClientRect()
+      const cell = document.querySelector('td.releases-change'), by = box(cell.nextElementSibling)
+      return { scroll: document.documentElement.scrollWidth, latest: box(document.querySelector('.releases-latest')).width,
+        more: box(document.querySelector('.releases-more')).right, byLeft: by.left, cellRight: box(cell).right,
+        // A row of one line is shorter than two of its lines plus its padding.
+        oneLine: (() => { const tr = document.querySelector('.releases-table tbody tr'), st = getComputedStyle(tr.querySelector('td'))
+          return box(tr).height < 2 * parseFloat(st.lineHeight) + parseFloat(st.paddingTop) + parseFloat(st.paddingBottom) })() }
+    })
+    assert.ok(m.scroll <= width, `the releases page scrolls sideways at ${width}, ${size}: ${JSON.stringify(m)}`)
+    assert.ok(m.latest > 20, `a release's newest change is hidden at ${width}, ${size}: ${JSON.stringify(m)}`)
+    assert.ok(m.more <= m.cellRight + 0.5 && m.more <= m.byLeft + 0.5, `"and N more" leaves its cell at ${width}, ${size}: ${JSON.stringify(m)}`)
+    assert.deepEqual(await page.evaluate(splitWords), [], `a release row or head splits a word at ${width}, ${size}`)
+    if (width >= 1280 && size !== 'large') assert.ok(m.oneLine, `a release is one line on a desktop at ${width}, ${size}: ${JSON.stringify(m)}`)
+    if (out && [801, 1024, 1280, 1440].includes(width)) await page.screenshot({ path: `${out}/releases-${size}-${width}.png`, fullPage: true })
   }
   assert.deepEqual(misses, [], 'phone round 3')
   assert.deepEqual(consoleLines.filter(line => line.includes('validateDOMNesting')), [], 'layout fixtures use valid HTML nesting')
