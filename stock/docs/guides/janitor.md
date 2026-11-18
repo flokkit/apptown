@@ -118,15 +118,15 @@ new finding, but does not retry a finding that exhausted its tries until a
 person asks it to try again. Janitor's update and repair agents have 45 minutes
 per step.
 
-An empty update needs a final agent message with release-listing commands and
-relevant output for parts that declare dependencies, plus the resolver answers
-and refusals for external base images and `staticServer:`. A stale answer names
-its reading time and registry error.
-`scratch`, stage names, variable operands and parts without a manifest or
-Dockerfile need no listing. Write the account in the final message, not a report
-file. When an independent check passes the account, the empty Change closes as
-nothing to change without asking a person. This includes a security fix when
-no release or newer image build within the level fixes the finding. The scan's
+The agent updates everything it can within the level. Its final message is a
+note shown with the Change, not evidence: when it leaves something that could
+move, or a finding unfixed, it says what and why; otherwise it needs to say
+nothing. AppTown never refuses a Change over that note. An empty Change closes
+as nothing to change without asking a person once AppTown's own tests,
+start-up and scans pass on the unchanged code. This includes a security fix when
+no release or newer image build within the level fixes the finding. Anything
+left that is not a security finding gets another attempt at the next scheduled
+run. The scan's
 findings and verdict stay recorded, candidate scans are not applicable, and the
 next scheduled scan can offer the same targets again.
 

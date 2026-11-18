@@ -132,10 +132,8 @@ The routine check sends the complete diff, the approved level, any security
 targets and the classified paths to the checks model through the diff-rubric
 evaluator. The workflow supplies the rubric. Pass and fail record the model's
 judgement and reasoning; unclear or unavailable is an error, never met and never
-sent to repair. For an empty change it judges every passing agent step's final
-message that declared nothing to change, labelled in step order. A report must
-include each part's release-listing command and output and every FROM's tag
-listing; an uncommitted report file cannot supply that account.
+sent to repair. An empty change has no diff and is not applicable; the agent's final message is
+never judged.
 A finished judge session without a valid known verdict is an AppTown fault.
 Queue check errors whose receipts are all AppTown faults retry through the
 step-retry operation at most twice per step. Retry receipts name the engine,
@@ -247,9 +245,11 @@ permits patch and minor releases, keeping 0.x packages within their minor;
 aggressive permits newer majors. The model judges every version and source
 change, direct dependencies and the minimum application repairs a moved package
 needs. AppTown independently witnesses protected inputs and required checks.
-When an update changes nothing, routine judges the update agent's report against
-the committed tree. A passing judgement lets the empty update close without approval
-once the other checks pass.
+When an update changes nothing, routine is not applicable: there is no diff to
+judge. The empty update closes without approval once tests, start-up and scans
+pass on the unchanged tree. The agent's final message is a note shown with the
+change, never evidence: what is left is a security question for AppTown's scans,
+and otherwise the next scheduled run's attempt.
 A targeted fix fails while its source scanner still reports the package and any
 shared identifier, regardless of severity, baseline or exceptions.
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -21,8 +20,9 @@ import (
 //
 //   - the change is still empty against its base, read under the
 //     repository's lock (a later step in the stage may have changed it);
-//   - an independent judgement of that step's report passed: an agent/review
-//     of its output kind or a routine naming it in judgedReports; no review in
+//   - when the step declares a report output (output.kind), an agent/review
+//     of that kind passed; a step without one is judged by AppTown's own
+//     steps below, never by its account of why nothing moved. No review in
 //     the stage left a finding: a deferred major or a reverted update is a
 //     finding, and leaves the decision to a person, whichever review
 //     raised it;
@@ -95,26 +95,18 @@ func emptyResultAccount(steps []*Step) (string, bool) {
 			return "", false
 		}
 	}
-	if name == "" || !reviewedWithoutFindings(steps, kind, name, callProducer) {
+	if name == "" || !reviewedWithoutFindings(steps, kind, callProducer || kind == "") {
 		return "", false
 	}
 	return account, true
 }
 
-// reviewedWithoutFindings: an agent/review of the report kind or a routine
-// naming the producer passed, and
-// no review of the stage left anything for a person. A review whose
-// evidence cannot be read has not said it left nothing.
-func reviewedWithoutFindings(steps []*Step, kind, name string, reviewed bool) bool {
+// reviewedWithoutFindings: a declared report was reviewed (an agent/review
+// of its kind passed) unless none is needed, and no review of the stage left
+// anything for a person. A review whose evidence cannot be read has not said
+// it left nothing.
+func reviewedWithoutFindings(steps []*Step, kind string, reviewed bool) bool {
 	for _, s := range steps {
-		if s.Type == "routine" && s.Status == StatusPass {
-			var ev struct {
-				JudgedReports []string `json:"judgedReports"`
-			}
-			if json.Unmarshal(s.Evidence, &ev) == nil && slices.Contains(ev.JudgedReports, name) {
-				reviewed = true
-			}
-		}
 		if s.Type != "agent/review" {
 			continue
 		}

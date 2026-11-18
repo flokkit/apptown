@@ -339,8 +339,9 @@ func mustJSON(in any) string {
 
 // A run whose producing step declared an empty result a complete answer and
 // found nothing to change asks to be closed instead of asking anyone to
-// accept an empty change, once an independent review of its report passed
-// with nothing left for a person; anything else holding the stage keeps it
+// accept an empty change, once the stage's own checks settled and, when the
+// step declares a report output, an independent review of it passed, with
+// nothing left for a person; anything else holding the stage keeps it
 // waiting for a person. Whether the change is still empty is read at the
 // closing act (TestARunWithNothingToChangeEndsWithoutAsking).
 func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
@@ -374,13 +375,12 @@ func TestWorkflowEngineEndsARunWithNothingToChange(t *testing.T) {
 		{"called empty fix cannot excuse scanner error", []*Step{{Name: "scan-running", Type: "scan", Status: StatusError}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{"whenFailed":["scan-running"]}`), Evidence: nothing}, accept(StatusPending)}, false},
 		{"called empty fix cannot excuse failed rebuild", []*Step{{Name: "rebuild", Type: "rebuild", Status: StatusFail}, {Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{}`), Evidence: nothing}, accept(StatusPending)}, false},
 		{"called empty fix keeps review findings", []*Step{{Name: "fix", Type: "workflow/call", Status: StatusPass, Config: json.RawMessage(`{}`), Evidence: nothing}, review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
-		{"routine judged the empty report without an output kind", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), accept(StatusPending)}, true},
-		{"routine judged another report", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["other"]}`), accept(StatusPending)}, false},
-		{"routine lacks a report receipt", []*Step{emptyUpdate(), routine(StatusPass, `{}`), accept(StatusPending)}, false},
-		{"routine was not applicable", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), accept(StatusPending)}, false},
-		{"routine failed the report", []*Step{emptyUpdate(), routine(StatusFail, `{"judgedReports":["update"]}`), accept(StatusPending)}, false},
-		{"routine passed but a review left a finding", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
-		{"routine passed but review evidence is unreadable", []*Step{emptyUpdate(), routine(StatusPass, `{"judgedReports":["update"]}`), review(StatusPass, `invalid`), accept(StatusPending)}, false},
+		{"an empty update without a report output closes on the stage's own checks", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{"reason":"nothing changed; there is no diff to judge"}`), accept(StatusPending)}, true},
+		{"an empty update without a report output waits for a failed routine", []*Step{emptyUpdate(), routine(StatusFail, `{}`), accept(StatusPending)}, false},
+		{"an empty update without a report output waits for a failed scan", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), {Name: "scan-source", Type: "scan", Status: StatusFail}, accept(StatusPending)}, false},
+		{"an empty update without a report output waits for a running check", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), {Name: "tests", Type: "tests", Status: StatusRunning}, accept(StatusPending)}, false},
+		{"an empty update without a report output keeps review findings", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), review(StatusPass, `{"findings":["deferred major"]}`), accept(StatusPending)}, false},
+		{"an empty update without a report output keeps unreadable review evidence", []*Step{emptyUpdate(), routine(StatusNotApplicable, `{}`), review(StatusPass, `invalid`), accept(StatusPending)}, false},
 		{"reviewed clean, only the approval waits", []*Step{update(nothing), review(StatusPass, `{"findings":[]}`), accept(StatusPending)}, true},
 		{"the review left something for a person", []*Step{update(nothing), review(StatusPass, `{"findings":["react 19 deferred: a major"]}`), accept(StatusPending)}, false},
 		{"another review left something for a person", []*Step{update(nothing), review(StatusPass, `{"findings":[]}`), {Name: "review-security", Type: "agent/review", Status: StatusPass, Config: of, Evidence: json.RawMessage(`{"findings":["react 19 deferred: a major"]}`)}, accept(StatusPending)}, false},
@@ -488,7 +488,8 @@ func TestCompletedEmptyJanitorFixExportsAccount(t *testing.T) {
 		case "update":
 			s.Evidence = json.RawMessage(`{"nothingToChange":true,"reason":"Waiting for a newer base image build"}`)
 		case "routine":
-			s.Evidence = json.RawMessage(`{"judgedReports":["update"]}`)
+			s.Status = StatusNotApplicable
+			s.Evidence = json.RawMessage(`{"reason":"nothing changed; there is no diff to judge"}`)
 		case "repair":
 			s.Status = StatusNotApplicable
 		}
