@@ -49,7 +49,7 @@ func (s *Service) RequestLandingReleases(ctx context.Context, projectID, runID, 
 			if pr, e := releasePrincipal(dep.feedAuthority); e == nil {
 				setter = pr.Name
 			}
-			rel, err := createReleaseIn(ctx, tx, ReleaseDraft{Automatic: true, Source: ReleaseFromBundle, ProjectID: projectID, DeploymentID: dep.ID, BundleID: bundle.ID, RunID: runID, ChangeID: changeID, Deployment: dep.Name, Revision: bundle.ContractRevision, Actor: "follows main, set by " + setter, At: s.now()})
+			rel, err := createReleaseIn(ctx, tx, ReleaseDraft{Automatic: true, Source: ReleaseFromBundle, ProjectID: projectID, DeploymentID: dep.ID, BundleID: bundle.ID, RunID: runID, ChangeID: changeID, Deployment: dep.Name, Revision: bundle.ContractRevision, Actor: followsMainActor + setter, At: s.now()})
 			if err != nil {
 				return err
 			}

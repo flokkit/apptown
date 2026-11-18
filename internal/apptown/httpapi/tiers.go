@@ -197,18 +197,17 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 		if labels[r.Deployment] == "" {
 			labels[r.Deployment] = r.Deployment
 		}
-		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.DepartureLabel(),
+		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.Person(), State: r.State.DepartureLabel(),
 			Tier: labels[r.Deployment] + " deployment", Label: fmt.Sprintf("release #%d", r.Number), ReleaseNumber: r.Number}
 		d.CommitSHA = r.CommitSHA
-		changes, err := h.work.ReleaseChanges(ctx, p.ID, []ids.ID{r.ID})
+		// What the release brought, as on the project's own releases list,
+		// not every change its bundle carries.
+		changes, err := newReleaseChanges(ctx, h.work, h.deployment.Releases, p.ID, []ids.ID{r.ID})
 		if err != nil {
 			WriteFault(w, err)
 			return
 		}
-		d.Changes = []ReleaseChangeTitle{}
-		for _, c := range changes[r.ID] {
-			d.Changes = append(d.Changes, ReleaseChangeTitle{Number: c.Number, ID: c.ID, Title: c.Title})
-		}
+		d.Changes = changes[r.ID]
 		if r.State == deployment.ReleaseFailed {
 			d.Reason = r.Failure
 		}

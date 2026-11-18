@@ -7,6 +7,32 @@
 @media (width > 800px) {
   .departure-row { grid-template-columns: minmax(0, 1fr) max-content auto; }
 }
+/* The releases board is one line per release when its table has the room:
+   the short facts keep their words on one line and the change takes what is
+   left, its title cut short with the "and N more" beside it. With less room
+   (a narrow window, large text) the facts wrap between words and the title
+   wraps whole, so nothing is hidden or pushes the page sideways. On phones
+   each fact has its own line. The table sits in .fleet, the fleet tables'
+   size container, which also keeps the phone rows edge to edge. */
+/* Narrow, the status and the date wrap between their words too, and the
+   gutters close up: the seven facts' longest words are all that must fit
+   (801px wide at large text). */
+.releases-table :is(.record-fit, .chip) { white-space: normal; }
+/* Its heads and cells keep their words whole ("Deploy ment" was a head
+   squeezed by the change titles). */
+.releases-table :is(th, td) { overflow-wrap: break-word; }
+@media (width > 800px) {
+  .releases-table :is(th, td) { padding-inline: var(--space-1); }
+}
+@container (width >= 58rem) {
+  .releases-table :is(.releases-fit, .record-fit) { white-space: nowrap; }
+  .record-table td.releases-change { width: 100%; max-width: 0; }
+  .releases-carries { display: flex; gap: var(--space-2); white-space: nowrap; }
+  .releases-latest { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .releases-more { flex: none; }
+  .releases-table .chip { white-space: nowrap; }
+  .releases-table :is(th, td) { padding-inline: var(--space-2); }
+}
 .deployments-card { display: flex; }
 .deployments-link { display: flex; min-width: 0; }
 .fleet-usage { font-variant-numeric: tabular-nums; }

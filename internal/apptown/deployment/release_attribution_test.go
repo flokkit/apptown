@@ -78,3 +78,16 @@ func TestReleaseAttributionDoesNotFollowReusedDeploymentNames(t *testing.T) {
 		})
 	}
 }
+
+// A release names the person it came from: whoever started it, or whoever
+// set its deployment to follow main when that started it. The whole wording
+// stays on the record.
+func TestReleasePersonIsANameWhileTheRecordKeepsItsWording(t *testing.T) {
+	t.Parallel()
+	for actor, want := range map[string]string{"sam": "sam", followsMainActor + "priya": "priya", "": ""} {
+		r := Release{ApprovedBy: actor}
+		if got := r.Person(); got != want || r.ApprovedBy != actor {
+			t.Fatalf("%q: person %q, want %q", actor, got, want)
+		}
+	}
+}

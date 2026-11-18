@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -69,6 +70,18 @@ type Release struct {
 	// provider after AppTown was restored, which AppTown did not ship
 	// (restore_check.go).
 	Origin string `json:"origin"`
+}
+
+// followsMainActor is the start of a release's actor when a deployment that
+// follows main started it on its own; the name of the person who set the
+// deployment to follow main comes after it.
+const followsMainActor = "follows main, set by "
+
+// Person is who a release came from, as a name: the person who started it,
+// or who set its deployment to follow main when that started it. ApprovedBy
+// keeps the whole wording for the release's own page.
+func (r *Release) Person() string {
+	return strings.TrimPrefix(r.ApprovedBy, followsMainActor)
 }
 
 // At is when the release happened: when it was released, else when it was cut.

@@ -57,13 +57,42 @@ it('lists releases waiting for approval with their own dates and deployment name
     await vi.waitFor(() => expect(el.querySelector('tbody tr')).not.toBeNull())
     const cells = [...el.querySelectorAll('tbody tr td')].map(td => td.textContent)
     expect(el.querySelector('h1')?.textContent).toBe('All releases')
-    expect(cells[0]).toBe('#3 Keep the dateabc123def456')
-    expect(cells.indexOf('East office')).toBeLessThan(cells.indexOf('#7'))
-    expect(cells).toContain('#7')
-    expect(cells).toContain('East office')
+    expect(cells.slice(0, 4)).toEqual(['LLedger', 'East office', '#7', '#3 Keep the date'])
     expect(el.textContent).toContain('waiting for approval')
     expect(el.textContent).toContain('4 Nov')
     expect(el.querySelector('a[href="/projects/ledger/releases/7"]')).not.toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// A release that brought several changes names its newest on its one line
+// and counts the rest, which its own page lists.
+it('shows a release\'s newest change and how many more it brought', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ departures: [
+    { releaseNumber: 4, at: '2026-11-04T07:41:00Z', slug: 'ledger', name: 'Ledger', tier: 'main deployment', state: 'deployed', changes: [
+      { id: 'a', number: 5, title: 'Add totals' }, { id: 'b', number: 6, title: 'Round to cents' }, { id: 'c', number: 8, title: 'Keep the date' }] },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments page="releases" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('tbody tr')).not.toBeNull())
+    const change = el.querySelector('td.releases-change')
+    expect(change?.textContent).toBe('#8 Keep the date and 2 more')
+    expect(change?.querySelector('a[href="/changes/c"]')).not.toBeNull()
+    expect(change?.querySelector('a[href="/projects/ledger/releases/4"]')?.textContent).toBe('and 2 more')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// A release that brought nothing new (code shipped there before) says so,
+// not that it carries nothing: its own page lists what it carries.
+it('says a release brought no new changes rather than none recorded', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ departures: [
+    { releaseNumber: 5, at: '2026-11-04T07:41:00Z', slug: 'ledger', name: 'Ledger', tier: 'main deployment', state: 'deployed', changes: [] },
+  ] }))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments page="releases" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('tbody tr')).not.toBeNull())
+    expect(el.querySelector('td.releases-change')?.textContent).toBe('No new changes')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
 

@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -389,4 +390,68 @@ func TestDeparturesExplainFailedReleaseAndIdentifyItsRecord(t *testing.T) {
 		}
 	}
 	t.Fatal("failed release missing")
+}
+
+// A release's membership holds every change its bundle was built from; the
+// fleet's releases board shows what each release brought, the changes no
+// earlier successful release on its deployment carried, the same changes
+// the project's own list shows for it, not the project's history on every
+// row.
+func TestDeparturesShowWhatEachReleaseBrought(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t, Config{DockerClient: newFakeDocker()})
+	first := releasedPreviewFixture(t, a, idstest.N(1), "brought-first")
+	second := releasedPreviewFixture(t, a, idstest.N(1), "brought-second")
+	var carried []ids.ID
+	for _, title := range []string{"Start the game", "Add a high score"} {
+		ch, err := a.Work.Create(asPerson("owner"), workflow.ChangeDraft{ProjectID: idstest.N(1), Type: "change", Title: title})
+		if err != nil {
+			t.Fatal(err)
+		}
+		carried = append(carried, ch.ID)
+	}
+	for _, link := range []struct{ release, change ids.ID }{{first.ID, carried[0]}, {second.ID, carried[0]}, {second.ID, carried[1]}} {
+		// sql-guarantee: a bundle release's membership is every change shipped before its bundle; shipping changes needs landing runs this read does not depend on.
+		if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2)`, link.release, link.change); err != nil {
+			t.Fatal(err)
+		}
+	}
+	titles := func(changes []httpapi.ReleaseChangeTitle) string {
+		var out []string
+		for _, c := range changes {
+			out = append(out, c.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	want := map[int64]string{first.Number: "Start the game", second.Number: "Add a high score"}
+
+	w := authzCall(a.Handler(), "owner", "GET", "/api/v1/tiers/departures", "")
+	var board httpapi.Departures
+	if err := json.Unmarshal(w.Body.Bytes(), &board); err != nil || w.Code != 200 {
+		t.Fatalf("departures: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	seen := 0
+	for _, d := range board.Departures {
+		if d.Slug != "game" || want[d.ReleaseNumber] == "" {
+			continue
+		}
+		seen++
+		if got := titles(d.Changes); got != want[d.ReleaseNumber] {
+			t.Fatalf("departure release #%d brought %q, want %q", d.ReleaseNumber, got, want[d.ReleaseNumber])
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("departures: %d of game's two releases, %+v", seen, board.Departures)
+	}
+
+	w = authzCall(a.Handler(), "owner", "GET", "/api/v1/projects/game/releases", "")
+	var listed []httpapi.ReleaseListed
+	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil || w.Code != 200 {
+		t.Fatalf("project releases: %d %s %v", w.Code, w.Body.String(), err)
+	}
+	for _, r := range listed {
+		if got := titles(r.Changes); want[r.Number] != "" && got != want[r.Number] {
+			t.Fatalf("project release #%d brought %q, want %q", r.Number, got, want[r.Number])
+		}
+	}
 }

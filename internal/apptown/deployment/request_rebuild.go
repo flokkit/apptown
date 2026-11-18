@@ -53,7 +53,7 @@ func (s *Service) RequestRebuild(ctx context.Context, projectID ids.ID, name, re
 		if err != nil {
 			return NumberedRelease{}, err
 		}
-		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Automatic: true, Source: ReleaseFromBundle, ProjectID: projectID, DeploymentID: dep.ID, BundleID: current.BundleID, RunID: current.RunID, Deployment: dep.Name, Revision: current.CommitSHA, Actor: "follows main, set by " + setter.Name, Notes: reason, At: s.now()}, reason)
+		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Automatic: true, Source: ReleaseFromBundle, ProjectID: projectID, DeploymentID: dep.ID, BundleID: current.BundleID, RunID: current.RunID, Deployment: dep.Name, Revision: current.CommitSHA, Actor: followsMainActor + setter.Name, Notes: reason, At: s.now()}, reason)
 		if err != nil {
 			if errors.Is(err, errReleaseInFlight) {
 				return NumberedRelease{}, fmt.Errorf("%w: %w", ErrRebuildNotApplicable, err)
