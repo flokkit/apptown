@@ -43,7 +43,12 @@ digest. A refused lookup leaves that image unchanged.
 A security target may choose the smallest pinned build that clears the finding.
 Direct dependencies move to stable releases only. A package they pull in may be
 a pre-release (alpha, beta, rc) when the stable release itself requires it; the
-janitor never pins one.
+janitor never pins one. For npm, uv, Go module and Bundler projects AppTown
+checks this itself: the stable-direct steps ask the package manager for the
+project's direct dependencies, read from the committed lockfile, and fail an
+update that makes one a pre-release. A direct pre-release already on main is
+shown on the step but does not hold the update. For other package managers the
+update's model check judges it.
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need. Repairs may update declarations in
 `.apptown/app.yaml` required by the new pack's checks. Dependency updates and

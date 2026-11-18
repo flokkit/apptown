@@ -441,7 +441,7 @@ func TestEmptySecurityFixClosesAndOffersTargetsAgain(t *testing.T) {
 					t.Fatalf("target lost: %s", child.InputsJSON)
 				}
 				childSteps := queueSteps(t, f, child)
-				for _, name := range []string{"update", "routine", "tests", "boot", "scan-source", "scan-image:trivy"} {
+				for _, name := range []string{"update", "routine", "stable-direct-node", "stable-direct-python", "stable-direct-go", "stable-direct-ruby", "tests", "boot", "scan-source", "scan-image:trivy"} {
 					queueExecute(t, f, childSteps[name])
 				}
 				for _, name := range []string{"scan-image:trivy", "scan-source"} {

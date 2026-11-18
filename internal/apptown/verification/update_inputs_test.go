@@ -230,6 +230,22 @@ func TestRubricsJudgeWhatTheUpdateBoundaryLeavesOpen(t *testing.T) {
 	if strings.Contains(fix, "do not judge") {
 		t.Error("janitor-fix rubric tells the judge to skip what AppTown does not check")
 	}
+	// AppTown's stable-direct-* steps decide pre-releases from the package
+	// manager's own list of direct dependencies; the judge saw only a diff
+	// and refused Pocket Planet's indirect @emnapi beta (18 Nov). Overrides
+	// stay with the judge.
+	for name, text := range map[string]string{"janitor-update": update, "janitor-fix": fix} {
+		for _, gone := range []string{"never a pre-release for a direct dependency", "declared range requires it"} {
+			if strings.Contains(text, gone) {
+				t.Errorf("%s rubric judges direct and indirect pre-releases again (%q)", name, gone)
+			}
+		}
+		for _, want := range []string{"never an override or resolution that pins a pre-release", "AppTown itself checks npm, uv, Go module and Bundler projects", "With any other package manager, a direct dependency never moves to a pre-release"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s rubric lost %q", name, want)
+			}
+		}
+	}
 	for name, text := range map[string]string{"janitor-update": update, "janitor-fix": fix} {
 		for _, gone := range []string{"final message", "agent's report", "A reference to a file is not a report", "nothing can move"} {
 			if strings.Contains(text, gone) {

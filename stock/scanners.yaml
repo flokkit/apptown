@@ -226,6 +226,225 @@ scanners:
     network: false
     target: source
     manual: true
+  # Direct pre-release listers (the janitor workflows' stable-direct-* scan
+  # steps). Each asks its package manager which dependencies the project
+  # itself declares, from the committed lockfile, offline, and reports each
+  # one whose locked version is a pre-release as a SARIF finding. AppTown
+  # compares the findings with the change's base commit: a pre-release
+  # already on main is carried, a new one fails the step. Indirect
+  # pre-releases are never listed: a package manager installs one only where
+  # a parent's range allows it. A folder without the lockfile is not this
+  # package manager's project, so there is nothing for it to list. The
+  # report is a prerelease-report, not a scan-report: it is not a security
+  # finding. Exit 0 none, 1 findings, 2 a lockfile the tool could not read.
+  - name: npm-direct-prereleases
+    description: Lists the direct dependencies that are pre-releases, as npm reads them from package-lock.json (npm ls), so Janitor updates keep direct dependencies stable
+    image: node:24-alpine
+    # The includes win over a committed .npmrc omit=, which would otherwise
+    # hide a direct dev dependency. A workspace's own direct dependencies are
+    # listed under it.
+    command:
+      - sh
+      - -c
+      - |
+        cd /work || exit 2
+        mkdir -p .apptown || exit 2
+        dirs=$(find . \( -name node_modules -o -name .git \) -prune -o -name package-lock.json -type f -print | sed 's#/package-lock.json$##' | sort)
+        [ -n "$dirs" ] || echo 'no package-lock.json: no npm direct dependencies to list'
+        node - $dirs <<'EOF'
+        const {execFileSync} = require('child_process'), fs = require('fs');
+        const prerelease = v => /^\d+\.\d+\.\d+-/.test(v || '');
+        const found = []; let unreadable = 0;
+        for (const dir of process.argv.slice(2)) {
+          const uri = (dir === '.' ? '' : dir.replace(/^\.\//, '') + '/') + 'package.json';
+          let out = '';
+          try {
+            out = execFileSync('npm', ['ls', '--package-lock-only', '--depth', '0', '--json', '--include=dev', '--include=optional', '--include=peer'], {cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 1 << 28});
+          } catch (e) { out = e.stdout || ''; }
+          // npm reports a lockfile it could not load as JSON too, with an
+          // error. ELSPROBLEMS is a tree it read whose lock disagrees with
+          // package.json (npm-lock-check's question): its versions stand.
+          let tree;
+          try { tree = JSON.parse(out); } catch { tree = {error: {summary: 'no JSON from npm ls'}}; }
+          if (tree.error && tree.error.code !== 'ELSPROBLEMS') { console.log(`${uri}: npm could not read package-lock.json: ${tree.error.code || ''} ${tree.error.summary || ''}`); unreadable = 1; continue; }
+          for (const [name, dep] of Object.entries(tree.dependencies || {})) {
+            if (prerelease(dep.version)) found.push({uri, name, version: dep.version, of: ''});
+            if ((dep.resolved || '').startsWith('file:')) {
+              for (const [inner, d] of Object.entries(dep.dependencies || {})) {
+                if (prerelease(d.version)) found.push({uri, name: inner, version: d.version, of: name});
+              }
+            }
+          }
+        }
+        if (unreadable) process.exit(2);
+        const results = found.map(f => ({ruleId: 'direct-prerelease', level: 'error',
+          message: {text: `${f.name} ${f.version} is a direct dependency${f.of ? ' of workspace ' + f.of : ''} in ${f.uri} and a pre-release`},
+          partialFingerprints: {package: `${f.uri}:${f.of ? f.of + '>' : ''}${f.name}@${f.version}`},
+          locations: [{physicalLocation: {artifactLocation: {uri: f.uri}}}]}));
+        fs.writeFileSync('.apptown/direct-prereleases.sarif', JSON.stringify({version: '2.1.0', runs: [{tool: {driver: {name: 'npm', rules: [{id: 'direct-prerelease'}]}}, results}]}));
+        results.forEach(r => console.log(r.message.text));
+        process.exit(results.length ? 1 : 0);
+        EOF
+    report: .apptown/direct-prereleases.sarif
+    artifactKind: prerelease-report
+    network: false
+    format: sarif
+    kind: prerelease
+    target: source
+    manual: true
+    appliesTo: ["tool:node"]
+  - name: uv-direct-prereleases
+    description: Lists the direct dependencies that are pre-releases, as uv reads them from uv.lock (uv tree), so Janitor updates keep direct dependencies stable
+    image: ghcr.io/astral-sh/uv:0.13.0-python3.12-alpine
+    # --universal: a direct dependency behind a platform or Python-version
+    # marker is listed too. A pre-release is PEP 440's: a, b or rc, or a
+    # .dev release, in the normalized version uv prints (after any epoch, N!).
+    command:
+      - sh
+      - -c
+      - |
+        cd /work || exit 2
+        mkdir -p .apptown || exit 2
+        UV_PYTHON_DOWNLOADS=never python3 - <<'EOF'
+        import json, os, re, subprocess, sys
+        dirs = []
+        for root, subdirs, files in os.walk('.'):
+            subdirs[:] = sorted(d for d in subdirs if d not in ('.git', '.venv', 'node_modules'))
+            if 'uv.lock' in files:
+                dirs.append(root)
+        if not dirs:
+            print('no uv.lock: no uv direct dependencies to list')
+        pre = re.compile(r'^(\d+!)?\d+(\.\d+)*(a|b|rc)\d+|\.dev\d+')
+        found, unreadable = [], False
+        for d in sorted(dirs):
+            uri = ('' if d == '.' else d[2:] + '/') + 'pyproject.toml'
+            p = subprocess.run(['uv', 'tree', '--frozen', '--offline', '--universal', '--depth', '1', '--all-groups'], cwd=d, capture_output=True, text=True)
+            if p.returncode != 0:
+                print(f'{uri}: uv could not read uv.lock: {p.stderr.strip()[-300:]}')
+                unreadable = True
+                continue
+            for line in p.stdout.splitlines():
+                m = re.match(r'^[├└]── (\S+) v(\S+)', line)
+                if m and pre.search(m.group(2)):
+                    found.append((uri, m.group(1).split('[')[0], m.group(2)))
+        if unreadable:
+            sys.exit(2)
+        found = sorted(set(found))
+        results = [{'ruleId': 'direct-prerelease', 'level': 'error',
+                    'message': {'text': f'{n} {v} is a direct dependency in {u} and a pre-release'},
+                    'partialFingerprints': {'package': f'{u}:{n}@{v}'},
+                    'locations': [{'physicalLocation': {'artifactLocation': {'uri': u}}}]} for u, n, v in found]
+        with open('.apptown/direct-prereleases.sarif', 'w') as f:
+            json.dump({'version': '2.1.0', 'runs': [{'tool': {'driver': {'name': 'uv', 'rules': [{'id': 'direct-prerelease'}]}}, 'results': results}]}, f)
+        for r in results:
+            print(r['message']['text'])
+        sys.exit(1 if results else 0)
+        EOF
+    report: .apptown/direct-prereleases.sarif
+    artifactKind: prerelease-report
+    network: false
+    format: sarif
+    kind: prerelease
+    target: source
+    manual: true
+    appliesTo: ["tool:python"]
+  - name: go-direct-prereleases
+    description: Lists the direct requirements that are pre-releases, as go reads them from go.mod (go mod edit -json), so Janitor updates keep direct dependencies stable
+    image: golang:1.27.0-alpine
+    # A requirement without "// indirect" whose version has a semver
+    # pre-release part. A pseudo-version (a commit pin,
+    # ...-yyyymmddhhmmss-abcdefabcdef) is not a release and is not listed.
+    command:
+      - sh
+      - -c
+      - |
+        cd /work || exit 2
+        mkdir -p .apptown || exit 2
+        export GOTOOLCHAIN=local GOFLAGS=
+        mods=$(find . \( -name vendor -o -name node_modules -o -name .git \) -prune -o -name go.mod -type f -print | sort)
+        [ -n "$mods" ] || echo 'no go.mod: no Go direct requirements to list'
+        found=
+        for m in $mods; do
+          uri=${m#./}
+          j=$(cd "$(dirname "$m")" && go mod edit -json 2>&1) || { echo "$uri: go could not read it: $j"; exit 2; }
+          found="$found$(printf '%s\n' "$j" | awk -v uri="$uri" '
+            /^\t"Require": \[/ { r = 1; next }
+            r && /^\t\]/ { r = 0; next }
+            r && /^\t\t\{/ { p = ""; v = ""; i = 0; next }
+            r && /"Path":/ { p = $2; gsub(/[",]/, "", p) }
+            r && /"Version":/ { v = $2; gsub(/[",]/, "", v) }
+            r && /"Indirect": true/ { i = 1 }
+            r && /^\t\t\}/ { if (!i && v ~ /^v[0-9]+\.[0-9]+\.[0-9]+-/ && v !~ /[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f](\+incompatible)?$/) print uri " " p " " v }
+          ')
+        "
+        done
+        results= n=0
+        while read -r uri p v; do
+          [ -n "$p" ] || continue
+          echo "$p $v is a direct requirement in $uri and a pre-release"
+          [ $n -eq 0 ] || results="$results,"
+          results="$results{\"ruleId\":\"direct-prerelease\",\"level\":\"error\",\"message\":{\"text\":\"$p $v is a direct requirement in $uri and a pre-release\"},\"partialFingerprints\":{\"package\":\"$uri:$p@$v\"},\"locations\":[{\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"$uri\"}}}]}"
+          n=$((n + 1))
+        done <<EOF
+        $found
+        EOF
+        printf '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"go","rules":[{"id":"direct-prerelease"}]}},"results":[%s]}]}' "$results" > .apptown/direct-prereleases.sarif
+        [ $n -eq 0 ]
+    report: .apptown/direct-prereleases.sarif
+    artifactKind: prerelease-report
+    network: false
+    format: sarif
+    kind: prerelease
+    target: source
+    manual: true
+    appliesTo: ["tool:go"]
+  - name: bundle-direct-prereleases
+    description: Lists the direct dependencies that are pre-releases, as Bundler reads them from Gemfile.lock, so Janitor updates keep direct dependencies stable
+    image: ruby:3.4.11-slim
+    # Bundler's own lockfile reader: its DEPENDENCIES are the Gemfile's
+    # gems, and RubyGems decides what a pre-release is.
+    command:
+      - sh
+      - -c
+      - |
+        cd /work || exit 2
+        mkdir -p .apptown || exit 2
+        ruby -rbundler -rjson - <<'EOF'
+        locks = Dir.glob('**/Gemfile.lock').reject { |f| f.split('/').any? { |p| %w[vendor node_modules .git].include?(p) } }.sort
+        puts 'no Gemfile.lock: no Bundler direct dependencies to list' if locks.empty?
+        found = []
+        locks.each do |lock|
+          uri = File.join(File.dirname(lock), 'Gemfile').delete_prefix('./')
+          begin
+            parsed = Bundler::LockfileParser.new(File.read(lock))
+          rescue StandardError => e
+            puts "#{lock}: Bundler could not read it: #{e.message}"
+            exit 2
+          end
+          parsed.dependencies.each_key do |name|
+            parsed.specs.select { |s| s.name == name }.map(&:version).uniq.each do |v|
+              found << [uri, name, v.to_s] if v.prerelease?
+            end
+          end
+        end
+        results = found.uniq.map do |uri, name, v|
+          { ruleId: 'direct-prerelease', level: 'error',
+            message: { text: "#{name} #{v} is a direct dependency in #{uri} and a pre-release" },
+            partialFingerprints: { package: "#{uri}:#{name}@#{v}" },
+            locations: [{ physicalLocation: { artifactLocation: { uri: uri } } }] }
+        end
+        File.write('.apptown/direct-prereleases.sarif', JSON.generate({ version: '2.1.0', runs: [{ tool: { driver: { name: 'bundler', rules: [{ id: 'direct-prerelease' }] } }, results: results }] }))
+        results.each { |r| puts r[:message][:text] }
+        exit(results.empty? ? 0 : 1)
+        EOF
+    report: .apptown/direct-prereleases.sarif
+    artifactKind: prerelease-report
+    network: false
+    format: sarif
+    kind: prerelease
+    target: source
+    manual: true
+    appliesTo: ["tool:ruby"]
   # Go formatting and vetting (lang/go/formatting): the two mechanical checks
   # AppTown holds itself to, run over the committed tree in a pinned Go
   # image. Exit-code contract: 0 clean, 1 findings (no Go code, or no

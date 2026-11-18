@@ -3,6 +3,7 @@ package verification
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,8 +14,10 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
+	"gopkg.in/yaml.v3"
 )
 
 type localChecks struct{ Effects }
@@ -593,5 +596,62 @@ func TestToolchainDriftAppliesToTheStockToolchains(t *testing.T) {
 	got := sourcedNamed(t, "build/toolchain-mise", "toolchain-runtime-drift").Check.AppliesTo
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("toolchain-runtime-drift applies to %v, want the stock toolchains %v", got, want)
+	}
+}
+
+// Both janitor workflows ask each package manager AppTown's rubric names
+// for its direct pre-releases, through a named scan step, so the scan's base
+// comparison carries a pre-release already on main. Each lister is manual
+// (it never fans out at a scan point), offline, reports SARIF, and keeps its
+// report off the Security tab, which reads scan-report artifacts.
+func TestJanitorWorkflowsListDirectPreReleases(t *testing.T) {
+	t.Parallel()
+	scanners := map[string]check.Scanner{}
+	for _, m := range loadScannerManifests(stock.FS) {
+		scanners[m.Name] = m
+	}
+	want := map[string]string{"stable-direct-node": "npm-direct-prereleases", "stable-direct-python": "uv-direct-prereleases", "stable-direct-go": "go-direct-prereleases", "stable-direct-ruby": "bundle-direct-prereleases"}
+	for _, name := range []string{"janitor-update.yaml", "janitor-fix.yaml"} {
+		raw, err := stock.FS.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc struct {
+			Spec struct {
+				Stages []struct {
+					Steps []struct {
+						Name string `yaml:"name"`
+						Uses string `yaml:"uses"`
+						With struct {
+							Scanner string `yaml:"scanner"`
+						} `yaml:"with"`
+					} `yaml:"steps"`
+				} `yaml:"stages"`
+			} `yaml:"spec"`
+		}
+		if err := yaml.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		for _, stage := range doc.Spec.Stages {
+			for _, step := range stage.Steps {
+				if _, ok := want[step.Name]; ok && step.Uses == "scan" {
+					got[step.Name] = step.With.Scanner
+				}
+			}
+		}
+		if !maps.Equal(got, want) {
+			t.Errorf("%s runs %v, want %v", name, got, want)
+		}
+	}
+	for _, scanner := range want {
+		m, ok := scanners[scanner]
+		if !ok {
+			t.Errorf("stock/scanners.yaml does not ship %s", scanner)
+			continue
+		}
+		if !m.Manual || m.Network || m.Format != "sarif" || m.Report == "" || m.ArtifactKind != "prerelease-report" || m.Looks() != "source" || len(m.AppliesTo) != 1 {
+			t.Errorf("%s: manual %v, network %v, format %q, report %q, artifact kind %q, target %q, applies to %v", scanner, m.Manual, m.Network, m.Format, m.Report, m.ArtifactKind, m.Looks(), m.AppliesTo)
+		}
 	}
 }
