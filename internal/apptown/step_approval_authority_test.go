@@ -1029,19 +1029,20 @@ func TestJanitorAttentionUsesTheJanitorProjectSet(t *testing.T) {
 		t.Fatalf("deleted project retained for inspection: %+v", state)
 	}
 	source := attention.Scans{Work: a.Work}
-	// An active project is read (its snapshot links to its Janitor section);
-	// one that schedules no scan chose that and makes no item.
-	t.Run("unscheduled active project", func(t *testing.T) {
-		got, err := readScanSnapshot(source, ctx, active)
-		if err != nil || !got.Known || got.Href == "" || len(got.Items) != 0 {
-			t.Fatalf("active project's scans: %+v %v", got, err)
-		}
-	})
-	for _, id := range []ids.ID{deleted, copy} {
-		t.Run(id.String(), func(t *testing.T) {
-			got, err := readScanSnapshot(source, ctx, id)
-			if err != nil || !got.Known || got.Href != "" || len(got.Items) != 0 {
-				t.Fatalf("excluded project's scans coverage: %+v %v", got, err)
+	// The Janitor's set itself: the active project is read, the deleted
+	// project and eval copy are not.
+	reached, err := a.Work.ScanAttention(ctx, []ids.ID{active, deleted, copy})
+	if err != nil || len(reached) != 1 || reached[0].ProjectID != active || !reached[0].Reaches {
+		t.Fatalf("janitor project set: %+v %v", reached, err)
+	}
+	// None of these projects is scanned: the active one schedules no scan and
+	// chose that, and the deleted project and eval copy are outside the
+	// Janitor's set. None has a scans row on All checks.
+	for name, id := range map[string]ids.ID{"unscheduled active project": active, "deleted": deleted, "eval copy": copy} {
+		t.Run(name, func(t *testing.T) {
+			rows, err := source.Snapshot(ctx, []ids.ID{id})
+			if row, listed := rows[id]; err != nil || listed {
+				t.Fatalf("unscanned project's scans row: %+v %v", row, err)
 			}
 		})
 	}

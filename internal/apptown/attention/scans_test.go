@@ -2,6 +2,7 @@ package attention
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -114,5 +115,43 @@ func TestApprovalQueueLabelUsesWhenItBeganWaiting(t *testing.T) {
 				t.Fatalf("%s label: %s", tc.name, raw)
 			}
 		})
+	}
+}
+
+// All checks lists only the projects the Janitor scans, named by project. A
+// project with no repository or no scheduled scan made that choice and has no
+// row unless it has an item or its read failed; a scanned project that has
+// never completed a scan stays, as not checked yet, with its link.
+func TestAllChecksListsOnlyScannedProjectsByName(t *testing.T) {
+	t.Parallel()
+	stopped := []workflow.QueueStatus{{State: "stopped"}}
+	readFailed := errors.New("janitor records could not be read")
+	for name, c := range map[string]struct {
+		p      workflow.ScanAttentionProject
+		listed bool
+	}{
+		"not reached":                {workflow.ScanAttentionProject{}, false},
+		"no repository":              {workflow.ScanAttentionProject{Reaches: true, Scans: workflow.MainScans{NoRepository: true}}, false},
+		"no scheduled scan":          {workflow.ScanAttentionProject{Reaches: true, Scans: workflow.MainScans{Unscheduled: true, Known: true}}, false},
+		"no scheduled scan, stopped": {workflow.ScanAttentionProject{Reaches: true, Scans: workflow.MainScans{Unscheduled: true}, Queues: stopped}, true},
+		"read failed":                {workflow.ScanAttentionProject{Err: readFailed}, true},
+		"scheduled, never scanned":   {workflow.ScanAttentionProject{Reaches: true}, true},
+	} {
+		c.p.ProjectID, c.p.Slug, c.p.Name = idstest.N(1), "garden", "Garden"
+		row, listed := scanSnapshots([]workflow.ScanAttentionProject{c.p})[idstest.N(1)]
+		if listed != c.listed {
+			t.Errorf("%s: listed %v, want %v", name, listed, c.listed)
+			continue
+		}
+		got := row.Snapshot
+		if !listed || c.p.Err != nil {
+			continue
+		}
+		if got.Name != "Garden · scans" || got.Href != "/maintenance/standards/projects/garden" {
+			t.Errorf("%s: row %q → %q", name, got.Name, got.Href)
+		}
+		if name == "scheduled, never scanned" && !got.ObservedAt.IsZero() {
+			t.Errorf("never scanned shows a scan at %v", got.ObservedAt)
+		}
 	}
 }
