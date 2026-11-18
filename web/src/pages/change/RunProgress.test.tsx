@@ -27,7 +27,7 @@ function html(v: ChangeView, client = newQueryClient()) {
 it('shows landing progress, ordered plain titles, approval fact and timings during deploy', () => {
  const v = view(); v.detail!.steps[0] = { ...v.detail!.steps[0], evidence: { approver: 'bls' } } as Step
  const text = html(v)
- expect(text).toContain('Landing — step 3 of 4')
+ expect(text).toContain('Land — step 3 of 4')
  expect(text).toContain('aria-label="Progress details"')
  expect(text).not.toContain('deploy-scene')
  expect(text).toContain('bls')
@@ -56,13 +56,21 @@ it('names work, keeps later stages out, and distinguishes pending deployment fro
  const v = view(); v.runs = []; v.change.state = 'in_progress'
  v.detail!.steps = [step('agent', 'agent/pi', 'pass'), step('build', 'build', 'pending'), { ...step('future', 'tests', 'pending'), stage: 'later' }]
  const text = html(v)
- expect(text).toContain('Work — step 2 of 2')
+ expect(text).toContain('Land — step 2 of 2')
  expect(text).toContain('Helper finished')
  expect(text).toContain('Waiting to build')
  expect(text).not.toContain('waiting for a free slot')
  expect(text).not.toContain('future')
  v.detail!.steps[1].status = 'pass'
  expect(html(v)).toContain('Accepted work built')
+})
+
+it('heads the progress panel with the phase the strip names', () => {
+ const v = view(); v.detail!.stages = ['gates', 'ship']; v.detail!.run.currentStage = 'gates'
+ v.detail!.steps = v.detail!.steps.map(s => ({ ...s, stage: 'gates' }))
+ const el = document.createElement('div'); el.innerHTML = html(v)
+ expect(el.querySelector('.ch-progress-names strong')?.textContent).toBe('Gates')
+ expect(el.querySelector('[aria-label="Progress details"] h3')?.textContent).toBe('Gates — step 3 of 4')
 })
 
 it('keeps bars for decisions and finished runs, and hides them without a run', () => {
@@ -85,7 +93,7 @@ it('polls called work and deploy facts inside the same block', async () => {
   act(() => el.querySelector<HTMLButtonElement>('.ch-progress-trigger')!.click())
   await vi.waitFor(async () => { await act(async () => {}); expect(document.body.textContent).toContain('Verification') })
   expect(document.body.textContent).toContain('Tests')
-  expect(document.body.querySelector('h3')?.textContent).toBe('Landing — step 1 of 1')
+  expect(document.body.querySelector('h3')?.textContent).toBe('Land — step 1 of 1')
   expect(document.body.querySelectorAll('[aria-label="Progress details"]')).toHaveLength(1)
   v.detail!.steps = [step('build', 'build', 'running')]
   vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ running: true, lines: ['building the image for main'], total: 1 })))
@@ -123,7 +131,7 @@ it.each([
  try {
   const text = html(view(), client)
   expect(text).toContain('Building the accepted work')
-  expect(text).toContain('Landing — step 3 of 4')
+  expect(text).toContain('Land — step 3 of 4')
  } finally { client.clear() }
 })
 

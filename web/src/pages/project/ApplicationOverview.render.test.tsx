@@ -59,3 +59,22 @@ it.each(['open', 'failed', 'stale-empty'])('keeps current work before deployment
     }
   } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it.each([true, false])('offers Home\'s Change split button beside Open app only to who may start a change (%s)', async may => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    if (url.includes('/authz/me')) return Response.json({ project: { 'change:create': may } })
+    if (url.endsWith('/deployments')) return Response.json([{ id: 'main', name: 'main', running: true, url: 'https://demo.example', targetName: 'Docker host', observation: 'running', status: { word: 'working', reason: '' } }])
+    if (url.endsWith('/overview')) return Response.json(empty)
+    if (url.endsWith('/backups')) return Response.json({ backups: [] })
+    if (url.endsWith('/schedules')) return Response.json({ schedules: [] })
+    return Response.json([])
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><StaleScope><ApplicationOverview project={{ slug: 'demo', name: 'Demo', chatAvailable: true } as ProjectDetail} /></StaleScope></MemoryRouter></QueryClientProvider>))
+    const actions = () => el.querySelector('header .page-head-actions')
+    await vi.waitFor(() => expect(actions()?.textContent).toContain('Open app'))
+    if (may) await vi.waitFor(() => expect(actions()?.querySelector('.split-button [aria-label="Change: more options"]')).not.toBeNull())
+    else expect(actions()?.querySelector('.split-button')).toBeNull()
+  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

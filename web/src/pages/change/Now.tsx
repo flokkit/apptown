@@ -15,6 +15,9 @@ const failed = (s: Step) => s.progress === 'failed' || s.progress === 'unknown' 
 const done = (s: Step) => ['done', 'not_applicable'].includes(s.progress)
 export const nowRunning = (view: ChangeView) => view.detail?.run.status === 'running' && view.waitingOn.kind === 'work'
 
+// stageLabel is a stage's name as the progress strip and its panel say it.
+export const stageLabel = (stage: string) => stage.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())
+
 export function currentSteps(d: RunDetail): Step[] {
   const stage = d.run.status === 'done' ? d.stages.at(-1) : d.run.currentStage
   return d.steps.filter(s => s.stage === stage)
@@ -87,14 +90,15 @@ export function Now({ view, details, readings }: { view: ChangeView; details: Ru
   const stageSteps = currentSteps(activeRun)
   const started = stageSteps.map(s => s.startedAt).filter(Boolean).sort()[0]
   const position = stageSteps.findIndex(s => s.id === view.waitingOn.step) + 1 || stageSteps.length
-  const name = view.runs?.find(r => r.id === root.run.id)?.role === 'landing' ? 'Landing' : 'Work'
+  // The strip's bold phase: the root run's current stage.
+  const name = stageLabel(currentSteps(root)[0]?.stage ?? root.run.currentStage)
   return <section className="ch-now" aria-label="Progress details" aria-live="polite">
     <h3>{name}{position > 0 && ` — step ${position} of ${stageSteps.length}`}</h3>
     {started && <p className="small muted">Started {fmtStamp(started)}</p>}
     <ReadStatus q={readings} what="called workflow" /><StaleNote q={readings} />
     {details.map(d => <div key={d.run.id}>
       <p className="ch-now-stages small muted">{d !== root && `${d.run.workflowName} · `}{d.stages.map((stage, i) => {
-        const title = stage.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())
+        const title = stageLabel(stage)
         const current = stage === (currentSteps(d)[0]?.stage ?? d.run.currentStage)
         const bad = d.steps.some(s => s.stage === stage && s.progress === 'failed')
         return <Fragment key={stage}>{i > 0 && ' · '}{current ? <strong className={bad ? 'bad' : undefined}>{title}</strong> : <span className={bad ? 'bad' : undefined}>{title}</span>}</Fragment>
