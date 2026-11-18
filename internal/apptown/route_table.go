@@ -471,6 +471,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change").inArea("changes"),
 		ownerRoute("GET /api/v1/janitor", janitor.List, "janitor.List").inArea("projects"),
 		ownerRoute("GET /api/v1/janitor/history", janitor.History, "janitor.History").inArea("projects"),
+		ownerRoute("GET /api/v1/janitor/statistics", janitor.Statistics, "janitor.Statistics").inArea("projects"),
 		ownerRoute("GET /api/v1/janitor/choices", standingApprovals.List, "standingApprovals.List").inArea("setup"),
 		ownerRoute("PUT /api/v1/janitor/choices", standingApprovals.Save, "standingApprovals.Save").inArea("setup"),
 		ownerRoute("GET /api/v1/janitor/choices/history", standingApprovals.History, "standingApprovals.History").inArea("setup"),

@@ -22,6 +22,7 @@ import (
 var policyEvidence = map[string]func(*testing.T){
 	"janitor.List":                  TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement,
 	"janitor.History":               TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement,
+	"janitor.Statistics":            TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement,
 	"deployments.SetRoutineUpdates": TestRoutineUpdateSettingsHTTPChecksCurrentProjectAuthority,
 	"projectScans.SetChoice":        TestJanitorSettingsHTTPChecksCurrentProjectAuthority,
 	"attention.Read":                TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,

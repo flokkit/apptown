@@ -206,7 +206,7 @@ describe('help wording', () => {
 })
 
 // Each Maintenance page's "Read more" opens the guide for that page.
-it.each([['Needs you', 'janitor'], ['Updates', 'janitor'], ['Standards', 'conformance'], ['Pack upgrades', 'packs-and-what-if'], ['Settings', 'who-keeps-what-updated']])('links the Maintenance %s page to its guide', (sub, guide) => {
+it.each([['Needs you', 'janitor'], ['Updates', 'janitor'], ['Statistics', 'janitor'], ['Standards', 'conformance'], ['Pack upgrades', 'packs-and-what-if'], ['Settings', 'who-keeps-what-updated']])('links the Maintenance %s page to its guide', (sub, guide) => {
   const el = render(<PageHead page="maintenance" sub={sub} />)
   expect(el.querySelector('h1')?.textContent).toBe(sub)
   act(() => q(el).click())

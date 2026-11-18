@@ -100,6 +100,22 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, JanitorHistoryView{History: history, Since: since, Until: until})
 }
 
+// Statistics: GET /janitor/statistics?days=7|30. Workflow owns the period
+// rule, the counts and the clock; this only reads the query.
+func (h Janitor) Statistics(w http.ResponseWriter, r *http.Request) {
+	days, err := strconv.Atoi(r.URL.Query().Get("days"))
+	if err != nil {
+		WriteError(w, 400, "the period is 7 or 30 days")
+		return
+	}
+	stats, err := h.work.JanitorStatistics(r.Context(), days)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, stats)
+}
+
 // JanitorRunView reports each queue independently, including ordinary refusals.
 type JanitorRunView struct {
 	Starts []changeactions.JanitorStart `json:"starts"`

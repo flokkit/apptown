@@ -169,6 +169,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
     'Needs you': { guide: 'janitor', body: <p>Janitor work waiting for a person: a change to accept, an update it could not finish, or a held release.</p> },
     Standards: { guide: 'conformance', body: <p>Whether each project still meets the ways of working it adopted. A review reads each project's <code>main</code> branch and changes nothing.</p> },
     Updates: { guide: 'janitor', body: <p>Changes the Janitor has landed, newest first.</p> },
+    Statistics: { guide: 'janitor', body: <p>What the Janitor ran and shipped, why the rest did not ship, and how long security fixes took.</p> },
     Settings: { guide: 'who-keeps-what-updated', body: <p>What the Janitor keeps up to date in every project. Each project can choose its own dependency level or turn the Janitor off.</p> },
     'Pack upgrades': { guide: 'packs-and-what-if', body: <p>Projects on an older version of a pack they adopted. A what-if tries a newer version on them without changing anything.</p> },
     Checks: { guide: 'conformance', body: <>

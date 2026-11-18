@@ -452,6 +452,7 @@ var cliOperations = map[string]described{
 	"GET /api/v1/projects/{slug}/janitor/attempts":                  {query: []string{"queue"}, status: 200, response: []workflow.AutomatedAttempt{}},
 	"GET /api/v1/janitor":                                           {status: 200, response: httpapi.JanitorView{}},
 	"GET /api/v1/janitor/history":                                   {query: []string{"before", "offset", "period"}, status: 200, response: httpapi.JanitorHistoryView{}},
+	"GET /api/v1/janitor/statistics":                                {query: []string{"days"}, status: 200, response: reflect.Zero(reflect.TypeOf((*workflow.Service).JanitorStatistics).Out(0)).Interface()},
 	"GET /api/v1/janitor/choices":                                   {status: 200, response: (*workflow.StandingRevision)(nil)},
 	"PUT /api/v1/janitor/choices":                                   {strict: true, request: workflow.JanitorChoicesCommand{}, status: 200, response: workflow.StandingRevision{}},
 	"GET /api/v1/janitor/choices/history":                           {status: 200, response: []workflow.StandingRevision{}},
@@ -643,6 +644,27 @@ func apiDescription() (map[string]any, error) {
 	// Keep the API component name when only the owner's Go visibility changes.
 	if _, err := schemas.Named("RunningScan", reflect.Zero(reflect.TypeOf(workflow.MainScans{}.Running).Elem()).Interface()); err != nil {
 		return nil, err
+	}
+	// The Janitor statistics' parts first, so the result does not name them
+	// from their Go types on the way.
+	stats := reflect.TypeOf((*workflow.Service).JanitorStatistics).Out(0)
+	field := func(t reflect.Type, name string) reflect.Type { f, _ := t.FieldByName(name); return f.Type }
+	kind, reason := field(stats, "Kinds").Elem(), field(stats, "Reasons").Elem()
+	for _, n := range []struct {
+		name string
+		t    reflect.Type
+	}{
+		{"JanitorPatchTimes", field(stats, "Patch")},
+		{"JanitorCounts", field(kind, "Counts")},
+		{"JanitorReasonExample", field(reason, "Examples").Elem()},
+		{"JanitorKindStatistics", kind},
+		{"JanitorReason", reason},
+		{"JanitorProjectStatistics", field(stats, "Projects").Elem()},
+		{"JanitorStatistics", stats},
+	} {
+		if _, err := schemas.Named(n.name, reflect.Zero(n.t).Interface()); err != nil {
+			return nil, err
+		}
 	}
 
 	runState, err := schemas.Ref(workflow.RunState(0))

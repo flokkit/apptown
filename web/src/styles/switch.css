@@ -6,5 +6,13 @@
   .setting-switch[aria-checked="true"] .setting-switch-knob { transform: translateX(1.1rem); background: var(--bg); }
   /* A setting's words stay beside its switch, as a choice's stay beside its box. */
   label:has(> .setting-switch:first-child) { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-2); }
+  /* On a touch screen the switch keeps its drawn size, which the 44px minimum
+     for buttons in forms.css would stretch into a blob; its tap area reaches
+     above and below it instead, as a row's text button's does in list-table.css.
+     The selector outranks that file's :is(button, input:not(…):not(…)) rule. */
+  @media (max-width: 800px), (pointer: coarse) {
+    button.setting-switch[role="switch"][aria-checked] { position: relative; min-height: 0; }
+    button.setting-switch[role="switch"][aria-checked]::after { content: ""; position: absolute; inset-inline: 0; top: 50%; height: 44px; translate: 0 -50%; }
+  }
   @media (prefers-reduced-motion: reduce) { .setting-switch-knob { transition: none; } }
 }

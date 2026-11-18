@@ -14,6 +14,14 @@ import (
 	"github.com/flokkit/apptown/internal/wiregen"
 )
 
+// The statistics' types are Workflow's own; they are named here from the
+// method's result, so Workflow need not export them.
+var janitorStatistics = reflect.Zero(reflect.TypeOf((*workflow.Service).JanitorStatistics).Out(0))
+
+func janitorStatisticsPart(field string) reflect.Value {
+	return reflect.Zero(janitorStatistics.FieldByName(field).Type().Elem())
+}
+
 // The Work routes' responses: Changes, runs, chats and the activity pages.
 func init() {
 	registerWireMapped(workflow.ScheduleOutcome(""), `"opened" | "skipped" | "failed" | "unknown"`)
@@ -28,6 +36,13 @@ func init() {
 		wiregen.Named{Name: "JanitorStart", Value: changeactions.JanitorStart{}},
 		wiregen.Named{Name: "JanitorView", Value: JanitorView{}},
 		wiregen.Named{Name: "JanitorHistoryView", Value: JanitorHistoryView{}},
+		wiregen.Named{Name: "JanitorStatistics", Value: janitorStatistics.Interface()},
+		wiregen.Named{Name: "JanitorKindStatistics", Value: janitorStatisticsPart("Kinds").Interface()},
+		wiregen.Named{Name: "JanitorCounts", Value: reflect.Zero(janitorStatisticsPart("Kinds").FieldByName("Counts").Type()).Interface()},
+		wiregen.Named{Name: "JanitorReason", Value: janitorStatisticsPart("Reasons").Interface()},
+		wiregen.Named{Name: "JanitorReasonExample", Value: reflect.Zero(janitorStatisticsPart("Reasons").FieldByName("Examples").Type().Elem()).Interface()},
+		wiregen.Named{Name: "JanitorPatchTimes", Value: janitorStatistics.FieldByName("Patch").Interface()},
+		wiregen.Named{Name: "JanitorProjectStatistics", Value: janitorStatisticsPart("Projects").Interface()},
 		wiregen.Named{Name: "StandingProjectState", Value: projectStandingState{}},
 		wiregen.Named{Name: "StandingProjectAct", Value: projectStandingChoice{}},
 		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},

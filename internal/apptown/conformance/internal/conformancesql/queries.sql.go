@@ -1449,6 +1449,93 @@ func (q *Queries) NextReviewNumber(ctx context.Context) (int64, error) {
 	return last, err
 }
 
+const patchTimes = `-- name: PatchTimes :many
+WITH obs AS MATERIALIZED (
+  SELECT project_id, observed_at, scanner,
+    COALESCE(receipt->'subject'->>'on','') AS subject_on,
+    COALESCE(receipt->'subject'->>'deploymentId','') AS deployment_id,
+    COALESCE(receipt->'subject'->>'part','') AS part,
+    COALESCE(receipt->>'verdict','') AS verdict,
+    CASE WHEN jsonb_typeof(receipt->'findings')='array' THEN receipt->'findings' ELSE '[]'::jsonb END AS findings
+  FROM scan_observations WHERE project_id=ANY($2::uuid[])
+), found AS MATERIALIZED (
+  SELECT DISTINCT o.project_id, o.observed_at, o.scanner, o.subject_on, o.deployment_id, o.part, f->>'fingerprint' AS fingerprint
+  FROM obs o CROSS JOIN LATERAL jsonb_array_elements(o.findings) f
+  WHERE f->>'kind'='vuln' AND COALESCE(f->>'fingerprint','')<>''
+), units AS MATERIALIZED (
+  SELECT project_id, deployment_id, part, scanner, min(first_at) AS first_at, max(observed_at) AS last_present
+  FROM (SELECT project_id, observed_at, scanner, subject_on, deployment_id, part, fingerprint, min(observed_at) OVER (PARTITION BY project_id, fingerprint) AS first_at FROM found) seen
+  WHERE subject_on='running' GROUP BY project_id, deployment_id, part, scanner, fingerprint
+), scans AS MATERIALIZED (
+  -- Each running scan time of a part and scanner, with the next usable scan
+  -- after it (later rows come first in this window); an errored scan is never
+  -- the next one.
+  SELECT project_id, deployment_id, part, scanner, observed_at,
+    min(CASE WHEN usable THEN observed_at END) OVER (PARTITION BY project_id, deployment_id, part, scanner ORDER BY observed_at DESC ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS next_usable
+  FROM (SELECT project_id, deployment_id, part, scanner, observed_at, bool_or(verdict IN ('pass','fail')) AS usable
+    FROM obs WHERE subject_on='running' GROUP BY project_id, deployment_id, part, scanner, observed_at) t
+), measured AS MATERIALIZED (
+  SELECT u.project_id, u.first_at, u.last_present,
+    (SELECT s.next_usable FROM scans s WHERE s.project_id=u.project_id AND s.deployment_id=u.deployment_id AND s.part=u.part AND s.scanner=u.scanner AND s.observed_at=u.last_present) AS next_usable
+  FROM units u
+)
+SELECT project_id, first_at::timestamptz AS first_seen, last_present::timestamptz AS last_present,
+  (next_usable IS NOT NULL)::boolean AS patched, COALESCE(next_usable, last_present)::timestamptz AS patched_at
+FROM measured
+WHERE next_usable>=$1::timestamptz OR (next_usable IS NULL AND last_present>=$1::timestamptz)
+ORDER BY project_id, first_at
+`
+
+type PatchTimesParams struct {
+	Since      time.Time
+	ProjectIds []ids.ID
+}
+
+type PatchTimesRow struct {
+	ProjectID   ids.ID
+	FirstSeen   time.Time
+	LastPresent time.Time
+	Patched     bool
+	PatchedAt   time.Time
+}
+
+// One row per vulnerability fingerprint a running-app scan found, per
+// deployment part and scanner: when any of the project's scans first found
+// it, when a running scan last found it, and the first usable (pass or fail)
+// running scan of the same part and scanner after that. Only units still
+// relevant to the period come back; first sightings read all history. The
+// small per-scan lookup is a subquery rather than a join: estimates over
+// JSON-derived rows are poor, and a planner that misjudges a join here can
+// turn it into a nested loop over every finding.
+func (q *Queries) PatchTimes(ctx context.Context, arg PatchTimesParams) ([]PatchTimesRow, error) {
+	rows, err := q.db.QueryContext(ctx, patchTimes, arg.Since, pq.Array(arg.ProjectIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PatchTimesRow
+	for rows.Next() {
+		var i PatchTimesRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.FirstSeen,
+			&i.LastPresent,
+			&i.Patched,
+			&i.PatchedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const priorAdjudicatedVerdicts = `-- name: PriorAdjudicatedVerdicts :many
 
 SELECT current.id, prior.sha, prior.by, prior.created_at

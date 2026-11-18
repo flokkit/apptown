@@ -46,7 +46,7 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('offers Ma
     expect(top).toEqual(['Home', 'Projects', 'Deployments', ...(projects || conformance ? ['Maintenance'] : [])])
     // Maintenance is a drawer whose pages follow the reader's access.
     expect(el.querySelector('.nav-drawer-head a[href="/maintenance"]')?.classList.contains('active-area')).toBe(projects || conformance ? true : undefined)
-    expect([...el.querySelectorAll('.nav-drawer-items a[href^="/maintenance"]')].map(a => a.textContent)).toEqual([...(projects ? ['Needs you'] : []), ...(conformance ? ['Standards'] : []), ...(projects ? ['Updates', 'Settings'] : [])])
+    expect([...el.querySelectorAll('.nav-drawer-items a[href^="/maintenance"]')].map(a => a.textContent)).toEqual([...(projects ? ['Needs you'] : []), ...(conformance ? ['Standards'] : []), ...(projects ? ['Updates', 'Statistics', 'Settings'] : [])])
     expect(el.querySelector('.nav-drawer-items a[href="/maintenance/settings"]')?.classList.contains('active')).toBe(projects ? true : undefined)
     expect(el.querySelector('a[href="/janitor"]')).toBeNull()
     expect(el.querySelector('a[href="/conformance"]')).toBeNull()

@@ -256,7 +256,7 @@ try {
     'maintenance-standards': '/maintenance/standards', checks: '/maintenance/standards/checks', reviews: '/maintenance/standards/reviews', 'text-roles': '/text-roles',
     'what-ifs': '/maintenance/standards/what-ifs', remediations: '/maintenance/standards/remediations',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets', notifications: '/integrations/notifications',
-    maintenance: '/maintenance', 'maintenance-updates': '/maintenance/updates', 'maintenance-settings': '/maintenance/settings', 'maintenance-redirect': '/janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
+    maintenance: '/maintenance', 'maintenance-updates': '/maintenance/updates', 'maintenance-settings': '/maintenance/settings', 'maintenance-statistics': '/maintenance/statistics', 'maintenance-redirect': '/janitor', packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people/groups', 'people-group': '/people/groups/reviewers', 'people-account': '/people/accounts/sam', 'people-roles': '/people/roles', 'people-signin': '/people/sign-in', 'people-agents': '/people/agents-and-tokens',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people/accounts', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',

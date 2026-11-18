@@ -3704,6 +3704,41 @@
         },
         "type": "object"
       },
+      "JanitorCounts": {
+        "properties": {
+          "closed": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "nothingToChange": {
+            "type": "integer"
+          },
+          "running": {
+            "type": "integer"
+          },
+          "runs": {
+            "type": "integer"
+          },
+          "shipped": {
+            "type": "integer"
+          },
+          "waiting": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "shipped",
+          "nothingToChange",
+          "waiting",
+          "failed",
+          "closed",
+          "running"
+        ],
+        "type": "object"
+      },
       "JanitorDeployment": {
         "properties": {
           "automatic": {
@@ -3819,6 +3854,48 @@
         ],
         "type": "object"
       },
+      "JanitorKindStatistics": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/JanitorCounts"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "counts"
+        ],
+        "type": "object"
+      },
+      "JanitorPatchTimes": {
+        "properties": {
+          "median": {
+            "type": "integer"
+          },
+          "oldestOpen": {
+            "type": "integer"
+          },
+          "open": {
+            "type": "integer"
+          },
+          "patched": {
+            "type": "integer"
+          },
+          "slowest": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "patched",
+          "median",
+          "slowest",
+          "open",
+          "oldestOpen"
+        ],
+        "type": "object"
+      },
       "JanitorProject": {
         "properties": {
           "choice": {
@@ -3868,6 +3945,98 @@
           "level",
           "queues",
           "scheduleProblem"
+        ],
+        "type": "object"
+      },
+      "JanitorProjectStatistics": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/JanitorCounts"
+          },
+          "name": {
+            "type": "string"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/JanitorPatchTimes"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId",
+          "slug",
+          "name",
+          "counts",
+          "patch"
+        ],
+        "type": "object"
+      },
+      "JanitorReason": {
+        "properties": {
+          "column": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorReasonExample"
+            },
+            "type": "array"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "latest": {
+            "type": "string"
+          },
+          "step": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "column",
+          "step",
+          "count",
+          "latest",
+          "examples"
+        ],
+        "type": "object"
+      },
+      "JanitorReasonExample": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "project",
+          "slug",
+          "at"
         ],
         "type": "object"
       },
@@ -3953,6 +4122,47 @@
           "current",
           "refused",
           "busyChangeNumber"
+        ],
+        "type": "object"
+      },
+      "JanitorStatistics": {
+        "properties": {
+          "days": {
+            "type": "integer"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorKindStatistics"
+            },
+            "type": "array"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/JanitorPatchTimes"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorProjectStatistics"
+            },
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/JanitorReason"
+            },
+            "type": "array"
+          },
+          "since": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "since",
+          "kinds",
+          "reasons",
+          "patch",
+          "projects"
         ],
         "type": "object"
       },
@@ -13614,6 +13824,48 @@
         ],
         "x-apptown-access": {
           "contract": "janitor.History",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/janitor/statistics": {
+      "get": {
+        "operationId": "getJanitorStatistics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JanitorStatistics"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "janitor"
+        ],
+        "x-apptown-access": {
+          "contract": "janitor.Statistics",
           "kind": "owner"
         },
         "x-apptown-feature": {

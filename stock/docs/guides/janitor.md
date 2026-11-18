@@ -177,3 +177,22 @@ Queue titles, schedules and repair limits come from each project's adopted
 workflows. Run now reads the scheduler's current answer. AppTown checks every
 candidate against the saved choices and requires current authority at acceptance
 and landing.
+
+## Statistics
+
+**Maintenance › Statistics** counts the Janitor's runs over the last 7 or 30
+days, by kind (packs, dependency and image updates, security fixes) and by
+project. Each run is in one column. A finished run counts as Shipped, Nothing
+to change, Failed or Closed (skipped, replaced or closed by a person). A run
+still open counts as Waiting on a person when Needs you shows its change for
+a decision, otherwise as Running. **Why not shipped** groups waiting and
+failed runs by the step that stopped them, with the latest reason and links
+to examples; a failed run whose change was cleaned up keeps its date without
+a link.
+
+**Time to patch** runs from the first AppTown scan that found a vulnerability
+to the first usable scan of the running app without it after its latest
+sighting, for the same deployment part and scanner. It includes the wait for
+a fix to be published, which AppTown does not record, and the time between
+scans. Still open counts only vulnerabilities a running-app scan found in the
+period.

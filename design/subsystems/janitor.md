@@ -85,6 +85,31 @@ Original grant attribution reads the recorded rule revision,
 including for failed work whose Change is purged. Every attribution names the recorded choices, revision and issuer, with a link to Maintenance. The Change heading shows that original firing grant and its time on every tab, separately from later acceptance votes, including when the votes use a different rule. Vote labels read the referenced revision from the standing-rule history. Missing or stale scan evidence
 and failed refreshes remain visibly different from clean or empty answers.
 
+`/maintenance/statistics` reads `GET /janitor/statistics?days=7|30`. Workflow
+fences the readable Janitor project set, reads the recorded queue states, the
+period's attempts (`automated_changes`, three Janitor queues) and the patch
+units in one query each, and refuses any other period. A closed attempt's
+column comes from its retained outcome: `shipped`; `pass` is nothing to
+change; `held`, `faulted`, `retried`, `fail` and `error` are failed;
+`skipped` and `abandoned` are closed. An unknown closed outcome fails the
+read instead of being counted. An open attempt's outcome is a history marker,
+so it is waiting on a person only when the recorded queue for its kind is
+`decide` on its Change ("Waiting for acceptance" for an approval, else its
+recorded reason), and running otherwise. Reasons group by the text before the
+first `": "` (the step), keeping the latest text and three newest examples;
+a purged Change leaves an unlinked example.
+
+Conformance computes patch units from `scan_observations` in one query: a
+`vuln` fingerprint a running scan found, per deployment ID, part and scanner.
+It is first seen at the earliest observation of that fingerprint in any of
+the project's scans, and patched at the first `pass` or `fail` running scan
+of the same part and scanner after its latest sighting there; an `error`
+scan proves nothing. A unit that comes back is open until it is gone again.
+Units patched in the period give median and slowest; units seen in the period
+and not patched are still open. Matching uses exact fingerprints, so a
+scanner whose fingerprints move with rule locations can show a patch and a
+new finding. Fix publication time is not recorded.
+
 The Janitor project set contains ordinary projects with no lifecycle row.
 Attention's Scans source uses the same set, returning known empty coverage for
 deleted projects and eval copies. An eligibility read failure remains an error.

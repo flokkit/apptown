@@ -27,6 +27,7 @@ import Dashboard from './pages/Dashboard'
 import Maintenance, { ConformanceRedirect } from './pages/Maintenance'
 import { NeedsYou, UpdatesHistory } from './pages/Janitor'
 import JanitorSettings from './pages/janitor/Settings'
+import JanitorStatistics from './pages/janitor/Statistics'
 import AttentionPage from './pages/Attention'
 import Projects from './pages/Projects'
 import Deployments from './pages/Deployments'
@@ -146,6 +147,7 @@ export function SidebarNav() {
         ...(mayOpen('conformance') ? [{ to: '/maintenance/standards', label: 'Standards', active: pathname.startsWith('/maintenance/standards') }] : []),
         ...(permission('maintenance') ? [
           { to: '/maintenance/updates', label: 'Updates', active: pathname === '/maintenance/updates' },
+          { to: '/maintenance/statistics', label: 'Statistics', active: pathname === '/maintenance/statistics' },
           { to: '/maintenance/settings', label: 'Settings', active: pathname === '/maintenance/settings' },
         ] : []),
       ]} />}
@@ -364,6 +366,7 @@ export default function App() {
           <Route path="/maintenance" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><NeedsYou /></InstanceGate></Maintenance></CoreArea>} />
           <Route path="/maintenance/updates" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><UpdatesHistory /></InstanceGate></Maintenance></CoreArea>} />
           <Route path="/maintenance/settings" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><JanitorSettings /></InstanceGate></Maintenance></CoreArea>} />
+          <Route path="/maintenance/statistics" element={<CoreArea area="projects"><Maintenance><InstanceGate page="maintenance"><JanitorStatistics /></InstanceGate></Maintenance></CoreArea>} />
           <Route path="/janitor" element={<CoreArea area="record"><Navigate replace to={{ pathname: '/maintenance', search, hash }} /></CoreArea>} />
           <Route path="/janitor/settings" element={<CoreArea area="record"><Navigate replace to={{ pathname: '/maintenance/settings', search, hash }} /></CoreArea>} />
           <Route path="/conformance/*" element={<CoreArea area="record"><ConformanceRedirect /></CoreArea>} />
