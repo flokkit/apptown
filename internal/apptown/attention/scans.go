@@ -27,23 +27,36 @@ func (s Scans) Snapshot(ctx context.Context, projects []ids.ID) (map[ids.ID]Scan
 	if err != nil {
 		return nil, err
 	}
+	return scanSnapshots(rows), nil
+}
+
+// scanSnapshots leaves out a project the Janitor does not scan (no repository
+// or no scheduled scan) unless it has an item or its read failed: it made that
+// choice and the Janitor page says so, so it is not a check. A scanned project
+// that has never completed a scan stays, as not checked yet.
+func scanSnapshots(rows []workflow.ScanAttentionProject) map[ids.ID]ScanSnapshot {
 	out := map[ids.ID]ScanSnapshot{}
-	for _, id := range projects {
-		out[id] = ScanSnapshot{Snapshot: scanSnapshot(workflow.ScanAttentionProject{})}
-	}
 	for _, p := range rows {
-		out[p.ProjectID] = ScanSnapshot{Snapshot: scanSnapshot(p), Err: p.Err}
+		snapshot := scanSnapshot(p)
+		scanned := p.Reaches && !p.Scans.NoRepository && !p.Scans.Unscheduled
+		if p.Err != nil || len(snapshot.Items) > 0 || scanned {
+			out[p.ProjectID] = ScanSnapshot{Snapshot: snapshot, Err: p.Err}
+		}
 	}
-	return out, nil
+	return out
 }
 
 func scanSnapshot(p workflow.ScanAttentionProject) Snapshot {
 	if !p.Reaches {
-		return Snapshot{Name: "Scans", Known: true, Items: []Item{}}
+		return Snapshot{Known: true, Items: []Item{}}
 	}
 	id, scans := p.ProjectID, p.Scans
 	href := "/maintenance/standards/projects/" + p.Slug
-	out := Snapshot{Name: "Scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
+	name := p.Name
+	if name == "" {
+		name = p.Slug
+	}
+	out := Snapshot{Name: name + " · scans", Href: href, Known: true, ObservedAt: scans.LastScan, Items: []Item{}}
 	if !scans.Known && !scans.NoRepository && !scans.Unscheduled && (scans.Failed || scans.Stale) {
 		out.Items = append(out.Items, Item{Key: "scans/" + id.String(), Severity: SeverityWarning, Title: fmt.Sprintf("%s: scan not known", p.Name), Detail: scanDetail(scans.Reason), Href: href, Unknown: true, Stale: scans.Stale, ObservedAt: scans.LastScan})
 	}
