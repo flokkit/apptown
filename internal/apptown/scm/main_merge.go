@@ -103,3 +103,58 @@ func stderrOf(err error) string {
 	}
 	return ""
 }
+
+// maxCatchUps bounds the merges CleanCatchUp walks: a landing is caught up
+// once at admission and again at each recheck, never dozens of times.
+const maxCatchUps = 16
+
+// CleanCatchUp says why candidate is not accepted with main cleanly merged
+// in, and nothing else, or "" when it is. Walking first parents from
+// candidate back to accepted, every commit must be a merge of exactly two
+// parents whose second is contained in target and whose tree is exactly the
+// tree Git makes merging the two cleanly, as MergeMain makes a catch-up. A
+// merge carrying an edit of its own, a commit that is not such a merge, or
+// a history that does not reach accepted is refused: the candidate holds
+// work nobody accepted. Git failing to answer is an error, never "clean".
+func CleanCatchUp(ctx context.Context, repo, accepted, candidate, target string) (string, error) {
+	at := candidate
+	for range maxCatchUps {
+		if at == accepted {
+			return "", nil
+		}
+		parents, err := gitexec.HubOutput(ctx, repo, nil, "rev-list", "--parents", "-n", "1", "--end-of-options", at)
+		if err != nil {
+			return "", fmt.Errorf("reading the parents of %s: %w: %s", strs.ShortSHA(at), err, stderrOf(err))
+		}
+		fields := strings.Fields(string(parents))
+		if len(fields) != 3 {
+			return fmt.Sprintf("commit %s is not a merge of main into the accepted commit %s", strs.ShortSHA(at), strs.ShortSHA(accepted)), nil
+		}
+		first, second := fields[1], fields[2]
+		inTarget, err := gitexec.HubIsAncestor(ctx, repo, second, target)
+		if err != nil {
+			return "", err
+		}
+		if !inTarget {
+			return fmt.Sprintf("merge %s brings in %s, which is not on main", strs.ShortSHA(at), strs.ShortSHA(second)), nil
+		}
+		merged, err := gitexec.HubOutput(ctx, repo, nil, "merge-tree", "--write-tree", "--no-messages", "--end-of-options", first, second)
+		var exit *exec.ExitError
+		switch {
+		case err == nil:
+		case errors.As(err, &exit) && exit.ExitCode() == 1:
+			return fmt.Sprintf("merge %s resolved conflicts by hand", strs.ShortSHA(at)), nil
+		default:
+			return "", fmt.Errorf("merging the parents of %s: %w: %s", strs.ShortSHA(at), err, stderrOf(err))
+		}
+		tree, err := gitexec.HubReadRef(ctx, repo, at+"^{tree}")
+		if err != nil {
+			return "", err
+		}
+		if want := strings.TrimSpace(string(merged)); tree != want {
+			return fmt.Sprintf("merge %s changes more than merging main in", strs.ShortSHA(at)), nil
+		}
+		at = first
+	}
+	return fmt.Sprintf("the candidate does not reach the accepted commit %s through merges of main", strs.ShortSHA(accepted)), nil
+}

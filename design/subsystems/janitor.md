@@ -173,6 +173,16 @@ is excluded. A single-stage landing merges at completion, so its stage is
 included. The completion recheck uses the same pre-merge evidence. Post-merge
 steps still follow the final stage's own gate.
 
+A person's acceptance carries only to a landing of the exact commit they
+accepted. A standing acceptance's authority is a rule, so when the landing's
+candidate differs because main was merged in, the same rule assesses the
+candidate again before the acceptance carries: the candidate must be the
+accepted commit with main cleanly merged in and nothing else (each merge's
+tree is the one Git makes from its parents), the routine classification must
+hold for what it brings to the new main, and the landing's own checks apply
+as for any carried acceptance. Anything else waits for a person, with the
+reason on the landing.
+
 The assessment records source commits, tree, rule and run revisions, the choices and classified paths. It re-observes the source before returning. Standing
 processing uses a fresh assessment before casting a typed vote; assessment does
 not accept, land or deploy. Targeted fixes require security permission and the

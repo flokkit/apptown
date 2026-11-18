@@ -87,6 +87,11 @@ func (r routineInspector) observe(ctx context.Context, source workflow.Source) (
 	if err != nil {
 		return out, err
 	}
+	// A landing works in a read-only copy of its own and publishes nothing:
+	// its candidate is the branch as published, read above.
+	if source.RootRole == "landing" {
+		return out, nil
+	}
 	if _, err = os.Lstat(workspace); err != nil {
 		if os.IsNotExist(err) {
 			return out, nil

@@ -169,8 +169,8 @@ type acceptance struct {
 	InAdvance bool
 }
 
-func acceptanceIn(ctx context.Context, tx *database.Tx, workID ids.ID) (acceptance, error) {
-	raw, err := workflowsql.New(tx.SQL()).LandingAcceptedActorEvidence(ctx, workflowsql.LandingAcceptedActorEvidenceParams{RunID: workID, Status: StatusPass.String()})
+func acceptanceIn(ctx context.Context, q database.Queryer, workID ids.ID) (acceptance, error) {
+	raw, err := workflowsql.New(q.SQL()).LandingAcceptedActorEvidence(ctx, workflowsql.LandingAcceptedActorEvidenceParams{RunID: workID, Status: StatusPass.String()})
 	if errors.Is(err, sql.ErrNoRows) {
 		return acceptance{Accepter: "apptown-system", Who: access.Actor{Name: "apptown-system"}}, nil
 	}

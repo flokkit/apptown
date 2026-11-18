@@ -403,3 +403,17 @@ func (e *Execution) EndLanding(reason string) error {
 	_, err = e.service.abandonments.abandon(e.ctx, Abandonment{RunID: e.run.ID, Who: "apptown-system", Reason: reason}, e.run.ProjectID)
 	return err
 }
+
+// cleanCatchUp says why the landing run's candidate c is not the accepted
+// commit with main cleanly merged in (scm.CleanCatchUp), or "" when it is.
+func (p landingPins) cleanCatchUp(ctx context.Context, run *Run, accepted string, c LandingCandidate) (string, error) {
+	source, err := ReadSourceIn(ctx, p.db, RunRef{ID: run.ID, ProjectID: run.ProjectID})
+	if err != nil {
+		return "", err
+	}
+	hub, err := source.Repository(p.dataDir)
+	if err != nil {
+		return "", err
+	}
+	return scm.CleanCatchUp(ctx, hub, accepted, c.Candidate, c.Target)
+}

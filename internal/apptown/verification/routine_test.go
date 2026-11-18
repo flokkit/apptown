@@ -315,3 +315,27 @@ func TestRoutineImageLookupFailureRemainsUnknown(t *testing.T) {
 		t.Fatalf("%+v %v", result, err)
 	}
 }
+
+// A landing works in a read-only copy of its own: the rule judges its
+// candidate as published, whatever that copy holds, and names the branch's
+// tip as the candidate.
+func TestRoutineInspectionOfALandingReadsThePublishedCandidate(t *testing.T) {
+	data, repo, source := routineRepository(t)
+	source.RootRole, source.RootRunID = "landing", idstest.N(9001)
+	workspace, err := source.Workspace(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(workspace, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	routineWrite(t, filepath.Join(workspace, "build-output.txt"), []byte("left by a landing check"))
+	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine"})
+	if err != nil || result.Classification != "routine-dependency" {
+		t.Fatalf("the landing's candidate was not judged: %+v %v", result, err)
+	}
+	if tip := routineGit(t, repo, "rev-parse", "refs/heads/"+source.Branch); result.Candidate != strings.TrimSpace(tip) {
+		t.Fatalf("judged %s, want the published branch %s", result.Candidate, tip)
+	}
+}

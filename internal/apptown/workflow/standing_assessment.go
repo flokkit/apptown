@@ -149,14 +149,21 @@ func (s StandingRules) observeAssessmentSource(ctx context.Context, runID ids.ID
 	if err != nil {
 		return out, err
 	}
-	if source.ChangeID.IsZero() || !source.RepoBacked() || source.RootRole == "landing" {
+	if source.ChangeID.IsZero() || !source.RepoBacked() {
 		return out, fault.New(fault.Conflict, "routine inspection needs an ordinary repository-backed change")
 	}
 	ch, err := readChangeInProject(ctx, s.db, source.ChangeID, pid)
 	if err != nil {
 		return out, err
 	}
-	if ch.State != ChangeInProgress {
+	// A working run is inspected while its change is worked; a landing,
+	// whose candidate the rule judges again after catching up with main,
+	// while its change lands.
+	want := ChangeInProgress
+	if source.RootRole == "landing" {
+		want = ChangeLanding
+	}
+	if ch.State != want {
 		return out, fault.New(fault.Conflict, "this change is not an ordinary change awaiting inspection")
 	}
 	run, err = readRun(ctx, s.db, runID)
@@ -235,7 +242,11 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 		return out, err
 	}
 
-	if _, err := s.eligibleForIn(ctx, s.db, rule, first.source.ProjectID, first.source.WorkflowName, first.run.AdoptionID); err != nil {
+	proc, err := standingProcedureRunIn(ctx, s.db, &first.run)
+	if err != nil {
+		return out, err
+	}
+	if _, err := s.eligibleForIn(ctx, s.db, rule, first.source.ProjectID, proc.WorkflowName, proc.AdoptionID); err != nil {
 		return out, err
 	}
 	if s.deps.Inspector == nil {
@@ -300,7 +311,7 @@ func (s StandingRules) assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 			inspection.Classification += "-and-adoption"
 		}
 	}
-	if _, err := s.eligibleForIn(ctx, s.db, current, last.source.ProjectID, last.source.WorkflowName, last.run.AdoptionID); err != nil {
+	if _, err := s.eligibleForIn(ctx, s.db, current, last.source.ProjectID, proc.WorkflowName, proc.AdoptionID); err != nil {
 		return out, err
 	}
 	return StandingAssessment{Level: categories.Dependencies, ProcessingAvailable: true, Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, Choices: rule.Choices, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
