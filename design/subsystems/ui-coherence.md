@@ -63,8 +63,6 @@ appears once, as a linked change and release record. Cancelled work stays in
 history with a neutral state. It includes
 a backup only when it failed, stopped or was triggered manually. The Backups page
 lists every backup, and Application details retains the latest backup state.
-The overview Releases card shows the release list and live marker; release notes
-remain in the release record.
 
 ## Visual language
 

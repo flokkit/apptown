@@ -53,11 +53,12 @@ type ReleaseListed struct {
 	SbomArtifact ids.ID `json:"sbomArtifact,omitzero"`
 }
 
-// ReleaseChangeTitle names a Change a release carries.
+// ReleaseChangeTitle names a Change a release brought.
 type ReleaseChangeTitle struct {
 	Number int64  `json:"number"`
 	ID     ids.ID `json:"id"`
 	Title  string `json:"title"`
+	Type   string `json:"type"`
 }
 
 // ListReleases: GET /api/v1/projects/{slug}/releases — newest first,
@@ -135,8 +136,8 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 // release on the deployment carried the change (Releases.NewChanges). A
 // release's full membership holds every change its bundle was built from,
 // so a list that showed it would repeat the project's history on every row.
-// The project's releases and the fleet's releases both read it, so one
-// release shows the same changes in both. Each list is non-nil even when
+// The project's releases, a release's own page and the fleet's releases all
+// read it, so one release shows the same changes in each. Each list is non-nil even when
 // empty: a release carrying no changes (e.g. a promotion) must serialize
 // changes as [], not null — null crashed the Overview after the first
 // intranet release.
@@ -154,7 +155,7 @@ func newReleaseChanges(ctx context.Context, work *workflow.Service, releases *de
 		out[id] = []ReleaseChangeTitle{}
 		for _, change := range contents[id] {
 			if fresh[id][change.ID] {
-				out[id] = append(out[id], ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title})
+				out[id] = append(out[id], ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title, Type: change.Type})
 			}
 		}
 	}
@@ -163,7 +164,7 @@ func newReleaseChanges(ctx context.Context, work *workflow.Service, releases *de
 
 // ReleaseDetail: GET /projects/{slug}/releases/{number} — the
 // PERMALINK. A release is an institutional event; this page is its record:
-// who, when, which commit, which bytes (digest), which changes it carried.
+// who, when, which commit, which bytes (digest), which changes it brought.
 func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	p, ok := projectFromPath(h.projects, w, r)
 	if !ok {
@@ -179,16 +180,10 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 404, "no release #%d on this project", num)
 		return
 	}
-	// The changes a release carries are Work's labels over Delivery's
-	// membership receipts, read through Work's door for the verified caller.
-	labels, err := h.work.ReleaseChanges(r.Context(), p.ID, []ids.ID{rel.ID})
+	changes, err := newReleaseChanges(r.Context(), h.work, h.deployment.Releases, p.ID, []ids.ID{rel.ID})
 	if err != nil {
 		WriteFault(w, err)
 		return
-	}
-	changes := []ReleaseChange{}
-	for _, c := range labels[rel.ID] {
-		changes = append(changes, ReleaseChange{ID: c.ID, Title: c.Title, Type: c.Type})
 	}
 	live, err := h.deployment.Releases.Live(r.Context(), rel)
 	if err != nil {
@@ -217,7 +212,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 			label = d.DisplayLabel
 		}
 	}
-	out := ReleaseDetail{DeploymentLabel: label, Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
+	out := ReleaseDetail{DeploymentLabel: label, Release: rel, StatusLabel: rel.State.Display(), Changes: changes[rel.ID], IsLive: live, Events: events}
 	if out.ReplacedBy, err = h.deployment.Releases.ReplacedBy(r.Context(), rel); err != nil {
 		WriteFault(w, err)
 		return
@@ -282,7 +277,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, out)
 }
 
-// ReleaseDetail is one release: what it is, the changes it carried, whether
+// ReleaseDetail is one release: what it is, the changes it brought, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
 	DeploymentLabel string                          `json:"deploymentLabel"`
@@ -293,7 +288,7 @@ type ReleaseDetail struct {
 	Backup          *dataprotection.BackupReference `json:"backup,omitempty"`
 	StatusLabel     deployment.ReleaseLabel         `json:"statusLabel"`
 	Release         *deployment.Release             `json:"release"`
-	Changes         []ReleaseChange                 `json:"changes"`
+	Changes         []ReleaseChangeTitle            `json:"changes"`
 	IsLive          bool                            `json:"isLive"`
 	// ReplacedBy is the later release that replaced this one on its
 	// deployment; zero when none did.
@@ -317,13 +312,6 @@ type ReleaseBundleView struct {
 	Platform    string            `json:"platform,omitempty"`
 	Parts       map[string]string `json:"parts"`
 	Init        map[string]string `json:"init"`
-}
-
-// ReleaseChange is a change a release carried, by its label.
-type ReleaseChange struct {
-	ID    ids.ID `json:"id"`
-	Title string `json:"title"`
-	Type  string `json:"type"`
 }
 
 // servedReleases says which of a project's deployments run right now, by

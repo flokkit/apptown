@@ -35,7 +35,6 @@ const fixture = await build({
     import { MoreMenu, FormMenu } from './MoreMenu'
     import { ListRow } from './ListRow'
     import { ListTable } from './ListTable'
-    import { ReleaseRows } from './pages/project/Overview'
     import { LibraryRow, LibraryRows } from './LibraryRow'
     import AgentActivity from './AgentActivity'
     import { Tabs } from './Tabs'
@@ -54,8 +53,6 @@ const fixture = await build({
         <div className="row"><span className="row-status"><Status word="unknown" help="No runtime reading." /></span><span className="row-status"><Status word="unknown" help="No current inventory confirms presence. Ask an administrator to check this target." /></span></div>
         <div className="project-rows">{['Short description', long].map((blurb,i)=><ProjectListRow key={i} project={{slug:'project-'+i,name:i?'A project with more words':'Short name',blurb,hasDeployments:false,canChange:false,observation:'unknown'}} />)}</div>
         <ListTable label="Wrapping records" rows={["Short",long]} rowKey={r=>r} columns={[{key:"name",label:"Name",phone:"name",render:r=><a href="#record">{r}</a>},{key:"detail",label:"Description",phone:"detail",render:r=>r}]} />
-        {/* A release leads with its change titles; on a phone the row wraps instead of widening the page. */}
-        <ReleaseRows slug="club-newsletter" releases={[33,32,31].map(n=>({number:n,deployment:"archive-migration",deploymentLabel:"archive-migration",serving:n===33,commitSha:"544542f0c33d8e1a",releasedAt:"2026-11-13T09:26:00Z",createdAt:"2026-11-13T09:26:00Z",changes:[{id:"c"+n,number:14,title:"Publish the winter ride times"}]}))} />
         <LibraryRows><LibraryRow name="Short policy" to="/policies/short" /><LibraryRow name={long} to="/policies/long" /></LibraryRows>
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
@@ -264,7 +261,6 @@ const roundFixture = await build({
     import { LibraryRow, LibraryRows } from './LibraryRow'
     import { HelpButton, PageHead } from './PageHead'
     import { AppAddress } from './runtime'
-    import { ReleaseRows } from './pages/project/Overview'
     import { CapacityTable } from './pages/integrations/CapacityBars'
     import { InfrastructureNew } from './pages/InfrastructureNew'
     import { AdminNetworksCard } from './pages/People'
@@ -310,7 +306,6 @@ const roundFixture = await build({
       overview: <div><ListRow to="/changes/1" className="card row application-overview-card" state={<span className="row-status">deployed</span>} identity={<>
           <Link to="/changes/1" className="row grow application-overview-link"><strong>Put up the October newsletter and 9 more</strong><span className="muted small">9 Nov, 22:14</span></Link>
           <span className="muted small"><Link to="/r">Release 18</Link> · members-preview</span></>} /></div>,
-      releases: <ReleaseRows slug="club-newsletter" releases={[24, 23, 22, 21, 20].map(n => ({ number: n, serving: n === 23, releasedAt: '2026-11-09T22:0' + (n % 10) + ':00Z', createdAt: '2026-11-09T22:00:00Z' }))} />,
       capacity: <div>
         <div className="cap-bar" style={{ width: 300 }}><span className="cap-seg cap-free" style={{ flex: '0 1 100%' }}><span className="cap-in">1 CPU not allocated</span></span></div>
         <div className="cap-details" role="region" aria-label="App resource table" tabIndex={0}><h2>App resource details</h2><CapacityTable heads={['containers', 'memory used', 'memory limits', 'without a set limit', 'CPU limits']}
@@ -499,7 +494,6 @@ try {
     document.querySelector('main').append(box)
   })
   // Source in a list row's detail scrolls in its box; it never widens the row.
-  assert.ok(await page.locator('.release-strip').evaluate(strip => strip.getBoundingClientRect().right <= document.documentElement.clientWidth + 0.5), 'release rows that lead with change titles wrap within the phone')
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'workflow source in a row detail keeps the page within the phone')
   assert.ok(await page.locator('#phone-content-fixtures .list-detail').evaluate(el => {
     const row = el.closest('.list-row')
@@ -939,9 +933,6 @@ try {
     // An overview row's title has the row's width; the release goes under it.
     await round('overview', size)
     want(await page.locator('.application-overview-card').evaluate(row => row.querySelector('.application-overview-link').getBoundingClientRect().width >= 0.9 * row.getBoundingClientRect().width), `an overview title has the row's width at ${where}`)
-    // One release per line.
-    await round('releases', size)
-    want(await page.locator('.release-strip li').evaluateAll(items => new Set(items.map(li => Math.round(li.getBoundingClientRect().top))).size === items.length && items.length === 5), `one release per line at ${where}`)
     // Capacity headers stay whole (the table scrolls); bar labels are not cut.
     await round('capacity', size)
     // On a phone the resource table stacks like any ListTable: nothing runs
@@ -958,11 +949,9 @@ try {
       return bounds.left >= 0 && bounds.right <= innerWidth && [...range.getClientRects()].every(r => r.left >= 0 && r.right <= innerWidth) && document.documentElement.scrollWidth <= innerWidth
     }), `the host-only Open app label wraps within 390px at ${size}`)
   }
-  // Wide screens: an overview row still leads with its state; releases run on.
+  // Wide screens: an overview row still leads with its state.
   await round('overview', 'small', 1440)
   want(await page.locator('.application-overview-card').evaluate(row => row.querySelector('.list-state').getBoundingClientRect().left < row.querySelector('.list-identity').getBoundingClientRect().left), 'at 1440 the overview row leads with its state')
-  await round('releases', 'small', 1440)
-  want(await page.locator('.release-strip li').evaluateAll(items => items.length >= 2 && Math.round(items[0].getBoundingClientRect().top) === Math.round(items[1].getBoundingClientRect().top)), 'at 1440 releases run on one line')
   // Links are underlined unless they are the item, at both widths.
   for (const width of [390, 1440]) {
     await round('links', 'medium', width)
