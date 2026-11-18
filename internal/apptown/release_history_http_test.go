@@ -454,4 +454,15 @@ func TestDeparturesShowWhatEachReleaseBrought(t *testing.T) {
 			t.Fatalf("project release #%d brought %q, want %q", r.Number, got, want[r.Number])
 		}
 	}
+
+	for number, brought := range want {
+		w = authzCall(a.Handler(), "owner", "GET", fmt.Sprintf("/api/v1/projects/game/releases/%d", number), "")
+		var detail httpapi.ReleaseDetail
+		if err := json.Unmarshal(w.Body.Bytes(), &detail); err != nil || w.Code != 200 {
+			t.Fatalf("release #%d: %d %s %v", number, w.Code, w.Body.String(), err)
+		}
+		if got := titles(detail.Changes); got != brought {
+			t.Fatalf("release #%d page brought %q, want %q", number, got, brought)
+		}
+	}
 }

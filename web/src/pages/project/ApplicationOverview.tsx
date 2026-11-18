@@ -15,7 +15,7 @@ import { fmtWhen } from '../../format'
 import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
 import type { Release } from '../../api'
 import { ActiveRunList, type OverviewData } from '../../parts/runActivity'
-import { BigChangeBox, ReleaseRows } from './Overview'
+import { BigChangeBox } from './Overview'
 import { ChangeButton } from './ChangeButton'
 import { ScheduleRows } from './Schedules'
 import { Section } from '../../Section'
@@ -89,7 +89,6 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
       <ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
       {deploymentsQ.data && !deployments.length && <p className="muted">Not deployed yet.</p>}
       {deployments.length > 0 && <DeploymentTable rows={deployments.map(d => ({ ...d, slug, app: project.name, deployment: d.name, label: d.displayLabel || d.name, static: d.static, url: d.url, hostOnly: d.hostOnly, backups: d.backups }))} />}
-      <ReleaseRows slug={slug} releases={releasesQ.data ?? []} />
     </Section>
     <Section title="Activity">
       <ReadStatus q={activityQ} what="activity" /><StaleNote q={activityQ} />

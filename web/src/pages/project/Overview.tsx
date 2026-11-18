@@ -2,12 +2,11 @@ import { PRODUCT } from '../../brand'
 import { statusProps } from '../../runtime'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Release, post } from '../../api'
+import { post } from '../../api'
 import { SplitButton } from '../../SplitButton'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { ChangeButton } from './ChangeButton'
-import { fmtWhen } from '../../format'
 import type { DeploymentView, ReleasePlan, CreatedChange, ProjectDetail as ProjectT } from '../../wire.gen'
 import './overview.css'
 
@@ -87,26 +86,4 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
       {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
     </div>
   )
-}
-
-// Release records own their preview action.
-// Each deployment runs its own release, so the badge names the serving
-// release per deployment rather than the newest serving one anywhere.
-export function ReleaseRows({ slug, releases }: { slug: string; releases: Release[] }) {
-  const live = releases.filter((r, i) => r.serving && releases.findIndex(o => o.serving && o.deployment === r.deployment) === i)
-  return <>
-      {releases.length > 0 && (
-        <div className="card">
-          <div className="row">
-            <strong>Releases</strong>
-            {live.length > 0 && <span className="badge">live: {live.map(r => `${r.deploymentLabel} #${r.number}`).join(' · ')}</span>}
-            <ul className="release-strip">
-              {releases.slice(0, 5).map((r) => (
-                <li key={r.number}>{r.changes?.map(c => <span key={c.id}><Link to={`/changes/${c.id}`}>#{c.number} {c.title}</Link> </span>)}{r.commitSha && <code>{r.commitSha.slice(0, 12)} </code>}{r.deploymentLabel || r.deployment} <Link to={`/projects/${slug}/releases/${r.number}`}>#{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></Link></li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-  </>
 }

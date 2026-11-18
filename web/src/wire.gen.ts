@@ -1741,7 +1741,7 @@ export type ReleaseDetail = {
   backup?: BackupReference | null
   statusLabel: ReleaseLabel
   release: Release | null
-  changes: ReleaseChange[]
+  changes: ReleaseChangeTitle[]
   isLive: boolean
   replacedBy?: number
   events: ReleaseEvent[]
@@ -4477,7 +4477,8 @@ export type BackupReference = {
   status: BackupState
 }
 
-export type ReleaseChange = {
+export type ReleaseChangeTitle = {
+  number: number
   id: string | null
   title: string
   type: string
@@ -4504,12 +4505,6 @@ export type ReleaseApproval = {
   at: string
   meaning: string
   authority: Authority
-}
-
-export type ReleaseChangeTitle = {
-  number: number
-  id: string | null
-  title: string
 }
 
 export type ReleaseHead = {

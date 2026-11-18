@@ -5884,7 +5884,7 @@
         ],
         "type": "object"
       },
-      "ReleaseChange": {
+      "ReleaseChangeTitle": {
         "properties": {
           "id": {
             "format": "uuid",
@@ -5892,6 +5892,9 @@
               "string",
               "null"
             ]
+          },
+          "number": {
+            "type": "integer"
           },
           "title": {
             "type": "string"
@@ -5901,6 +5904,7 @@
           }
         },
         "required": [
+          "number",
           "id",
           "title",
           "type"
@@ -5985,7 +5989,7 @@
           },
           "changes": {
             "items": {
-              "$ref": "#/components/schemas/ReleaseChange"
+              "$ref": "#/components/schemas/ReleaseChangeTitle"
             },
             "type": "array"
           },
