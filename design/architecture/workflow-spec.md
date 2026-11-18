@@ -213,7 +213,7 @@ by name, in any casing.
 | `build` | build the committed tree; record a runtime bundle or a clean-tree build without a runtime | none |
 | `scm/mr` | open a merge request on the attached mirror for people who review there | — |
 | `scm/merged` | the landing merge into `main` (engine-judged) | — |
-| `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs), `whenFailed` (named source steps), `findings: fixable` (new findings covered by adopted fixes) |
+| `workflow/call` | run another library workflow as a child run in the same workspace | `workflow`, `with` (its inputs), `whenFailed` (named source steps), `findings: fixable` (new findings with a scanner-reported fix, covered by adopted fixes) |
 | `fix` | apply adopted mechanical fixes and publish the result | `kind: update`, optional `for: findings` for the caller’s targets |
 | `routine` | independently classify a declared fix against its bound | none |
 | `script` | run a command; exit 0 passes | `run`, `env`, `executor`, `image`, `timeoutMinutes` |
