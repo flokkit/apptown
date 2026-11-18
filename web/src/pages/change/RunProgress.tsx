@@ -3,7 +3,7 @@ import type { ChangeView, Step } from '../../api'
 import type { WaitingOn } from '../../wire.gen'
 import { Popover, hoverDelay } from '../../Popover'
 import { StaleNote, type Gated } from '../../ReadGate'
-import { currentSteps, Now, useNow } from './Now'
+import { currentSteps, Now, stageLabel, useNow } from './Now'
 import { stepTitle } from './Evidence'
 import './RunProgress.css'
 
@@ -66,7 +66,7 @@ export function RunProgress({ view, reading }: { view: ChangeView; reading?: Gat
       onClick={() => setOpen('focus')} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen('focus') } else if (event.key === 'Escape') { event.preventDefault(); close() } }}>
       <span className="ch-progress-bar" aria-label="Stages">{root.stages.map(stage => <span key={stage} className={`ch-progress-segment ${stageState(root.steps.filter(s => s.stage === stage), view.waitingOn)}`} />)}</span>
       <span className="ch-progress-names">{root.stages.map(name => {
-        const label = name.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())
+        const label = stageLabel(name)
         const bad = stageState(root.steps.filter(s => s.stage === name), view.waitingOn) === 'failed'
         return name === stage ? <strong key={name} className={bad ? 'bad' : undefined}>{label}</strong> : <span key={name} className={bad ? 'bad' : undefined}>{label}</span>
       })}</span>

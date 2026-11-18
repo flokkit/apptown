@@ -16,6 +16,7 @@ import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '.
 import type { Release } from '../../api'
 import { ActiveRunList, type OverviewData } from '../../parts/runActivity'
 import { BigChangeBox, ReleaseRows } from './Overview'
+import { ChangeButton } from './ChangeButton'
 import { ScheduleRows } from './Schedules'
 import { Section } from '../../Section'
 import './overview.css'
@@ -71,7 +72,10 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   const { current, past } = data ? overviewActivity(data, deployments, backups, releasesQ.data ?? [], slug) : { current: [], past: [] }
   return <div className="application-overview">
     <header className="application-heading">
-      <PageHead page="projectOverview" title={project.name} actions={app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>} />
+      <PageHead page="projectOverview" title={project.name} actions={(app?.url || canStart) && <>
+        {app?.url && <AppAddress className="btn primary application-open" url={app.url} hostOnly={app.hostOnly}>Open app ↗</AppAddress>}
+        {canStart && <ChangeButton slug={slug} chatAvailable={project.chatAvailable} compact />}
+      </>} />
       {project.blurb && <p className="muted">{project.blurb}</p>}
       {app?.url && <AppAddress url={app.url} hostOnly={app.hostOnly} />}
     </header>
