@@ -6,7 +6,7 @@ import { ChooseRelease, RollbackBefore, type ReleaseChoice } from './ChooseRelea
 import { useState, type ReactNode } from 'react'
 import { DeploymentMenu } from './DeploymentMenu'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useGet } from '../../data'
+import type { Read } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ReleaseListed } from '../../wire.gen'
 import { fmtDuration, fmtStamp } from '../../format'
@@ -37,14 +37,15 @@ export function DeploymentTitle({ name, env }: { name: string; env: DeploymentVi
 // Every deploy is a release request, including requests from a landing.
 // tab picks what shows under the heading: the deployment now (status, with
 // body above the latest deploy and below under it), its deploy history, or
-// its settings; tabs is the strip that switches them.
+// its settings; tabs is the strip that switches them. releases is the
+// project's release list, which the page reads beside the deployment rather
+// than after it.
 export type DeploymentTab = 'status' | 'history' | 'settings'
-type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string; env: DeploymentView; current: boolean; reload: () => Promise<void>; facts?: ReactNode; body?: ReactNode; below?: ReactNode; settings?: ReactNode; tabs?: ReactNode; tab?: DeploymentTab }
+type DeployHistoryProps = { slug: string; name: string; url?: string; displayLabel?: string; env: DeploymentView; releases: Read<ReleaseListed[]>; current: boolean; reload: () => Promise<void>; facts?: ReactNode; body?: ReactNode; below?: ReactNode; settings?: ReactNode; tabs?: ReactNode; tab?: DeploymentTab }
 export function DeploymentDeploys(props: DeployHistoryProps) {
   return <DeploymentHistory key={`${props.slug}/${props.name}/${props.env.id}`} {...props} />
 }
-function DeploymentHistory({ slug, name, url, displayLabel, env, current, reload, facts, body, below, settings, tabs, tab = 'status' }: DeployHistoryProps) {
-  const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
+function DeploymentHistory({ slug, name, url, displayLabel, env, releases, current, reload, facts, body, below, settings, tabs, tab = 'status' }: DeployHistoryProps) {
   const [search, setSearch] = useSearchParams()
   const [pending, setPending] = useState<string>()
   const shown = pending ? { ...env, runtimeState: pending } : env

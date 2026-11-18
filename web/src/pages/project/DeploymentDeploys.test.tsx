@@ -6,17 +6,22 @@ import { expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { deployWords } from '../change/DeployScene'
-import { getKey, newQueryClient } from '../../data'
-import { DeploymentDeploys as ActualDeploymentDeploys } from './DeploymentDeploys'
+import { getKey, newQueryClient, useGet } from '../../data'
+import { DeploymentDeploys as PageDeploymentDeploys } from './DeploymentDeploys'
 import type { ComponentProps } from 'react'
-import type { DeploymentView } from '../../wire.gen'
+import type { DeploymentView, ReleaseListed } from '../../wire.gen'
 import css from './deployment-deploys.css?inline'
 function runtimeClient() {
   const client = newQueryClient()
   for (const name of ['main', 'production']) client.setQueryData(getKey(`/projects/lunch/deployments/${name}/diagnostics`), { parts: [], reading: { unknown: false, stale: false } })
   return client
 }
-function DeploymentDeploys(props: Omit<ComponentProps<typeof ActualDeploymentDeploys>, 'env' | 'current' | 'reload'>) {
+// The page reads the project's releases and hands them to the section.
+function ActualDeploymentDeploys(props: Omit<ComponentProps<typeof PageDeploymentDeploys>, 'releases'>) {
+  const releases = useGet<ReleaseListed[]>(`/projects/${props.slug}/releases`, { poll: 3000 })
+  return <PageDeploymentDeploys {...props} releases={releases} />
+}
+function DeploymentDeploys(props: Omit<ComponentProps<typeof PageDeploymentDeploys>, 'env' | 'current' | 'reload' | 'releases'>) {
   const env = { status: { word: 'working', reason: '', stale: false }, id: 'deployment', name: props.name, generation: 1, kind: 'standing', routineUpdates: { mode: 'automatic' }, routineUpdatesRevision: 1, backups: true, runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'], observation: 'running', servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '', approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown', targetId: null, displayLabel: 'Lunch Orders', url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observationStale: false, protected: false } as DeploymentView
   // The status tab, then the history tab: the page shows them one at a time.
   return <><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="status" /><ActualDeploymentDeploys {...props} env={env} current reload={async () => {}} tab="history" /></>

@@ -4,11 +4,18 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
-import { getKey, newQueryClient } from '../../data'
+import { getKey, newQueryClient, useGet } from '../../data'
 import { fmtStamp } from '../../format'
 import { settled } from '../../settled'
-import { DeploymentDeploys } from './DeploymentDeploys'
-import type { DeploymentView } from '../../wire.gen'
+import { DeploymentDeploys as PageDeploymentDeploys } from './DeploymentDeploys'
+import type { ComponentProps } from 'react'
+import type { DeploymentView, ReleaseListed } from '../../wire.gen'
+
+// The page reads the project's releases and hands them to the section.
+function DeploymentDeploys(props: Omit<ComponentProps<typeof PageDeploymentDeploys>, 'releases'>) {
+  const releases = useGet<ReleaseListed[]>(`/projects/${props.slug}/releases`, { poll: 3000 })
+  return <PageDeploymentDeploys {...props} releases={releases} />
+}
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const cleanups: (() => void)[] = []
@@ -66,6 +73,16 @@ it('warns before deploying history code and shows the current backup availabilit
   await h.click('Deploy release 1 to Customer office')
   expect(h.sent).toEqual([{ path: '/api/v1/projects/shop/deployments/production/deploy', body: { releaseNumber: 1 } }])
   expect(h.el.textContent).toContain('Release 4 requested')
+})
+
+// A closed dialog reads nothing; opening it reads what it decides from.
+it('reads release bundles only once the deploy dialog opens', async () => {
+  const h = await fixture()
+  const bundleReads = () => h.fetcher.mock.calls.filter(([url]) => String(url).endsWith('/release-bundles')).length
+  expect(bundleReads()).toBe(0)
+  await h.click('Deploy a release…')
+  expect(bundleReads()).toBe(1)
+  expect(h.el.querySelector('[role=dialog]')?.textContent).toContain('newest')
 })
 
 it('lists bundles newest first with deployments and admits a never-deployed bundle to this deployment only', async () => {

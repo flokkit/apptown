@@ -200,7 +200,9 @@ another name in open mode), every read except "who am I" is reset: held
 answers are dropped, readers on screen stop showing theirs and read again,
 reads in flight are cancelled, and an answer that still arrives for the old
 identity is discarded. The page area is keyed by identity too, so no draft
-or local state carries over to the next person. A read refused with `401`
+or local state carries over to the next person. The first answer to "who
+am I" is not a change: pages start reading before it arrives, as the person
+it names, and keep those reads. A read refused with `401`
 means the session ended: the app asks who this is again, which shows the
 sign-in page.
 
