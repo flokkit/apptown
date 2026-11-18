@@ -88,3 +88,75 @@ func TestAppTownMergesMainOnlyWhenTheBranchIsBehindAndTheMergeIsClean(t *testing
 		t.Fatalf("a merge with conflicts names the files and makes nothing: %+v %v", got, err)
 	}
 }
+
+// A standing acceptance survives a landing's catch-up only when the
+// candidate is the accepted commit with main cleanly merged in: one or
+// several of AppTown's own catch-up merges pass; a merge with the right
+// parents but an edit of its own, a commit on top, or another history is
+// refused with a reason.
+func TestCleanCatchUpAcceptsOnlyMainMergedIntoTheAcceptedCommit(t *testing.T) {
+	ctx := context.Background()
+	at := time.Date(2031, 2, 3, 4, 5, 6, 0, time.UTC)
+	hub, write := mainMergeHub(t)
+	accepted := write("change", map[string]string{"go.mod": "module app\nrequire dep v1.2.4\n"})
+	write("main", map[string]string{"other.txt": "another change landed\n"})
+	catchUp := func(tip string) string {
+		t.Helper()
+		merge, err := MergeMain(ctx, hub, tip, "main", "Merge main into change\n", at)
+		if err != nil || merge.Commit == "" {
+			t.Fatalf("catch-up: %+v %v", merge, err)
+		}
+		return merge.Commit
+	}
+	once := catchUp(accepted)
+	target := gittest.RunAsTester(t, hub, "rev-parse", "main")
+	if why, err := CleanCatchUp(ctx, hub, accepted, once, target); err != nil || why != "" {
+		t.Fatalf("a clean catch-up was refused: %q %v", why, err)
+	}
+	if why, err := CleanCatchUp(ctx, hub, accepted, accepted, target); err != nil || why != "" {
+		t.Fatalf("the accepted commit itself was refused: %q %v", why, err)
+	}
+	write("main", map[string]string{"third.txt": "main moved again\n"})
+	twice := catchUp(once)
+	later := gittest.RunAsTester(t, hub, "rev-parse", "main")
+	if why, err := CleanCatchUp(ctx, hub, accepted, twice, later); err != nil || why != "" {
+		t.Fatalf("a second catch-up was refused: %q %v", why, err)
+	}
+	if why, err := CleanCatchUp(ctx, hub, accepted, twice, target); err != nil || why == "" {
+		t.Fatalf("a merge of commits beyond the pinned target passed: %q %v", why, err)
+	}
+
+	// The right parents, and an application edit inside the merge.
+	gittest.RunAsTester(t, hub, "checkout", "-q", "--detach", accepted)
+	gittest.RunAsTester(t, hub, "merge", "-q", "--no-commit", "--no-ff", target)
+	if err := os.WriteFile(filepath.Join(hub, "app.go"), []byte("package app // not accepted\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.RunAsTester(t, hub, "add", "-A")
+	gittest.RunAsTester(t, hub, "commit", "-q", "-m", "Merge main into change")
+	evil := gittest.RunAsTester(t, hub, "rev-parse", "HEAD")
+	if parents := strings.Fields(gittest.RunAsTester(t, hub, "rev-list", "--parents", "-n", "1", evil)); !slices.Equal(parents, []string{evil, accepted, target}) {
+		t.Fatalf("the edited merge's parents are %v", parents)
+	}
+	if why, err := CleanCatchUp(ctx, hub, accepted, evil, target); err != nil || !strings.Contains(why, "changes more than merging main in") {
+		t.Fatalf("a merge carrying its own edit passed: %q %v", why, err)
+	}
+	if why, err := CleanCatchUp(ctx, hub, accepted, catchUp(evil), later); err != nil || why == "" {
+		t.Fatalf("an edited merge under a clean catch-up passed: %q %v", why, err)
+	}
+
+	// A commit on top of a clean catch-up, and a history without the accepted commit.
+	gittest.RunAsTester(t, hub, "checkout", "-q", "--detach", once)
+	if err := os.WriteFile(filepath.Join(hub, "app.go"), []byte("package app // published later\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.RunAsTester(t, hub, "add", "-A")
+	gittest.RunAsTester(t, hub, "commit", "-q", "-m", "more work")
+	onTop := gittest.RunAsTester(t, hub, "rev-parse", "HEAD")
+	if why, err := CleanCatchUp(ctx, hub, accepted, onTop, target); err != nil || !strings.Contains(why, "is not a merge of main") {
+		t.Fatalf("a commit on top of the catch-up passed: %q %v", why, err)
+	}
+	if why, err := CleanCatchUp(ctx, hub, accepted, target, target); err != nil || why == "" {
+		t.Fatalf("main's own history passed as the accepted commit's: %q %v", why, err)
+	}
+}

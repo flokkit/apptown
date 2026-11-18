@@ -122,7 +122,16 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 			sourceRefusal = "the landing has no pinned candidate to compare with the commit the yes was given on"
 		}
 	}
+	// A standing vote on another commit than the candidate is judged by
+	// the rule again (processStanding); its decision stands in for the
+	// exact-commit rule a person's yes keeps.
+	latest, pinned, err := LandingCandidateIn(ctx, s.db, run.ID)
+	if err != nil && !errors.Is(err, ErrLandingUnpinned) {
+		return nil, err
+	}
+	reassessed := catchUpReassessable(accepted, latest, pinned)
 	for _, step := range steps {
+		sourceRefusal := sourceRefusal
 		needed, err := completionNeedsVote(step, accepter)
 		if err != nil {
 			return nil, err
@@ -160,6 +169,18 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 			if why != "" {
 				out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: why}
 				continue
+			}
+			if reassessed {
+				why, decided, err := landingStandingDecisionIn(ctx, s.db, run, step, latest.Candidate)
+				if err != nil {
+					return nil, err
+				}
+				if !decided {
+					// Not judged yet: the standing job decides, then
+					// advances the landing back here.
+					continue
+				}
+				sourceRefusal = why
 			}
 		}
 		if accepted.InAdvance {

@@ -121,6 +121,8 @@ func standingConsidered(ctx context.Context, q database.Queryer, run, step ids.I
 // UpdateTargetsIn reads the findings the current call tree actually acted on.
 // Fresh standing classification must require security permission for those targets,
 // even when the root is the observing scan and the fix ran in a child.
+// A landing acts on nothing itself: its targets are its accepted working
+// run's, which the rule judges again on the landing's candidate.
 func (s Source) UpdateTargetsIn(ctx context.Context, q database.Queryer) ([]check.Finding, error) {
 	run, err := readRun(ctx, q, s.RunID)
 	if err != nil {
@@ -128,6 +130,9 @@ func (s Source) UpdateTargetsIn(ctx context.Context, q database.Queryer) ([]chec
 	}
 	if run.ProjectID != s.ProjectID {
 		return nil, ErrRunMoved
+	}
+	if run, err = standingProcedureRunIn(ctx, q, run); err != nil {
+		return nil, err
 	}
 	return updateTargetsIn(ctx, q, run, 0)
 }
