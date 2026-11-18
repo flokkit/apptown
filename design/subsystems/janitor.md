@@ -292,7 +292,7 @@ Three uninterrupted failed tries stop the queue. A stopped security queue
 suppresses the faulted targets in its current episode and can try a new
 fixable finding at the scan's failure threshold.
 
-Maintenance’s Janitor tabs leads with “N projects need you”, “Keeping N projects up to
+Maintenance’s Janitor pages lead with “N projects need you”, “Keeping N projects up to
 date”, or “Janitor is off” when choices are absent or all off. Needs you lists
 `decide` and `stopped` queues, release holds and unreadable update schedules.
 Decision rows show what the proposal does, then the current decision's reason.

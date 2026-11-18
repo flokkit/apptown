@@ -11,6 +11,7 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { Section } from '../Section'
 import { ListTable, type ListColumn } from '../ListTable'
 import { fmtWhen } from '../format'
+import { PageHead } from '../PageHead'
 import { RunNow } from './janitor/RunNow'
 import { TryAgain } from './janitor/TryAgain'
 import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, QueueStatus } from '../wire.gen'
@@ -67,6 +68,7 @@ export function NeedsYou() {
   const data = q.data
   const items = data ? needs(data) : []
   return <div>
+    <PageHead page="maintenance" sub="Needs you" line={data && summary(data, items)} />
     <ReadStatus q={q} what="janitor" /><StaleNote q={q} />
     {data && <>
       {/* Decisions share state across the prose and action cells, so this
@@ -115,5 +117,8 @@ function QueueAction({ queue, slug, current, reload, children }: { queue: QueueS
 
 export function UpdatesHistory() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
-  return <Section title="Recent updates"><History projects={q.data?.projects || []} /></Section>
+  return <div>
+    <PageHead page="maintenance" sub="Updates" />
+    <Section title="Recent updates"><History projects={q.data?.projects || []} /></Section>
+  </div>
 }

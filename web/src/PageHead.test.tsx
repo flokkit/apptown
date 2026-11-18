@@ -7,7 +7,6 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { PAGE_HELP, PageHead, SUB_HELP } from './PageHead'
-import { INTEGRATION_MENU } from './pages/integrations/kinds'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -181,52 +180,57 @@ describe('help wording', () => {
   })
 
   it('says a group can approve without the syntax', () => {
-    for (const h of [PAGE_HELP.people.help, SUB_HELP.people!.Groups.body]) {
-      expect(helpText(h)).toContain("A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.")
-    }
+    expect(helpText(SUB_HELP.people!.Groups.body)).toContain("A workflow's approval step can name a group instead of a person, and then any member's approval counts.")
   })
 
-  // Costs: what is priced and how, and that unknown prices are not counted as nothing.
-  it('says costs are estimates and how a price is known', () => {
+  // Unknown prices are not counted as nothing; how a price is known is in the guide.
+  it('says costs are estimates and unknown prices are not priced', () => {
     const t = helpText(PAGE_HELP.usage.help)
-    expect(t).toContain("Costs are estimates, not your provider's bill.")
-    expect(t).toContain("the provider's own, or one worked out from the model's list price")
-    expect(t).toContain('Use with no known price shows as not priced.')
+    expect(t).toContain("Costs are estimates, not your provider's bill")
+    expect(t).toContain('use with no known price shows as not priced')
   })
 
-  it('says how a suppression matches and what its export is', () => {
-    const t = helpText(SUB_HELP.projectSecurity!.Suppressions.body)
-    expect(t).toContain("the scanner's own ID for it, or by the vulnerability's ID (such as a CVE number) and the package")
-    expect(t).toContain('fails the security check again')
-    expect(t).toContain('OpenVEX export downloads the records in a standard format other security tools read.')
+  it('says an expired suppression lets the finding fail again', () => {
+    expect(helpText(SUB_HELP.projectSecurity!.Suppressions.body)).toContain('fails the security check again')
   })
 
-  it('says notes are edited through a change and are not proof', () => {
-    const t = helpText(SUB_HELP.projectMemory!.Notes.body)
-    expect(t).toContain('every edit has an author and a change number')
-    expect(t).toContain("An AI check can't count a note alone as proof of how the app behaves.")
+  it('says notes are edited through a change', () => {
+    expect(helpText(SUB_HELP.projectMemory!.Notes.body)).toContain('every edit has an author and a change number')
   })
 
-  it('names the secrets file in plain type and says how to add a secret', () => {
+  it('names the secrets file in plain type', () => {
     const html = renderToStaticMarkup(<MemoryRouter>{SUB_HELP.projectSettings!.Secrets.body}</MemoryRouter>)
     expect(html).not.toContain('<code>')
-    expect(helpText(SUB_HELP.projectSettings!.Secrets.body)).toContain('To add a new one, ask for a change to the app, then enter its value here.')
-  })
-
-  // Completeness: a page added to the Integrations menu must be named in the
-  // area's help, or the help silently stops describing the menu.
-  it('names every page of the Integrations menu, and sends app services to Services', () => {
-    const t = helpText(PAGE_HELP.integrations.help)
-    const items = INTEGRATION_MENU.find((g) => g.key === 'integrations')!.items
-    for (const i of items) expect(t, i.title).toContain(`${i.title}:`)
-    expect(t).toContain('Services an app itself connects to, such as a database, are on the Services page.')
+    expect(helpText(SUB_HELP.projectSettings!.Secrets.body)).toContain('secretspec.toml')
   })
 })
 
-it('keeps its guides in Maintenance help', () => {
-  const el = document.createElement('div'), root = createRoot(el)
-  act(() => root.render(<MemoryRouter><PageHead page="maintenance" /></MemoryRouter>))
-  act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
-  expect([...el.querySelectorAll('.page-help-pop a')].map(a => a.getAttribute('href')).sort()).toEqual(['conformance', 'janitor', 'packs-and-what-if', 'who-keeps-what-updated'].map(g => '/docs/guides/' + g).sort())
-  act(() => root.unmount())
+// Each Maintenance page's "Read more" opens the guide for that page.
+it.each([['Needs you', 'janitor'], ['Updates', 'janitor'], ['Standards', 'conformance'], ['Pack upgrades', 'packs-and-what-if'], ['Settings', 'who-keeps-what-updated']])('links the Maintenance %s page to its guide', (sub, guide) => {
+  const el = render(<PageHead page="maintenance" sub={sub} />)
+  expect(el.querySelector('h1')?.textContent).toBe(sub)
+  act(() => q(el).click())
+  expect([...pop(el)!.querySelectorAll('a')].map(a => a.getAttribute('href'))).toEqual([`/docs/guides/${guide}`])
+  document.body.innerHTML = ''
+})
+
+// A "?" is a reminder of what the page is, not its manual: what the bubble
+// shows (the entry's line and help, or an area page's own help) is at most
+// two sentences, a list item counting as one (a sentence ends where a
+// word does, so the "?" named in a sentence is not an end). Longer explanations belong in
+// the guide behind "Read more" (18 Nov: Maintenance's ran to nine paragraphs).
+describe('every help bubble is short', () => {
+  const sentences = (node: React.ReactNode) => (renderToStaticMarkup(<MemoryRouter>{node}</MemoryRouter>)
+    .replace(/<\/(p|li)>/g, '. ').replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&')
+    .match(/[^\s.!?][.!?]+(?=\s|$)/g) ?? []).length
+  for (const [page, h] of Object.entries(PAGE_HELP)) {
+    it(`${page} says at most two sentences`, () => {
+      expect(sentences(<>{'line' in h && <p>{h.line}</p>}{h.help}</>)).toBeLessThanOrEqual(2)
+    })
+  }
+  for (const [area, pages] of Object.entries(SUB_HELP)) {
+    for (const [title, h] of Object.entries(pages ?? {})) {
+      it(`${area} › ${title} says at most two sentences`, () => { expect(sentences(h.body)).toBeLessThanOrEqual(2) })
+    }
+  }
 })

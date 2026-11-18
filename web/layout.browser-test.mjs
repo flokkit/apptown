@@ -681,13 +681,13 @@ try {
     await page.addScriptTag({ content: conformanceFixture.outputFiles[0].text })
     await fontsReady(page)
     await page.waitForFunction(() => !!window.finishConformance)
-    // Maintenance keeps both navigation strips inside the phone after its counts load.
+    // Standards keeps its views' strip inside the phone after its counts load.
     await page.evaluate(() => window.finishConformance())
     await page.locator('.page-head h1').first().waitFor()
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Conformance fits after count loads at 390, ${size}`)
-    assert.equal(await page.locator('[aria-label="Maintenance"] a').count(), 4)
+    assert.equal(await page.locator('[aria-label="Maintenance"]').count(), 0)
     assert.equal(await page.locator('[aria-label="Standards"] a').count(), 5)
-    for (const label of ['Maintenance', 'Standards']) {
+    for (const label of ['Standards']) {
       const strip = page.locator('[aria-label="' + label + '"]')
       assert.equal(await strip.evaluate(el => getComputedStyle(el).overflowX), 'auto', label + ' scrolls horizontally')
       assert.equal(await strip.evaluate(el => new Set([...el.children].map(t => Math.round(t.getBoundingClientRect().top))).size), 1, label + ' keeps one row')

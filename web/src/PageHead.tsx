@@ -16,54 +16,39 @@ export type PageHelp = {
   // One sentence: what the page is for. Left out where the help's first
   // paragraph already says it.
   line?: string
-  // What a newcomer needs to read the page, in short sentences.
+  // What a newcomer needs to read the page. With the line, at most two
+  // sentences: the "?" is a reminder, and anything longer belongs in the
+  // guide its "Read more" opens (a test holds every entry to this).
   help: ReactNode
   // A guide slug under stock/docs/guides, opened at /docs/guides/<slug>.
   guide: string
 }
 
 export const PAGE_HELP = {
+  // The help of Standards' record pages (a project's standing, a review, a
+  // remediation); each Maintenance page has its own under SUB_HELP.
   maintenance: {
     title: 'Maintenance',
-    help: <>
-      <p>Needs you lists work waiting for a person. Standards checks adopted ways of working. Updates lists landed Janitor changes. Settings chooses what to keep updated.</p>
-      <p>Check whether each project still follows the ways of working it adopted, and fix what it doesn't.</p>
-      <p>A review reads each project's accepted code, its <code>main</code> branch, and changes nothing. A project's standing says what a person needs to do about it. A fix is made as a change in each project, reviewed like any other.</p>
-      <p>Move projects onto newer versions of the packs they adopted, after trying each version first.</p>
-      <p>A what-if runs a pack version's checks against projects as they stand, without changing them, and says per project what would newly fail, newly pass or stay the same. From its report you open adoption changes for the projects you choose; each is reviewed like any other change.</p>
-      <p>The janitor keeps projects' dependencies and packs up to date, and fixes security findings, without anyone asking. It makes each update as an ordinary change: the change is checked, and lands and releases on its own only when a person has granted that permission in Maintenance settings.</p>
-      <p><strong>Needs you</strong> lists work it could not finish. Open a project for its scans, findings and Run now.</p>
-      <p>Choose what to keep updated. Base images keep the same image and variant. Toolchain patches are for security fixes. Packs move to the newest published versions. {PRODUCT} checks each change against these choices and records what ran. Each project can choose its dependency level or turn the janitor off. Deployments keep their own automatic release settings.</p>
-      <p>Guides: <Link to="/docs/guides/conformance">Conformance</Link> · <Link to="/docs/guides/packs-and-what-if">Packs and what-if</Link> · <Link to="/docs/guides/who-keeps-what-updated">Who keeps what up to date</Link></p>
-    </>,
-    guide: 'janitor',
+    help: <p>Maintenance keeps projects up to date and checks that they still follow the ways of working they adopted. Every fix is made as an ordinary change, reviewed like any other.</p>,
+    guide: 'conformance',
   },
- notifications: {title: 'Notifications', line: 'Attention items sent by webhook or email.', help: <p>Warnings arrive within about two minutes. Other items arrive in a daily digest at each channel’s UTC hour. Channels receive attention items from every project.</p>, guide: 'notifications'},
+  notifications: { title: 'Notifications', line: 'Attention items sent by webhook or email.', help: <p>Warnings arrive within about two minutes; other items arrive in a daily digest at each channel’s UTC hour.</p>, guide: 'notifications' },
   waysOfWorking: {
     title: 'Ways of working',
     line: 'The tech stack your apps are built with, and how changes to them get made and checked.',
-    help: <>
-      <p>Each way of working is a <strong>pack</strong>. A pack sets:</p>
-      <ul>
-        <li><strong>The stack:</strong> language, framework, database and build.</li>
-        <li><strong>Workflows:</strong> the steps from request to release.</li>
-        <li><strong>Guidance:</strong> instructions the coding helpers read.</li>
-        <li><strong>Policies:</strong> rules every change has to pass.</li>
-      </ul>
-      <p>New projects start from a pack. Packs marked <span className="badge">yours</span> were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
-    </>,
+    help: <p>Each way of working is a <strong>pack</strong>: a stack with the workflows, guidance and policies that go with it.</p>,
     guide: 'packs-and-what-if',
   },
   deployments: {
     title: 'All deployments',
     line: 'Where your apps run.',
-    help: <p>A deployment chooses its release feed: follows main, promotion from another deployment, or by hand. A change can have a preview while it is worked on, and a project can be released to more deployments.</p>,
+    help: <p>A deployment chooses its release feed: follows main, promotion from another deployment, or by hand.</p>,
     guide: 'container-lifecycle',
   },
   projectDeployments: {
     title: 'Deployments',
     guide: 'container-lifecycle',
-    help: <><p>A deployment is a named copy of this app on a target. Choose New deployment to select its target and release feed: Follows main, promotion from another deployment, or By hand.</p><p>The release preference is here. Open a deployment to change its settings and review its releases. Old resources link to their target, where they are settled.</p></>,
+    help: <p>A deployment is a named copy of this app on a target, with a release feed: Follows main, promotion from another deployment, or By hand. Open one to change its settings and read its releases.</p>,
   },
   releases: {
     title: 'All releases',
@@ -77,81 +62,51 @@ export const PAGE_HELP = {
   },
   infrastructure: {
     title: 'Targets',
-    line: 'The places your apps run.',
-    help: <>
-      <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Each target's page shows what runs there and how full it is.</p>
-      <p>Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead: the machine that also runs helpers and checks.</p>
-    </>,
+    help: <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead.</p>,
     guide: 'deployment-targets',
   },
   integrations: {
     title: 'Integrations',
-    help: <>
-      <p>An <strong>integration</strong> is a named connection to an outside service, such as GitLab, Infisical or a model provider. Its settings hold the names of secrets, never their values.</p>
-      <ul>
-        <li><strong>Notifications:</strong> attention items sent by webhook or email.</li>
-        <li><strong>Source control:</strong> where project code lives.</li>
-        <li><strong>Executor:</strong> where workflow steps run.</li>
-        <li><strong>Model providers:</strong> the model accounts helpers use.</li>
-        <li><strong>Model profiles:</strong> which model does each task.</li>
-        <li><strong>Deploy connectors:</strong> how {PRODUCT} reaches the machines apps run on.</li>
-        <li><strong>Cloud accounts:</strong> accounts whose deployment targets are under Targets.</li>
-        <li><strong>Package registries:</strong> local copies of the libraries apps are built from.</li>
-        <li><strong>Scanners:</strong> checks run against a project's code.</li>
-        <li><strong>Secrets:</strong> where passwords and API keys are stored.</li>
-      </ul>
-      <p>Each says whether it is working now. Test connection asks it again.</p>
-      <p>Services an app itself connects to, such as a database, are on the Services page.</p>
-    </>,
+    help: <p>An <strong>integration</strong> is a named connection to an outside service, such as GitLab, Infisical or a model provider; its settings hold the names of secrets, never their values. Each says whether it is working now, and Test connection asks it again.</p>,
     guide: 'monitoring',
   },
   services: {
     title: 'Services',
-    help: <>
-      <p>Services are the systems an app connects to, such as a database, AI models, error reporting or your organisation's own systems. Some, like a database, come with wherever the app is deployed. Connect the others here; each deployment and preview gets its own credentials.</p>
-      <p>Projects then choose which of these to use, under each project's Settings › Services.</p>
-    </>,
+    help: <p>Services are the systems an app connects to, such as a database, AI models or error reporting; each deployment and preview gets its own credentials. Projects choose which to use under each project's Settings › Services.</p>,
     guide: 'services-and-data',
   },
   people: {
     title: 'People',
     line: `Accounts and groups on this ${PRODUCT}, and the roles they hold.`,
-    help: <p>A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.</p>,
+    help: <p>Open a page to invite people, form groups and grant roles.</p>,
     guide: 'people-and-roles',
   },
   features: {
     title: 'Features',
     line: `Turn parts of ${PRODUCT} on or off for everyone.`,
-    help: <p>The ? beside each switch says what turning it off changes. A greyed switch needs another one on first.</p>,
+    help: <p>The ? beside each switch says what turning it off changes.</p>,
     guide: 'features',
   },
   usage: {
     title: 'Usage',
     line: 'AI model use and cost, by model and project.',
-    help: <><p>It counts the projects you can read. If you can read all of {PRODUCT}, it counts all of it. Workflow use comes from runs. Interactive use comes from chats.</p>
-      <p>Costs are estimates, not your provider's bill. The coding helper reports a price for each message: the provider's own, or one worked out from the model's list price. Use with no known price shows as not priced.</p></>,
+    help: <p>Costs are estimates, not your provider's bill; use with no known price shows as not priced.</p>,
     guide: 'monitoring',
   },
   evals: {
     title: 'Evals',
     line: "Try a new model profile or way of working on changes you've already made, and see whether it does better.",
-    help: <p>An eval re-runs finished changes in throwaway copies. One copy runs as its project runs now. The other uses the model profile or pack version you choose. You read the two results side by side. An eval approves nothing.</p>,
+    help: <p>An eval re-runs finished changes in throwaway copies, one as the project runs now and one with the model profile or pack version you choose, and approves nothing.</p>,
     guide: 'packs-and-what-if',
   },
   projectOverview: {
     title: 'Overview',
-    help: <>
-      <p>The overview shows this project's recent activity and deployments.</p>
-      <p>Open Changes to see work in progress or ask for new work. Each deployment shows its current state and address.</p>
-    </>,
+    help: <p>This project's recent activity and deployments, with each deployment's state and address. Open Changes to see work in progress or ask for new work.</p>,
     guide: 'changes-and-main',
   },
   projectSecurity: {
     title: 'Security',
-    help: <>
-      <p>Security shows the latest scan results for this project's accepted code.</p>
-      <p>Findings lists problems the scans found. Suppressions lists recorded decisions to accept findings for a time. A missing or unreadable report leaves checks incomplete.</p>
-    </>,
+    help: <p>The latest scan results for this project's accepted code. A missing or unreadable report leaves checks incomplete.</p>,
     guide: 'monitoring',
   },
   projectMemory: {
@@ -175,114 +130,57 @@ export type HelpPage = keyof typeof PAGE_HELP
 // would only repeat the area. Keyed by area and page title.
 export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode; guide: string }>>> = {
   people: {
-    Accounts: { guide: 'people-and-roles', body: <>
-      <p>Everyone who can sign in to {PRODUCT}.</p>
-      <p>Invite someone to add them. The ⋯ on a row resets a password or turns the account off.</p>
-    </> },
+    Accounts: { guide: 'people-and-roles', body: <p>Everyone who can sign in to {PRODUCT}. Invite someone to add them; the ⋯ on a row resets a password or turns the account off.</p> },
     // One account's page: its own actions, not the list's.
     Account: { guide: 'people-and-roles', body: <>
       <p>One person's account and the groups they are in.</p>
       <p>The ⋯ resets their password or turns the account off.</p>
     </> },
-    Groups: { guide: 'people-and-roles', body: <>
-      <p>A group is a named set of people. Give a group a role and everyone in it gets that access.</p>
-      <p>A workflow's approval step can name a group instead of a person. Then any member's approval counts. The record keeps the name of whoever approved.</p>
-    </> },
-    Roles: { guide: 'people-and-roles', body: <>
-      <p>A role is what someone may do across {PRODUCT}. Click a role to see what it allows.</p>
-      <p>Administrators can act in every project and can approve their own changes, unless a project asks for someone else's approval. Roles inside one project are in that project's Settings › Members.</p>
-    </> },
+    Groups: { guide: 'people-and-roles', body: <p>A group is a named set of people; give it a role and everyone in it gets that access. A workflow's approval step can name a group instead of a person, and then any member's approval counts.</p> },
+    Roles: { guide: 'people-and-roles', body: <p>A role is what someone may do across {PRODUCT}; click one to see what it allows. Roles inside one project are in that project's Settings › Members.</p> },
     'Sign-in': { guide: 'people-and-roles', body: <p>How people sign in, and the networks administrators may sign in from.</p> },
     'Agents and tokens': { guide: 'people-and-roles', body: <p>Coding helpers connected to {PRODUCT}, and the tokens they use. Disconnecting one stops it at once.</p> },
   },
   projectSecurity: {
-    'Security findings': { guide: 'monitoring', body: <>
-      <p>Findings are problems reported by security scans of this project's accepted code.</p>
-      <p>Read the latest scan results and open a finding to fix it or record a suppression. If main has changed since the scan, open a change to scan the latest code. Missing or unreadable reports leave checks incomplete.</p>
-    </> },
-    Suppressions: { guide: 'glossary', body: <>
-      <p>Suppressions are recorded decisions to accept security findings for a time.</p>
-      <p>Create one from Findings, with a reason and an expiry. Each matches findings by the scanner's own ID for it, or by the vulnerability's ID (such as a CVE number) and the package.</p>
-      <p>When it expires, the finding fails the security check again. Revoke one here to make the finding count again at once.</p>
-      <p>OpenVEX export downloads the records in a standard format other security tools read.</p>
-    </> },
+    'Security findings': { guide: 'monitoring', body: <p>Problems reported by security scans of this project's accepted code. Open a finding to fix it or record a suppression; if main has changed since the scan, open a change to scan the latest code.</p> },
+    Suppressions: { guide: 'glossary', body: <p>Recorded decisions to accept security findings for a time, made from Findings with a reason and an expiry. When one expires or is revoked here, its finding fails the security check again.</p> },
   },
   projectMemory: {
-    Notes: { guide: 'project-notes', body: <>
-      <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project. Helpers read it in every session.</p>
-      <p>Notes are edited through a change, so every edit has an author and a change number. An AI check can't count a note alone as proof of how the app behaves.</p>
-    </> },
-    Decisions: { guide: 'glossary', body: <>
-      <p>Decisions are records of what this project chose and why.</p>
-      <p>Open a record to read it and its status. Start a draft with a title and optional tags to record a new decision.</p>
-    </> },
+    Notes: { guide: 'project-notes', body: <p><code>PROJECT-NOTES.md</code> records durable facts and preferences about this project, and helpers read it in every session. Notes are edited through a change, so every edit has an author and a change number.</p> },
+    Decisions: { guide: 'glossary', body: <p>Records of what this project chose and why. Open one to read it and its status, or start a draft with a title and optional tags.</p> },
   },
   projectSettings: {
-    General: { guide: 'project-settings', body: <>
-      <p>General holds the project's name, address, icon, group and description.</p>
-      <p>Edit these details here. You can also download the code or delete the project. The code download includes the default branch and tags; import it to start another project.</p>
-    </> },
-    Models: { guide: 'architecture', body: <>
-      <p>A model profile chooses which AI model does each task for this project.</p>
-      <p>Read the model choices and select another profile here. An unset task follows the profile’s basic choices, then standard’s models. Changing a profile’s task choices is under Integrations → Model profiles.</p>
-    </> },
-    'Way of working': { guide: 'packs-and-what-if', body: <>
-      <p>A way of working is the set of packs this project has adopted, with their workflows, guidance, policies and checks.</p>
-      <p>Read what the project uses, compare versions and choose updates. Adopting a pack selects its standards. A conformance review checks whether the app meets them.</p>
-    </> },
-    Services: { guide: 'services-and-data', body: <>
-      <p>Services are the systems this app uses, such as a database, AI models or error reporting.</p>
-      <p>Changing a declared service opens a change to update the app's contract for approval. Connections attach outside services to the project. Each deployment and preview gets its own credentials.</p>
-    </> },
-    Secrets: { guide: 'secrets', body: <>
-      <p>Secrets are values your app needs but should not be part of the code: passwords, API keys, signing keys. {PRODUCT} keeps them and gives them to the app when it runs.</p>
-      <p>The app's code lists the secrets it needs, in its secretspec.toml file. To add a new one, ask for a change to the app, then enter its value here.</p>
-      <p>Entered values will not be shown again.</p>
-    </> },
-    Members: { guide: 'people-and-roles', body: <>
-      <p>Members are the people and groups with roles on this project.</p>
-      <p>A contributor opens changes and hands them off. A maintainer also lands them and changes the project's setup. An approver says yes at approval steps. An owner manages the project and its members.</p>
-      <p>Add or remove roles here, and choose whether another person must approve the author's change. The Approval section shows who can approve and who can land changes.</p>
-    </> },
-    Usage: { guide: 'monitoring', body: <>
-      <p>Usage is this project's AI model use and estimated cost.</p>
-      <p>Choose a period to see tokens and cost by model, daily use and time spent in workflow steps. Workflow use comes from runs; interactive use comes from chats. Unpriced use is shown separately.</p>
-    </> },
+    General: { guide: 'project-settings', body: <p>The project's name, address, icon, group and description. You can also download the code, with its default branch and tags, or delete the project.</p> },
+    Models: { guide: 'architecture', body: <p>A model profile chooses which AI model does each task for this project. A profile's own choices are under Integrations › Model profiles.</p> },
+    'Way of working': { guide: 'packs-and-what-if', body: <p>The packs this project has adopted, with their workflows, guidance, policies and checks. Compare versions and choose updates here.</p> },
+    Services: { guide: 'services-and-data', body: <p>The systems this app uses, such as a database, AI models or error reporting. Changing a declared service opens a change to the app's contract for approval.</p> },
+    Secrets: { guide: 'secrets', body: <p>Values your app needs that should not be in its code, such as passwords and API keys, as its secretspec.toml file lists them. Entered values will not be shown again.</p> },
+    Members: { guide: 'people-and-roles', body: <p>The people and groups with roles on this project: contributors, maintainers, approvers and owners. Add or remove roles here, and choose whether another person must approve the author's change.</p> },
+    Usage: { guide: 'monitoring', body: <p>This project's AI model use and estimated cost. Choose a period to see tokens and cost by model, daily use and time spent in workflow steps.</p> },
   },
   waysOfWorking: {
-    Packs: { guide: 'packs-and-what-if', body: <>
-      <p>Choose the packs projects can start from. A pack bundles a stack with the workflows, guidance and policies that go with it.</p>
-      <p>Packs marked yours were made here; the rest come with {PRODUCT}. To change one of those, make your own pack based on it.</p>
-    </> },
-    Workflows: { guide: 'ways-of-working-formats', body: <>
-      <p>See the steps a change goes through, from request to release: who builds it, which checks run and who approves it.</p>
-      <p>A project gets its workflows from its packs; a run keeps the version it started with.</p>
-    </> },
-    Guidance: { guide: 'ways-of-working-formats', body: <>
-      <p>Read and write the instructions coding helpers follow. Some guidance also carries checks that run when a change lands and in reviews.</p>
-    </> },
-    Policies: { guide: 'ways-of-working-formats', body: <>
-      <p>Set rules every workflow must follow, such as "a deploy needs a scan first". A policy is checked whenever a workflow is saved.</p>
-    </> },
+    Packs: { guide: 'packs-and-what-if', body: <p>Choose the packs projects can start from. Packs marked yours were made here; to change one that comes with {PRODUCT}, make your own pack based on it.</p> },
+    Workflows: { guide: 'ways-of-working-formats', body: <p>The steps a change goes through, from request to release: who builds it, which checks run and who approves it. A project gets its workflows from its packs; a run keeps the version it started with.</p> },
+    Guidance: { guide: 'ways-of-working-formats', body: <p>Read and write the instructions coding helpers follow. Some guidance also carries checks that run when a change lands and in reviews.</p> },
+    Policies: { guide: 'ways-of-working-formats', body: <p>Set rules every workflow must follow, such as "a deploy needs a scan first". A policy is checked whenever a workflow is saved.</p> },
   },
-  // Each conformance page says what that page shows, not the area's summary.
+  // Each Maintenance page says what that page shows.
   maintenance: {
+    'Needs you': { guide: 'janitor', body: <p>Janitor work waiting for a person: a change to accept, an update it could not finish, or a held release.</p> },
+    Standards: { guide: 'conformance', body: <p>Whether each project still meets the ways of working it adopted. A review reads each project's <code>main</code> branch and changes nothing.</p> },
+    Updates: { guide: 'janitor', body: <p>Changes the Janitor has landed, newest first.</p> },
+    Settings: { guide: 'who-keeps-what-updated', body: <p>What the Janitor keeps up to date in every project. Each project can choose its own dependency level or turn the Janitor off.</p> },
+    'Pack upgrades': { guide: 'packs-and-what-if', body: <p>Projects on an older version of a pack they adopted. A what-if tries a newer version on them without changing anything.</p> },
     Checks: { guide: 'conformance', body: <>
       <p>Every check the projects' adopted packs ask for, with how many projects pass, fail or could not be checked.</p>
       <p>Open a check to see each project's latest result for it.</p>
     </> },
-    'this check': { guide: 'conformance', body: <>
-      <p>This check's result in each project that adopted it, with the commit it was judged on. Under a review, the results are as that review found them.</p>
-      <p>A finding opens the project; a fix for it is made as a change there.</p>
-    </> },
+    'this check': { guide: 'conformance', body: <p>This check's result in each project that adopted it, with the commit it was judged on. A fix for a finding is made as a change in that project.</p> },
     Reviews: { guide: 'conformance', body: <>
       <p>Each review read every project's <code>main</code> branch at one time and changed nothing.</p>
       <p>Open one to see the results as they were then.</p>
     </> },
-    Remediations: { guide: 'conformance', body: <>
-      <p>A remediation fixes findings: it opens one change per project, one at a time, and each waits for approval like any other change.</p>
-      <p>Open one to follow its changes.</p>
-    </> },
+    Remediations: { guide: 'conformance', body: <p>A remediation fixes findings with one change per project, one at a time, each waiting for approval like any other change.</p> },
   },
 }
 
@@ -291,7 +189,7 @@ export const SUB_HELP: Partial<Record<HelpPage, Record<string, { body: ReactNode
 // that is about one thing of its own (a kind of integration) passes its own
 // help in place of the area's.
 // line is the page's one-sentence subtitle, kept with its title.
-export function PageHead({ page, actions, sub, help, line, title, compact = false }: { page: HelpPage; compact?: boolean; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
+export function PageHead({ page, actions, sub, help, line, title }: { page: HelpPage; title?: ReactNode; actions?: ReactNode; sub?: string; help?: { body: ReactNode; guide: string }; line?: ReactNode }) {
   const h: PageHelp = PAGE_HELP[page]
   const beta = useContext(BetaPage)
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
@@ -300,9 +198,9 @@ export function PageHead({ page, actions, sub, help, line, title, compact = fals
       <div className="page-head-row">
         {/* The title and its "?" stay together; actions wrap as a block. */}
         <span className="page-head-title">
-          {!compact && <h1>{title ?? sub ?? h.title}</h1>}
+          <h1>{title ?? sub ?? h.title}</h1>
           {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
-            : !compact && <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
+            : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
           {beta && <BetaChip />}
         </span>
         {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}

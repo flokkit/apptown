@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import { useGet, useAction } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Section } from '../../Section'
+import { PageHead } from '../../PageHead'
 import { fmtWhen } from '../../format'
 import type { JanitorView, JanitorProject, JanitorChoices } from '../../wire.gen'
 
@@ -41,6 +42,7 @@ function Choices({ data, current, reload }: { data: JanitorView; current: boolea
 export default function JanitorSettings() {
   const q = useGet<JanitorView>('/janitor', { poll: 10000 })
   return <div>
+    <PageHead page="maintenance" sub="Settings" />
     <ReadStatus q={q} what="janitor settings" /><StaleNote q={q} />
     {q.data && <Section title="What to keep updated"><Choices data={q.data} current={q.current} reload={q.reload} /></Section>}
   </div>

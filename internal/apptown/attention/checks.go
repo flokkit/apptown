@@ -23,7 +23,7 @@ func (s Checks) Snapshot(ctx context.Context, projects []ids.ID) (Snapshot, erro
 	if err != nil {
 		return Snapshot{}, err
 	}
-	out := Snapshot{Known: true, Name: "App checks", Href: "/maintenance/standards", NextStep: "Open Maintenance’s Standards tab to see each app's checks."}
+	out := Snapshot{Known: true, Name: "App checks", Href: "/maintenance/standards", NextStep: "Open Maintenance › Standards to see each app's checks."}
 	for _, p := range standing {
 		at, _ := time.Parse(time.RFC3339, p.JudgedAt)
 		// The source is as old as its oldest judged app; apps never judged are

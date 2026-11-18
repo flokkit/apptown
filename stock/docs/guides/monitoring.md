@@ -4,7 +4,12 @@
   its database answers, and 503 otherwise; it needs no sign-in and says nothing
   else, for a load balancer or a service manager.
 - **Usage** shows model tokens and estimated cost, and "Where the time goes" shows time per
-  step (also `apptown timing`).
+  step (also `apptown timing`). It counts the projects you can read, or all of
+  AppTown if you can read all of it. Workflow use comes from runs and
+  interactive use from chats. Costs are estimates, not your provider's bill:
+  the coding helper reports a price for each message, the provider's own or
+  one worked out from the model's list price, and use with no known price
+  shows as not priced.
 - **Telemetry.** With `-otlp-endpoint` (and `-otlp-protocol http|grpc`) AppTown sends its own traces, metrics and logs to an OpenTelemetry
   receiver. A Grafana dashboard for them is in the repository at
   `stock/observability/apptown-dashboard.json`, with a README on loading it.

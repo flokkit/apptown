@@ -315,7 +315,7 @@ agent loads only when it needs it.
 
 **Conformance** — whether a project meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only
-**review** of projects' committed main (**Check now** on Maintenance’s Standards tab).
+**review** of projects' committed main (**Check now** on **Maintenance › Standards**).
 A review is a saved record you can open later. A project's **standing** is
 its status and one line saying what to do next; its page groups the checks'
 results as findings, couldn't run, needs your review, approved exceptions,
@@ -349,9 +349,14 @@ counts as a confirmed problem. A check that cannot give an answer produces
 no confirmed problem.
 
 **Suppression** — a recorded decision to accept a finding, with a reason and
-an author.
+an author. A security suppression is made from a project's **Security →
+Findings** with an expiry. It matches findings by the scanner's own ID for
+them, or by the vulnerability's ID (such as a CVE number) and the package.
+When it expires, or is revoked on **Security → Suppressions**, the finding
+fails the security check again. **OpenVEX export** downloads the records in a
+standard format other security tools read.
 
-**Exception (conformance)** — Maintenance’s Standards tab’s name for a
+**Exception (conformance)** — the name **Maintenance › Standards** uses for a
 suppression: a person's recorded acceptance of a failing check, as an
 accepted risk or a false positive, with a justification. The check reads
 **excepted**, with its failure still visible underneath. An exception may
@@ -518,7 +523,11 @@ person's name.
 
 **Role** — a named set of things a person may do, such as instance
 administrator, auditor, project creator, or a project's owner or
-contributor.
+contributor. On a project, a contributor opens changes and hands them off; a
+maintainer also lands them and changes the project's setup; an approver says
+yes at approval steps; an owner manages the project and its members.
+Administrators can act in every project and approve their own changes,
+unless a project asks for someone else's approval.
 
 **Grant** — a role given to a person or a group, on the whole AppTown
 (**People → Roles on this AppTown**) or on one project (its **Settings →

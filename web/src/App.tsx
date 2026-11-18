@@ -141,7 +141,14 @@ export function SidebarNav() {
           ...(feature('backups') ? [{ to: '/backups', label: 'Backups', active: pathname === '/backups' }] : []),
         ] : []),
       ]} />
-      {(permission('maintenance') || mayOpen('conformance')) && <NavLink to="/maintenance" className={cls}><RefreshCw aria-hidden size={16} />Maintenance</NavLink>}
+      {(permission('maintenance') || mayOpen('conformance')) && <Drawer label="Maintenance" icon={<RefreshCw aria-hidden size={16} />} to="/maintenance" active={/^\/maintenance(\/|$)/.test(pathname)} items={[
+        ...(permission('maintenance') ? [{ to: '/maintenance', label: 'Needs you', active: pathname === '/maintenance' }] : []),
+        ...(mayOpen('conformance') ? [{ to: '/maintenance/standards', label: 'Standards', active: pathname.startsWith('/maintenance/standards') }] : []),
+        ...(permission('maintenance') ? [
+          { to: '/maintenance/updates', label: 'Updates', active: pathname === '/maintenance/updates' },
+          { to: '/maintenance/settings', label: 'Settings', active: pathname === '/maintenance/settings' },
+        ] : []),
+      ]} />}
       <div className="nav-group">Setup</div>
  <NavLink to="/features" className={cls}><Settings aria-hidden size={16} />Features</NavLink>
       <Drawer label="Ways of working" icon={<BookOpen aria-hidden size={16} />} to="/packs" active={wow} items={[
