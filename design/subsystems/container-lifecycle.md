@@ -5,6 +5,17 @@ change and run workspace cleanup. Docker implements the container commands.
 Normal operation cleanup handles completed work. The periodic reaper provides
 a fallback for resources left behind by missed cleanup or process interruption.
 
+The execution runner removes each run's container and services itself, with
+a bound of its own (a loaded host can take well over ten seconds). When the
+command exited, a removal that still fails leaves a stopped container for the
+sweeps (the worker's check sweep, this reaper, the next attempt of the same
+step) and the exit stays the run's answer. When the run did not exit
+(cancelled, timed out), its workload may still be running, and a failed
+removal makes it no answer. A check on an AppTown without a worker whose
+container carries no owner the reaper recognises (a run inside an image with
+no tree, screenshot capture) has no sweep: a failed removal leaves it until
+someone removes it.
+
 The daemon schedules maintenance about every five minutes, and it removes
 what it finds. `apptownd -disable-reap` (`APPTOWN_DISABLE_REAP=true`) turns
 deletion off, so maintenance only logs what it would remove. Set it when

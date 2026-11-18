@@ -106,6 +106,11 @@ type Outcome struct {
 	Termination Termination
 	ExitCode    int // -1 when no normal exit code is available
 	CleanupErr  error
+	// Leftover is what the runner could not remove after the command
+	// exited: its stopped container, or its services. The exit is still
+	// the answer; the owner's sweep removes what is left (the worker's
+	// check sweep, maintenance's step reaper, the next attempt of a step).
+	Leftover error
 	// Report is the requested report's bytes, when it was read; ReportErr
 	// says why it was not (missing, not a regular file, too large, or outside
 	// the workspace). A caller whose tool declares a report treats a missing
@@ -116,8 +121,9 @@ type Outcome struct {
 }
 
 // Answered reports a run whose exit code is its answer: a normal exit, with
-// a real code, and nothing left behind. A timeout, a cancellation, a launch
-// or transport failure, or a cleanup that failed is no answer at all.
+// a real code, whose ending could be read. A timeout, a cancellation, a
+// launch or transport failure is no answer at all; what an exited run left
+// behind is its Leftover and does not change the answer.
 func (o Outcome) Answered() bool {
 	return o.Termination == Exited && o.ExitCode >= 0 && o.CleanupErr == nil
 }
@@ -219,13 +225,13 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		}
 		network, remove, err := r.startServices(ctx, req)
 		// Removed after the run, whatever became of it, with a lifetime of
-		// its own: what is left behind makes the run no answer.
+		// its own (leftBehind says what a failure means).
 		defer func() {
 			if req.CaptureInputs {
 				out.Inputs = r.captureServiceInputs(ctx, req, out.Inputs)
 			}
 			if cerr := remove(); cerr != nil {
-				out.CleanupErr = errors.Join(out.CleanupErr, cerr)
+				out.leftBehind(cerr)
 			}
 		}()
 		if err != nil {
@@ -294,15 +300,36 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 				out.Inputs.Toolchain = readInstalledToolchain(req.Workspace)
 			}
 		}
-		cleanup := exec.CommandContext(cleanupCtx, r.dockerBinary(), "rm", "-f", "-v", req.Name)
+		cancelCleanup()
+		// Removal has a bound of its own: deleting a container's layer and
+		// volumes on a busy host takes longer than the questions above
+		// (demo, 13-18 Nov: ten seconds shared with them killed docker rm
+		// while the daemon went on to remove the container).
+		removeCtx, cancelRemove := context.WithTimeout(context.WithoutCancel(ctx), removeWait)
+		cleanup := exec.CommandContext(removeCtx, r.dockerBinary(), "rm", "-f", "-v", req.Name)
 		configureCancellation(cleanup)
 		log, cleanupErr := cleanup.CombinedOutput()
-		cancelCleanup()
+		cancelRemove()
 		if cleanupErr != nil && !strings.Contains(strings.ToLower(string(log)), "no such container") {
-			out.CleanupErr = errors.Join(out.CleanupErr, fmt.Errorf("remove owned container %s: %w: %s", req.Name, cleanupErr, strings.TrimSpace(string(log))))
+			out.leftBehind(fmt.Errorf("remove owned container %s: %w: %s", req.Name, cleanupErr, strings.TrimSpace(string(log))))
 		}
 	}
 	return out
+}
+
+// removeWait bounds removing what a run made. A variable so a test can show
+// a slow removal without waiting minutes.
+var removeWait = 2 * time.Minute
+
+// leftBehind records what could not be removed. After an exit it is a
+// leftover and the exit stands; a run that did not exit may have left its
+// workload running, and is no answer.
+func (o *Outcome) leftBehind(err error) {
+	if o.Termination == Exited {
+		o.Leftover = errors.Join(o.Leftover, err)
+		return
+	}
+	o.CleanupErr = errors.Join(o.CleanupErr, err)
 }
 
 // dockerRefused is docker run's own exit when the daemon refuses a run; a

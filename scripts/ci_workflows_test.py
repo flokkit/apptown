@@ -122,9 +122,9 @@ class TestCache(unittest.TestCase):
         self.assertIn('-tags=journey', commands['journeys'])
         self.assertIn('-run TestJourney', commands['journeys'])
         self.assertIn('-tags=browser,pi,inference_docker', commands['opt-in-tiers'])
-        for name in ['TestBrowserSecurityChromium', 'TestInferencePinnedPi', 'TestInferenceConsoleMountBoundary']:
+        for name in ['TestBrowserSecurityChromium', 'TestInferencePinnedPi', 'TestInferenceConsoleMountBoundary', 'TestGarage']:
             self.assertIn(name, commands['opt-in-tiers'])
-        self.assertIn('require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary', main)
+        self.assertIn('require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary TestGarage', main)
         self.assertIn('group: [root, backup, workflow, rest]', main)
         from heavy_execution import EXECUTION_JOBS
         self.assertEqual(EXECUTION_JOBS, set(names) | {'web', 'heavy-ok'} | {'race-' + g for g in ['root', 'backup', 'workflow', 'rest']})

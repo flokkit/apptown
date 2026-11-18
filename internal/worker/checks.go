@@ -221,6 +221,9 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 	if out.CleanupErr != nil {
 		answer.RunErr = strings.TrimSpace(answer.RunErr + "; " + out.CleanupErr.Error())
 	}
+	if out.Leftover != nil {
+		log.Printf("check %s: %v (the sweep removes it)", id, out.Leftover)
+	}
 	if out.ReportErr != nil {
 		answer.ReportErr = out.ReportErr.Error()
 	}

@@ -153,7 +153,8 @@ exit 0
 
 // A service or network is gone only when the daemon answers so. A cleanup
 // that could not reach the daemon (its socket missing: "no such file or
-// directory") is not a cleanup that succeeded, and makes the run no answer.
+// directory") is not a cleanup that succeeded: what it could not remove is
+// recorded as left behind, and the command's exit is still its answer.
 func TestServiceCleanupCountsOnlyTheDaemonsAnswerAsGone(t *testing.T) {
 	t.Parallel()
 	for name, tc := range map[string]struct {
@@ -183,8 +184,15 @@ exit 0
 			req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: polltest.HangGuard(t),
 				Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine"}}}
 			out := (Runner{DockerBinary: fake}).Run(context.Background(), Docker, req)
-			if out.Termination != Exited || (out.CleanupErr == nil) != tc.wantClean {
+			if !out.Exited0() || out.CleanupErr != nil || (out.Leftover == nil) != tc.wantClean {
 				t.Fatalf("%s: %+v; want clean %v", tc.answer, out, tc.wantClean)
+			}
+			if !tc.wantClean {
+				for _, want := range []string{"the service container tests-1-postgres", "the network tests-1-net"} {
+					if !strings.Contains(out.Leftover.Error(), want) {
+						t.Errorf("%q is not recorded as left behind: %v", want, out.Leftover)
+					}
+				}
 			}
 		})
 	}
