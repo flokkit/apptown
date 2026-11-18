@@ -44,3 +44,8 @@ SELECT id FROM projects ORDER BY id;
 
 -- name: JanitorRunChange :one
 SELECT project_id,change_id FROM runs WHERE id=$1;
+
+-- name: JanitorAttemptStats :many
+SELECT id, project_id, active_change_id, queue, opened_at, ended_at, outcome, reason FROM automated_changes
+WHERE project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND queue IN ('packs','updates','security') AND opened_at>=sqlc.arg(since)
+ORDER BY opened_at DESC, id DESC;

@@ -15,6 +15,60 @@ import (
 	"github.com/lib/pq"
 )
 
+const janitorAttemptStats = `-- name: JanitorAttemptStats :many
+SELECT id, project_id, active_change_id, queue, opened_at, ended_at, outcome, reason FROM automated_changes
+WHERE project_id=ANY($1::uuid[]) AND queue IN ('packs','updates','security') AND opened_at>=$2
+ORDER BY opened_at DESC, id DESC
+`
+
+type JanitorAttemptStatsParams struct {
+	ProjectIds []ids.ID
+	Since      time.Time
+}
+
+type JanitorAttemptStatsRow struct {
+	ID             ids.ID
+	ProjectID      ids.ID
+	ActiveChangeID ids.ID
+	Queue          string
+	OpenedAt       time.Time
+	EndedAt        sql.NullTime
+	Outcome        string
+	Reason         string
+}
+
+func (q *Queries) JanitorAttemptStats(ctx context.Context, arg JanitorAttemptStatsParams) ([]JanitorAttemptStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, janitorAttemptStats, pq.Array(arg.ProjectIds), arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JanitorAttemptStatsRow
+	for rows.Next() {
+		var i JanitorAttemptStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.ActiveChangeID,
+			&i.Queue,
+			&i.OpenedAt,
+			&i.EndedAt,
+			&i.Outcome,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const janitorLandedChanges = `-- name: JanitorLandedChanges :many
 SELECT a.id, a.project_id, a.active_change_id, a.queue, a.what, a.opened_at, a.ended_at, a.outcome, a.reason, a.fingerprint, a.packages, a.targets, a.attempted_at, a.failed_attempt, a.schedule, a.rule_id, a.rule_revision, a.files,c.number,c.title,c.type,c.target_candidate_json,c.closed_at,p.slug,p.name
 FROM automated_changes a JOIN changes c ON c.id=a.active_change_id AND c.project_id=a.project_id

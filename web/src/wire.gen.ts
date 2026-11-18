@@ -1134,10 +1134,25 @@ export type JanitorChoicesCommand = {
   expectedRevision: number
 }
 
+export type JanitorCounts = {
+  runs: number
+  shipped: number
+  nothingToChange: number
+  waiting: number
+  failed: number
+  closed: number
+  running: number
+}
+
 export type JanitorHistoryView = {
   history: JanitorHistory
   since: string
   until: string
+}
+
+export type JanitorKindStatistics = {
+  kind: string
+  counts: JanitorCounts
 }
 
 export type JanitorLandedChange = {
@@ -1149,6 +1164,38 @@ export type JanitorLandedChange = {
   landedAt: string
   queue: string
   packages: PackageMove[]
+}
+
+export type JanitorPatchTimes = {
+  patched: number
+  median: number
+  slowest: number
+  open: number
+  oldestOpen: number
+}
+
+export type JanitorProjectStatistics = {
+  projectId: string | null
+  slug: string
+  name: string
+  counts: JanitorCounts
+  patch: JanitorPatchTimes
+}
+
+export type JanitorReason = {
+  kind: string
+  column: string
+  step: string
+  count: number
+  latest: string
+  examples: JanitorReasonExample[]
+}
+
+export type JanitorReasonExample = {
+  changeId?: string | null
+  project: string
+  slug: string
+  at: string
 }
 
 export type JanitorRun = {
@@ -1171,6 +1218,15 @@ export type JanitorStart = {
   refused: string
   busyChangeId?: string | null
   busyChangeNumber: number
+}
+
+export type JanitorStatistics = {
+  days: number
+  since: string
+  kinds: JanitorKindStatistics[]
+  reasons: JanitorReason[]
+  patch: JanitorPatchTimes
+  projects: JanitorProjectStatistics[]
 }
 
 export type JanitorView = {

@@ -4,7 +4,7 @@
    a quiet count and at most one action, then its content under a rule. */
 .page-section { margin-top: var(--space-5); }
 .page-section:first-of-type { margin-top: var(--space-4); }
-.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 0; padding-bottom: 0; }
+.section-head { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 0; padding-bottom: 0; }
 .section-head h2 { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-tight); display: flex; align-items: baseline; gap: 10px; }
 .section-count { font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--muted); font-variant-numeric: tabular-nums; }
 .section-action { font-size: var(--fs-sm); display: flex; gap: 12px; align-items: baseline; }

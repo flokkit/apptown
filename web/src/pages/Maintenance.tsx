@@ -8,7 +8,7 @@ export function ConformanceRedirect() {
   return <Navigate replace to={location.pathname.replace(/^\/conformance/, '/maintenance/standards') + location.search + location.hash} />
 }
 
-// Maintenance's pages (Needs you, Standards, Updates, Settings) are in the
+// Maintenance's pages (Needs you, Standards, Updates, Statistics, Settings) are in the
 // menu's Maintenance drawer and each renders its own head. This only decides
 // whether the reader may open the area at all, and sends a reader who can
 // open Standards but not the Janitor's pages there.

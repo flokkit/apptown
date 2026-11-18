@@ -126,3 +126,36 @@ func ScanObservationsByIDIn(ctx context.Context, db database.Queryer, project id
 	}
 	return out, nil
 }
+
+// PatchTime is one vulnerability a scan of a running app found, in one
+// deployment part as one scanner reported it. FirstSeen is the first time any
+// of the project's scans found its fingerprint; PatchedAt, when Patched, is
+// the first usable (pass or fail) running scan of the same part and scanner
+// after its latest sighting there. It is an observation duration: it includes
+// the wait for a fix to be published, which is not recorded, and the time
+// between scans.
+type PatchTime struct {
+	ProjectID   ids.ID
+	FirstSeen   time.Time
+	LastPresent time.Time
+	Patched     bool
+	PatchedAt   time.Time
+}
+
+// PatchTimesIn returns the units patched since the time given, and those still
+// open that a running scan found since then, for the projects the calling
+// owner has already authorized. One query covers every project.
+func PatchTimesIn(ctx context.Context, db database.Queryer, projects []ids.ID, since time.Time) ([]PatchTime, error) {
+	out := []PatchTime{}
+	if len(projects) == 0 {
+		return out, nil
+	}
+	rows, err := conformancesql.New(db.SQL()).PatchTimes(ctx, conformancesql.PatchTimesParams{ProjectIds: projects, Since: since})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out = append(out, PatchTime{ProjectID: r.ProjectID, FirstSeen: r.FirstSeen, LastPresent: r.LastPresent, Patched: r.Patched, PatchedAt: r.PatchedAt})
+	}
+	return out, nil
+}

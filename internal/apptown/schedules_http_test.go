@@ -135,7 +135,17 @@ func TestJanitorPageReadsAreAvailableToInstanceReadersWithoutManagement(t *testi
 			t.Fatalf("history: %d %s", w.Code, w.Body)
 		}
 	}
-	for _, path := range []string{"/api/v1/janitor/history?before=no", "/api/v1/janitor/history?offset=-1"} {
+	for _, days := range []string{"7", "30"} {
+		w := authzCall(h, "outsider", "GET", "/api/v1/janitor/statistics?days="+days, "")
+		var stats struct {
+			Days  int               `json:"days"`
+			Kinds []json.RawMessage `json:"kinds"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &stats) != nil || stats.Days != map[string]int{"7": 7, "30": 30}[days] || len(stats.Kinds) != 3 {
+			t.Fatalf("statistics: %d %s", w.Code, w.Body)
+		}
+	}
+	for _, path := range []string{"/api/v1/janitor/history?before=no", "/api/v1/janitor/history?offset=-1", "/api/v1/janitor/statistics", "/api/v1/janitor/statistics?days=14"} {
 		if w := authzCall(h, "outsider", "GET", path, ""); w.Code != 400 {
 			t.Fatalf("bad query: %d %s", w.Code, w.Body)
 		}

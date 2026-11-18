@@ -85,6 +85,7 @@ export const PAGE_ROUTES = [
   "/maintenance",
   "/maintenance/updates",
   "/maintenance/settings",
+  "/maintenance/statistics",
   "/packs",
   "/packs/:name",
   "/account",

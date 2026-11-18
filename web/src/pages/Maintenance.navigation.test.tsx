@@ -21,6 +21,7 @@ async function mount(path: string, projects = true, conformance = true, off: str
       : url.endsWith('/authz/me') ? { instance: { 'project:read': projects, 'conformance:read': conformance } }
       : url.endsWith('/auth/me') ? { mode: 'open', user: 'sam' }
       : url.endsWith('/janitor') ? { projects: [], deployments: [], unknown: [], choices: null }
+      : url.includes('/janitor/statistics') ? { days: 7, kinds: [], reasons: [], patch: { patched: 0, median: 0, slowest: 0, open: 0, oldestOpen: 0 }, projects: [] }
       : url.includes('/janitor/history') ? { history: { changes: [], more: false } }
       : url.endsWith('/conformance') ? { projects: [], reviews: [], byProject: {}, checkDefs: {}, summary: { findings: 0, flagged: 0, incompleteProjects: 0 }, lens: { kind: 'current' } }
       : url.endsWith('/conformance/reviews') ? { reviews: [] } : {}
@@ -39,25 +40,25 @@ const selected = (el: Element) => pages(el).find(a => a.classList.contains('acti
 
 // Maintenance's pages are the menu's, as in every other area: no tab strip,
 // each page titled by itself, with one "?" about that page.
-it.each([['/maintenance', 'Needs you'], ['/maintenance/updates', 'Updates'], ['/maintenance/settings', 'Settings'], ['/maintenance/standards', 'Standards']])('opens %s as a page of the Maintenance drawer', async (path, name) => {
+it.each([['/maintenance', 'Needs you'], ['/maintenance/updates', 'Updates'], ['/maintenance/statistics', 'Statistics'], ['/maintenance/settings', 'Settings'], ['/maintenance/standards', 'Standards']])('opens %s as a page of the Maintenance drawer', async (path, name) => {
   const m = await mount(path)
   try {
     expect(m.el.querySelector('[aria-label="Maintenance"]')).toBeNull()
     expect(pages(m.el).map(a => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['Needs you', '/maintenance'], ['Standards', '/maintenance/standards'], ['Updates', '/maintenance/updates'], ['Settings', '/maintenance/settings'],
+      ['Needs you', '/maintenance'], ['Standards', '/maintenance/standards'], ['Updates', '/maintenance/updates'], ['Statistics', '/maintenance/statistics'], ['Settings', '/maintenance/settings'],
     ])
     expect(selected(m.el)).toBe(name)
     expect(drawer(m.el)?.querySelector('.nav-drawer-head a')?.classList.contains('active-area')).toBe(true)
     expect([...m.el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([name])
     expect(m.el.querySelectorAll('.page-head .page-help-q')).toHaveLength(1)
-    expect(m.el.textContent).toContain(path.endsWith('/settings') ? 'What to keep updated' : path.endsWith('/updates') ? 'Last 7 days' : path.endsWith('/standards') ? 'Check now' : 'Nothing needs you.')
+    expect(m.el.textContent).toContain(path.endsWith('/settings') ? 'What to keep updated' : path.endsWith('/updates') ? 'Last 7 days' : path.endsWith('/statistics') ? 'By kind' : path.endsWith('/standards') ? 'Check now' : 'Nothing needs you.')
     if (path.endsWith('/standards')) expect([...m.el.querySelectorAll('[aria-label="Standards"] a')].map(a => a.textContent)).toEqual(['Projects', 'Checks', 'Reviews', 'Remediations', 'Pack upgrades'])
   } finally { m.close() }
 })
 
 it.each([[false, []], [true, ['conformance']]] as const)('hides Standards without its read or feature', async (read, off) => {
   const m = await mount('/maintenance', true, read, [...off])
-  try { expect(pages(m.el).map(a => a.textContent)).toEqual(['Needs you', 'Updates', 'Settings']) } finally { m.close() }
+  try { expect(pages(m.el).map(a => a.textContent)).toEqual(['Needs you', 'Updates', 'Statistics', 'Settings']) } finally { m.close() }
 })
 
 it.each([[[]], [['conformance-estate', 'what-ifs']]])('opens Maintenance on Standards for a Conformance-only reader (%s)', async off => {
