@@ -67,7 +67,7 @@ func cmdJanitor(args []string) error {
 	dependencies := fs.String("dependencies", "", "off, routine or aggressive")
 	security := fs.Bool("security-fixes", false, "keep security fixes updated")
 	images := fs.Bool("base-images", false, "keep base images updated")
-	toolchain := fs.Bool("toolchain-patches", false, "toolchain patches for security fixes")
+	toolchain := fs.Bool("toolchain-patches", false, "toolchain patch releases within the same minor")
 	packs := fs.Bool("packs", false, "keep packs updated")
 	revision := fs.Int64("revision", -1, "expected current revision (0 for first save)")
 	var runID string

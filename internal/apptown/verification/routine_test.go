@@ -259,9 +259,13 @@ func TestStandingAssessmentRefusesSecurityTargetsWhenSecurityFixesAreOff(t *test
 	}
 }
 
-func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testing.T) {
-	for _, security := range []bool{false, true} {
-		t.Run(fmt.Sprint(security), func(t *testing.T) {
+// A dependency update's repair may meet a scan finding in the toolchain
+// (dp-roundtrip, 18 Nov): the Toolchain patches choice, not the presence of
+// security targets, permits mise and the image moving a patch together.
+func TestStandingAssessmentAllowsToolchainPatchesByChoice(t *testing.T) {
+	for _, tc := range []struct{ security, patches bool }{{false, true}, {true, true}, {false, false}, {true, false}} {
+		security := tc.security
+		t.Run(fmt.Sprintf("security=%t/patches=%t", tc.security, tc.patches), func(t *testing.T) {
 			data, repo, source := routineRepository(t)
 			routineGit(t, repo, "checkout", "main")
 			routineWrite(t, filepath.Join(repo, "Dockerfile"), []byte("FROM golang:1.27.3 AS build\nFROM scratch\n"))
@@ -284,9 +288,9 @@ func TestStandingAssessmentAllowsImagesAndOnlyTargetedToolchainPatches(t *testin
 				}
 				return ds, targets, err
 			}
-			result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true, BaseImages: true, ToolchainPatches: true})
+			result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true, BaseImages: true, ToolchainPatches: tc.patches})
 			want := "requires-person"
-			if security {
+			if tc.patches {
 				want = "routine-dependency"
 			}
 			if err != nil || result.Classification != want {

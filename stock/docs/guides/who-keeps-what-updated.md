@@ -22,7 +22,7 @@ bigger moves, and a place where a person hears when it is stuck.
 | A vulnerability with no fixed release | Upstream; a source dependency's is listed with an empty Fix column, and the image scan leaves out findings with no fix until one is published | The Janitor within its level once a fix ships; the static server only through routine updates of its pin | The project's Security tab |
 
 The Janitor starts on at patch and minor, with security fixes, base images,
-toolchain patches for security fixes and packs; Maintenance › Settings changes
+toolchain patches and packs; Maintenance › Settings changes
 that for every project.
 Each project can choose its own level or turn the Janitor off in Settings ›
 General, and each deployment chooses in its Settings tab whether releases go

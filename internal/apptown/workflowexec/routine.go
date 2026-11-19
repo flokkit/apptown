@@ -153,7 +153,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			return
 		}
 	}
-	if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, len(targets) > 0 && choices.ToolchainPatches, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, Readings: &readings}); err != nil {
+	if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, ToolchainPatches: choices.ToolchainPatches, Readings: &readings}); err != nil {
 		if fault.KindOf(err) == fault.Unavailable {
 			receipt.Verdict = workflow.VerdictCannotAssess
 			finish(workflow.StatusError, err.Error())
@@ -176,6 +176,11 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		facts += " (including majors)"
 	} else {
 		facts += " (patch and minor)"
+	}
+	if choices.ToolchainPatches {
+		facts += "\nToolchain patches: on"
+	} else {
+		facts += "\nToolchain patches: off"
 	}
 	if len(targets) > 0 {
 		facts += "\nFindings to fix:"
