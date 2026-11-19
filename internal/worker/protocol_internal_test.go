@@ -10,10 +10,11 @@ import (
 // A worker built before task observations said whether Docker killed a task
 // at its memory limit serves protocol 1 only: it refuses this AppTown by name
 // (426), so an out-of-memory kill on it is never read as an ordinary exit.
-// A worker of this build still serves an AppTown of the previous one.
+// A worker of this build refuses an AppTown of protocol 3, which would read
+// a result answered without its bytes as an empty one.
 //
-// Kills: protocol 1 kept while the observation changed meaning (review
-// CT-C05).
+// Kills: protocol 1 kept while the observation changed meaning; protocol 3
+// served after result files became streams.
 func TestAWorkerThatCannotReportMemoryKillsRefusesThisAppTown(t *testing.T) {
 	t.Parallel()
 	ok := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
@@ -27,7 +28,10 @@ func TestAWorkerThatCannotReportMemoryKillsRefusesThisAppTown(t *testing.T) {
 	if code := ask(servedRange(1, 1, ok), Protocol); code != http.StatusUpgradeRequired {
 		t.Fatalf("an old worker served this AppTown: %d", code)
 	}
-	if code := ask(served(ok), Protocol-1); code != http.StatusOK {
-		t.Fatalf("this worker refused the previous AppTown: %d", code)
+	if code := ask(served(ok), 3); code != http.StatusUpgradeRequired {
+		t.Fatalf("this worker served an AppTown that reads results inline: %d", code)
+	}
+	if code := ask(served(ok), Protocol); code != http.StatusOK {
+		t.Fatalf("this worker refused its own AppTown: %d", code)
 	}
 }

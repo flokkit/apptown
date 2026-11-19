@@ -171,24 +171,21 @@ type Result struct {
 	Fresh bool `json:"fresh,omitempty"`
 }
 
-// Bounds on a request's result files.
-const (
-	maxResults          = 16
-	MaxResultBytes      = 64 << 20 // one result's Max
-	maxResultTotalBytes = 96 << 20 // all of a request's Max together
-)
+// maxResults bounds how many result files a request declares. A result's
+// size is bounded by its own Max alone: each is captured to a file and read
+// as a stream (WorkerTasks.ReadResult), never answered whole.
+const maxResults = 16
 
 var resultNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
 // ValidResults says whether results may be declared: each named once, at a
 // clean path of its own in the tree or the state folder, with a maximum
-// size within the bounds.
+// size of at least one byte.
 func ValidResults(results []Result) error {
 	if len(results) > maxResults {
 		return fmt.Errorf("%d result files, over the %d limit", len(results), maxResults)
 	}
 	names, paths := map[string]bool{}, map[string]bool{}
-	var total int64
 	for _, r := range results {
 		if !resultNamePattern.MatchString(r.Name) {
 			return fmt.Errorf("invalid result name %q", r.Name)
@@ -200,13 +197,9 @@ func ValidResults(results []Result) error {
 			return fmt.Errorf("the result %s (%s) is declared twice", r.Name, r.Path)
 		}
 		names[r.Name], paths[r.Path] = true, true
-		if r.Max <= 0 || r.Max > MaxResultBytes {
-			return fmt.Errorf("the result %s's maximum must be between 1 and %d bytes", r.Name, MaxResultBytes)
+		if r.Max <= 0 {
+			return fmt.Errorf("the result %s's maximum must be at least 1 byte", r.Name)
 		}
-		total += r.Max
-	}
-	if total > maxResultTotalBytes {
-		return fmt.Errorf("the result files may be %d bytes together, over the %d limit", total, maxResultTotalBytes)
 	}
 	return nil
 }
@@ -222,12 +215,15 @@ const (
 	ResultTooLarge ResultState = "too-large" // a regular file over its maximum (Size)
 )
 
-// ResultFile is a captured result file.
+// ResultFile is a captured result file. The worker answers its state,
+// size and reason; a present one's bytes are read on their own
+// (WorkerTasks.ReadResult). Content is filled by WorkerTasks.Results, which
+// reads each present result whole, and is never on the wire.
 type ResultFile struct {
 	State   ResultState `json:"state"`
-	Content []byte      `json:"content,omitempty"` // present only
-	Reason  string      `json:"reason,omitempty"`  // refused only
-	Size    int64       `json:"size,omitempty"`    // present and too large
+	Content []byte      `json:"-"`                // present only, read by Results
+	Reason  string      `json:"reason,omitempty"` // refused only
+	Size    int64       `json:"size,omitempty"`   // present and too large
 }
 
 // Reasons a result file is refused.
@@ -237,12 +233,13 @@ const (
 	RefusedEscape     = "escape"      // the path leaves the tree or state folder
 )
 
-// Valid says whether a captured result is one of the four states, whole.
+// Valid says whether a captured result's state is one of the four, with
+// what that state carries.
 func (f ResultFile) Valid() error {
 	switch f.State {
 	case ResultPresent:
-		if int64(len(f.Content)) != f.Size {
-			return fmt.Errorf("a present result of %d bytes holds %d", f.Size, len(f.Content))
+		if f.Size < 0 {
+			return fmt.Errorf("a present result of %d bytes", f.Size)
 		}
 	case ResultAbsent:
 	case ResultRefused:

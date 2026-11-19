@@ -45,6 +45,8 @@ type dumpTasks struct {
 	do     func(spec execution.TaskSpec) (result []byte, exit int, said string)
 	// block makes Wait wait for its caller's end.
 	block bool
+	// overMax makes a worker's dump one byte over the Max it declared.
+	overMax bool
 
 	mu       sync.Mutex
 	ensured  []execution.TaskSpec
@@ -158,17 +160,29 @@ func (f *dumpTasks) Release(_ context.Context, ref execution.TaskRef) error {
 
 func (f *dumpTasks) ReleaseWorkspace(context.Context, string) error { return execution.ErrUnsupported }
 
-func (f *dumpTasks) Results(_ context.Context, ref execution.TaskRef) (map[string]execution.ResultFile, error) {
+func (f *dumpTasks) ResultStates(_ context.Context, ref execution.TaskRef) (map[string]execution.ResultFile, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	body, ok := f.results[ref.Key]
-	if !ok {
-		return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultAbsent}}, nil
+	name := f.resultOf[ref.Key]
+	switch {
+	case !ok:
+		return map[string]execution.ResultFile{name: {State: execution.ResultAbsent}}, nil
+	case f.overMax:
+		return map[string]execution.ResultFile{name: {State: execution.ResultTooLarge, Size: f.live[ref.Key].Results[0].Max + 1}}, nil
 	}
-	if int64(len(body)) > execution.MaxResultBytes {
-		return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultTooLarge, Size: int64(len(body))}}, nil
+	return map[string]execution.ResultFile{name: {State: execution.ResultPresent, Size: int64(len(body))}}, nil
+}
+
+func (f *dumpTasks) ReadResult(_ context.Context, ref execution.TaskRef, name string, size int64, out io.Writer) error {
+	f.mu.Lock()
+	body, ok := f.results[ref.Key]
+	f.mu.Unlock()
+	if !ok || name != f.resultOf[ref.Key] || size != int64(len(body)) {
+		return fmt.Errorf("no present result %s of %d bytes", name, size)
 	}
-	return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultPresent, Content: body, Size: int64(len(body))}}, nil
+	_, err := out.Write(body)
+	return err
 }
 
 // released says every task ensured was released.
@@ -879,24 +893,21 @@ func TestAnExternalDatabaseIsDumpedInThePinnedPostgresImage(t *testing.T) {
 
 // With no Docker of its own, AppTown dumps a -db-url database on its
 // worker: the task mounts nothing, declares its dump as a result, and the
-// worker's answer is the dump; the version is read the same way. A dump
-// over what a worker task may leave is refused, never truncated; the
+// worker's answer is the dump, read to its file; the version is read the
+// same way. The dump declares dumpResultMax, and one over it is refused
+// with its size, never truncated; the
 // built-in database, only on AppTown's own Docker, is not dumped there.
 //
 // Kills: a whole-AppTown backup refused for want of local Docker; a dump
 // on a worker published from a result that is not present.
 func TestWithNoLocalDockerTheDumpRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
-	big := false
 	place, tasks := dumpsOn(t, true, func(spec execution.TaskSpec) ([]byte, int, string) {
-		if len(spec.Mounts) > 0 || len(spec.Results) != 1 || !strings.HasPrefix(spec.Results[0].Path, execution.StateRoot+"/") || spec.Admission.Profile != "worker" {
+		if len(spec.Mounts) > 0 || len(spec.Results) != 1 || !strings.HasPrefix(spec.Results[0].Path, execution.StateRoot+"/") || spec.Results[0].Max != dumpResultMax || spec.Admission.Profile != "worker" {
 			t.Fatalf("a worker's dump task: %+v", spec)
 		}
 		if strings.Contains(scriptOf(spec), "--version") {
 			return []byte("pg_dump (PostgreSQL) 16.15\n"), 0, ""
-		}
-		if big {
-			return make([]byte, execution.MaxResultBytes+1), 0, ""
 		}
 		return gz(t, "SELECT 1;\n"), 0, ""
 	})
@@ -911,9 +922,9 @@ func TestWithNoLocalDockerTheDumpRunsOnTheWorker(t *testing.T) {
 	if v, err := d.DumpClientVersion(t.Context()); err != nil || v != "pg_dump (PostgreSQL) 16.15" {
 		t.Fatalf("the client version: %q %v", v, err)
 	}
-	big = true
+	tasks.overMax = true
 	tooBig := filepath.Join(t.TempDir(), "big.sql.gz")
-	if err := d.Dump(t.Context(), tooBig); err == nil || !strings.Contains(err.Error(), "over the") {
+	if err := d.Dump(t.Context(), tooBig); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("is %d bytes, over the %d", int64(dumpResultMax)+1, int64(dumpResultMax))) {
 		t.Fatalf("a dump over a worker's limit: %v", err)
 	}
 	if _, err := os.Stat(tooBig); !os.IsNotExist(err) {
@@ -923,6 +934,7 @@ func TestWithNoLocalDockerTheDumpRunsOnTheWorker(t *testing.T) {
 	if err := builtin.Dump(t.Context(), filepath.Join(t.TempDir(), "builtin.sql.gz")); err == nil {
 		t.Fatal("the built-in database was dumped on a worker")
 	}
+	tasks.overMax = false
 	if !tasks.released() {
 		t.Fatal("a worker's dump task was not released")
 	}

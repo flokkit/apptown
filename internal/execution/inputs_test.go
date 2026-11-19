@@ -155,11 +155,10 @@ func TestInvalidResultsAreRefused(t *testing.T) {
 		"no name":               {{Path: "/work/a", Max: 1}},
 		"a name with a slash":   {{Name: "a/b", Path: "/work/a", Max: 1}},
 		"no maximum":            {{Name: "a", Path: "/work/a"}},
-		"a maximum over":        {{Name: "a", Path: "/work/a", Max: MaxResultBytes + 1}},
+		"a negative maximum":    {{Name: "a", Path: "/work/a", Max: -1}},
 		"one name twice":        {{Name: "a", Path: "/work/a", Max: 1}, {Name: "a", Path: "/work/b", Max: 1}},
 		"one path twice":        {{Name: "a", Path: "/work/a", Max: 1}, {Name: "b", Path: "/work/a", Max: 1}},
 		"too many":              many,
-		"too large together":    {{Name: "a", Path: "/work/a", Max: MaxResultBytes}, {Name: "b", Path: "/work/b", Max: MaxResultBytes}},
 		"a mount separator":     {{Name: "a", Path: "/work/a:b", Max: 1}},
 		"a sibling of the tree": {{Name: "a", Path: "/workshop/a", Max: 1}},
 	}
@@ -170,7 +169,7 @@ func TestInvalidResultsAreRefused(t *testing.T) {
 	}
 }
 
-// Each captured state is whole: present carries its bytes, refused its
+// Each captured state is whole: present carries its size, refused its
 // reason, and nothing else carries content; an unknown state is not one.
 func TestACapturedResultIsOneOfFourStates(t *testing.T) {
 	t.Parallel()
@@ -181,7 +180,7 @@ func TestACapturedResultIsOneOfFourStates(t *testing.T) {
 			t.Errorf("%+v: %v", f, err)
 		}
 	}
-	invalid := []ResultFile{{}, {State: "empty"}, {State: ResultPresent, Content: []byte("x")}, {State: ResultAbsent, Content: []byte("x")},
+	invalid := []ResultFile{{}, {State: "empty"}, {State: ResultPresent, Size: -1}, {State: ResultAbsent, Content: []byte("x")},
 		{State: ResultRefused}, {State: ResultTooLarge, Content: []byte("x")}}
 	for _, f := range invalid {
 		if err := f.Valid(); err == nil {

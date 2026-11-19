@@ -38,17 +38,12 @@ func (s *Server) taskImagesPath(key string) string {
 }
 
 // captureImages copies each declared image of a task that has exited and
-// keeps the record of what it found. It runs under the task's lock, which
-// release takes too, so no capture follows a release; a capture already
+// keeps the record of what it found. The caller holds the task's lock,
+// which release takes too, and has seen no release; a capture already
 // recorded is kept.
 func (s *Server) captureImages(key string, d declaredResults) error {
 	if len(d.Images) == 0 {
 		return nil
-	}
-	unlock := s.lockTask(key)
-	defer unlock()
-	if s.releasing(key) {
-		return execution.ErrImageGone
 	}
 	if _, found, err := s.readImages(key); found || err != nil {
 		return err
@@ -229,8 +224,8 @@ func (s *Server) taskImages(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errNotExited):
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
-	case errors.Is(err, execution.ErrImageGone):
-		http.Error(w, err.Error(), http.StatusGone)
+	case errors.Is(err, errReleased):
+		http.Error(w, execution.ErrImageGone.Error(), http.StatusGone)
 		return
 	case err != nil:
 		httpError(w, err)

@@ -33,8 +33,10 @@ with these conditions:
   the authorities AppTown's containers trust;
 - the server must be a major AppTown supports for its own database
   (PostgreSQL 16); `apptownd` refuses to start on another;
-- on a worker, the gzipped dump comes back as one result file of at most
-  64 MiB; a larger one is refused, and no archive is written.
+- on a worker, the gzipped dump comes back as one result file, streamed
+  to AppTown, of at most 16 GiB; the worker needs free disk for a copy of
+  it until the dump is read. A larger one, or one the worker has no room
+  to copy, is refused, and no archive is written.
 
 A managed database's own backups do not replace the archive: they hold
 neither the data directory nor the secrets.

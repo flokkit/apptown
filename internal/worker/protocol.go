@@ -18,14 +18,16 @@ import (
 // AppTown it replaces.
 const (
 	protocolHeader = "X-AppTown-Worker-Protocol"
-	// Protocol 3 adds a read-only /src beside writable /work for check
-	// sessions. An older worker must refuse these tasks, never silently
-	// present the source writable at /work.
-	Protocol = 3
-	// ProtocolMin and ProtocolMax are what this build's worker serves: 2
-	// for one release, so a worker installed first serves its old AppTown.
-	ProtocolMin = 2
-	ProtocolMax = 3
+	// Protocol 4 answers a task's result files as states and sizes and
+	// serves each present one on its own read, as a stream. An AppTown of 3
+	// would read a present result without its bytes as an empty one, and
+	// answering it bytes inline would keep a second way of returning
+	// results, so a worker of this build serves 4 alone: AppTown and its
+	// worker are stopped and upgraded together.
+	Protocol = 4
+	// ProtocolMin and ProtocolMax are what this build's worker serves.
+	ProtocolMin = 4
+	ProtocolMax = 4
 )
 
 // VersionReport is GET /v1/version.

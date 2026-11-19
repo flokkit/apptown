@@ -202,6 +202,7 @@ func (s *Server) agentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /v1/tasks/{key}/stop", task(s.stop))
 	mux.HandleFunc("DELETE /v1/tasks/{key}", task(s.release))
 	mux.HandleFunc("GET /v1/tasks/{key}/results", task(s.results))
+	mux.HandleFunc("GET /v1/tasks/{key}/results/{name}", task(s.resultFile))
 	mux.HandleFunc("GET /v1/tasks/{key}/images", task(s.taskImages))
 	mux.HandleFunc("GET /v1/tasks/{key}/images/{name}/{file...}", task(s.imageFile))
 	mux.HandleFunc("GET /v1/agent-image", s.agentImage)

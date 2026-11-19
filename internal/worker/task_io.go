@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
@@ -30,8 +31,12 @@ import (
 //     every task in the workspace, and goes with the workspace. It is beside
 //     the tree, not in it: nothing in it is ever collected or committed.
 //   - Declared result files are read once the task's container has exited,
-//     confined as a check's report is, and kept in the task's own durable
-//     record until it is released, so a restarted worker answers the same.
+//     confined as a check's report is: each present one is copied into the
+//     task's own folder and its state recorded, kept until the task is
+//     released, so a restarted worker answers the same. The record holds
+//     states and sizes; each copy is served on its own read, as a stream,
+//     so a result of any declared size passes through neither side's
+//     memory whole.
 
 func (s *Server) statePath(workspace string) string {
 	return filepath.Join(s.State, "workspace-state", workspace)
@@ -269,10 +274,19 @@ func walkResult(root *os.Root, rel string) (fs.FileInfo, *execution.ResultFile, 
 	return nil, nil, errors.New("an empty result path")
 }
 
-// readResult reads a declared result file, confined as a check's report
-// is: a regular file inside the tree or the state folder, reached through
-// no link.
-func (s *Server) readResult(d declaredResults, r execution.Result) (execution.ResultFile, error) {
+// taskResultFilesPath is where a task's present results are copied, by
+// their declared names.
+func (s *Server) taskResultFilesPath(key string) string {
+	return filepath.Join(s.taskResultsPath(key), "results")
+}
+
+// captureResult looks at a declared result file, confined as a check's
+// report is (a regular file inside the tree or the state folder, reached
+// through no link), and, if it is within its Max, copies it to dest.
+// Anything else is its state, and nothing is copied. A copy that would
+// leave the state folder short of its floor (diskspace.AdmitAdding) is
+// refused with what is free, as an image's is.
+func (s *Server) captureResult(d declaredResults, r execution.Result, dest string) (execution.ResultFile, error) {
 	base, rel := s.resultRoot(d, r.Path)
 	root, err := os.OpenRoot(base)
 	if err != nil {
@@ -292,24 +306,14 @@ func (s *Server) readResult(d declaredResults, r execution.Result) (execution.Re
 	if fi.Size() > r.Max {
 		return execution.ResultFile{State: execution.ResultTooLarge, Size: fi.Size()}, nil
 	}
-	f, err := root.Open(rel)
-	if err != nil {
+	space, err := s.stateDisk()
+	if err := diskspace.AdmitAdding("the worker's state folder ("+s.State+")", space, err, fi.Size()); err != nil {
+		return execution.ResultFile{State: execution.ResultRefused, Reason: err.Error()}, nil
+	}
+	if err := copyCaptured(root, rel, fi, dest); err != nil {
 		return execution.ResultFile{}, err
 	}
-	defer f.Close()
-	// What was opened is what was looked at: nothing replaced it with a
-	// link meanwhile.
-	if opened, err := f.Stat(); err != nil || !os.SameFile(fi, opened) {
-		return execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedSymlink}, nil
-	}
-	body, err := io.ReadAll(io.LimitReader(f, r.Max+1))
-	if err != nil {
-		return execution.ResultFile{}, err
-	}
-	if int64(len(body)) > r.Max {
-		return execution.ResultFile{State: execution.ResultTooLarge, Size: int64(len(body))}, nil
-	}
-	return execution.ResultFile{State: execution.ResultPresent, Content: body, Size: int64(len(body))}, nil
+	return execution.ResultFile{State: execution.ResultPresent, Size: fi.Size()}, nil
 }
 
 // errNotExited: the task's results are captured when it has exited.
@@ -336,19 +340,33 @@ func (s *Server) captureResults(ctx context.Context, key string) (files map[stri
 		return nil, true, errNotExited
 	}
 	abandonAt("quiet", key)
+	// Under the task's lock, which release takes too: no capture follows a
+	// release, and a large copy holds up no other task.
+	unlock := s.lockTask(key)
+	defer unlock()
+	if s.releasing(key) {
+		return nil, true, errReleased
+	}
+	if files, found, err := s.readCaptured(key); found || err != nil {
+		return files, true, err
+	}
 	// The images first: the result files' record marks the whole capture
 	// done, so a capture interrupted between them is made again.
 	if err := s.captureImages(key, d); err != nil {
 		return nil, true, err
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if files, found, err := s.readCaptured(key); found || err != nil {
-		return files, true, err
+	// What an interrupted capture copied is not recorded: it goes, and is
+	// copied again from the files, which nothing has changed.
+	dir := s.taskResultFilesPath(key)
+	if err := os.RemoveAll(dir); err != nil {
+		return nil, true, err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, true, err
 	}
 	files = map[string]execution.ResultFile{}
 	for _, r := range d.Results {
-		f, err := s.readResult(d, r)
+		f, err := s.captureResult(d, r, filepath.Join(dir, r.Name))
 		if err != nil {
 			return nil, true, fmt.Errorf("reading the result %s: %w", r.Name, err)
 		}
@@ -398,6 +416,9 @@ func (s *Server) results(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, errNotExited):
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
+	case errors.Is(err, errReleased):
+		http.Error(w, err.Error(), http.StatusGone)
+		return
 	case err != nil:
 		httpError(w, err)
 		return
@@ -405,6 +426,60 @@ func (s *Server) results(w http.ResponseWriter, r *http.Request) {
 		files = map[string]execution.ResultFile{}
 	}
 	writeJSON(w, files)
+}
+
+// errReleased: the task's release was decided; its captured results are
+// gone.
+var errReleased = errors.New("the task was released; its result files are gone")
+
+// resultFile serves one captured present result, by its declared name, with
+// its length stated: a reply cut short is a transport error at AppTown,
+// never a shorter result. It is opened under the task's lock, which its
+// release takes, so once a release is decided no file is opened; a file
+// already open is read to its end.
+func (s *Server) resultFile(w http.ResponseWriter, r *http.Request) {
+	f, status, err := s.openResultFile(r.PathValue("key"), r.PathValue("name"))
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	_, _ = io.Copy(w, f)
+}
+
+func (s *Server) openResultFile(key, name string) (*os.File, int, error) {
+	unlock := s.lockTask(key)
+	defer unlock()
+	if s.releasing(key) {
+		return nil, http.StatusGone, errReleased
+	}
+	files, found, err := s.readCaptured(key)
+	switch {
+	case err != nil:
+		return nil, http.StatusInternalServerError, err
+	case !found:
+		return nil, http.StatusConflict, errors.New("the task's result files are not captured: read its results first")
+	}
+	// Only a declared name captured present has a copy; the name, never a
+	// path, names it.
+	if files[name].State != execution.ResultPresent {
+		return nil, http.StatusNotFound, fmt.Errorf("the task has no present result %q", name)
+	}
+	f, err := os.Open(filepath.Join(s.taskResultFilesPath(key), name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, http.StatusNotFound, fmt.Errorf("the worker keeps no copy of the result %s", name)
+	}
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+	return f, 0, nil
 }
 
 // freshen removes, before a task first starts, any file at the path of each
