@@ -7,6 +7,7 @@ import { Section } from '../../Section'
 import { ListTable, type ListColumn } from '../../ListTable'
 import { Tabs } from '../../Tabs'
 import { fmtDay } from '../../format'
+import './Statistics.css'
 import type { JanitorCounts, JanitorKindStatistics, JanitorPatchTimes, JanitorProjectStatistics, JanitorReason, JanitorStatistics } from '../../wire.gen'
 
 export const KIND_LABEL: Record<string, string> = { packs: 'Packs', updates: 'Dependency and image updates', security: 'Security fixes' }
@@ -43,7 +44,7 @@ export default function JanitorStatisticsPage() {
   const data = q.data
   const reasons: ListColumn<JanitorReason>[] = [
     { key: 'kind', label: 'Kind', phone: 'name', render: r => KIND_LABEL[r.kind] ?? r.kind },
-    { key: 'column', label: 'Result', render: r => COLUMN_LABEL[r.column] ?? r.column },
+    { key: 'column', label: 'Result', className: 'record-words', render: r => COLUMN_LABEL[r.column] ?? r.column },
     { key: 'step', label: 'Stopped at', className: 'record-words', render: r => r.step },
     { key: 'count', label: 'Count', kind: 'number', render: r => r.count },
     { key: 'latest', label: 'Latest reason', className: 'record-words', render: r => r.latest.startsWith(r.step + ': ') ? r.latest.slice(r.step.length + 2) : r.latest === r.step ? '' : r.latest },
@@ -65,7 +66,7 @@ export default function JanitorStatisticsPage() {
     ...patchColumns<JanitorPatchTimes>(p => p),
     { key: 'oldest', label: 'Oldest open', kind: 'number', render: p => p.open ? fmtSpan(p.oldestOpen) : '—' },
   ]
-  return <div>
+  return <div className="janitor-statistics">
     <PageHead page="maintenance" sub="Statistics" />
     <Tabs aria-label="Period">
       {[7, 30].map(d => <Link key={d} to={`?days=${d}`} className={days === d ? 'tab active' : 'tab'} aria-current={days === d ? 'page' : undefined}>{d} days</Link>)}
