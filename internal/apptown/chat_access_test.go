@@ -447,6 +447,20 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 	if got, err := read(); err != nil || got != "+typed" {
 		t.Fatalf("a contributor types: %q %v", got, err)
 	}
+	w.jennyOnlyViews(t)
+	if err := conn.WriteMessage(websocket.BinaryMessage, []byte("+after")); err != nil {
+		t.Fatal(err)
+	}
+	// The screen is still live for her: the owner's typing shows; hers did not.
+	w.agent.Screen(w.chat, []byte("+owner"))
+	if got, err := read(); err != nil || got != "+owner" {
+		t.Fatalf("after losing the role jenny's screen shows %q (%v)", got, err)
+	}
+}
+
+// jennyOnlyViews takes jenny's project role and leaves her a viewer.
+func (w chatAccessWorld) jennyOnlyViews(t *testing.T) {
+	t.Helper()
 	grants, err := w.a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(1).String())
 	if err != nil {
 		t.Fatal(err)
@@ -461,13 +475,31 @@ func TestATerminalStopsTakingInputWhenItsTypistLosesTheRole(t *testing.T) {
 	if w.a.addGrant("user", "jenny", access.RoleProjectViewer, "", access.ScopeProject, idstest.N(1).String(), "boss", "").IsZero() {
 		t.Fatal("granting jenny viewer")
 	}
-	if err := conn.WriteMessage(websocket.BinaryMessage, []byte("+after")); err != nil {
+}
+
+// The terminal is opened by a GET, whose authority facts are shared for
+// that read; each later keystroke reads current grants, so a role taken
+// away while the terminal is open stops the next keystroke.
+func TestAKeystrokeAfterTheRoleIsTakenReadsCurrentGrants(t *testing.T) {
+	t.Parallel()
+	w := newChatAccessWorld(t)
+	s, err := w.a.Console.Get(t.Context(), w.chat)
+	if err != nil {
 		t.Fatal(err)
 	}
-	// The screen is still live for her: the owner's typing shows; hers did not.
-	w.agent.Screen(w.chat, []byte("+owner"))
-	if got, err := read(); err != nil || got != "+owner" {
-		t.Fatalf("after losing the role jenny's screen shows %q (%v)", got, err)
+	jenny := access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, w.a.DB, "jenny"), Kind: "user", Name: "jenny", Via: "session"}}
+	read := identity.WithReadFacts(access.WithCaller(t.Context(), jenny))
+	term, err := chatsFor(w.a).Terminal(read, s, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer term.Close()
+	if _, err := term.Write([]byte("+typed")); err != nil {
+		t.Fatalf("a contributor types: %v", err)
+	}
+	w.jennyOnlyViews(t)
+	if _, err := term.Write([]byte("+after")); !errors.Is(err, console.ErrWatching) {
+		t.Fatalf("after losing the role jenny's keystroke: %v, want ErrWatching", err)
 	}
 }
 

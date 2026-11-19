@@ -194,6 +194,14 @@ type readFactsMemo struct {
 func WithReadFacts(ctx context.Context) context.Context {
 	return context.WithValue(ctx, readFactsKey{}, &readFactsMemo{byService: map[*Service]*serviceFacts{}})
 }
+
+// WithoutReadFacts is ctx without its GET's shared facts, for a check made
+// later than the read it came with: a terminal held open asks again before
+// each keystroke, and must see a role taken away since it opened.
+func WithoutReadFacts(ctx context.Context) context.Context {
+	return context.WithValue(ctx, readFactsKey{}, (*readFactsMemo)(nil))
+}
+
 func (s *Service) readFacts(ctx context.Context, at time.Time) *serviceFacts {
 	memo, _ := ctx.Value(readFactsKey{}).(*readFactsMemo)
 	if memo == nil {
