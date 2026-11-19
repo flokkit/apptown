@@ -90,8 +90,12 @@ def recorded_change(base, cid):
     # to the person's words (migration 209 reset them to unknown).
     for narrative in ("requestMet", "requestGap", "requestGapQuote"):
         (out.get("change") or {}).pop(narrative, None)
-    for r in (out.get("evidence") or {}).get("releases") or []:
-        for live in ("observed", "observedAt", "observationStale", "serving", "reason"):  # the reason explains the observation
+    # Both release lists carry the same read-time fields: the current
+    # observation of the deployment, and a stage's elapsed time, which for a
+    # stage still running is counted to the moment of the read.
+    evidence = out.get("evidence") or {}
+    for r in (evidence.get("releases") or []) + (evidence.get("landingReleases") or []):
+        for live in ("observed", "observedAt", "observationStale", "serving", "reason", "stageElapsedMs"):  # the reason explains the observation
             r.pop(live, None)
     return out
 

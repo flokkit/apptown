@@ -45,6 +45,16 @@ class RecordedChange(unittest.TestCase):
         ))
         self.assertTrue(all(check.kept(before[k], after.get(k)) for k in before), (before, after))
 
+    def test_a_running_stage_elapsed_time_is_read_time_in_both_release_lists(self):
+        def releases(elapsed, number=48):
+            r = {"number": number, "stage": "awaiting-approval", "stageElapsedMs": elapsed}
+            return {"approvals": [], "releases": [dict(r)], "landingReleases": [dict(r)]}
+        before = recorded(page(evidence=releases(15399442)))
+        after = recorded(page(evidence=releases(16373431)))
+        self.assertTrue(check.kept(before["evidence"], after["evidence"]), (before, after))
+        lost = recorded(page(evidence=releases(16373431, number=49)))
+        self.assertFalse(check.kept(before["evidence"], lost["evidence"]))
+
     def test_a_recorded_approval_sentence_is_still_compared(self):
         before = recorded(page())
         after = recorded(page(evidence={"approvals": [{"by": "rae", "means": "it merges on my say-so."}]}))
