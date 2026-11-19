@@ -3,8 +3,10 @@ package worker
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 )
@@ -13,10 +15,14 @@ import (
 // in the tree or the state folder, reached through no link. Each other case
 // is its own state, never another one: nothing is absent, a link or a
 // folder is refused with its reason, and a file over its maximum is too
-// large, not cut short.
+// large, not cut short. Only a present one is copied, whole, to where the
+// worker serves it from.
 func TestAResultFileIsReadConfined(t *testing.T) {
 	t.Parallel()
-	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir()}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), StateDisk: func(string) (diskspace.Space, error) {
+		return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
+	}}
+	copies := t.TempDir()
 	tree, state := s.workspacePath("ws"), s.statePath("ws")
 	outside := t.TempDir()
 	write := func(path, body string) {
@@ -67,21 +73,29 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 		{"/work/forge-link/review.json", execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
 		{"/work/folder", execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedNotRegular}},
 	}
-	for _, c := range cases {
-		got, err := s.readResult(declaredResults{Workspace: "ws"}, execution.Result{Name: "r", Path: c.path, Max: 11})
+	for i, c := range cases {
+		dest := filepath.Join(copies, strconv.Itoa(i))
+		got, err := s.captureResult(declaredResults{Workspace: "ws"}, execution.Result{Name: "r", Path: c.path, Max: 11}, dest)
 		if err != nil {
 			t.Errorf("%s: %v", c.path, err)
 			continue
 		}
-		if got.State != c.want.State || got.Reason != c.want.Reason || got.Size != c.want.Size || string(got.Content) != string(c.want.Content) {
+		if got.State != c.want.State || got.Reason != c.want.Reason || got.Size != c.want.Size {
 			t.Errorf("%s: %+v, want %+v", c.path, got, c.want)
 		}
 		if err := got.Valid(); err != nil {
 			t.Errorf("%s: %v", c.path, err)
 		}
+		copied, err := os.ReadFile(dest)
+		switch {
+		case c.want.State == execution.ResultPresent && (err != nil || string(copied) != string(c.want.Content)):
+			t.Errorf("%s: the copy holds %q (%v), want %q", c.path, copied, err, c.want.Content)
+		case c.want.State != execution.ResultPresent && !os.IsNotExist(err):
+			t.Errorf("%s: a %s result was copied: %v", c.path, got.State, err)
+		}
 	}
 	// A workspace that is gone is not an absent result.
-	if _, err := s.readResult(declaredResults{Workspace: "gone"}, execution.Result{Name: "r", Path: "/work/a", Max: 10}); err == nil {
+	if _, err := s.captureResult(declaredResults{Workspace: "gone"}, execution.Result{Name: "r", Path: "/work/a", Max: 10}, filepath.Join(copies, "gone")); err == nil {
 		t.Error("a result in a workspace that is gone was read")
 	}
 }

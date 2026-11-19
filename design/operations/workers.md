@@ -256,7 +256,12 @@ observation says whether Docker killed it at its memory limit, so an AppTown
 speaking 2 never hears a worker that cannot say (which would read such a
 kill as an ordinary exit). Protocol 3 adds task source mounted read-only at
 `/src` beside writable `/work`, with results collected from the scratch
-workspace. This worker serves protocols 2 and 3.
+workspace. Protocol 4 answers a task's result files as states and sizes
+and serves each present one on its own read as a stream, so a result (a
+database dump) of any declared size passes through neither side's memory
+whole; an AppTown of 3 would read a present result without its bytes as
+empty. It is a stop-both-and-upgrade change: this worker serves protocol 4
+alone, so stop AppTown and its worker and upgrade both.
 
 Behind a company's TLS-inspecting proxy, give the worker the company
 authority's certificate as a PEM file: `-trust-deployments` for its

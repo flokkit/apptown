@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -201,14 +202,37 @@ func (w WorkerTasks) sendInputs(ctx context.Context, inputs []Input) error {
 	return nil
 }
 
-// maxResultsAnswer bounds the answer holding a task's result files: their
-// maxima together, encoded.
-const maxResultsAnswer = maxResultTotalBytes*4/3 + 1<<20
-
 // Results reads the result files the worker captured when the task exited,
-// by name, each in one of its four states. A task that has not exited, or
-// whose results the worker could not capture, is an error, never absence.
+// by name, each in one of its four states, with each present one's bytes
+// read whole into Content (ReadResult). It is for results a caller parses
+// whole (verdicts, transcripts), whose declared Max it can hold; a large
+// result is read with ResultStates and ReadResult to a file. A task that
+// has not exited, or whose results the worker could not capture or serve,
+// is an error, never absence.
 func (w WorkerTasks) Results(ctx context.Context, ref TaskRef) (map[string]ResultFile, error) {
+	out, err := w.ResultStates(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	for name, f := range out {
+		if f.State != ResultPresent {
+			continue
+		}
+		var body bytes.Buffer
+		if err := w.ReadResult(ctx, ref, name, f.Size, &body); err != nil {
+			return nil, err
+		}
+		f.Content = body.Bytes()
+		out[name] = f
+	}
+	return out, nil
+}
+
+// ResultStates reads what the worker captured of each declared result when
+// the task exited, by name: its state, and its size or reason, without its
+// bytes. A task that has not exited, or whose results the worker could not
+// capture, is an error, never absence.
+func (w WorkerTasks) ResultStates(ctx context.Context, ref TaskRef) (map[string]ResultFile, error) {
 	resp, err := w.do(ctx, http.MethodGet, taskPath(ref, "/results"), nil, "")
 	if err != nil {
 		return nil, err
@@ -218,7 +242,7 @@ func (w WorkerTasks) Results(ctx context.Context, ref TaskRef) (map[string]Resul
 		return nil, WorkerRefusal(resp)
 	}
 	var out map[string]ResultFile
-	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResultsAnswer)).Decode(&out); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
 		return nil, fmt.Errorf("%w: reading the task's result files: %w", ErrWorkerUnavailable, err)
 	}
 	for name, f := range out {
@@ -227,6 +251,33 @@ func (w WorkerTasks) Results(ctx context.Context, ref TaskRef) (map[string]Resul
 		}
 	}
 	return out, nil
+}
+
+// ReadResult copies a captured present result, of the size its state says,
+// to out as the worker streams it. A reply without its length, of another
+// length, or cut short is ErrWorkerUnavailable: a short read is never a
+// shorter result. A result the worker no longer keeps is the worker's
+// refusal.
+func (w WorkerTasks) ReadResult(ctx context.Context, ref TaskRef, name string, size int64, out io.Writer) error {
+	resp, err := w.do(ctx, http.MethodGet, taskPath(ref, "/results/"+url.PathEscape(name)), nil, "")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return WorkerRefusal(resp)
+	}
+	if resp.StatusCode != http.StatusOK || resp.ContentLength != size {
+		return fmt.Errorf("%w: the result %s came back as %d with length %d, not the %d bytes captured", ErrWorkerUnavailable, name, resp.StatusCode, resp.ContentLength, size)
+	}
+	n, err := io.Copy(out, resp.Body)
+	if err == nil && n != size {
+		err = fmt.Errorf("%d of %d bytes", n, size)
+	}
+	if err != nil {
+		return fmt.Errorf("%w: reading the result %s: %w", ErrWorkerUnavailable, name, err)
+	}
+	return nil
 }
 
 // ImageResults reads what the worker captured of each declared image when

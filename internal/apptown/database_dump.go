@@ -51,16 +51,27 @@ type databaseDump struct {
 // one, otherwise its worker (the composition root chooses, once).
 type dumpPlace struct {
 	tasks execution.TaskDriver
-	// results reads a worker task's result files. Nil: the task runs on
-	// AppTown's own Docker, and its state folder is made under Scratch and
-	// mounted.
+	// results reads a worker task's result files: their states, then the
+	// dump's bytes as a stream to the file being written. Nil: the task runs
+	// on AppTown's own Docker, and its state folder is made under Scratch
+	// and mounted.
 	results interface {
-		Results(context.Context, execution.TaskRef) (map[string]execution.ResultFile, error)
+		ResultStates(context.Context, execution.TaskRef) (map[string]execution.ResultFile, error)
+		ReadResult(ctx context.Context, ref execution.TaskRef, name string, size int64, out io.Writer) error
 	}
 	scratch string
 	profile string
 	now     func() time.Time
 }
+
+// dumpResultMax is the largest dump a task on a worker may leave. It is
+// the runaway bound, not a size AppTown expects: the nightly dump has 20
+// minutes, and gzip -6 on one core writes some 10-20 MB a second, so no
+// dump that finishes in time comes near it (it is over a hundred times the
+// demo's 121 MB). Below it a dump is limited by its time and the worker's
+// free disk, each reported as itself. The dump is streamed to its file
+// (ReadResult), so neither the worker nor AppTown holds it whole.
+const dumpResultMax = 16 << 30
 
 // dumpTool is the tool versions tool whose run image dumps the database.
 const dumpTool = "postgres"
@@ -201,7 +212,7 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 		Admission: execution.Admission{Profile: p.profile, Network: execution.NetworkDefault, Expires: expires}}
 	local := ""
 	if p.results != nil {
-		spec.Results = []execution.Result{{Name: result, Path: execution.StateRoot + "/" + result, Max: execution.MaxResultBytes, Fresh: true}}
+		spec.Results = []execution.Result{{Name: result, Path: execution.StateRoot + "/" + result, Max: dumpResultMax, Fresh: true}}
 	} else {
 		if err := os.MkdirAll(p.scratch, 0o700); err != nil {
 			return err
@@ -249,16 +260,15 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 		_, err = io.Copy(out, f)
 		return err
 	}
-	files, err := p.results.Results(ctx, ref)
+	files, err := p.results.ResultStates(ctx, ref)
 	if err != nil {
 		return err
 	}
 	switch f := files[result]; f.State {
 	case execution.ResultPresent:
-		_, err = out.Write(f.Content)
-		return err
+		return p.results.ReadResult(ctx, ref, result, f.Size, out)
 	case execution.ResultTooLarge:
-		return fmt.Errorf("the gzipped dump is %d bytes, over the %d a task on a worker may leave", f.Size, execution.MaxResultBytes)
+		return fmt.Errorf("the gzipped dump is %d bytes, over the %d a dump may be", f.Size, int64(dumpResultMax))
 	default:
 		return fmt.Errorf("the task left no %s (%s %s)", result, f.State, f.Reason)
 	}
