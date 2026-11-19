@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
@@ -174,7 +175,10 @@ func (c Chats) Terminal(ctx context.Context, s *console.Session, control bool) (
 		return nil, err
 	}
 	c.record(ctx, actor, s, "console.terminal", nil)
-	return typist{Terminal: term, control: control, may: func() bool { return c.MayAct(ctx, s) }}, nil
+	// Each keystroke is a check of its own, after the GET that opened the
+	// terminal: it reads current grants, not that request's.
+	later := identity.WithoutReadFacts(ctx)
+	return typist{Terminal: term, control: control, may: func() bool { return c.MayAct(later, s) }}, nil
 }
 
 // typist is a terminal whose input goes through only once its person has
