@@ -233,7 +233,11 @@ type ImageUpdates struct {
 	declarations []string
 	Scope        imageline.Scope
 	Security     bool
-	Readings     *[]imagelines.Reading
+	// ToolchainPatches is the owner's Toolchain patches choice: mise and
+	// version files may move a patch within their minor, and an image on a
+	// declared toolchain line may move within that declaration's minor.
+	ToolchainPatches bool
+	Readings         *[]imagelines.Reading
 }
 
 // UpdateScope is the image scope authorized by the dependency level.
@@ -260,7 +264,18 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 	if err != nil {
 		return err
 	}
+	// A declared toolchain sets its image's line whatever the dependency
+	// level: aggressive never moves a declared toolchain's major, because
+	// that is a toolchain change. Toolchain patches widen the declared line
+	// to its minor (1.27.0 → 1.27), the same move mise may make.
+	declared := scope == imageline.Line
+	if declared && p.ToolchainPatches {
+		scope = imageline.Patch
+	}
 	if err := imageline.Allows(old, next, line, scope); err != nil {
+		if declared {
+			return fmt.Errorf("%w; the project's toolchain declaration sets this line, and a move beyond it changes the toolchain: move the declaration and the image together in a change a person accepts", err)
+		}
 		return err
 	}
 	answer, err := p.Resolver.Answer(ctx, line, scope)
@@ -283,8 +298,8 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 }
 
 // CompareUpdateInputs is the shared deterministic boundary for agent updates.
-// Security targets alone permit exact same-minor toolchain patch moves.
-func CompareUpdateInputs(ctx context.Context, before, after map[string]any, baseImages, allowToolchainPatch bool, images ImageUpdates) error {
+// The Toolchain patches choice permits exact same-minor toolchain patch moves.
+func CompareUpdateInputs(ctx context.Context, before, after map[string]any, baseImages bool, images ImageUpdates) error {
 	images.declarations = declaredTools(before)
 	keys := make([]string, 0, len(before)+len(after))
 	for k := range before {
@@ -356,7 +371,7 @@ func CompareUpdateInputs(ctx context.Context, before, after map[string]any, base
 				}
 				continue
 			}
-			if allowToolchainPatch && !strings.Contains(k, ":") && k != ".apptown/app.yaml" && toolchainPatch(a, b) {
+			if images.ToolchainPatches && !strings.Contains(k, ":") && k != ".apptown/app.yaml" && toolchainPatch(a, b) {
 				continue
 			}
 		}

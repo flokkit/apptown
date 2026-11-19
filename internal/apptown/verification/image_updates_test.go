@@ -32,19 +32,19 @@ func TestRoutineImageMoveAcceptsRegistryBuildsBeforeNewest(t *testing.T) {
 	for _, next := range []string{"node:24.9-slim" + digest, "node:24.8-slim" + digest, "node:24.9-slim@sha256:" + strings.Repeat("b", 64)} {
 		before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-slim" + digest))}
 		after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM " + next))}
-		err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Resolver: r, Scope: imageline.Minor})
+		err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: imageline.Minor})
 		if (err == nil) != (!strings.Contains(next, strings.Repeat("b", 64))) {
 			t.Fatalf("%s: %v", next, err)
 		}
 		if r.scope != imageline.Minor {
 			t.Fatal(r.scope)
 		}
-		if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Security: true}); err != nil {
+		if err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Security: true}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	r.err = errors.New("registry offline")
-	if err := CompareUpdateInputs(t.Context(), map[string]any{"staticServer": "caddy:2.1-alpine" + digest}, map[string]any{"staticServer": "caddy:2.9-alpine" + digest}, true, false, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "unknown") || fault.KindOf(err) != fault.Unavailable {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{"staticServer": "caddy:2.1-alpine" + digest}, map[string]any{"staticServer": "caddy:2.9-alpine" + digest}, true, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "unknown") || fault.KindOf(err) != fault.Unavailable {
 		t.Fatal(err)
 	}
 }
@@ -65,7 +65,7 @@ func TestStaticServerIsAnImageInputThatUpdatesNeverAdd(t *testing.T) {
 	// An update moves an existing pin; one that adds a pin,
 	// even the registry's own answer, is outside the update's bounds.
 	r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "caddy:2.9-alpine", Digest: digest}}}
-	if err := CompareUpdateInputs(t.Context(), map[string]any{}, map[string]any{"staticServer": r.answer.Image()}, true, false, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "never adds") {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{}, map[string]any{"staticServer": r.answer.Image()}, true, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "never adds") {
 		t.Fatalf("an update added the static server pin: %v", err)
 	}
 }
@@ -134,7 +134,7 @@ func TestDeclaredToolchainsBoundImageMovesThroughUpdateInputs(t *testing.T) {
 			}
 			for _, level := range levels {
 				var readings []imagelines.Reading
-				err = CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Resolver: r, Scope: UpdateScope(level), Readings: &readings})
+				err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope(level), Readings: &readings})
 				if (err == nil) != tc.pass {
 					t.Fatalf("%s pass=%v: %v", level, tc.pass, err)
 				}
@@ -175,7 +175,65 @@ func TestDeclaredLineAcceptsTheQualifiedDigestPinOfAShortTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "index.docker.io/library/node:24.22.2-alpine", Digest: digest}}}
-	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive")}); err != nil {
+	if err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive")}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Demo complaints of 18 Nov: dp-roundtrip (mise go 1.27.0) could not take
+// golang 1.27.4 and tidewell (mise node 24.22.2) could not take
+// 24.22.3-alpine. With Toolchain patches on, a declared line is its minor;
+// off, it is the exact declaration. The declaration still wins over the
+// dependency level, so aggressive never moves a declared toolchain's major,
+// and that refusal says what would satisfy it.
+func TestToolchainPatchesMoveADeclaredImageWithinItsMinor(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, mise, old, next string
+		patches, pass         bool
+		why                   string
+	}{
+		{"go patch", `go = "1.27.0"`, "golang:1.27.0", "golang:1.27.4", true, true, ""},
+		{"go patch, choice off", `go = "1.27.0"`, "golang:1.27.0", "golang:1.27.4", false, false, "golang:1.27.0 line"},
+		{"node patch", `node = "24.22.2"`, "node:24.22.2-alpine", "node:24.22.3-alpine", true, true, ""},
+		{"node patch, choice off", `node = "24.22.2"`, "node:24.22.2-alpine", "node:24.22.3-alpine", false, false, "node:24.22.2-alpine line"},
+		{"node minor", `node = "24.22.2"`, "node:24.22.2-alpine", "node:24.23.0-alpine", true, false, "node:24.22-alpine line"},
+		{"node downgrade", `node = "24.22.2"`, "node:24.22.2-alpine", "node:24.22.1-alpine", true, false, "without a downgrade"},
+		{"short tag on declared minor", `go = "1.27"`, "golang:1.27-alpine", "golang:1.27.4-alpine", true, true, ""},
+		{"short tag, no declaration", "", "golang:1.27-alpine", "golang:1.27.4-alpine", true, true, ""},
+		{"aggressive major beside mise", `node = "24.22.2"`, "node:24-alpine", "node:26.13.1-alpine", true, false, "move the declaration and the image together in a change a person accepts"},
+		{"aggressive major, no declaration", "", "node:24-alpine", "node:26.13.1-alpine", true, true, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tree := t.TempDir()
+			write := func(file, value string) {
+				t.Helper()
+				if err := os.WriteFile(filepath.Join(tree, file), []byte(value), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.mise != "" {
+				write("mise.toml", "[tools]\n"+tc.mise+"\n")
+			}
+			write("Dockerfile", "FROM "+tc.old+" AS build\n")
+			before, err := UpdateInputs(tree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest := "sha256:" + strings.Repeat("d", 64)
+			write("Dockerfile", "FROM "+tc.next+"@"+digest+" AS build\n")
+			after, err := UpdateInputs(tree)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: tc.next, Digest: digest}}}
+			err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive"), ToolchainPatches: tc.patches})
+			if (err == nil) != tc.pass || err != nil && !strings.Contains(err.Error(), tc.why) {
+				t.Fatalf("pass=%t: %v", tc.pass, err)
+			}
+			if tc.pass && tc.mise != "" && r.scope != imageline.Patch {
+				t.Fatalf("declared line read at %s, want patch", r.scope)
+			}
+		})
 	}
 }

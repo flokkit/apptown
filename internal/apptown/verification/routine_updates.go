@@ -89,7 +89,7 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		return out, nil
 	}
 	var readings []imagelines.Reading
-	if err := CompareUpdateInputs(ctx, inputs[0], inputs[1], categories.BaseImages, len(targets) > 0 && categories.ToolchainPatches, ImageUpdates{Resolver: r.images, Scope: UpdateScope(categories.Dependencies), Security: len(targets) > 0, Readings: &readings}); err != nil {
+	if err := CompareUpdateInputs(ctx, inputs[0], inputs[1], categories.BaseImages, ImageUpdates{Resolver: r.images, Scope: UpdateScope(categories.Dependencies), Security: len(targets) > 0, ToolchainPatches: categories.ToolchainPatches, Readings: &readings}); err != nil {
 		if fault.KindOf(err) == fault.Unavailable {
 			out.Reason = err.Error()
 			return out, nil

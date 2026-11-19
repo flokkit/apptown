@@ -648,15 +648,20 @@ func (p *agentUpdateStanding) StandingProcedures(ctx context.Context, q database
 	return out, nil
 }
 
-func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
-	for _, security := range []bool{false, true} {
-		t.Run(fmt.Sprint(security), func(t *testing.T) {
+// The Toolchain patches choice, not security targets, permits a toolchain
+// patch: a dependency update's repair meets scan findings in the toolchain
+// with no targets (dp-roundtrip, 18 Nov). The judge is told the choice.
+func TestRoutineToolchainPatchFollowsTheChoice(t *testing.T) {
+	for _, tc := range []struct{ security, patches bool }{{false, true}, {true, true}, {false, false}, {true, false}} {
+		security := tc.security
+		t.Run(fmt.Sprintf("security=%t/patches=%t", tc.security, tc.patches), func(t *testing.T) {
 			raw, _ := stock.FS.ReadFile("janitor-fix.yaml")
 			doc, err := schema.ParseWorkflow(raw)
 			if err != nil {
 				t.Fatal(err)
 			}
 			f, _ := newNodeFixFixture(t, "patch", doc.Spec)
+			f.noToolchainPatches = !tc.patches
 			f.commands.images = testImageReadings{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "golang:1.27.4", Digest: "sha256:" + strings.Repeat("a", 64)}}}
 			updateWrite(t, f.hub, "mise.toml", "[tools]\ngo='1.27.3'\n")
 			updateWrite(t, f.hub, "Dockerfile", "FROM golang:1.27.3 AS build\nFROM scratch\n")
@@ -668,8 +673,11 @@ func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
 				return execution.Outcome{Termination: execution.Exited, Output: piSays("patched toolchain")}
 			})
 			called := false
-			f.commands.judge = updateJudgeFunc(func(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error) {
+			f.commands.judge = updateJudgeFunc(func(_ context.Context, _ workflow.Source, item check.Item, _ string) (workflow.CheckReceipt, error) {
 				called = true
+				if !strings.Contains(item.Rubric, "\nToolchain patches: on\n") {
+					t.Errorf("the judge was not told the choice: %s", item.Rubric)
+				}
 				return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "smallest patch fixes stdlib"}, nil
 			})
 			ch, err := f.work.Create(f.ctx, workflow.ChangeDraft{ProjectID: f.projectID, Title: "toolchain patch"})
@@ -695,10 +703,10 @@ func TestRoutineToolchainPatchNeedsSecurityTargets(t *testing.T) {
 			queueExecute(t, f, steps["routine"])
 			status, ev := stepStatus(t, f, steps["routine"].ID)
 			want := workflow.StatusFail
-			if security {
+			if tc.patches {
 				want = workflow.StatusPass
 			}
-			if status != want || called != security {
+			if status != want || called != tc.patches {
 				t.Fatalf("%s judge=%t: %+v", status, called, ev)
 			}
 		})

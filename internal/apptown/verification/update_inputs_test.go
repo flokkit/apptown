@@ -87,7 +87,7 @@ ENTRYPOINT ["/nextup"]
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 
-			err := CompareUpdateInputs(t.Context(), map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, true, false, ImageUpdates{Security: true})
+			err := CompareUpdateInputs(t.Context(), map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.before))}, map[string]any{"Dockerfile": dockerBaseInputs([]byte(tc.after))}, true, ImageUpdates{Security: true})
 			if (err == nil) != tc.allowed {
 				t.Fatalf("allowed=%t: %v", tc.allowed, err)
 			}
@@ -98,11 +98,11 @@ ENTRYPOINT ["/nextup"]
 	}
 }
 
-func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
+func TestUpdateInputsPermitToolchainPatchesByChoice(t *testing.T) {
 	for _, file := range []string{"mise.toml", ".tool-versions", ".go-version"} {
 		for _, after := range []string{"1.27.4", "1.28.0", "1.28", "2.27.3", "1.27.4-rc1"} {
-			for _, security := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s/%s/security=%t", file, after, security), func(t *testing.T) {
+			for _, patches := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/patches=%t", file, after, patches), func(t *testing.T) {
 					tree := t.TempDir()
 					put := func(version string) map[string]any {
 						raw := version + "\n"
@@ -123,18 +123,18 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 					}
 					before := put("1.27.3")
 					next := put(after)
-					err := CompareUpdateInputs(t.Context(), before, next, true, security, ImageUpdates{Security: true})
-					if (err == nil) != (security && after == "1.27.4") {
-						t.Fatalf("security=%t: %v", security, err)
+					err := CompareUpdateInputs(t.Context(), before, next, true, ImageUpdates{ToolchainPatches: patches})
+					if (err == nil) != (patches && after == "1.27.4") {
+						t.Fatalf("patches=%t: %v", patches, err)
 					}
 				})
 			}
 		}
 	}
-	if CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, true, ImageUpdates{Security: true}) == nil {
+	if CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, ImageUpdates{ToolchainPatches: true, Security: true}) == nil {
 		t.Fatal("minor toolchain versions moved")
 	}
-	if CompareUpdateInputs(t.Context(), map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true, true, ImageUpdates{Security: true}) == nil {
+	if CompareUpdateInputs(t.Context(), map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.3"}}, map[string]any{"mise.toml:env": map[string]any{"GO": "1.27.4"}}, true, ImageUpdates{ToolchainPatches: true, Security: true}) == nil {
 		t.Fatal("env changes passed")
 	}
 }
@@ -142,13 +142,13 @@ func TestUpdateInputsPermitOnlySecurityToolchainPatches(t *testing.T) {
 func TestBaseImageChoiceGuardsFromVersionMoves(t *testing.T) {
 	before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-alpine\n"))}
 	after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.2-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"))}
-	if err := CompareUpdateInputs(t.Context(), before, after, false, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Moves a base image; base image updates are turned off.") {
+	if err := CompareUpdateInputs(t.Context(), before, after, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Moves a base image; base image updates are turned off.") {
 		t.Fatal("base images off allowed a FROM version move")
 	}
-	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{Security: true}); err != nil {
+	if err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Security: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, false, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, ImageUpdates{Security: true}); err == nil || !strings.HasPrefix(err.Error(), "Changes the toolchain version or build inputs; your settings do not allow this change.") {
 		t.Fatal("toolchain patches off allowed a patch")
 	}
 }
@@ -173,16 +173,16 @@ func TestRubricsJudgeWhatTheUpdateBoundaryLeavesOpen(t *testing.T) {
 	}
 	before := inputs("module example\n\ngo 1.27\n\ntoolchain go1.27.3\n")
 	after := inputs("module example\n\ngo 1.27\n\ntoolchain go1.28.1\n")
-	if err := CompareUpdateInputs(t.Context(), before, after, true, false, ImageUpdates{}); err != nil {
+	if err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{}); err != nil {
 		t.Fatalf("the boundary now reads go.mod's toolchain line; revisit the rubrics: %v", err)
 	}
 	node := func(tag string) map[string]any {
 		return map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM " + tag + "\n"))}
 	}
-	if err := CompareUpdateInputs(t.Context(), node("node:24.1-alpine"), node("node:26.13.1-alpine@sha256:"+strings.Repeat("a", 64)), true, true, ImageUpdates{Security: true}); err != nil {
+	if err := CompareUpdateInputs(t.Context(), node("node:24.1-alpine"), node("node:26.13.1-alpine@sha256:"+strings.Repeat("a", 64)), true, ImageUpdates{ToolchainPatches: true, Security: true}); err != nil {
 		t.Fatalf("a security image move is now checked for its line; revisit the fix rubric: %v", err)
 	}
-	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, true, ImageUpdates{Security: true}); err != nil {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27.3"}, map[string]any{".go-version": "1.27.4"}, true, ImageUpdates{ToolchainPatches: true, Security: true}); err != nil {
 		t.Fatalf("a security toolchain patch is refused without its target: %v", err)
 	}
 
@@ -217,7 +217,9 @@ func TestRubricsJudgeWhatTheUpdateBoundaryLeavesOpen(t *testing.T) {
 		return ""
 	}
 	update, fix := rubric("janitor-update.yaml"), rubric("janitor-fix.yaml")
-	for _, want := range []string{"Toolchain versions stay unchanged, including toolchain declarations in manifests such as go.mod", "do not judge those image lines"} {
+	// The fly-q2 judge read golang:1.27-alpine → 1.27.4-alpine as a toolchain
+	// change (18 Nov); the dp-roundtrip judge had no toolchain-patch exception.
+	for _, want := range []string{"Toolchain versions stay unchanged, including toolchain declarations in manifests such as go.mod, except, when the facts say toolchain patches are on, a patch release within the same minor", "do not judge those image lines", "A FROM tag that names a toolchain (golang, node, python) is such an image move, not a toolchain change"} {
 		if !strings.Contains(update, want) {
 			t.Errorf("janitor-update rubric lost %q", want)
 		}

@@ -6,7 +6,7 @@ Open Settings › General for a project’s Janitor choice and Run now.
 Open its record under Maintenance › Standards for scans and findings. Open a Change for its
 files and evidence. Settings contains What to keep updated. The Janitor starts on:
 patch and minor dependency updates, security fixes, base images, toolchain patches
-for security fixes and packs. The choices show “Set by AppTown” until you change
+and packs. The choices show “Set by AppTown” until you change
 them. Turn choices off in Maintenance settings, or turn the Janitor off for one
 project in Settings › General.
 [Who keeps what up to date](who-keeps-what-updated.md) says what the Janitor
@@ -22,13 +22,17 @@ the complete diff and judges its level and scope, including the smallest code
 changes a moved package needs. When it cannot decide, the Change waits for a
 person. With Base images on, the agent updates Dockerfile base images on the declared toolchain line. An image tag
 and a numeric declaration agree when their shared version components match:
-`node:24-slim` beside `node = "24.22.2"` stays on 24.22.2; Python 3.12 stays
-on 3.12. A vendor version such as `java = "temurin-21.0.5+11.0.LTS"` declares
-its major, so `eclipse-temurin:21-jre` stays on 21. The longest agreeing declaration wins. Images with no agreeing numeric
+`node:24-slim` beside `node = "24.22.2"` stays on 24.22, or on 24.22.2 with
+Toolchain patches off; Python 3.12 stays on 3.12. A vendor version such as `java = "temurin-21.0.5+11.0.LTS"` declares
+its major, so `eclipse-temurin:21-jre` stays on 21. The longest agreeing declaration wins, whatever the level: Including major never
+moves a declared toolchain's image to another major, because that changes the
+toolchain, which needs a person. Images with no agreeing numeric
 declaration keep the selected level’s scope. AppTown
 checks that each external image keeps its name and tag variant. Stage references,
 `scratch` and variable operands stay unchanged. Toolchains stay unchanged except
-when Toolchain patches is on, for patch releases within the same minor that a named security finding needs. For a nonempty security fix, the reporting scanner must no longer report each
+when Toolchain patches is on: then a toolchain may move to a patch release within
+the same minor, in every declaration together (mise or version files, go.mod's
+toolchain line and the build image). For a nonempty security fix, the reporting scanner must no longer report each
 security target. Only the public part's running-image findings become image
 targets. Static parts run AppTown's file server, so its image findings remain
 scan observations rather than project fix targets; source dependency findings
@@ -56,8 +60,8 @@ security fixes change only an existing `staticServer:` in that file, when base
 image updates are on; they never add a missing one.
 
 In Maintenance settings, choose dependencies **Off**, **Patch and minor** or
-**Including major**, plus **Security fixes**, **Base images**, **Toolchain patches
-for security fixes** and **Packs**. Each switch or dependency choice saves immediately and records your name and
+**Including major**, plus **Security fixes**, **Base images**, **Toolchain patches**
+and **Packs**. Each switch or dependency choice saves immediately and records your name and
 time. A concurrent change shows a conflict and the current choices; it does
 not overwrite them.
 Security fixes need dependency updates; toolchain patches need security fixes.

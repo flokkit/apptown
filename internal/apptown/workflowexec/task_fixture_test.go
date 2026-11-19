@@ -55,7 +55,10 @@ type taskAppTown struct {
 	commands *commands
 	scan     workflow.Runner
 	bound    string
-	preview  workflow.Runner
+	// noToolchainPatches turns the Toolchain patches choice off; the
+	// fixture's choices otherwise have everything on.
+	noToolchainPatches bool
+	preview            workflow.Runner
 	// Historical-request tests admit a legacy plan through the real task owner,
 	// then restart with the current cache scope; production has no override.
 	scriptRunner workflow.Runner
@@ -529,7 +532,7 @@ func newDockerFake() *dockerfake.Daemon {
 type fixtureUpdateBound struct{ f *taskAppTown }
 
 func (b fixtureUpdateBound) UpdateChoicesForRun(context.Context, ids.ID) (workflow.JanitorChoices, error) {
-	return workflow.JanitorChoices{Dependencies: b.f.bound, BaseImages: true, ToolchainPatches: true, SecurityFixes: true}, nil
+	return workflow.JanitorChoices{Dependencies: b.f.bound, BaseImages: true, ToolchainPatches: !b.f.noToolchainPatches, SecurityFixes: true}, nil
 }
 
 // adoptQueueWorkflow publishes the fixture's executable definition with its

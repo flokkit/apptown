@@ -37,6 +37,6 @@ spec:
             means: I accept this dependency update and its application repairs after checking the evidence.
             standing:
               class: routine-update
-              means: An AI model judged the security fix within the selected level and limited to dependencies and the code they need, AppTown saw no change outside dependencies and base-image versions of the same image and variant (and, for a security fix, toolchain patch releases) and the scanner no longer reporting the finding, and every required check is met.
+              means: An AI model judged the security fix within the selected level and limited to dependencies and the code they need, AppTown saw no change outside dependencies and base-image versions of the same image and variant (and, with toolchain patches on, toolchain patch releases within the same minor) and the scanner no longer reporting the finding, and every required check is met.
       gate:
         require: [fix, accept]

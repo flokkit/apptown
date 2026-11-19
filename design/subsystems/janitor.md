@@ -2,10 +2,10 @@
 
 Maintenance settings records what to keep updated: dependencies (`off`, `routine`
 for patch and minor, or `aggressive` including major), security fixes, base images,
-toolchain patches for security fixes, and packs. Security fixes require dependency
+toolchain patches, and packs. Security fixes require dependency
 updates; toolchain patches require security fixes. The Janitor starts on:
 dependencies use routine patch and minor updates, with security fixes, base
-images, toolchain patches for security fixes and packs all on.
+images, toolchain patches and packs all on.
 
 One current record in Workflow's standing-rule tables contains those choices,
 the issuer's principal, name and time. At start, Workflow's `StartJanitorChoices` writes
@@ -148,7 +148,8 @@ skipped. Continuations on instructions such as LABEL and RUN do not prevent
 image updates. Files with multiline or backslashed FROM/ARG instructions,
 terminal runs of two or more backslashes, an escape parser directive, heredocs,
 control bytes or backticks are compared byte for byte. Exact three-part toolchain
-versions may move within their minor only for runs with security targets and toolchain patches on.
+versions may move within their minor only with toolchain patches on, and an image
+on a declared toolchain line may then move within that declaration's minor.
 Other toolchain and build input changes require a person. It classifies
 every changed path using adopted dependency-file globs and the observed input
 paths. An empty candidate is not applicable. The classifier is `agent-update-v1`.

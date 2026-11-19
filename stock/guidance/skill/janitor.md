@@ -22,8 +22,11 @@ read numeric tool versions from mise, .tool-versions and version files before
 the change. A tag and a declaration agree when their shared numeric components
 match (for example, node:24-slim and node = "24.22.2"). A vendor version such
 as java = "temurin-21.0.5+11.0.LTS" declares only its major, 21. Use the longest agreeing
-declaration: run `apptown image newest <repo>:<declared><variant> --scope line`
-(for that example, `node:24.22.2-slim --scope line`). Match by version, not image
+declaration: run `apptown image newest <repo>:<declared><variant> --scope patch`
+when Toolchain patches is on, `--scope line` when it is off (for that example,
+`node:24.22.2-slim --scope patch`). The declaration decides the line at every
+level: aggressive never moves a declared toolchain's image to a newer major or
+minor, because that changes the toolchain and needs a person. Match by version, not image
 name: an unrelated image sharing that version stays on the same line too. With no agreeing numeric declaration, run
 `apptown image newest <current> --scope minor` at routine, or `--scope major`
 at aggressive. Choose the printed tag and digest. AppTown permits any registry
@@ -33,10 +36,11 @@ If the lookup refuses, change nothing for that image and say so. For a security 
 `--scope patch` when a smaller move clears the finding; a security fix may
 choose the smallest digest-pinned build that clears it. Leave stage references,
 scratch and operands containing `$` unchanged.
-Toolchain versions stay unchanged for dependency updates. For a security finding
-in the toolchain itself, use the smallest patch release within its minor that
-fixes it, updating every declaration, including mise, version files, go.mod's
-toolchain and the build image. Change application code only where a moved
+Toolchain versions change only when Toolchain patches is on, and then only to a
+patch release within the same minor, updating every declaration together:
+mise, version files, go.mod's toolchain line and the build image. A dependency
+update moves each toolchain to its newest such patch; for a security finding in
+the toolchain itself, use the smallest one that fixes it. Change application code only where a moved
 package needs it. Run declared tests, start-up and
 scans; if they cannot pass, say what needs a person.
 
