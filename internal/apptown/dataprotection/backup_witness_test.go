@@ -233,15 +233,17 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 				}
 			}
 			// The order is the guarantee: Redis reads dump.rdb only when it
-			// starts, and is checked only after it has.
+			// starts, and is checked only after it has. The restore beside it
+			// mounts its volume by name, never --volumes-from, which
+			// Portainer refuses a regular user as a bind mount.
 			var redis []string
 			for _, c := range calls {
-				if strings.Contains(c, deployedNames(t, s, pid, "main", "bww").Service("redis")) && !strings.HasPrefix(c, "inspect ") {
+				if (strings.Contains(c, deployedNames(t, s, pid, "main", "bww").Service("redis")) || strings.HasPrefix(c, "run ") && strings.Contains(c, " redis:7-alpine ")) && !strings.HasPrefix(c, "inspect ") {
 					redis = append(redis, c)
 				}
 			}
 			if len(redis) != 4 || redis[0] != "stop "+deployedNames(t, s, pid, "main", "bww").Service("redis") ||
-				!strings.HasPrefix(redis[1], "run --rm -i --entrypoint  --network none --volumes-from "+deployedNames(t, s, pid, "main", "bww").Service("redis")+" redis:7-alpine sh -c ") ||
+				!strings.HasPrefix(redis[1], "run --rm -i --entrypoint  --network none -v ") || !strings.Contains(redis[1], "-redis:/data redis:7-alpine sh -c ") || strings.Contains(redis[1], "--volumes-from") ||
 				redis[2] != "start "+deployedNames(t, s, pid, "main", "bww").Service("redis") || !strings.HasPrefix(redis[3], "exec -i "+deployedNames(t, s, pid, "main", "bww").Service("redis")+" sh -c ") {
 				t.Fatalf("redis is stopped, restored beside, started, then checked:\n%s", strings.Join(redis, "\n"))
 			}

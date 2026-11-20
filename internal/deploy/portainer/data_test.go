@@ -211,6 +211,98 @@ func TestTheDockerProxyForwardsWithTheCurrentKey(t *testing.T) {
 	}
 }
 
+// Portainer (2.45 and later) passes an empty request body on to an agent
+// with no length, and Docker refuses a start whose body is of unknown
+// length. So the proxy gives the CLI's body-less start an empty JSON object
+// of known length, with or without the API version in the path; other
+// body-less requests (a wait) go as they came.
+func TestTheDockerProxyGivesAStartABodyOfKnownLength(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	seen := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		seen[r.URL.Path] = fmt.Sprintf("%d %q", r.ContentLength, body)
+		mu.Unlock()
+		w.WriteHeader(204)
+	}))
+	defer server.Close()
+	client := proxyClient(t, server.URL)
+	for _, path := range []string{"/v1.55/containers/job-1/start", "/containers/job-2/start", "/v1.55/containers/job-1/wait"} {
+		resp, err := client.Post("http://docker"+path, "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+	want := map[string]string{
+		"/api/endpoints/3/docker/v1.55/containers/job-1/start": `2 "{}"`,
+		"/api/endpoints/3/docker/containers/job-2/start":       `2 "{}"`,
+		"/api/endpoints/3/docker/v1.55/containers/job-1/wait":  `0 ""`,
+	}
+	if !reflect.DeepEqual(seen, want) {
+		t.Fatalf("forwarded %v, want %v", seen, want)
+	}
+}
+
+// Portainer refuses a request with a message and its reason in details
+// ({"message":"Proxy failure","details":"Forbidden to use bind mounts"});
+// the Docker CLI prints only the message, so the proxy puts the reason in
+// it, keeping the status. An answer without a separate reason is unchanged.
+func TestTheDockerProxyCarriesPortainersReason(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/create") {
+			w.WriteHeader(502)
+			fmt.Fprint(w, `{"message":"Proxy failure","details":"Forbidden to use bind mounts"}`)
+			return
+		}
+		w.WriteHeader(404)
+		fmt.Fprint(w, `{"message":"No such container: job-1"}`)
+	}))
+	defer server.Close()
+	client := proxyClient(t, server.URL)
+	for path, want := range map[string]string{
+		"/v1.55/containers/create":      `502 {"details":"Forbidden to use bind mounts","message":"Proxy failure: Forbidden to use bind mounts"}`,
+		"/v1.55/containers/job-1/start": `404 {"message":"No such container: job-1"}`,
+	} {
+		resp, err := client.Post("http://docker"+path, "application/json", strings.NewReader("{}"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if got := fmt.Sprintf("%d %s", resp.StatusCode, body); got != want {
+			t.Errorf("%s answered %s, want %s", path, got, want)
+		}
+	}
+}
+
+// proxyClient is an HTTP client of a DockerProxy to environment 3 of the
+// Portainer at url.
+func proxyClient(t *testing.T, url string) *http.Client {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "fp") // a socket's path is short
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	p, err := StartDockerProxy(dir, deploymentEnvironment{ID: 3, Name: "lan"}, func(context.Context) (*Target, error) {
+		return &Target{PortainerURL: url, PortainerKey: "key"}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { p.Close() })
+	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, "unix", p.Socket)
+	}}
+	t.Cleanup(transport.CloseIdleConnections)
+	return &http.Client{Transport: transport}
+}
+
 // noSecrets delivers no secrets to any consumer.
 type noSecrets struct{}
 

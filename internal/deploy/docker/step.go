@@ -25,7 +25,7 @@ import (
 type Step struct {
 	Exec    string   // the running container to run in
 	Image   string   // else: a throwaway container of this image
-	Options []string // docker run options for Image (--network, -v, --volumes-from)
+	Options []string // docker run options for Image (--network, -v)
 	Env     []string
 	// Command is the shell command; Argv, when set instead, runs as it is.
 	Command string
@@ -114,16 +114,20 @@ func (dk Scope) runJob(ctx context.Context, s Step) ([]byte, error) {
 	if s.Exec != "" {
 		// What exec sees: the container's image and environment, its
 		// network and its volumes.
-		raw, err := dk.Run(ctx, "inspect", "--format", "{{.Config.Image}}\t{{json .Config.Env}}", s.Exec)
+		raw, err := dk.Run(ctx, "inspect", "--format", "{{.Config.Image}}\t{{json .Config.Env}}\t{{json .Mounts}}", s.Exec)
 		if err != nil {
 			return raw, fmt.Errorf("reading how %s was started: %w", s.Exec, err)
 		}
-		img, envJSON, _ := strings.Cut(strings.TrimSpace(string(raw)), "\t")
+		fields := strings.SplitN(strings.TrimSpace(string(raw)), "\t", 3)
 		var own []string
-		if err := json.Unmarshal([]byte(envJSON), &own); err != nil || img == "" {
+		if len(fields) != 3 || fields[0] == "" || json.Unmarshal([]byte(fields[1]), &own) != nil {
 			return raw, fmt.Errorf("reading how %s was started: %q", s.Exec, raw)
 		}
-		image, options = img, []string{"--entrypoint", "", "--network", "container:" + s.Exec, "--volumes-from", s.Exec}
+		volumes, err := mountOptions(fields[2])
+		if err != nil {
+			return raw, fmt.Errorf("reading how %s was started: %w", s.Exec, err)
+		}
+		image, options = fields[0], append([]string{"--entrypoint", "", "--network", "container:" + s.Exec}, volumes...)
 		env = append(own, s.Env...)
 	}
 	cmd := s.Command
@@ -153,7 +157,7 @@ func (dk Scope) runJob(ctx context.Context, s Step) ([]byte, error) {
 	create = append(create, image, "sh", "-c", script)
 	out, err := dk.Command(ctx, Command{Args: create, Env: env})
 	if err != nil {
-		return out, fmt.Errorf("making the job: %w: %s", err, strs.Truncate(strings.TrimSpace(string(out)), 300))
+		return out, fmt.Errorf("making the job: %w", err)
 	}
 	id := strings.TrimSpace(string(out))
 	if i := strings.LastIndexByte(id, '\n'); i >= 0 {
@@ -216,6 +220,57 @@ func (dk Scope) runJob(ctx context.Context, s Step) ([]byte, error) {
 		}
 	}
 	return logs, nil
+}
+
+// VolumesOf is the docker run options that mount a container's volumes
+// and bind mounts at the same paths, with the same read-only flag: what a
+// throwaway container is given to see that container's data. AppTown
+// names each mount rather than passing --volumes-from, which Portainer
+// (2.45 and later) counts as a bind mount and refuses to a regular user
+// under its default security settings; a named volume it allows. A real
+// bind mount is still a bind mount, which Portainer allows or refuses as
+// it does for the container's own stack. Other mount types (tmpfs, image)
+// are not data AppTown copies and are not carried.
+func (dk Scope) VolumesOf(ctx context.Context, container string) ([]string, error) {
+	raw, err := dk.Run(ctx, "inspect", "--format", "{{json .Mounts}}", container)
+	if err != nil {
+		return nil, fmt.Errorf("reading the volumes of %s: %w: %s", container, err, strs.Truncate(strings.TrimSpace(string(raw)), 300))
+	}
+	opts, err := mountOptions(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return nil, fmt.Errorf("reading the volumes of %s: %w", container, err)
+	}
+	return opts, nil
+}
+
+// mountOptions is VolumesOf's options for a container's Mounts as docker
+// inspect writes them in JSON.
+func mountOptions(mountsJSON string) ([]string, error) {
+	var mounts []struct {
+		Type, Name, Source, Destination string
+		RW                              bool
+	}
+	if err := json.Unmarshal([]byte(mountsJSON), &mounts); err != nil {
+		return nil, fmt.Errorf("its mounts are not readable: %q", strs.Truncate(mountsJSON, 300))
+	}
+	var opts []string
+	for _, m := range mounts {
+		var from string
+		switch m.Type {
+		case "volume":
+			from = m.Name
+		case "bind":
+			from = m.Source
+		default:
+			continue
+		}
+		spec := from + ":" + m.Destination
+		if !m.RW {
+			spec += ":ro"
+		}
+		opts = append(opts, "-v", spec)
+	}
+	return opts, nil
 }
 
 // shellJoin quotes each argument for sh.

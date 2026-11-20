@@ -66,7 +66,8 @@ func newJobDaemon(exit string, output string) *jobDaemon {
 		}
 		switch args[0] {
 		case "inspect":
-			return []byte(`postgres:16-alpine` + "\t" + `["POSTGRES_USER=keeper","PATH=/bin"]`), nil, true
+			return []byte(`postgres:16-alpine` + "\t" + `["POSTGRES_USER=keeper","PATH=/bin"]` + "\t" +
+				`[{"Type":"volume","Name":"pgdata","Destination":"/var/lib/postgresql/data","RW":true},{"Type":"volume","Name":"0f3a9c","Destination":"/config","RW":false},{"Type":"tmpfs","Destination":"/run"}]`), nil, true
 		case "create":
 			return []byte("Unable to find image locally\njob-1\n"), nil, true
 		case "wait":
@@ -91,7 +92,9 @@ func newJobDaemon(exit string, output string) *jobDaemon {
 
 // Through a proxy that carries no attached streams (Portainer's) a step
 // runs as a job: an exec becomes a container of the running one's image
-// and environment that shares its network and volumes; the input is copied
+// and environment that shares its network and mounts its volumes by name
+// (anonymous ones too, read-only ones read-only; never --volumes-from,
+// which Portainer refuses a regular user as a bind mount); the input is copied
 // in and the command reads it from there; the job is started and waited
 // for; its output is copied out to the step's; it is removed. Its exit
 // status, not the wait's, is the step's result.
@@ -118,13 +121,16 @@ func TestAStepWithoutStreamsIsAJob(t *testing.T) {
 		t.Fatalf("the job's commands %v, want %v", verbs, want)
 	}
 	joined := strings.Join(create, " ")
-	for _, want := range []string{"--name forge-copy-prod-1", "--network container:pg", "--volumes-from pg", "-e POSTGRES_USER", "-e PGPASSWORD", " postgres:16-alpine sh -c exec </tmp/forge-copy-in >/tmp/forge-copy-out\npg_dump"} {
+	for _, want := range []string{"--name forge-copy-prod-1", "--network container:pg -v pgdata:/var/lib/postgresql/data -v 0f3a9c:/config:ro -e POSTGRES_USER", "-e PGPASSWORD", " postgres:16-alpine sh -c exec </tmp/forge-copy-in >/tmp/forge-copy-out\npg_dump"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("the job is made without %q: %s", want, joined)
 		}
 	}
 	if strings.Contains(joined, "secret") {
 		t.Fatalf("a value is in the job's arguments: %s", joined)
+	}
+	if strings.Contains(joined, "--volumes-from") || strings.Contains(joined, "/run") {
+		t.Fatalf("the job is given the container's volumes only, by name: %s", joined)
 	}
 	cmds := j.Commands()
 	if last := cmds[len(cmds)-1]; strings.Join(last, " ") != "rm -f -v job-1" {
