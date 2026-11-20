@@ -97,7 +97,11 @@ apptown projects >/dev/null
 step "a project from a one-page app"
 app=$work/hello
 mkdir -p "$app/.apptown" "$app/site"
-printf 'app:\n  web: {static: site, public: true}\n' > "$app/.apptown/app.yaml"
+# A static part names the Caddy build serving it, as the contract reference
+# says: the newest on AppTown's line, read from the registry.
+server=$(apptown image newest caddy:2-alpine --scope line | head -n 1)
+case "$server" in *caddy:2*-alpine@sha256:*) ;; *) echo "no Caddy build to pin: $server"; exit 1 ;; esac
+printf 'staticServer: %s\napp:\n  web: {static: site, public: true}\n' "$server" > "$app/.apptown/app.yaml"
 printf '<!doctype html><title>hello</title><p>Hello from a stranger.</p>\n' > "$app/site/index.html"
 git -C "$app" init -q -b main
 git -C "$app" add -A
