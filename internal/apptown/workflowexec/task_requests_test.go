@@ -521,3 +521,64 @@ func TestAMissingRequestKeepsAnUncollectedRemoteResultHeld(t *testing.T) {
 		t.Fatalf("recovery executed again: %d", fake.Starts(key))
 	}
 }
+
+// A whole-AppTown backup dumps the database before it copies the data
+// directory. A task that finishes during the copy leaves its unreleased row
+// in the dump and its saved request gone from the archive. A restore into
+// another path accepts it, and the restored AppTown settles the step as an
+// error, never rebuilding or resending it; an installation move still
+// refuses a missing request.
+//
+// Kills: a restore refusing to start over a task the source finished, a
+// move that relocates past an unknown request.
+func TestARestoreSettlesATaskThatFinishedDuringTheBackupCopy(t *testing.T) {
+	for _, backend := range taskBackends {
+		t.Run(backend, func(t *testing.T) {
+			a, fake, step := scriptTaskFixture(t, map[string]any{"run": "true", "executor": "docker", "env": map[string]any{"FAKE_EXIT": "0"}})
+			if backend == "worker" {
+				a.onWorker(t, fake)
+			}
+			driver := &recordingDriver{TaskDriver: a.tasks.Driver}
+			a.tasks.Driver, a.tasks.AbandonAt = driver, func(stage string) bool { return stage == "started" }
+			if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
+				t.Fatal(err)
+			}
+			key := taskKeyOf(step)
+			if before, err := a.tasks.Records.Get(t.Context(), key); err != nil || before.Released || keptRequest(t, a, key) == nil || fake.Starts(key) != 1 {
+				t.Fatalf("not a running task with its request: %+v %v", before, err)
+			}
+			// The source finished and released it after the dump, before the
+			// copy reached tasks/.
+			if err := fake.Release(t.Context(), execution.TaskRef{Key: key}); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.RemoveAll(filepath.Join(a.dir, "tasks", key)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := RelocationRequests(t.Context(), a.db, a.dir, false); err == nil || !strings.Contains(err.Error(), "no readable admitted request") {
+				t.Fatalf("an installation move past a missing request: %v", err)
+			}
+			if reqs, err := RelocationRequests(t.Context(), a.db, a.dir, true); err != nil || len(reqs) != 0 {
+				t.Fatalf("a restore refused the task the source finished: %d %v", len(reqs), err)
+			}
+			b := startTaskAppTown(t, a.db, a.dir, a.image, a.definitions)
+			b.tasks.Driver, b.tasks.Remote, b.tasks.Profile, b.tasks.Backend, b.tasks.Poll = driver, a.tasks.Remote, a.tasks.Profile, a.tasks.Backend, a.tasks.Poll
+			b.recover(t)
+			settled := awaitStep(t, b, step.ID, workflow.StatusError)
+			if !strings.Contains(string(settled.Evidence), "admitted request is not kept") {
+				t.Fatalf("the step's evidence: %s", settled.Evidence)
+			}
+			var after tasks.Attempt
+			var err error
+			if !poll.Until(t.Context(), 10*time.Second, 10*time.Millisecond, func() bool {
+				after, err = b.tasks.Records.Get(t.Context(), key)
+				return err != nil || after.Released
+			}) || err != nil || after.Observed != tasks.Settled {
+				t.Fatalf("the attempt was not settled and released: %+v %v", after, err)
+			}
+			if sent, _, _ := driver.record(); len(sent) != 1 || fake.Starts(key) != 1 {
+				t.Fatalf("recovery resent the task: sent %d, started %d", len(sent), fake.Starts(key))
+			}
+		})
+	}
+}
