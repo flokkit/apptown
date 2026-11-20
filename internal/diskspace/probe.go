@@ -135,7 +135,9 @@ func readStanding(ctx context.Context, dk docker, image, script string, now func
 		}
 		return []byte(out), nil
 	}, ReaderClass, containerresult.Spec{
-		Image: image, Options: []string{"--network", "none", "--cgroupns", "host", "--mount", "type=volume,dst=/d,readonly"},
+		// The volume is not read-only: older Docker (27 here) refuses a read-only
+		// anonymous volume, and the reader only runs df on it.
+		Image: image, Options: []string{"--network", "none", "--cgroupns", "host", "--mount", "type=volume,dst=/d"},
 		Script: script, Now: now,
 		Validate: validate, Plain: plain,
 	})

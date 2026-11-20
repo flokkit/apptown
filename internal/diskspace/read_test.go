@@ -35,7 +35,7 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 				// its default security. An anonymous volume is on the data
 				// root's filesystem.
 				mount := slices.Index(c.Args, "--mount")
-				if c.Image != "chosen-image" || mount < 0 || c.Args[mount+1] != "type=volume,dst=/d,readonly" || slices.Contains(c.Args, "-v") || slices.Contains(c.Args, "--volume") {
+				if c.Image != "chosen-image" || mount < 0 || c.Args[mount+1] != "type=volume,dst=/d" || slices.Contains(c.Args, "-v") || slices.Contains(c.Args, "--volume") {
 					t.Fatalf("wrong image/mount: %+v", c)
 				}
 				network := slices.Index(c.Args, "--network")
