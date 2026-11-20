@@ -85,6 +85,15 @@ def recorded_change(base, cid):
     # what the run waits on and what a person can do on it now.
     for words in ("state", "stateDetail", "landingMeans", "waitingOn", "next"):
         (out.get("detail") or {}).pop(words, None)
+    # A status label and the checks sentence are wording over recorded runs,
+    # steps and check results, which are compared: rc.16 reads a change's
+    # progress as two bars without one label, counts results into the
+    # sentence, and names what a step waits on from current state.
+    out.pop("statusLabel", None)
+    for section in (out, out.get("detail") or {}):
+        (section.get("checks") or {}).pop("text", None)
+    for step in (out.get("detail") or {}).get("steps") or []:
+        step.pop("statusLabel", None)
     # Whether the work met the request is the model's narrative, not a
     # person's act; an upgrade may withdraw a shortfall it cannot attribute
     # to the person's words (migration 209 reset them to unknown).
