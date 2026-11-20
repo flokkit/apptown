@@ -133,6 +133,8 @@ func newNodeFixFixture(t *testing.T, name string, spec schema.Spec, options ...f
 	t.Helper()
 	f, _ := newTaskAppTown(t, name, spec, options...)
 	f.bound = "routine"
+	// Major moves at aggressive are due unless a test says otherwise.
+	f.commands.majors = verification.Majors{Facts: majorFacts{reads: new(atomic.Int32)}, DB: f.db}
 	f.agents.adoption = adoption.New(f.db, adoption.Dependencies{Ways: f.ways})
 	f.ways.SyncStockGuidance(t.Context())
 	block, err := f.ways.BlockByName(t.Context(), "lang/node/dependency-updates")

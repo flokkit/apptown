@@ -4,15 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Janitor commands read scans and manage choices.
 func cmdJanitor(args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: apptown janitor <choices|set|history|assess|attempts|run> [options]")
+		return usagef("usage: apptown janitor <choices|set|history|assess|attempts|run|majors> [options]")
 	}
 	if args[0] == "run" {
 		fs := newFlags("janitor run")
@@ -46,6 +49,9 @@ func cmdJanitor(args []string) error {
 			return err
 		}
 		return printJSON(out)
+	}
+	if args[0] == "majors" {
+		return janitorMajors(args[1:])
 	}
 	if args[0] == "attempts" {
 		fs := newFlags("janitor attempts")
@@ -107,4 +113,30 @@ func cmdJanitor(args []string) error {
 		return usagef("unknown janitor command %q", verb)
 	}
 	return printJSON(out)
+}
+
+// janitorMajors asks AppTown, for a Janitor run's agent, which direct
+// dependencies are due to move to their newest major.
+func janitorMajors(args []string) error {
+	fs := newFlags("janitor majors")
+	runFlag := os.Getenv("APPTOWN_RUN_ID")
+	fs.StringVar(&runFlag, "run", runFlag, "run (default: this run, APPTOWN_RUN_ID)")
+	asJSON := fs.Bool("json", false, "print the decisions as JSON")
+	purls := parseArgs(fs, args)
+	id, err := ids.Parse(runFlag)
+	if err != nil || len(purls) == 0 {
+		return usagef("usage: apptown janitor majors [-run RUN] pkg:npm/react@18.3.1 [pkg:pypi/django@4.2.16 …]")
+	}
+	q := url.Values{"purl": purls}
+	var out []verification.MajorMove
+	if err := api.get("/runs/"+id.String()+"/major-moves?"+q.Encode(), &out); err != nil {
+		return err
+	}
+	if *asJSON {
+		return printJSON(out)
+	}
+	for _, m := range out {
+		fmt.Println(m.Text())
+	}
+	return nil
 }

@@ -5,7 +5,9 @@ tags: skill,maintenance
 <!-- skill: Repair updates. -->
 Make the failing check pass within this change's intent. Keep to the selected
 level (routine: patch and minor, a 0.x package within its minor; aggressive:
-majors too) and each ecosystem's dependency guidance. Never downgrade, change
+the same, plus a direct dependency's newest major when `apptown janitor majors`
+says it is due; an indirect package may change major when a moved direct
+dependency's declared range requires it) and each ecosystem's dependency guidance. Never downgrade, change
 sources, make a direct dependency a pre-release, pin an indirect package to
 one, or add a direct dependency the update does not need. An indirect
 pre-release that a stable direct dependency itself requires is allowed.
@@ -46,8 +48,8 @@ scans; if they cannot pass, say what needs a person.
 
 npm: `npm update` in every package folder (`--workspaces` for workspaces)
 moves lockfile entries, including indirect packages, within declared ranges;
-`npx npm-check-updates -t minor` (any target at aggressive) shows manifest
-moves, applied with `-u` and `npm install`; `npm outdated --all` shows what is left.
+`npx npm-check-updates -t minor` shows manifest moves (`-t latest --filter NAME`
+only for a package `apptown janitor majors` says is due), applied with `-u` and `npm install`; `npm outdated --all` shows what is left.
 uv: `uv lock --upgrade`, or `--upgrade-package NAME` for one package;
 `uv tree --outdated` shows what is left. Other ecosystems' dependency guidance names their
 commands.

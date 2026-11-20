@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/imageline"
+	"github.com/flokkit/apptown/internal/packagefacts"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -88,6 +89,9 @@ func constructApp(t *testing.T, db *database.DB, cfg Config) *App {
 	t.Helper()
 	if cfg.ImageResolver == nil {
 		cfg.ImageResolver = testImageResolver{}
+	}
+	if cfg.PackageFacts == nil {
+		cfg.PackageFacts = testPackageFacts{}
 	}
 	if cfg.DockerClient == nil {
 		cfg.DockerClient = defaultTestDocker()
@@ -317,6 +321,17 @@ func TestAppDataStaysInTheTemporaryRoot(t *testing.T) {
 	if filepath.Dir(dir) != os.TempDir() {
 		t.Fatalf("app data %q must be inside the shared temporary root %q", dir, root)
 	}
+}
+
+// testPackageFacts is this package's fake of the package registries and
+// endoflife.date: every package's newest major, 2, has settled.
+type testPackageFacts struct{}
+
+func (testPackageFacts) Lines(context.Context, packagefacts.Package, string) (packagefacts.Lines, error) {
+	return packagefacts.Lines{Newest: "2", First: packagefacts.Release{Version: "2.0.0", Published: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)}, Since: 3}, nil
+}
+func (testPackageFacts) Support(context.Context, packagefacts.Package) (packagefacts.Support, error) {
+	return packagefacts.Support{}, nil
 }
 
 // testImageResolver is this package's fake of the registry readings owner.

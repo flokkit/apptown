@@ -22,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -41,6 +42,9 @@ import (
 type Config struct {
 	// ImageResolver supplies public-image registry readings at construction; nil builds the instance readings owner.
 	ImageResolver imagelines.Resolver
+	// PackageFacts reads package registries and endoflife.date for the
+	// Janitor's major moves; nil reads the public services.
+	PackageFacts verification.MajorFacts
 	// UpdateChannel selects stable releases unless explicitly set to prerelease.
 	UpdateChannel string
 	// DockerClient supplies the command transport before owners are wired.

@@ -5,7 +5,7 @@ bigger moves, and a place where a person hears when it is stuck.
 
 | What the app runs on | Kept up to date by | Bigger moves decided by | You hear about it in |
 | --- | --- | --- | --- |
-| App dependencies | The [Janitor](janitor.md), patch and minor releases | The project owner, by a change; the Janitor too when its level is Including major | Maintenance › Needs you |
+| App dependencies | The [Janitor](janitor.md), patch and minor releases | The project owner, by a change; the Janitor too when its level is Including major and a major is due | Maintenance › Needs you |
 | Base images in the project's Dockerfiles | The Janitor, within its dependency level, keeping each image's name and variant | Another image or variant: the project owner, by a change | Maintenance › Needs you |
 | Static server (Caddy 2 on Alpine) | AppTown, when there is no `staticServer:` pin: each build uses the newest `caddy:2-alpine` it reads; the Janitor moves an existing pin ([app contract](contract-reference.md)) | The project owner, by adding or changing a pin | Maintenance › Needs you |
 | Prebuilt images an `app:` part runs (`image:`) | Nobody automatically | The project owner, by a change | The project's Security tab, for the public part |

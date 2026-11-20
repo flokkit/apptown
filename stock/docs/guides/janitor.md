@@ -14,8 +14,8 @@ leaves to people, the administrator and providers.
 
 ## What it may change
 
-**Dependency updates** cover routine patch and minor updates, or aggressive updates
-including major versions. Security fixes run on their adopted workflow’s schedule within
+**Dependency updates** cover patch and minor updates (**Patch and minor**), or
+those plus major versions when they are due (**Including major**). Security fixes run on their adopted workflow’s schedule within
 the same version limits. An agent updates every ecosystem, workspace and
 sub-project it finds, following adopted dependency guidance. An AI model reads
 the complete diff and judges its level and scope, including the smallest code
@@ -53,6 +53,33 @@ project's direct dependencies, read from the committed lockfile, and fail an
 update that makes one a pre-release. A direct pre-release already on main is
 shown on the step but does not hold the update. For other package managers the
 update's model check judges it.
+**Including major** keeps each direct dependency on its current major and moves it
+to the newest major only when one of these holds:
+
+1. Its current major ends support within 3 months, or has ended: every release
+   cycle endoflife.date lists for that major (Django 5: 5.0, 5.1 and 5.2) ends by
+   then. An older minor that has ended beside a supported one does not count. The
+   registry deprecating the newest release of the major (npm) counts too.
+2. One of AppTown's current source scans has a finding in it that is fixed only
+   on a newer major.
+3. The newest major has settled: its first release is at least 6 months old and
+   at least 2 releases have followed it, by the registry's publish dates. This
+   applies to packages endoflife.date does not track.
+
+Otherwise the package gets patch and minor updates, as at Patch and minor; a
+0.x package's minor counts as its major. The agent asks `apptown janitor majors`
+which moves are due. AppTown decides again from the change's own lockfiles
+(npm `package-lock.json`, `uv.lock`, `go.mod`, Bundler `Gemfile.lock` and
+`composer.lock`) and fails the update when a direct dependency moves to a major
+that is not due, naming why; the repair agent then keeps it on its major. The
+change's routine step lists each major move with the rule that allowed it, for
+example "django 4 → 5 due: 4.2 ends support 2026-04-30 (endoflife.date)". A fact
+AppTown cannot read (a registry or endoflife.date unreachable, a product
+endoflife.date does not track) allows nothing and is listed as unknown. An
+indirect package may change major when a moved direct dependency requires it.
+With any other package manager, direct dependencies stay on their majors.
+Base images follow the image rules above, not these.
+
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need. Repairs may update declarations in
 `.apptown/app.yaml` required by the new pack's checks. Dependency updates and

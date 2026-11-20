@@ -24,8 +24,16 @@ spec:
             skills: [skill/janitor]
             prompt: |
               Update this project's dependencies at level ${{inputs.level}}: routine
-              means patch and minor releases (a 0.x package stays within its minor);
-              aggressive means the newest releases, including major versions. Cover every
+              means patch and minor releases (a 0.x package stays within its minor).
+              Aggressive means the same, and a direct dependency also moves to its
+              newest major (a 0.x package to its newest minor) when AppTown says that
+              major is due: list the direct dependencies that have a newer major, ask
+              `apptown janitor majors` once with all of them as package URLs
+              (pkg:npm/react@18.3.1, pkg:pypi/django@4.2.16), move only those it says
+              are due, to the newest release of that major, and quote its reason in the
+              commit message. Keep every other direct dependency within its major. An
+              indirect package may change major when a moved direct dependency's own
+              declared range requires it. Cover every
               ecosystem and every workspace or sub-project in the repository, following
               the dependency guidance for each. Base image updates: ${{inputs.baseImages}}.
               When false, leave every FROM and staticServer unchanged. When true, move
@@ -69,7 +77,13 @@ spec:
               dependency files. Pass only when all of these hold. (1) Every version change
               in manifests and lockfiles stays within the level: at routine, patch and
               minor releases only, and a 0.x package stays within its minor; at
-              aggressive, any newer release including majors. Never a downgrade, never a
+              aggressive, the same, and a direct dependency moves to a new major (or a
+              0.x package to a new minor) only where AppTown's facts below list that move
+              as allowed. An indirect package may change major when a moved stable
+              direct dependency's own declared range needs that version. AppTown reads npm,
+              uv, Go module, Bundler and Composer lockfiles itself; with any other
+              package manager a direct dependency's major move is outside the level at
+              both levels. Never a downgrade, never a
               new registry or source, never an override or resolution that pins a
               pre-release. AppTown itself checks npm, uv, Go module and Bundler
               projects for direct dependencies that are pre-releases: leave their
@@ -124,4 +138,4 @@ spec:
             means: I accept this dependency update and its application repairs after checking the evidence.
             standing:
               class: routine-update
-              means: An AI model judged the dependency update within the selected level and limited to dependencies and the code they need, AppTown saw no change outside dependencies and base-image versions of the same image and variant (and, with toolchain patches on, toolchain patch releases within the same minor), and every required check is met.
+              means: An AI model judged the dependency update within the selected level and limited to dependencies and the code they need, at Including major AppTown found each direct dependency major move due by its rules, AppTown saw no change outside dependencies and base-image versions of the same image and variant (and, with toolchain patches on, toolchain patch releases within the same minor), and every required check is met.
