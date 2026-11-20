@@ -55,6 +55,19 @@ class RecordedChange(unittest.TestCase):
         lost = recorded(page(evidence=releases(16373431, number=49)))
         self.assertFalse(check.kept(before["evidence"], lost["evidence"]))
 
+    def test_status_labels_and_the_checks_sentence_are_read_time(self):
+        def shown(label, sentence, step_label, step_status="done", passed=6):
+            checks = {"text": sentence, "passed": passed}
+            return page(statusLabel=label, checks=dict(checks),
+                        detail={"checks": dict(checks), "steps": [{"name": "approve", "status": step_status, "statusLabel": step_label}]})
+        before = recorded(shown("landed", "Checks not all known", "waiting for checks"))
+        after = recorded(shown(None, "Checks not all known \u00b7 6 passed", "waiting for approval"))
+        self.assertTrue(all(check.kept(before[k], after.get(k)) for k in before), (before, after))
+        lost = recorded(shown(None, "Checks not all known", "waiting for checks", step_status="failed", passed=5))
+        self.assertEqual(check.differences(before["checks"], lost["checks"], "checks"), ["checks.passed: 6 -> 5"])
+        self.assertEqual(check.differences(before["detail"], lost["detail"], "detail"), [
+            "detail.checks.passed: 6 -> 5", 'detail.steps[0].status: "done" -> "failed"'])
+
     def test_a_recorded_approval_sentence_is_still_compared(self):
         before = recorded(page())
         after = recorded(page(evidence={"approvals": [{"by": "rae", "means": "it merges on my say-so."}]}))
