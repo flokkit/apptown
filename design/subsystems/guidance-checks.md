@@ -83,6 +83,14 @@ across turns and admits no further turn after exhaustion. A turn can cross the
 allowance before its final usage arrives; the session then supplies no verdict.
 Timeout, token exhaustion, agent failure and missing model access are recorded
 as cannot-assess with their reason. No wrap-up or automatic retry follows a cap.
+An agent that exits with an error reports its exit status and its last line of
+error output; "made no observed inference requests" is the reason only when the
+agent exited cleanly without asking the model.
+
+A check that could not be assessed gave no answer, whether or not it gates.
+A passed Standards step with such a check reads unknown, and the change's
+checks summary reads "Checks not all known"; the step's status and the gate's
+outcome are unchanged, and no Attention item is raised for it.
 
 ## Feedback and evidence
 

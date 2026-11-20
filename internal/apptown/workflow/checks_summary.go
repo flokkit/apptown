@@ -88,6 +88,12 @@ func summarizeChecks(steps []*Step) ChecksSummary {
 		if r == nil && carriesCheckEvidence(s.Type) {
 			r = readingOf(s.Evidence)
 		}
+		// A passed step with a check that could not be assessed is not
+		// known to pass (Step.displayLabel), observation or gate.
+		if s.Status == StatusPass && s.OverrideBy == "" && r.unassessed() {
+			unknown = true
+			continue
+		}
 		if s.Observation && s.Status != StatusPending && s.Status != StatusRunning && s.Status != StatusNotApplicable && s.Status != StatusSkipped {
 			observationNote := s.evidenceAttention()
 			if r != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 const checkRuntime = "pi-check/read-bash-write/v1"
@@ -71,6 +72,16 @@ type CheckJudge struct {
 	Limits     execution.Limits
 	TimeLimit  time.Duration
 	TokenLimit int64
+}
+
+// checkStderrMax bounds the agent's error output kept with a session.
+const checkStderrMax = 64 << 10
+
+// lastErrorLine is the agent's last non-empty line of error output, short
+// enough for a check's reason.
+func lastErrorLine(stderr []byte) string {
+	lines := strings.Split(strings.TrimSpace(string(stderr)), "\n")
+	return strs.Truncate(strings.TrimSpace(lines[len(lines)-1]), 300)
 }
 
 func checkHash(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
@@ -220,13 +231,13 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 	spec.Admission.Limits.WallClock = j.TimeLimit
 	piArgs := piharness.SessionReviewArgs("/work/.apptown/session.jsonl", in.Call.Model, "medium", prompt)
 	piArgs = append([]string{"--tools", "read,bash,write", "--no-mcp", "--offline"}, piArgs...)
-	script := "set -e\nmkdir -p /work/.apptown /work/home/.pi/agent\ncp /apptown/config/models.json /work/home/.pi/agent/models.json\ncp /apptown/config/session.jsonl /work/.apptown/session.jsonl\ncd /work\n" + piharness.CaptureEvents("/work/.apptown/events.jsonl", "/work/.apptown/status")
+	script := "set -e\nmkdir -p /work/.apptown /work/home/.pi/agent\ncp /apptown/config/models.json /work/home/.pi/agent/models.json\ncp /apptown/config/session.jsonl /work/.apptown/session.jsonl\ncd /work\nexec 2>/work/.apptown/stderr\n" + piharness.CaptureEvents("/work/.apptown/events.jsonl", "/work/.apptown/status")
 	spec.Argv = append([]string{"sh", "-c", script, "sh", "pi"}, piArgs...)
 	var sourceCleanup func()
 	if j.Remote {
 		spec.Source = &execution.TaskSource{Repository: in.Repository, Commit: commit}
 		spec.SourceAtSrc = true
-		spec.Results = []execution.Result{{Name: "verdict", Path: "/work/.apptown/check.json", Max: 256 << 10}, {Name: "transcript", Path: "/work/.apptown/session.jsonl", Max: 32 << 20}, {Name: "events", Path: "/work/.apptown/events.jsonl", Max: 32 << 20}}
+		spec.Results = []execution.Result{{Name: "verdict", Path: "/work/.apptown/check.json", Max: 256 << 10}, {Name: "transcript", Path: "/work/.apptown/session.jsonl", Max: 32 << 20}, {Name: "events", Path: "/work/.apptown/events.jsonl", Max: 32 << 20}, {Name: "stderr", Path: "/work/.apptown/stderr", Max: checkStderrMax}}
 	} else {
 		var src string
 		src, sourceCleanup, err = scm.StageTreeAt(ctx, in.Repository, commit)
@@ -333,10 +344,13 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 			}
 		}
 	} else {
-		for name, path := range map[string]string{"verdict": ".apptown/check.json", "transcript": ".apptown/session.jsonl", "events": ".apptown/events.jsonl"} {
+		for name, path := range map[string]string{"verdict": ".apptown/check.json", "transcript": ".apptown/session.jsonl", "events": ".apptown/events.jsonl", "stderr": ".apptown/stderr"} {
 			max := int64(32 << 20)
-			if name == "verdict" {
+			switch name {
+			case "verdict":
 				max = 256 << 10
+			case "stderr":
+				max = checkStderrMax
 			}
 			b, err := readCheckFile(work, path, max)
 			if err == nil {
@@ -350,10 +364,10 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 	// Retain observations even when the session failed. No complete file-read
 	// list is reconstructed from read calls or shell text.
 	artifact := struct {
-		Input              checkInvocation
-		Result             CheckResult
-		Transcript, Events []byte
-	}{Input: in, Result: result, Transcript: results["transcript"], Events: results["events"]}
+		Input                      checkInvocation
+		Result                     CheckResult
+		Transcript, Events, Stderr []byte
+	}{Input: in, Result: result, Transcript: results["transcript"], Events: results["events"], Stderr: results["stderr"]}
 	finish := func() {
 		result.Evidence.DurationMs = clock.Or(j.Now)().Sub(started).Milliseconds()
 		artifact.Result = result
@@ -373,8 +387,12 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		}
 	}
 	defer finish()
+	// The gateway's "no observed inference requests" says only that the
+	// agent never asked the model; an agent that exited with an error says
+	// why, so its exit comes first (an unknown flag in an old agent image
+	// was reported only as silence).
 	switch {
-	case timedOut || u.Reason != "":
+	case timedOut || u.EvidenceFailure:
 		result.Reason = failureReason("")
 		return
 	case waitErr != nil:
@@ -385,6 +403,12 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		return
 	case exit != 0:
 		result.Reason = fmt.Sprintf("check agent exited with status %d", exit)
+		if line := lastErrorLine(results["stderr"]); line != "" {
+			result.Reason += ": " + line
+		}
+		return
+	case u.Reason != "":
+		result.Reason = u.Reason
 		return
 	case len(results["transcript"]) == 0:
 		result.Reason = "check agent left no transcript"

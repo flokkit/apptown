@@ -207,3 +207,38 @@ func TestProgressPreservesSettledResultsAndUncertainty(t *testing.T) {
 		})
 	}
 }
+
+// A passed step whose checks could not all be assessed reads unknown, gating
+// or not: live's Standards step read "passed" over five AI checks that never
+// reached a model. A non-gating check that failed is still an answer (a
+// note), and the gate's outcome is unchanged.
+//
+// Kills: a non-gating cannot-assess counted as passed.
+func TestAPassedStepWithAnUnassessedCheckIsNotPassed(t *testing.T) {
+	t.Parallel()
+	advisory := false
+	unassessed := &Step{Type: "guidance/conformance", Name: "guidance-conformance", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{
+		{CheckReceipt: CheckReceipt{Check: "shell", Verdict: VerdictPass}},
+		{CheckReceipt: CheckReceipt{Check: "rubric", Verdict: VerdictCannotAssess, Gates: &advisory, Detail: "check agent exited with status 1"}},
+	}}}
+	if got := unassessed.displayLabel(); got != status.DisplayUnknown {
+		t.Fatalf("label %s", got)
+	}
+	if got := unassessed.progress(); got != "unknown" {
+		t.Fatalf("progress %s", got)
+	}
+	for _, observation := range []bool{false, true} {
+		unassessed.Observation = observation
+		if got := summarizeChecks([]*Step{{Type: "script", Status: StatusPass}, unassessed}); got.Tone != "unknown" || got.Text != "Checks not all known" {
+			t.Fatalf("summary (observation %v) %+v", observation, got)
+		}
+	}
+	unassessed.Observation = false
+	if unassessed.Status != StatusPass || unassessed.checkAttention() {
+		t.Fatal("display changed the gate outcome or raised attention")
+	}
+	answered := &Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &checkReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "rubric", Verdict: VerdictFail, Gates: &advisory}}}}}
+	if got := answered.displayLabel(); got != status.DisplayPassed {
+		t.Fatalf("an answered advisory check: %s", got)
+	}
+}

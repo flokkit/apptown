@@ -25,6 +25,18 @@ import (
 // AgentImage is the name of the agent image built from the build context
 // dir.
 func AgentImage(dir string) (string, error) {
+	recipe, err := AgentRecipe(dir)
+	if err != nil {
+		return "", err
+	}
+	return "apptown-agent:" + recipe, nil
+}
+
+// AgentRecipe identifies the content of the agent image's build context dir:
+// two images built from contexts with the same recipe were built from the
+// same files. A worker names its image by it; a local AppTown labels its
+// built image with it (dockerlabel.AgentRecipe) to know when to rebuild.
+func AgentRecipe(dir string) (string, error) {
 	h := sha256.New()
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -42,7 +54,7 @@ func AgentImage(dir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading the agent image's build context: %w", err)
 	}
-	return "apptown-agent:" + hex.EncodeToString(h.Sum(nil))[:12], nil
+	return hex.EncodeToString(h.Sum(nil))[:12], nil
 }
 
 // BuildAgentImage builds the agent image from dir with docker, unless the

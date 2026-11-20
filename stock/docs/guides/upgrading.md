@@ -64,6 +64,10 @@ or instance credentials.
    `apptownd` upgrades the database when it starts, including with
    `-verify-only`. (A source build rebuilds with `make
    build` and its own agent image: the repository's `CONTRIBUTING.md`.)
+   An AppTown that builds its own agent image (a name with no registry,
+   such as the default `apptown-agent`) builds it again when it starts if
+   the release's recipe differs from the one the image was built from; it
+   keeps using the old image until the new one is ready.
 4. **Switching to no local Docker** at the same time: follow
    [Split install](split-install.md), "Switching to no local
    Docker", before the first start with `-no-local-docker`.

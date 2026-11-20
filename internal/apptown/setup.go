@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 // First-run setup: a fresh AppTown must not be
@@ -99,9 +100,25 @@ func (a *App) EnsureAgentImage() {
 	// An image without AppTown's version label was not built from this
 	// release's recipe (one built before 1.0 carries forge.pi.version): it
 	// is fetched again, so every step records which tools it ran.
+	// A built image (a name with no registry) is current only when it was
+	// built from this release's build context: an image built under an
+	// earlier release is built again, or every later release would run the
+	// first one's tools. A registry image's tag names its version.
 	// A daemon that cannot answer is fetched from too: the fetch reports
 	// its own failure, and a daemon that cannot inspect cannot build either.
-	if answer, found, err := a.docker.Image(a.life, a.cfg.agentImage); err == nil && found && answer.Labels[dockerlabel.PiVersion] != "" {
+	current := func(labels map[string]string) bool {
+		if labels[dockerlabel.PiVersion] == "" {
+			return false
+		}
+		// With no build context beside the binary there is nothing to
+		// build it again from: the image there is the one to use.
+		if namesRegistry(a.cfg.agentImage) || !hasDockerfile(a.cfg.agentContext) {
+			return true
+		}
+		recipe, err := worker.AgentRecipe(a.cfg.agentContext)
+		return err == nil && labels[dockerlabel.AgentRecipe] == recipe
+	}
+	if answer, found, err := a.docker.Image(a.life, a.cfg.agentImage); err == nil && found && current(answer.Labels) {
 		a.setup.mu.Lock()
 		a.setup.agentImage = "present"
 		a.setup.mu.Unlock()
@@ -117,10 +134,15 @@ func (a *App) EnsureAgentImage() {
 // named in a registry is pulled, never built: a local build would carry a
 // name that says it is the published image. So the pull needs no build
 // context.
+func hasDockerfile(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "Dockerfile"))
+	return err == nil
+}
+
 func (s *setupState) fetch(ctx context.Context, dk docker.Scope, image, buildContext, logPath string, settled func(status string)) {
 	pull := namesRegistry(image)
 	if !pull {
-		if _, err := os.Stat(filepath.Join(buildContext, "Dockerfile")); err != nil {
+		if !hasDockerfile(buildContext) {
 			s.mu.Lock()
 			s.agentImage = "missing"
 			s.buildErr = "image " + image + " not found and no " + buildContext + " build context beside the binary"
@@ -169,7 +191,13 @@ func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext s
 	// The one build rule (Scope.Build): the daemon's own builder, and the
 	// extra certificates as the build's secret, which its RUN lines
 	// download with (internal/trust, deploy/apptown-agent/Dockerfile).
-	req.Args = []string{"-t", image, buildContext}
+	// The recipe label lets the next boot tell an image built from another
+	// release's context (EnsureAgentImage).
+	recipe, err := worker.AgentRecipe(buildContext)
+	if err != nil {
+		return err
+	}
+	req.Args = []string{"--label", dockerlabel.AgentRecipe + "=" + recipe, "-t", image, buildContext}
 	if said, err := dk.BuildCommand(ctx, req); err != nil {
 		return fmt.Errorf("build failed: %s", strings.TrimSpace(err.Error()+" "+string(said)))
 	}

@@ -22,6 +22,11 @@ func (s Step) displayLabel() status.DisplayStatus {
 				}
 			}
 		}
+		// A check that could not be assessed gave no answer, gating or not:
+		// the step's pass is its gate's outcome, not a claim that it passed.
+		if s.CheckReading.unassessed() {
+			return status.DisplayUnknown
+		}
 		return status.DisplayPassed
 	case StatusFail:
 		return status.DisplayFailed
@@ -122,4 +127,17 @@ func (s Step) progress() string {
 		return "waiting"
 	}
 	return "done"
+}
+
+// unassessed says whether any check in the reading could not be assessed.
+func (r *checkReading) unassessed() bool {
+	if r == nil {
+		return false
+	}
+	for _, c := range r.Checks {
+		if c.Verdict == VerdictCannotAssess {
+			return true
+		}
+	}
+	return false
 }
