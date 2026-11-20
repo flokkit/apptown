@@ -163,6 +163,16 @@ func hostMounts(client *dockerfake.Daemon, mounts map[string]string, extra func(
 		}
 		if strings.Contains(line, ".Mounts") {
 			if m, ok := mounts[args[len(args)-1]]; ok {
+				if strings.Contains(line, "{{json .Mounts}}") { // docker.Scope.VolumesOf
+					var all []map[string]any
+					for _, l := range strings.Split(m, "\n") {
+						if volume, path, ok := strings.Cut(l, "\t"); ok && volume != "" {
+							all = append(all, map[string]any{"Type": "volume", "Name": volume, "Destination": path, "RW": true})
+						}
+					}
+					raw, err := json.Marshal(all)
+					return append(raw, '\n'), err, true
+				}
 				return []byte(m + "\n"), nil, true
 			}
 		}

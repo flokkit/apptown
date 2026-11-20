@@ -1,16 +1,20 @@
 package portainer
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -164,12 +168,64 @@ func StartDockerProxy(dir string, env deploymentEnvironment, config func(context
 			r.Out.URL.RawPath = ""
 			r.Out.Host = base.Host
 			r.Out.Header.Set("X-API-Key", cfg.PortainerKey)
+			if r.In.Method == http.MethodPost && r.In.ContentLength == 0 && containerStart.MatchString(r.In.URL.Path) {
+				// Portainer (2.45 and later) passes an empty body on to an
+				// agent with no length, and Docker refuses a start whose
+				// body is of unknown length or longer than 7 bytes. An
+				// empty object of known length is a start with no options.
+				r.Out.Body = io.NopCloser(strings.NewReader("{}"))
+				r.Out.ContentLength = 2
+				r.Out.Header.Set("Content-Type", "application/json")
+			}
 		},
-		FlushInterval: -1, // stream (a pull's progress, a container's logs) as it comes
+		ModifyResponse: withPortainersReason,
+		FlushInterval:  -1, // stream (a pull's progress, a container's logs) as it comes
 	}
 	p := &DockerProxy{Socket: sock, ln: ln, server: &http.Server{Handler: proxy}}
 	go func() { _ = p.server.Serve(ln) }()
 	return p, nil
+}
+
+// containerStart is Docker's start route, with or without the API version
+// the CLI puts first.
+var containerStart = regexp.MustCompile(`^(/v[0-9.]+)?/containers/[^/]+/start$`)
+
+// withPortainersReason puts the reason Portainer gives for refusing a
+// request into the message the Docker CLI prints. Portainer answers
+// {"message":"Proxy failure","details":"Forbidden to use bind mounts"},
+// and the CLI prints only the message. Other answers pass unchanged.
+func withPortainersReason(resp *http.Response) error {
+	if resp.StatusCode < 400 || resp.Header.Get("Content-Encoding") != "" || !strings.Contains(resp.Header.Get("Content-Type"), "json") {
+		return nil
+	}
+	const most = 1 << 16 // an error answer is small; a larger one passes as it is
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, most))
+	if err != nil {
+		return err
+	}
+	if len(raw) == most {
+		resp.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.MultiReader(bytes.NewReader(raw), resp.Body), resp.Body}
+		return nil
+	}
+	resp.Body.Close()
+	var answer map[string]any
+	if json.Unmarshal(raw, &answer) == nil {
+		message, _ := answer["message"].(string)
+		details, _ := answer["details"].(string)
+		if message != "" && details != "" && details != message {
+			answer["message"] = message + ": " + details
+			if rewritten, err := json.Marshal(answer); err == nil {
+				raw = rewritten
+			}
+		}
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(raw))
+	resp.ContentLength = int64(len(raw))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(raw)))
+	return nil
 }
 
 // Host is the Docker CLI's --host for the proxy.

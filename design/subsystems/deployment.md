@@ -779,8 +779,10 @@ recorded: their state is not known), the items restored and the safety
 set; the receipt says `status: unknown` with `mayBeStopped`. Nothing starts
 them again: a restore's writer on the host can outlive AppTown, so a
 person checks the host and releases the deployment again. A kind may declare `restoreStopped`: the need's container is
-stopped, the restore runs in a throwaway container of its image with
-`--volumes-from` it, and the need is started again whatever the restore
+stopped, the restore runs in a throwaway container of its image given the
+need container's volumes by name (`docker.Scope.VolumesOf`; never
+`--volumes-from`, which Portainer refuses a regular user as a bind mount),
+and the need is started again whatever the restore
 did; such a kind must declare `verify` (Parse refuses it otherwise), since
 putting files in place is not the service loading them. Redis uses it.
 Object storage declares a copy through the S3 API (`format: s3-objects`): a Python
@@ -819,9 +821,16 @@ carries plain requests and answers, not attached streams, so the scope is
 `NoStreams` and every streamed step (`docker.Step`: an export, a restore, a
 check, a file copy of a volume) runs as a job: a container made for it (an
 exec becomes a container of the running one's image and environment that
-joins its network and mounts its volumes), its input copied in, started,
+joins its network and mounts its volumes by name), its input copied in, started,
 waited for, its exit status read, its output copied out, removed whatever
-happened; the copy is written inside the job first. What it holds is the
+happened; the copy is written inside the job first. AppTown's key may be a
+regular Portainer user's under Portainer's default security settings: a
+job names volumes rather than using `--volumes-from` (a bind mount to
+Portainer, refused to such a user). Portainer (2.45 and later) passes an
+empty request body on with no length, which Docker's start refuses, so the
+proxy gives a body-less start an empty JSON object of known length; and it
+puts Portainer's reason for a refusal (`details`) into the message the
+Docker CLI prints. What it holds is the
 volumes on its list (those its deploys made: `portainer.Execution` records a
 volume the compose declares that was absent before the deploy and present
 after) and those its current stack declares; the stack file classifies: a

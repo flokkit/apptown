@@ -801,6 +801,10 @@ func restoreIntoStopped(ctx context.Context, rec *restoreLog, dk docker.Scope, c
 	if image == "" {
 		return nil, fmt.Errorf("could not read the image of %s", container)
 	}
+	volumes, err := dk.VolumesOf(ctx, container)
+	if err != nil {
+		return nil, err
+	}
 	if err := rec.stopping(ctx, container); err != nil {
 		return nil, err
 	}
@@ -811,7 +815,7 @@ func restoreIntoStopped(ctx context.Context, rec *restoreLog, dk docker.Scope, c
 	if err != nil {
 		return nil, err
 	}
-	out, rerr := dk.RunStep(ctx, docker.Step{Image: image, Options: []string{"--entrypoint", "", "--network", "none", "--volumes-from", container}, Command: restore, Stdin: f})
+	out, rerr := dk.RunStep(ctx, docker.Step{Image: image, Options: append([]string{"--entrypoint", "", "--network", "none"}, volumes...), Command: restore, Stdin: f})
 	f.Close()
 	if sout, err := dk.Run(ctx, "start", container); err != nil {
 		return append(out, sout...), errors.Join(rerr, fmt.Errorf("starting %s again: %w", container, err))
