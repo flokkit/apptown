@@ -804,6 +804,10 @@ func TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest(t *testing.T) {
 	if b.BuiltFrom.Registry != w.registry.host+"/team/p" || b.BuiltFrom.Platform != releasePlatform || b.BuiltFrom.Build.Role != "agent" || b.BuiltFrom.StepID != stepID || b.BuiltFrom.Attempt != 1 {
 		t.Errorf("the bundle's origin: %+v", b.BuiltFrom)
 	}
+	// A pinned server is built from as written, and recorded so.
+	if pin := "caddy:2.11.9-alpine@sha256:" + strings.Repeat("a", 64); b.BuiltFrom.StaticServer != pin {
+		t.Errorf("the bundle records static server %q, want the pin %q", b.BuiltFrom.StaticServer, pin)
+	}
 	tagged := map[string]string{"web": "part-web", "worker": "part-worker", "cache": "part-cache"}
 	for part, image := range tagged {
 		answer := w.registry.digestOf(t, fmt.Sprintf("%s/team/p:change-%d-%s", w.registry.host, run.ChangeID, image))
@@ -842,6 +846,49 @@ func TestALandingBuildsOnTheWorkerPublishesAndPullsByDigest(t *testing.T) {
 	attempt, err := tasks.New(w.a.DB).Get(context.Background(), spec.Key)
 	if err != nil || attempt.Observed != tasks.Settled || !attempt.Released || attempt.Invocation != tasks.ReleaseBuildInvocation {
 		t.Errorf("the release build's task: %+v %v", attempt, err)
+	}
+}
+
+// A landing of a static app that names no staticServer: builds on the
+// worker with the newest build AppTown reads on the server line
+// (testImageResolver's answer here): the static Dockerfile is FROM that image
+// by tag and digest, the bundle and the step's evidence record it.
+//
+// Kills: the rc.16 refusal of an unpinned static app; a build from a default
+// tag rather than the reading; a bundle that does not say which server image
+// its static images were built from.
+func TestAnUnpinnedStaticLandingBuildsWithTheLinesNewestServer(t *testing.T) {
+	t.Parallel()
+	w := newReleaseWorld(t, nil)
+	w.appYAML = "app:\n  web:\n    public: true\n    static: site\n    ports: [\"8080\"]\n"
+	w.mainOn(t, w.lab)
+	run, stepID := w.landingRun(t)
+	executeBootFixture(t, w.a, w.a.asEngine(context.Background()), stepID)
+	step := w.step(t, stepID)
+	if step.Status != workflow.StatusPass {
+		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	read := "index.docker.io/library/caddy:2-alpine@sha256:" + strings.Repeat("a", 64)
+	sent := w.worker.requests()
+	if len(sent) != 1 {
+		t.Fatalf("%d task requests, want the one release build", len(sent))
+	}
+	var dockerfiles []string
+	for _, f := range sent[0].Files {
+		if strings.HasSuffix(f.Path, ".Dockerfile") {
+			dockerfiles = append(dockerfiles, string(f.Content))
+		}
+	}
+	if len(dockerfiles) != 1 || dockerfiles[0] != docker.StaticSiteDockerfile(read, 8080) {
+		t.Fatalf("the static Dockerfiles: %q", dockerfiles)
+	}
+	b, err := w.a.Deployment.Bundles.OfRun(context.Background(), idstest.N(1), run.ID)
+	if err != nil || b == nil || b.BuiltFrom.StaticServer != read {
+		t.Fatalf("the landing's bundle: %+v %v", b, err)
+	}
+	var evidence struct{ StaticServer string }
+	if err := json.Unmarshal(step.Evidence, &evidence); err != nil || evidence.StaticServer != read {
+		t.Errorf("the step's evidence: %s", step.Evidence)
 	}
 }
 

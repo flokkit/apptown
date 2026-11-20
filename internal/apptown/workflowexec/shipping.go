@@ -8,6 +8,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -41,6 +42,7 @@ type shipping struct {
 	progress   *progress.Feeds
 	builds     *ReleaseBuilds
 	shots      screenshotter
+	images     imagelines.Resolver
 	cfg        ShippingConfig
 	clock      func() time.Time // AppTown's clock; nil is the real one
 }
@@ -67,6 +69,9 @@ type ShippingDependencies struct {
 	// (verification.Screenshots); nil takes none, and the boot's evidence
 	// says so.
 	Screenshots screenshotter
+	// Images reads the static server line for a landing whose contract
+	// pins none (imagelines.StaticServer).
+	Images imagelines.Resolver
 }
 
 // screenshotter takes AppTown's pictures of a preview's pages.
@@ -82,7 +87,7 @@ type CompileCheck struct {
 }
 
 func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *shipping {
-	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, builds: d.Builds, shots: d.Screenshots, cfg: cfg, clock: d.Now}
+	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, builds: d.Builds, shots: d.Screenshots, images: d.Images, cfg: cfg, clock: d.Now}
 }
 func (a *shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)

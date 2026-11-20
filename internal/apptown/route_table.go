@@ -231,7 +231,7 @@ func appRoutes(a *App) []routeSpec {
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
 		secrets = httpapi.NewSecrets(a.Secrets, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		imageLines = httpapi.ImageLines{Resolver: a.imageLines}
-		configuration = httpapi.NewConfiguration(a.Dependencies)
+		configuration = httpapi.NewConfiguration(a.Dependencies, a.imageLines)
 		health = httpapi.NewHealth(a.DB.Pool().PingContext)
 		deployments = httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects, a.Access)
 		auditLog = httpapi.NewAuditLog(a.DB, a.Projects)

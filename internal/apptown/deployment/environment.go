@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -47,6 +48,7 @@ type Environment struct {
 	tools        toolversions.Source
 	routes       Routing
 	projects     *project.Projects
+	images       imagelines.Resolver
 }
 
 // EnvironmentDependencies are the owners and settings a boot's environment
@@ -56,8 +58,8 @@ type EnvironmentDependencies struct {
 	Integrations *integration.Service
 	Needs        *dependency.Catalog
 	// Probe is this machine's readiness probe; ToolVersions names the
-	// images a boot runs for itself (the static server, the chown and df
-	// helpers), one snapshot per host a unit of work builds.
+	// images a boot runs for itself (the chown and df helpers), one
+	// snapshot per host a unit of work builds.
 	Probe        *docker.Probe
 	ToolVersions toolversions.Source
 	Routes       Routing
@@ -65,6 +67,9 @@ type EnvironmentDependencies struct {
 	// decides its domain and the credentials it is given. Without it every
 	// purpose question is an error and the effect is refused.
 	Projects *project.Projects
+	// Images reads the static server line for a contract that pins none
+	// (imagelines.StaticServer); without it such a boot is refused.
+	Images imagelines.Resolver
 }
 
 // NewEnvironment prepares boots from the configured deployment dependencies.
@@ -73,7 +78,7 @@ func NewEnvironment(deps EnvironmentDependencies) *Environment {
 		deps.Routes.Scheme = "http"
 	}
 	return &Environment{secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
-		probe: deps.Probe, tools: deps.ToolVersions, routes: deps.Routes, projects: deps.Projects}
+		probe: deps.Probe, tools: deps.ToolVersions, routes: deps.Routes, projects: deps.Projects, images: deps.Images}
 }
 
 // Routes is how this AppTown names addresses, as configured; RoutesFor is
@@ -172,6 +177,12 @@ func (e *Environment) hostDependencies(projectID ids.ID, creds dependency.Creden
 // "Previews on the worker"), with the needs' generated credentials creds
 // gives. Preparing makes no key: WithRegistered does.
 func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, deployment, ws string, c *appcontract.Contract, creds dependency.Credentials) (docker.Prepared, error) {
+	// Static parts are served with the contract's pin, or the newest build
+	// read on the server line now; everything after sees it as a pin.
+	c, _, err := imagelines.StaticServer(ctx, e.images, c)
+	if err != nil {
+		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: err}
+	}
 	var login *docker.RegistryCredential
 	if ri, err := e.integrations.Registry(ctx, projectID); err != nil {
 		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: fmt.Errorf("the project's registry credential: %w", err)}

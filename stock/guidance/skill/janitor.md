@@ -11,7 +11,7 @@ one, or add a direct dependency the update does not need. An indirect
 pre-release that a stable direct dependency itself requires is allowed.
 For dependency updates and security fixes, change only an existing
 `staticServer:` in `.apptown/app.yaml`, and only when base image updates are
-on; they never add a missing one.
+on; they never add one (without a pin AppTown serves the newest build).
 For a pack adoption, add or change only the declarations in `.apptown/app.yaml`
 that the new pack's failing checks name.
 

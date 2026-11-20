@@ -9,10 +9,20 @@ import (
 )
 
 // StaticServerLine is the Caddy family for which AppTown writes its Caddyfile
-// and installs Alpine packages. Each project pins the actual build.
+// and installs Alpine packages. A project may pin a build on it
+// (staticServer:); without a pin AppTown serves the newest build it reads
+// on this line (imagelines.StaticServer) when a build or preview starts.
 const StaticServerLine = "caddy:2-alpine"
 
+// ValidateStaticServer accepts a Caddy 2 Alpine image from Docker Hub named
+// by tag and digest: a pin, or the image read for an unpinned contract.
+// Empty means no image was chosen for a contract about to be served, which
+// a caller resolves first (imagelines.StaticServer): it is refused, never
+// replaced by a default here.
 func ValidateStaticServer(image string) error {
+	if image == "" {
+		return fmt.Errorf("staticServer: no server image was resolved for the static parts")
+	}
 	s, err := imageline.Parse(image, imageline.Line)
 	if err != nil {
 		return fmt.Errorf("staticServer: %w", err)
@@ -32,16 +42,4 @@ func (c *Contract) HasStaticParts() bool {
 		}
 	}
 	return false
-}
-
-// StaticServerImage refuses execution without a project pin. Parsing an older
-// declaration remains possible for readers that do not serve the app.
-func StaticServerImage(image string) (string, error) {
-	if image == "" {
-		return "", fmt.Errorf("This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line.")
-	}
-	if err := ValidateStaticServer(image); err != nil {
-		return "", err
-	}
-	return image, nil
 }

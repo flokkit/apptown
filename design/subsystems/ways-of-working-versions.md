@@ -103,8 +103,10 @@ step's evidence names the snapshot (`toolVersions`) beside its shell image.
 
 Application image builds are not tool versions. Seeds name image lines; project
 creation resolves every unpinned external FROM through `imagelines` and writes
-the selected tag and digest before writing any starter files. Static apps also
-pin their Caddy 2 Alpine server as `staticServer:` in `.apptown/app.yaml`.
+the selected tag and digest before writing any starter files. Static apps
+are served with the newest Caddy 2 Alpine build read through the same owner
+when a build or preview starts, unless `.apptown/app.yaml` pins one as
+`staticServer:`; each release bundle records the image it was built from.
 The Janitor uses the same registry resolver and routine verification checks that
 each moved image equals its answer. The `imageline` library uses tags lists and
 manifest HEADs, anonymously, through the bound Docker Hub mirror for Docker Hub

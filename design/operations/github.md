@@ -45,8 +45,9 @@ proxy (checked by Go's checksum database), so CI does not depend on GitHub's
 release downloads.
 
 Runtime catalog proposals include their exact versions and pinned image digests.
-Alpine Git moves with its central pin. Static apps keep their Caddy pin in
-`staticServer:` and the Janitor resolves it from registry readings. BusyBox's version and
+Alpine Git moves with its central pin. Static apps are served with the newest
+`caddy:2-alpine` build from registry readings, or their `staticServer:` pin,
+which the Janitor moves. BusyBox's version and
 its digest-only image reference update together. Postgres and MariaDB stay on
 their declared lines. The logical `apptown-sh` line `1` uses upstream Alpine
 Git version `2`; it does not constrain the registry to version `1`.

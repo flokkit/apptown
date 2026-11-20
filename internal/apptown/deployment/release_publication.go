@@ -55,7 +55,7 @@ func (img releaseImage) IsStatic() bool {
 // image, with the command that serves them (docker.StaticSiteDockerfile),
 // as a Docker host's own build of it is (docker.PrepareImages).
 func (img releaseImage) Dockerfile(server string) (string, error) {
-	if _, err := appcontract.StaticServerImage(server); err != nil {
+	if err := appcontract.ValidateStaticServer(server); err != nil {
 		return "", err
 	}
 	return docker.StaticSiteDockerfile(server, img.Port), nil
@@ -66,13 +66,17 @@ func (img releaseImage) Dockerfile(server string) (string, error) {
 type releasePlan struct {
 	Images      []releaseImage
 	Parts, Init map[string]string // part or init step -> image name
+	// StaticServer is the image every static image is built from: the
+	// contract's pin, or the reading it was given before the build
+	// (imagelines.StaticServer). The bundle records it (BundleOrigin).
+	StaticServer string
 }
 
 // PlanRelease is the release c declares: one image for each distinct build,
 // static site or image reference, shared by every part and init step that
 // declares the same.
 func PlanRelease(c *appcontract.Contract) releasePlan {
-	plan := releasePlan{Parts: map[string]string{}, Init: map[string]string{}}
+	plan := releasePlan{Parts: map[string]string{}, Init: map[string]string{}, StaticServer: c.StaticServer}
 	named := map[releaseImage]string{}
 	add := func(name string, img releaseImage) string {
 		if n, ok := named[img]; ok {
@@ -266,7 +270,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 		in.Log("Recording the published release bundle")
 	}
 	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{RebuiltFrom: in.RebuiltFrom, ChangeID: in.ChangeID, RunID: runID,
-		Registry: registry, Platform: in.Platform, Build: in.Build, By: in.By})
+		Registry: registry, Platform: in.Platform, Build: in.Build, StaticServer: in.Plan.StaticServer, By: in.By})
 	if err != nil {
 		return nil, fmt.Errorf("committing the release bundle: %w", err)
 	}

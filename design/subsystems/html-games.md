@@ -1,7 +1,8 @@
 # Browser game projects
 
 The HTML game seed declares its committed folder as `static: .`.
-The project pins its Caddy image in `staticServer:`. Caddy serves the files and uses no-cache responses so clients can
+AppTown serves it with the newest Caddy 2 Alpine build unless the project pins
+one in `staticServer:`. Caddy serves the files and uses no-cache responses so clients can
 revalidate after a release. The video-game and `frontend-only` seeds build
 with npm and Vite and declare a static site with a build
 (`static: { build: ., output: dist }`): their Dockerfile ends with a stage of

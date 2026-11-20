@@ -114,7 +114,8 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 		return nil, false
 	}
 	plan := deployment.PlanRelease(in.contract)
-	// The build uses the server image pinned in this project.
+	// Static images are built from the plan's server image: the pin, or
+	// the reading RunBuild gave an unpinned contract.
 	script, files, images, err := releaseBuildRequest(in.tree, in.contract, platform)
 	if err != nil {
 		releaseRefused(err.Error())
@@ -256,7 +257,6 @@ func (a *shipping) publicationWatch() time.Duration {
 // of it); image-only declarations are not built, but copied by AppTown.
 func releaseBuildRequest(tree string, contract *appcontract.Contract, platform string) (string, []execution.File, []execution.ImageResult, error) {
 	plan := deployment.PlanRelease(contract)
-	staticServer := contract.StaticServer
 	// The extra certificates this machine's containers trust reach each
 	// build as its secret (internal/trust), from the task's own variable:
 	// the worker's, never this machine's. None when it has none. Their
@@ -312,7 +312,7 @@ func releaseBuildRequest(tree string, contract *appcontract.Contract, platform s
 			// the port it serves on.
 			dockerfile := path.Join(releaseStaticDockerfiles, img.Name+".Dockerfile")
 			args = append(args, "-f", dockerfile)
-			body, err := img.Dockerfile(staticServer)
+			body, err := img.Dockerfile(plan.StaticServer)
 			if err != nil {
 				return "", nil, nil, err
 			}

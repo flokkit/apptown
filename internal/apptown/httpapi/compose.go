@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
@@ -117,12 +118,13 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		services[in.Name] = svc
 	}
 
-	server := c.StaticServer
-	if c.HasStaticParts() {
-		if _, err := appcontract.StaticServerImage(server); err != nil {
-			return "", nil, err
-		}
+	// Static parts are served with the contract's pin, or the newest build
+	// read on the server line now.
+	c, _, err = imagelines.StaticServer(ctx, h.images, c)
+	if err != nil {
+		return "", nil, err
 	}
+	server := c.StaticServer
 	for _, p := range parts {
 		svc := map[string]any{}
 		var mounts []string

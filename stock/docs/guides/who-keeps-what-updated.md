@@ -7,7 +7,7 @@ bigger moves, and a place where a person hears when it is stuck.
 | --- | --- | --- | --- |
 | App dependencies | The [Janitor](janitor.md), patch and minor releases | The project owner, by a change; the Janitor too when its level is Including major | Maintenance › Needs you |
 | Base images in the project's Dockerfiles | The Janitor, within its dependency level, keeping each image's name and variant | Another image or variant: the project owner, by a change | Maintenance › Needs you |
-| Static server (`staticServer:` in `.apptown/app.yaml`) | The Janitor moves an existing pin; a project without one adds it by a change ([app contract](contract-reference.md)) | The project owner | Maintenance › Needs you |
+| Static server (Caddy 2 on Alpine) | AppTown, when there is no `staticServer:` pin: each build uses the newest `caddy:2-alpine` it reads; the Janitor moves an existing pin ([app contract](contract-reference.md)) | The project owner, by adding or changing a pin | Maintenance › Needs you |
 | Prebuilt images an `app:` part runs (`image:`) | Nobody automatically | The project owner, by a change | The project's Security tab, for the public part |
 | Language toolchains (`mise.toml`) | mise installs what is declared: a line such as `node = "24"` gets its newest release, an exact pin stays; the Janitor moves a pin only for a patch a security finding needs | The project owner, by a change | Maintenance › Needs you |
 | OS packages in release images | Each release build, where the Dockerfile's final stage upgrades packages; the Janitor rebuilds a deployment following main when its running image shows a new fixable finding ([Janitor](janitor.md)) | The project owner | The project's Security tab |

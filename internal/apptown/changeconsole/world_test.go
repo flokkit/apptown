@@ -22,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -35,6 +36,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -208,8 +210,21 @@ func previewOwner(t *testing.T, db *database.DB, dataDir string, projects *proje
 		Worker: previews, Targets: targets, Deployments: deployment.NewDeployments(db), Projects: projects, Integrations: integrations, DataDir: dataDir,
 		Hosts: deployment.NewHosts(targets, secrets, deployment.HostSettings{Scope: docker.Scope{Client: newDockerFake()}, DataDir: dataDir}),
 		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Needs: catalog, Integrations: integrations,
-			Routes: deployment.Routing{PreviewScheme: "https", PreviewDomain: "preview.example.com"}, Projects: projects}),
+			Routes: deployment.Routing{PreviewScheme: "https", PreviewDomain: "preview.example.com"}, Projects: projects, Images: serverReading{}}),
 	})
+}
+
+// serverReading is this package's fake of the registry readings owner: the
+// static server line's newest build, for the unpinned static site the
+// rehearsals boot (imagelines.StaticServer).
+type serverReading struct{}
+
+func (serverReading) Answer(context.Context, string, imageline.Scope) (imagelines.Reading, error) {
+	return imagelines.Reading{Answer: imageline.Answer{Tag: "caddy:2.11.9-alpine", Digest: "sha256:" + strings.Repeat("a", 64)}, ReadAt: time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)}, nil
+}
+
+func (serverReading) Digest(context.Context, string) (string, error) {
+	return "sha256:" + strings.Repeat("a", 64), nil
 }
 
 // openOnWorker opens the change's chat on the worker as the chat's opening
