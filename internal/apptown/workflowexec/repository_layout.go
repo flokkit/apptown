@@ -22,7 +22,14 @@ type relocationRequest struct {
 
 // RelocationRequests reads unreleased local/remote admissions before layout
 // effects. A missing/unreadable request is unknown, not an empty workspace.
-func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string) ([]relocationRequest, error) {
+//
+// restore relaxes one case: a request missing from a restored archive. A
+// backup dumps the database before copying the data directory, so a task
+// that finished during the copy leaves its row without its request. The
+// restored AppTown never ran it, and recovery never sends an attempt whose
+// request is not kept (it fails the step), so no path that request named is
+// used again. On an installation move a missing request still refuses.
+func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string, restore bool) ([]relocationRequest, error) {
 	attempts, err := tasks.RelocationAttemptsIn(ctx, db)
 	if err != nil {
 		return nil, err
@@ -33,6 +40,9 @@ func RelocationRequests(ctx context.Context, db database.Queryer, dataDir string
 		req, found, err := reader.storedRequest(attempt.Operation)
 		if err != nil {
 			return nil, fmt.Errorf("reading task %s before relocation: %w", attempt.Operation, err)
+		}
+		if !found && restore {
+			continue
 		}
 		if !found {
 			return nil, fmt.Errorf("task %s has no readable admitted request; settle it before relocation", attempt.Operation)

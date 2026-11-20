@@ -40,9 +40,10 @@ import (
 // dumped; the archive is written (manifest, dump, data directory); the
 // lock and the hold are released; the archive is copied to the backup store
 // when asked; the receipt is written. The dump comes before the files and
-// nothing new starts in between, so no file the records name is missing
-// or older than them; work already running may leave a file newer, which
-// a restored AppTown treats as interrupted, as after any stop.
+// nothing new starts in between. Work already running carries on: it may
+// leave a file newer than the dump, or finish and remove one the dump
+// names (a task's saved request). A restored AppTown treats that work as
+// interrupted, as after any stop (workflowexec.RelocationRequests).
 
 // ArchiveFormat names a whole-AppTown archive's manifest.
 const (

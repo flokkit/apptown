@@ -72,10 +72,12 @@ their own deployment backups (the Backups page), and a restore brings
 each app back from its newest one. The command prints what it did.
 
 **One moment.** The dump is taken before the files are copied, and nothing
-new starts in between, so every file the database names is in the archive.
-Work that was already running can leave a file newer than the dump. A
-restored AppTown treats that work as interrupted, as it would after any
-stop. An app's data is from its own newest deployment backup, which is
+new starts in between. Work that was already running carries on during the
+copy: it can leave a file newer than the dump, and a step that finishes
+during the copy can remove files the dump still names, such as its saved
+request. A restored AppTown treats that work as interrupted, as it would
+after any stop: it does not rebuild a step whose saved request is missing,
+and the step ends as an error that names the missing request. An app's data is from its own newest deployment backup, which is
 older than the dump: anything the app wrote after that backup is not in
 the restored AppTown.
 

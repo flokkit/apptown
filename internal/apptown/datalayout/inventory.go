@@ -100,7 +100,7 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observe
 		}
 		out.Publications = append(out.Publications, publicationEdit{Before: pub, After: expected.After})
 	}
-	requests, err := workflowexec.RelocationRequests(ctx, db, root)
+	requests, err := workflowexec.RelocationRequests(ctx, db, root, restore)
 	if err != nil {
 		return out, err
 	}

@@ -28,7 +28,7 @@ func refuseWriters(ctx context.Context, db *database.DB, root string, observers 
 			return err
 		}
 	}
-	requests, err := workflowexec.RelocationRequests(ctx, db, root)
+	requests, err := workflowexec.RelocationRequests(ctx, db, root, false)
 	if err != nil {
 		return err
 	}
