@@ -51,7 +51,7 @@ func (s *Service) TestContainerRegistryBinding(ctx context.Context, config map[s
 	case http.StatusOK:
 		return Health{OK: true, Detail: "Registry reachable; credentials accepted."}
 	case http.StatusUnauthorized:
-		if params := registryBearerChallenge(resp.Header.Values("WWW-Authenticate")); params != nil && params["realm"] != "" {
+		if params := RegistryBearerChallenge(resp.Header.Values("WWW-Authenticate")); params != nil && params["realm"] != "" {
 			return checkRegistryTokenService(ctx, client, u, params, username, token)
 		}
 		return Health{Detail: "Registry credentials were refused. Check the username and token secret."}
@@ -60,9 +60,12 @@ func (s *Service) TestContainerRegistryBinding(ctx context.Context, config map[s
 	}
 }
 
-// Parse auth parameters with the MIME quoted-string parser. Authentication uses
-// commas between parameters where MIME uses semicolons; quoted commas stay intact.
-func registryBearerChallenge(headers []string) map[string]string {
+// RegistryBearerChallenge is the parameters (realm, service, scope) of the
+// first Bearer challenge among a registry's WWW-Authenticate headers, or nil.
+// Auth parameters are parsed with the MIME quoted-string parser.
+// Authentication uses commas between parameters where MIME uses semicolons;
+// quoted commas stay intact.
+func RegistryBearerChallenge(headers []string) map[string]string {
 	for _, header := range headers {
 		scheme, parameters, found := strings.Cut(strings.TrimSpace(header), " ")
 		if !found || !strings.EqualFold(scheme, "Bearer") {

@@ -165,9 +165,11 @@ func TestAReaderRemovedUnderAReadIsMadeAgainOnce(t *testing.T) {
 }
 
 // A new image's reader leaves the old image's while a read is running in
-// it, and removes it on a later read once it is idle.
+// it, and removes it on a later read once it is idle, with its anonymous
+// volumes (the disk reader reads one).
 //
-// Kills: a replaced reader removed from under a read that is using it.
+// Kills: a replaced reader removed from under a read that is using it, or
+// removed without -v, leaving its volume behind on every host.
 func TestAReplacedReaderIsRemovedOnlyWhenIdle(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		d := standingDaemon()
@@ -180,9 +182,13 @@ func TestAReplacedReaderIsRemovedOnlyWhenIdle(t *testing.T) {
 		oldName := readerName(t, d)
 		inRead, release := make(chan struct{}), make(chan struct{})
 		var once sync.Once
+		var removed []string
 		c.before = func(args []string) {
 			if args[0] == "exec" && strings.Contains(strings.Join(args, " "), oldName+" sh -c") {
 				once.Do(func() { close(inRead); <-release })
+			}
+			if args[0] == "rm" {
+				removed = append(removed, strings.Join(args, " "))
 			}
 		}
 		oldRead := make(chan error, 1)
@@ -207,6 +213,9 @@ func TestAReplacedReaderIsRemovedOnlyWhenIdle(t *testing.T) {
 		}
 		if got := readerName(t, d); got == oldName {
 			t.Fatalf("readers %v, want only the new image's", d.Readers())
+		}
+		if len(removed) != 1 || removed[0] != "rm -f -v "+oldName {
+			t.Fatalf("removals %q, want the old reader removed with its volumes", removed)
 		}
 	})
 }

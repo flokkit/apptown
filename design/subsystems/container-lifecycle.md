@@ -73,10 +73,15 @@ reads through one reader made no mount units and no scopes; 1,000
 
 The reader is one long-lived container per daemon, `apptown.class=disk-reader`,
 named `apptown-reader-disk-reader-` and a hash of its image and options: the
-tool versions' `df` image with the data root bound read-only at `/d`, no
-network, `--restart unless-stopped`, running `sleep`. A reading lists the
-class's containers, removes the class's other readers (an older image's)
-that no read in the process is using, starts the reader if it stopped, makes
+tool versions' `df` image with an anonymous volume mounted read-only at `/d`,
+no network, `--restart unless-stopped`, running `sleep`. A local volume is a
+folder under the daemon's data root, so `df` on it reports the data root's
+filesystem on every storage driver without a host bind, which Portainer
+refuses to a regular user under its default security; the container's own
+root would not do, since under the zfs driver it is a dataset of its own. A
+reading lists the class's containers, removes the class's other readers (an
+older image's or options') with their anonymous volumes (`rm -f -v`) when no
+read in the process is using them, starts the reader if it stopped, makes
 it only when it is gone, then runs `df -Pk /d` in it with `docker exec`, its
 output written to a file in the reader's `/tmp` and copied out with
 `docker cp`; the answer is accepted only when it parses. A process lists,

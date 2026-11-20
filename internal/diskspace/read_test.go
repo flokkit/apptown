@@ -20,6 +20,8 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 		valid  bool
 	}{
 		{"roomy", []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 1000 100 900 10% /d\n6f515dedc9c260d3\n"), 0, true},
+		// As df answers on an anonymous volume: the data root's device.
+		{"volume", []byte("Filesystem           1024-blocks    Used Available Capacity Mounted on\n/dev/vda1            1000  100  900  10% /d\n49fb6ad33d058f90\n"), 0, true},
 		{"empty", []byte{}, 0, false}, {"missing", nil, 0, false},
 		{"malformed", []byte("Filesystem\n/dev/x lots\n"), 0, false},
 		{"failed", []byte("partial"), 1, false},
@@ -29,7 +31,11 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 				if c.Script != "df -Pk /d && stat -f -c %i /d" {
 					return containerresulttest.Answer{}, false
 				}
-				if c.Image != "chosen-image" || !slices.Contains(c.Args, "/var/lib/docker:/d:ro") {
+				// No host bind: Portainer refuses one to a regular user under
+				// its default security. An anonymous volume is on the data
+				// root's filesystem.
+				mount := slices.Index(c.Args, "--mount")
+				if c.Image != "chosen-image" || mount < 0 || c.Args[mount+1] != "type=volume,dst=/d,readonly" || slices.Contains(c.Args, "-v") || slices.Contains(c.Args, "--volume") {
 					t.Fatalf("wrong image/mount: %+v", c)
 				}
 				network := slices.Index(c.Args, "--network")
@@ -44,7 +50,7 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 					return "", "", fmt.Errorf("unexpected diagnostic command %v", args)
 				}
 				return string(out), "", err
-			}, "chosen-image", "/var/lib/docker", time.Now, false)
+			}, "chosen-image", time.Now, false)
 			if (err == nil) != tc.valid {
 				t.Fatalf("space=%+v error=%v valid=%v", space, err, tc.valid)
 			}

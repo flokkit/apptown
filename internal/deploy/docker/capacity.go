@@ -116,11 +116,11 @@ const composeProject = "com.docker.compose.project"
 // readDisk reads the filesystem holding the daemon's data folder in the
 // daemon's standing disk reader (diskspace.ReadThroughDocker). Each call's
 // output is combined, as every call through a scope's client is.
-func readDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.Space, error) {
+func readDisk(ctx context.Context, dk Scope, image string) (diskspace.Space, error) {
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
-	}, image, dataRoot, clock.Or(dk.Now), dk.NoStreams)
+	}, image, clock.Or(dk.Now), dk.NoStreams)
 	if err != nil {
 		return diskspace.Space{}, fmt.Errorf("reading the disk: %w", err)
 	}
@@ -138,7 +138,7 @@ func AdmitDisk(ctx context.Context, dk Scope, image string) error {
 	if err != nil {
 		return diskspace.Admit(what, diskspace.Space{}, fmt.Errorf("where its data is: %w", err))
 	}
-	d, err := readDisk(ctx, dk, image, info.DataRoot)
+	d, err := readDisk(ctx, dk, image)
 	return diskspace.Admit(what+" ("+info.DataRoot+")", d, err)
 }
 

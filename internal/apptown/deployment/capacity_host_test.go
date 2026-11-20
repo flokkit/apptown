@@ -59,7 +59,7 @@ func TestHostUseReadsKernelAndPreservesUnknownReasons(t *testing.T) {
 					return out, err
 				})}
 				s := &Service{env: NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()}), clock: func() time.Time { return time.Unix(123, 0) }}
-				m, c := s.hostUse(t.Context(), dk, tc.total, tc.cpus, "/var/lib/docker")
+				m, c := s.hostUse(t.Context(), dk, tc.total, tc.cpus)
 				for _, v := range []struct {
 					f     *Figure
 					known bool
@@ -84,7 +84,7 @@ func TestHostUseReadsKernelAndPreservesUnknownReasons(t *testing.T) {
 					_, err := diskspace.ReadThroughDocker(t.Context(), func(ctx context.Context, args ...string) (string, string, error) {
 						b, e := dk.Run(ctx, args...)
 						return string(b), "", e
-					}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now, false)
+					}, s.env.ToolVersions().Images.DF, s.now, false)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -121,7 +121,7 @@ func TestKernelExecIsCancelled(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 		done := make(chan *Figure, 1)
-		go func() { _, c := s.hostUse(ctx, dk, 8<<30, 8, "/var/lib/docker"); done <- c }()
+		go func() { _, c := s.hostUse(ctx, dk, 8<<30, 8); done <- c }()
 		<-sampled
 		cancel()
 		c := <-done
@@ -180,7 +180,7 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 					return out, err
 				})}
 				s := &Service{env: NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()}), clock: time.Now}
-				m, c := s.hostUse(t.Context(), dk, 10000, 2, "/var/lib/docker")
+				m, c := s.hostUse(t.Context(), dk, 10000, 2)
 				if m.Known != tc.memKnown || c.Known != tc.cpuKnown {
 					t.Fatalf("memory %+v CPU %+v", m, c)
 				}
@@ -195,7 +195,7 @@ func TestHostUseChoosesCgroupCounters(t *testing.T) {
 				_, err := diskspace.ReadThroughDocker(t.Context(), func(ctx context.Context, args ...string) (string, string, error) {
 					b, e := dk.Run(ctx, args...)
 					return string(b), "", e
-				}, s.env.ToolVersions().Images.DF, "/var/lib/docker", s.now, false)
+				}, s.env.ToolVersions().Images.DF, s.now, false)
 				if err != nil || d.Started() != 1 {
 					t.Fatalf("shared disk reader: %d, %v", d.Started(), err)
 				}
@@ -258,7 +258,7 @@ func TestCgroupCPUUsesHostUptime(t *testing.T) {
 				return out, err
 			})}
 			s := &Service{env: NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()}), clock: func() time.Time { return time.Unix(123, 0) }}
-			m, c := s.hostUse(t.Context(), dk, 10000, 2, "/var/lib/docker")
+			m, c := s.hostUse(t.Context(), dk, 10000, 2)
 			if !m.Known || m.Value != 4500 || c.Known != tc.known || c.Value != tc.cores || !strings.Contains(c.Reason, tc.reason) {
 				t.Fatalf("memory %+v CPU %+v", m, c)
 			}
@@ -267,10 +267,10 @@ func TestCgroupCPUUsesHostUptime(t *testing.T) {
 }
 
 // Collect the kernel fixture before exercising the shared interpretation.
-func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cpus int, root string) (*Figure, *Figure) {
+func (s *Service) hostUse(ctx context.Context, dk docker.Scope, memory int64, cpus int) (*Figure, *Figure) {
 	parts, err := diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		b, e := dk.Run(ctx, args...)
 		return string(b), "", e
-	}, s.env.ToolVersions().Images.DF, root, s.now, dk.NoStreams)
+	}, s.env.ToolVersions().Images.DF, s.now, dk.NoStreams)
 	return hostUse(parts, err, memory, cpus)
 }

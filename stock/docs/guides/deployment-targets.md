@@ -188,9 +188,12 @@ Without a worker, work runs on AppTown's own server.
   containers.
 
   The disk is read by `df` in the daemon's standing reader: one long-lived
-  container from a small pinned image (busybox), with no network and the
-  folder mounted read-only. It is read at most every five minutes. If a host
-  cannot run the reader, its disk shows as unknown, with the reason.
+  container from a small pinned image (busybox), with no network and an
+  empty Docker volume mounted read-only. A volume lives on the disk that
+  holds Docker's data, so `df` on it reads that disk without access to the
+  host's folders; this also works through Portainer for a user who may not
+  mount them. It is read at most every five minutes. If a host cannot run
+  the reader, its disk shows as unknown, with the reason.
 
 **Disk space.** New work is refused while a disk it would write to has less
 free than its floor, a twentieth of the disk but at least 1 GiB and at most

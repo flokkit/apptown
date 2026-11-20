@@ -195,13 +195,13 @@ func ReadHost(ctx context.Context, dk Scope, q HostQuery) (HostFacts, error) {
 			parts, err = diskspace.ReadKernel(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 				b, e := dk.Run(ctx, args...)
 				return string(b), "", e
-			}, q.ReaderImage, f.Host.Value.DockerRootDir, now, dk.NoStreams)
+			}, q.ReaderImage, now, dk.NoStreams)
 		}
 		use.Kernel, use.KernelReason = parts, record(err)
 		if f.Host.Value == nil {
 			err = errors.New("the data root was not read")
 		} else {
-			space, err = readDisk(ctx, dk, q.ReaderImage, f.Host.Value.DockerRootDir)
+			space, err = readDisk(ctx, dk, q.ReaderImage)
 		}
 		use.Disk, use.DiskReason = space, record(err)
 		f.Use.Value, f.Use.ObservedAt = &use, now()
