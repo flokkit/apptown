@@ -37,6 +37,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
+	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/gate"
@@ -436,6 +437,7 @@ type described struct {
 var cliOperations = map[string]described{
 	"GET /api/v1/projects/{slug}/scans":          {status: 200, response: httpapi.ProjectScanView{}},
 	"GET /api/v1/image-lines":                    {query: []string{"ref", "scope"}, status: 200, response: imagelines.Reading{}},
+	"GET /api/v1/runs/{id}/major-moves":          {query: []string{"purl"}, status: 200, response: []verification.MajorMove{}},
 	"GET /api/v1/features":                       {status: 200, response: []identity.Feature{}},
 	"PUT /api/v1/features/{area}":                {status: 200, strict: true, request: httpapi.FeatureChange{}, response: identity.Feature{}},
 	"GET /api/v1/attention":                      {status: 200, response: attention.View{}},

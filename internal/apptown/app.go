@@ -68,6 +68,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/packagefacts"
 	"github.com/flokkit/apptown/internal/progress"
 )
 
@@ -77,6 +78,7 @@ import (
 // operations. Database schema and migrations belong to dbschema.
 type App struct {
 	imageLines    imagelines.Resolver
+	majors        verification.Majors
 	imageRebuilds *releaseImageRebuilder
 
 	// images is the runtime images of the tool versions this AppTown shipped with.
@@ -353,6 +355,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.imageLines = input.ImageResolver
 	if a.imageLines == nil {
 		a.imageLines = imagelines.New(db, cfg.clock.Now, a.workshop.Mirror)
+	}
+	a.majors = verification.Majors{Facts: input.PackageFacts, DB: db, Now: cfg.clock.Now}
+	if a.majors.Facts == nil {
+		a.majors.Facts = packagefacts.Client{}
 	}
 	a.steering = agentenv.NewInstructions(db, a.Integrations)
 	a.providers = inference.NewCatalog(db, a.Secrets)

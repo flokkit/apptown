@@ -4417,6 +4417,51 @@
         ],
         "type": "object"
       },
+      "MajorMove": {
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "from": {
+            "type": "string"
+          },
+          "fromLine": {
+            "type": "string"
+          },
+          "manifest": {
+            "type": "string"
+          },
+          "newest": {
+            "type": "string"
+          },
+          "package": {
+            "$ref": "#/components/schemas/Package"
+          },
+          "to": {
+            "type": "string"
+          },
+          "toLine": {
+            "type": "string"
+          },
+          "unknown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "package",
+          "from",
+          "fromLine",
+          "allowed",
+          "why"
+        ],
+        "type": "object"
+      },
       "NextAct": {
         "properties": {
           "act": {
@@ -5075,6 +5120,21 @@
           "guidanceBytes",
           "generatedBytes",
           "declaration"
+        ],
+        "type": "object"
+      },
+      "Package": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
         ],
         "type": "object"
       },
@@ -19969,6 +20029,60 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/runs/{id}/major-moves": {
+      "get": {
+        "operationId": "getRunsIdMajorMoves",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purl",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MajorMove"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "runs"
+        ],
+        "x-apptown-access": {
+          "capability": "run:read",
+          "kind": "capability",
+          "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/runs/{id}/restart-landing": {

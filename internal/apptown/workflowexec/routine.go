@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/fix"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/packagefacts"
 )
 
 type updateBounds interface {
@@ -22,6 +23,12 @@ type updateBounds interface {
 }
 type updateJudge interface {
 	JudgeUpdate(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error)
+}
+
+// majorDecider decides direct dependency major moves at the aggressive level
+// (verification.Majors).
+type majorDecider interface {
+	Decide(context.Context, ids.ID, []verification.MajorMove) ([]verification.MajorMove, error)
 }
 type routineConfig struct {
 	Rubric string `json:"rubric"`
@@ -34,6 +41,7 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	var classified []fix.File
 	var receipt workflow.CheckReceipt
 	var readings []imagelines.Reading
+	var majors []verification.MajorMove
 	finish := func(status workflow.StepState, why string) {
 		verdict := workflow.VerdictError
 		switch status {
@@ -50,6 +58,9 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		receipt.Check, receipt.Evaluator, receipt.Verdict, receipt.Detail = task.Step().Name, "routine", verdict, why
 		facts := workflow.CheckEvidence{Checks: []workflow.CheckReceipt{receipt}}
 		extra := map[string]any{"reason": why, "files": classified, "imageReadings": readings}
+		if len(majors) > 0 {
+			extra["majorMoves"] = majors
+		}
 		task.Settle(facts.Outcome(status, extra))
 	}
 	fail := func(err error) { receipt.AppTownFault = false; finish(workflow.StatusError, err.Error()) }
@@ -106,6 +117,10 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	var inputs [2]map[string]any
+	// At aggressive a direct dependency's major moves only when AppTown's
+	// rules say it is due; the lockfiles say which ones moved.
+	aggressive := bound == "aggressive"
+	var direct [2][]packagefacts.Dependency
 	for i, commit := range []string{base, sel.Commit} {
 		tree, remove, err := verification.StageCommittedTree(task.Context(), a.cfg.DataDir, sel.Repo, commit)
 		if err != nil {
@@ -113,6 +128,13 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			return
 		}
 		inputs[i], err = verification.UpdateInputs(tree)
+		if err == nil && aggressive {
+			if direct[i], err = packagefacts.Direct(tree); err != nil {
+				remove()
+				finish(workflow.StatusFail, "AppTown could not read the direct dependencies to check major moves: "+err.Error())
+				return
+			}
+		}
 		remove()
 		if err != nil {
 			fail(err)
@@ -162,6 +184,28 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		}
 		return
 	}
+	if moves := verification.MovesBetween(direct[0], direct[1]); len(moves) > 0 {
+		if a.majors == nil {
+			fail(fmt.Errorf("major move facts are unavailable"))
+			return
+		}
+		decided, err := a.majors.Decide(task.Context(), task.Run().ProjectID, moves)
+		if err != nil {
+			fail(err)
+			return
+		}
+		majors = decided
+		var refused []string
+		for _, m := range decided {
+			if !m.Allowed {
+				refused = append(refused, m.Text())
+			}
+		}
+		if len(refused) > 0 {
+			finish(workflow.StatusFail, "A direct dependency moves to a major that is not due:\n"+strings.Join(refused, "\n"))
+			return
+		}
+	}
 	var cfg routineConfig
 	if err := workflow.DecodeStepConfig(task.Step().Config, &cfg); err != nil {
 		fail(err)
@@ -172,8 +216,15 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	facts := "\n\nApproved level: " + bound
-	if bound == "aggressive" {
-		facts += " (including majors)"
+	if aggressive {
+		facts += " (patch and minor; a direct dependency's major only where listed below)"
+		facts += "\nDirect dependency major moves AppTown allowed:"
+		if len(majors) == 0 {
+			facts += " none"
+		}
+		for _, m := range majors {
+			facts += "\n  " + m.Text()
+		}
 	} else {
 		facts += " (patch and minor)"
 	}
@@ -231,5 +282,12 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 	case workflow.VerdictFail:
 		status = workflow.StatusFail
 	}
-	finish(status, receipt.Detail)
+	why := receipt.Detail
+	if len(majors) > 0 {
+		why += "\nMajor moves:"
+		for _, m := range majors {
+			why += "\n" + m.Text()
+		}
+	}
+	finish(status, why)
 }

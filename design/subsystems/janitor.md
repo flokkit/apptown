@@ -1,7 +1,7 @@
 # Janitor choices
 
 Maintenance settings records what to keep updated: dependencies (`off`, `routine`
-for patch and minor, or `aggressive` including major), security fixes, base images,
+for patch and minor, or `aggressive` adding major versions when they are due), security fixes, base images,
 toolchain patches, and packs. Security fixes require dependency
 updates; toolchain patches require security fixes. The Janitor starts on:
 dependencies use routine patch and minor updates, with security fixes, base
@@ -277,10 +277,24 @@ step from an adopted workflow disables this remedy without an engine switch.
 
 The producer starts the queue attempt and retains its targets before its session.
 Routine runs after the producer and before tests, start-up and scans. Routine
-permits patch and minor releases, keeping 0.x packages within their minor;
-aggressive permits newer majors. The model judges every version and source
-change, direct dependencies and the minimum application repairs a moved package
-needs. AppTown independently witnesses protected inputs and required checks.
+permits patch and minor releases, keeping 0.x packages within their minor.
+Aggressive permits the same, and a direct dependency's move to its newest major
+(a 0.x package's minor) only when it is due. Before judging, the routine step
+reads the direct dependencies of both trees from npm, uv, Go module, Bundler and
+Composer lockfiles (`internal/packagefacts`), and `verification.Majors` decides
+each major move from the registry's publish dates, endoflife.date's support
+cycles and the project's current source scan findings: the current major ends
+support within three months, a finding is fixed only on a newer major, or the
+newest major is six months old with two releases after its first. The constants
+are in `verification/major_moves.go`. A move no rule allows fails the step before
+the model is asked; allowed moves and unread facts are in the step's reason and
+its `majorMoves` outcome, and the model is told which moves were allowed. A fact
+AppTown cannot read allows nothing. Indirect packages and other package
+managers are the model's to judge by the rubric. The agent asks the same owner
+through `GET /runs/{id}/major-moves` (`apptown janitor majors`); its answer is
+advice, the routine step's decision is the evidence. Routine reads none of these
+facts. The model judges every version and source change, direct dependencies and
+the minimum application repairs a moved package needs. AppTown independently witnesses protected inputs and required checks.
 When an update changes nothing, routine is not applicable: there is no diff to
 judge. The empty update closes without approval once tests, start-up and scans
 pass on the unchanged tree. The agent's final message is a note shown with the

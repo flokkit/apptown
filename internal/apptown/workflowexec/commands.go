@@ -22,6 +22,7 @@ const TestsKind = "tests"
 type commands struct {
 	images    imagelines.Resolver
 	judge     updateJudge
+	majors    majorDecider
 	bounds    updateBounds
 	fixes     fixDeclarations
 	db        *database.DB
@@ -46,8 +47,10 @@ type CommandConfig struct {
 	AppTownVersion string
 }
 type CommandDependencies struct {
-	Images    imagelines.Resolver
-	Judge     updateJudge
+	Images imagelines.Resolver
+	Judge  updateJudge
+	// Majors decides direct dependency major moves at the aggressive level.
+	Majors    majorDecider
 	Bounds    updateBounds
 	Fixes     fixDeclarations
 	Runner    execution.Runner
@@ -75,7 +78,7 @@ func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *
 	if cfg.AppTownVersion == "" {
 		cfg.AppTownVersion = "unknown"
 	}
-	c := &commands{images: deps.Images, db: db, judge: deps.Judge, fixes: deps.Fixes, bounds: deps.Bounds, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
+	c := &commands{images: deps.Images, db: db, judge: deps.Judge, majors: deps.Majors, fixes: deps.Fixes, bounds: deps.Bounds, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
 	if deps.Tasks != nil {
 		deps.Tasks.commands = c
 	}

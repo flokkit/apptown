@@ -195,6 +195,14 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 			if response.Code != 200 || !strings.Contains(response.Body.String(), `"registry":"registry.test"`) {
 				t.Fatalf("step cannot read image lines: %d %s", response.Code, response.Body)
 			}
+			// The Janitor's agent asks which majors are due for its own run.
+			request = httptest.NewRequest("GET", fmt.Sprintf("/api/v1/runs/%s/major-moves?purl=pkg:npm/example@1.4.0", run.ID), nil)
+			request.Header.Set("X-AppTown-Session-Token", token)
+			response = httptest.NewRecorder()
+			GETOnly(h).ServeHTTP(response, request)
+			if response.Code != 200 || !strings.Contains(response.Body.String(), `"allowed":true`) {
+				t.Fatalf("step cannot ask which majors are due: %d %s", response.Code, response.Body)
+			}
 			if scenario == "still live" {
 				return
 			}

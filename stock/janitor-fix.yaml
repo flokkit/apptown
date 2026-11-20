@@ -26,7 +26,11 @@ spec:
               take stable releases only, never a pre-release (alpha, beta, rc, dev,
               canary); an indirect package may be a pre-release when a stable direct
               dependency's own declared range requires it. Keep within patch and minor
-              releases unless no such release fixes it. Pin an indirect package with
+              releases unless no such release fixes it. When only a newer major fixes a
+              finding in a direct dependency, ask `apptown janitor majors` with its
+              package URL (pkg:npm/name@1.2.3); when it says the major is due, move to
+              the newest release of the newest major and quote its reason in the commit
+              message, otherwise leave the package unchanged and say so. Pin an indirect package with
               overrides or resolutions only where that is the ecosystem's normal way,
               never to a pre-release, and say so in the commit message. If no stable
               release fixes a finding, leave that package unchanged and say so. Do not
@@ -68,7 +72,13 @@ spec:
               dependency files. Pass only when all of these hold. (1) Every version change
               in manifests and lockfiles stays within the level: at routine, patch and
               minor releases only, and a 0.x package stays within its minor; at
-              aggressive, any newer release including majors. Never a downgrade, never a
+              aggressive, the same, and a direct dependency moves to a new major (or a
+              0.x package to a new minor) only where AppTown's facts below list that move
+              as allowed. An indirect package may change major when a moved stable
+              direct dependency's own declared range needs that version. AppTown reads npm,
+              uv, Go module, Bundler and Composer lockfiles itself; with any other
+              package manager a direct dependency's major move is outside the level at
+              both levels. Never a downgrade, never a
               new registry or source, never an override or resolution that pins a
               pre-release. AppTown itself checks npm, uv, Go module and Bundler
               projects for direct dependencies that are pre-releases: leave their
