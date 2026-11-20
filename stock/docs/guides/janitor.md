@@ -57,7 +57,8 @@ update's model check judges it.
 any application changes those updates need. Repairs may update declarations in
 `.apptown/app.yaml` required by the new pack's checks. Dependency updates and
 security fixes change only an existing `staticServer:` in that file, when base
-image updates are on; they never add a missing one.
+image updates are on; they never add one. A project without one is served with
+the newest `caddy:2-alpine` build at each build.
 
 In Maintenance settings, choose dependencies **Off**, **Patch and minor** or
 **Including major**, plus **Security fixes**, **Base images**, **Toolchain patches**

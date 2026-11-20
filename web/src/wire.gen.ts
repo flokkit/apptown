@@ -4503,6 +4503,7 @@ export type BundleOrigin = {
   registry?: string
   platform?: string
   build?: BundleBuild
+  staticServer?: string
   stepId?: string | null
   attempt?: number
 }

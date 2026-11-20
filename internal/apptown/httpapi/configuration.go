@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -20,10 +21,11 @@ import (
 // Configuration validates a caller's declaration and renders local development files.
 type Configuration struct {
 	catalog *dependency.Catalog
+	images  imagelines.Resolver // the static server line, for a contract that pins none
 }
 
-func NewConfiguration(catalog *dependency.Catalog) Configuration {
-	return Configuration{catalog: catalog}
+func NewConfiguration(catalog *dependency.Catalog, images imagelines.Resolver) Configuration {
+	return Configuration{catalog: catalog, images: images}
 }
 
 // AppTown-native contract's tooling surface (design/decisions/forge-native-contract.md):

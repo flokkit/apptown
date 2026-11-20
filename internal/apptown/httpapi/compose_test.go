@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/imageline"
 	"gopkg.in/yaml.v3"
 )
 
@@ -270,19 +272,28 @@ init:
 	}
 }
 
-func TestStaticComposeUsesOnlyTheProjectServer(t *testing.T) {
+// A static part's compose service runs the project's pin, or, with none,
+// the newest build read on the server line; a failed reading is refused.
+func TestStaticComposeUsesThePinOrTheLinesNewestBuild(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("app:\n  web: {static: ., public: true}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	h := configurationFixture(t)
-	if _, _, err := h.generateDevCompose(t.Context(), c, "", "localhost"); err == nil || !strings.Contains(err.Error(), "Add staticServer:") {
+	reading := &imageReading{}
+	h.images = reading
+	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
+	if read := "caddy:2.11.9-alpine@sha256:" + strings.Repeat("a", 64); err != nil || !strings.Contains(raw, "image: "+read) || reading.ref != "caddy:2-alpine" || reading.scope != imageline.Line {
+		t.Fatalf("%s %+v %v", raw, reading, err)
+	}
+	reading.err = errors.New("registry offline")
+	if _, _, err := h.generateDevCompose(t.Context(), c, "", "localhost"); err == nil || !strings.Contains(err.Error(), "registry offline") {
 		t.Fatal(err)
 	}
 	c.StaticServer = "caddy:2.99.1-alpine@sha256:" + strings.Repeat("b", 64)
-	raw, _, err := h.generateDevCompose(t.Context(), c, "", "localhost")
-	if err != nil || !strings.Contains(raw, c.StaticServer) {
+	raw, _, err = h.generateDevCompose(t.Context(), c, "", "localhost")
+	if err != nil || !strings.Contains(raw, "image: "+c.StaticServer) {
 		t.Fatalf("%s %v", raw, err)
 	}
 }

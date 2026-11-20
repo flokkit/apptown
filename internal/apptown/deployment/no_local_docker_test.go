@@ -69,6 +69,7 @@ type attachedDaemon struct {
 	hosts  map[string]int
 	images map[string]bool
 	ran    map[string]string // container → the image it was started with
+	froms  []string          // the FROM line of each generated Dockerfile a build was given
 }
 
 func newAttachedDaemon() *attachedDaemon {
@@ -118,6 +119,14 @@ func (d *attachedDaemon) Run(ctx context.Context, host string, req docker.Comman
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	for i, a := range args {
+		if a == "-f" && i+1 < len(args) && (args[0] == "build" || args[0] == "buildx") {
+			if raw, err := os.ReadFile(args[i+1]); err == nil {
+				first, _, _ := strings.Cut(string(raw), "\n")
+				d.froms = append(d.froms, first)
+			}
+		}
+	}
 	switch {
 	case len(args) > 0 && args[0] == "run":
 		name := ""
@@ -205,6 +214,9 @@ type noLocalWorld struct {
 	repo     string
 	revision string
 	sources  noLocalSources
+	// server, when set, is the static server a landing builds with and
+	// its bundle records, as RunBuild gives an unpinned contract one.
+	server string
 	// service builds a Service on the same records, with or without the mode.
 	service func(noLocal bool) *Service
 }
@@ -314,11 +326,17 @@ func (w *noLocalWorld) land(t *testing.T, s *Service, dep *Deployment, runID ids
 	if err != nil {
 		t.Fatal(err)
 	}
+	if w.server != "" {
+		c, source := *art.Source.Contract, *art.Source
+		c.StaticServer = w.server
+		source.Contract = &c
+		art.Source = &source
+	}
 	parts, init, err := host.BuildImages(ctx, buildDocker, fmt.Sprintf("fixture-%s", runID), art.Source.Workspace, art.Source.Contract)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundleID, err := s.Bundles.Cut(ctx, w.project, w.revision, parts, init, []byte(multipartApp), BundleOrigin{RunID: runID, TargetID: dep.TargetID})
+	bundleID, err := s.Bundles.Cut(ctx, w.project, w.revision, parts, init, []byte(multipartApp), BundleOrigin{RunID: runID, TargetID: dep.TargetID, StaticServer: w.server})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,6 +484,40 @@ func TestNoLocalDockerReleasesReuseTheTargetsImages(t *testing.T) {
 	}
 	if runs := w.daemon.verbs("run"); len(runs) != 0 || len(w.daemon.verbs("build")) != 0 {
 		t.Fatalf("a refused release ran or built: %v", runs)
+	}
+}
+
+// A repair that rebuilds a release from its source (local Docker, a bundle
+// of daemon image IDs) builds the static part of an app that pins no
+// staticServer: with the server its bundle records, never a newer reading:
+// this service reads none (its environment has no image readings), so a
+// repair that asked would fail.
+//
+// Kills: a source repair that leaves an unpinned contract without its server
+// (refused at the build), or one that reads the line again.
+func TestASourceRepairBuildsWithTheStaticServerItsBundleRecords(t *testing.T) {
+	t.Parallel()
+	w := noLocalDockerWorld(t, strings.SplitN(multipartApp, "\n", 2)[1]) // without its staticServer: line
+	w.server = "caddy:2.11.8-alpine@sha256:" + strings.Repeat("c", 64)
+	s := w.service(false)
+	main := w.deployment(t, s, "main", w.remote)
+	_, bundle := w.land(t, s, main, idstest.N(7))
+	if bundle.BuiltFrom.StaticServer != w.server {
+		t.Fatalf("the bundle records %q", bundle.BuiltFrom.StaticServer)
+	}
+	w.daemon.remove(hostNamesOf(t, s, w.project, "game", "main").App())
+	w.daemon.ResetCommands()
+	w.daemon.mu.Lock()
+	w.daemon.froms = nil
+	w.daemon.mu.Unlock()
+	if got, err := w.rebuild(t, s, main); err != nil || got["outcome"] != Applied {
+		t.Fatalf("the repair: %v %v", got, err)
+	}
+	w.daemon.mu.Lock()
+	froms := w.daemon.froms
+	w.daemon.mu.Unlock()
+	if len(froms) != 1 || froms[0] != "FROM "+w.server {
+		t.Fatalf("the repair's static build: %q", froms)
 	}
 }
 

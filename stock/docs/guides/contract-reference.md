@@ -425,7 +425,16 @@ evidence; tolerated failures do not make stale evidence healthy.
 
 ## Static sites
 
-`staticServer:` pins the image serving every static part, as a tag and digest:
+Static parts are served by Caddy 2 on Alpine. Without `staticServer:`,
+AppTown uses the newest `caddy:2-alpine` build it reads from the registry
+(the answer `apptown image newest caddy:2-alpine --scope line` prints) when a
+release build, preview or local compose file starts. Readings are reused for a
+day. Each release records the exact image, by tag and digest, that its static
+images were built from, and a repair of that release builds with the same
+image. If the registry cannot be read and no recent reading exists, the build
+or preview fails and says why.
+
+`staticServer:` fixes the image instead, as a tag and digest:
 
 ```yaml
 staticServer: caddy:2.11.9-alpine@sha256:<digest>
@@ -433,13 +442,8 @@ staticServer: caddy:2.11.9-alpine@sha256:<digest>
 
 Use a Docker Hub library Caddy 2 image with the exact `-alpine` variant and a
 digest. AppTown writes the Caddy configuration and installs Alpine packages in
-this image. A declaration with no static parts refuses this key. A static
-contract may be read without the pin, but release builds, previews and local
-container development refuse to serve it. Add it through a change using
-`apptown image newest caddy:2-alpine --scope line`; the Janitor's updates move
-an existing pin and never add one.
-New static projects receive this pin at creation. Running deployments continue
-while a missing pin is added through a governed change.
+this image. A declaration with no static parts refuses this key. The Janitor's
+updates move an existing pin; they never add one, and a project needs none.
 
 A `static` part serves files with AppTown's file server. It runs no code of
 yours and reads no environment, so `environment` (in the part or a

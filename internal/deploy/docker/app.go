@@ -121,8 +121,8 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		}
 		defer cleanup()
 		before := dk.imageID(ctx, tag)
-		server, err := appcontract.StaticServerImage(c.StaticServer)
-		if err != nil {
+		server := c.StaticServer
+		if err := appcontract.ValidateStaticServer(server); err != nil {
 			return 0, err
 		}
 		if err := packStaticBuild(ctx, dk, buildDir, *c.StaticBuild, server, c.Port, tag); err != nil {
@@ -305,8 +305,8 @@ func (h *Host) startAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		args = append(args, trust.ContainerArgs(!dk.remote())...)
 	}
 	if c.Static != "" {
-		server, err := appcontract.StaticServerImage(c.StaticServer)
-		if err != nil {
+		server := c.StaticServer
+		if err := appcontract.ValidateStaticServer(server); err != nil {
 			return 0, err
 		}
 		args = append(args, server)

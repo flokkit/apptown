@@ -97,9 +97,6 @@ elif cmd == 'apptownd':
 elif cmd == 'apptown':
     if args and args[0] == 'preview':
         print('the preview is up: http://fixture.invalid/page')
-    elif args[:2] == ['image', 'newest']:
-        print('index.docker.io/library/caddy:2.11.9-alpine@sha256:' + '0' * 64)
-        print('registry: index.docker.io')
 elif cmd == 'curl':
     url = args[-1]
     if url.endswith('/healthz'):

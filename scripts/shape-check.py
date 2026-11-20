@@ -76,7 +76,7 @@ ALLOWED = {
     "conformance": set(),
     "model":       {"integration", "project"},
     "integration": {"project", "secret"},
-    "deployment":  {"project", "secret", "integration"},
+    "deployment":  {"project", "secret", "integration", "imagelines"},
     "preview":     {"deployment", "project", "integration", "workflow"},
     "dataprotection": {"deployment", "project", "integration", "secret"},
     # Facades.

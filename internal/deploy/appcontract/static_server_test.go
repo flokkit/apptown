@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestStaticServerIsAProjectPinForCaddyTwoAlpine(t *testing.T) {
+func TestStaticServerIsAnOptionalPinForCaddyTwoAlpine(t *testing.T) {
 	t.Parallel()
 	digest := "@sha256:" + strings.Repeat("a", 64)
 	for _, image := range []string{"caddy:2.11.9-alpine" + digest, "docker.io/library/caddy:2-alpine" + digest, "caddy:2.11.9-alpine", "other:2-alpine" + digest, "caddy:3-alpine" + digest, "caddy:2" + digest} {
@@ -18,11 +18,14 @@ func TestStaticServerIsAProjectPinForCaddyTwoAlpine(t *testing.T) {
 	if _, err := Parse([]byte("staticServer: caddy:2-alpine" + digest + "\napp:\n  web: {image: app:1, public: true}\n")); err == nil {
 		t.Fatal("pin without static parts accepted")
 	}
+	// No pin is a valid declaration: AppTown serves the line's newest build
+	// (imagelines.StaticServer). An image still unresolved when a static
+	// part is about to be served is refused, never defaulted.
 	c, err := Parse([]byte("app:\n  web: {static: ., public: true}\n"))
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || c.StaticServer != "" {
+		t.Fatal(c, err)
 	}
-	if _, err := StaticServerImage(c.StaticServer); err == nil || err.Error() != "This app's static parts name no server image. Add staticServer: to .apptown/app.yaml in a change, using the tag and digest from apptown image newest caddy:2-alpine --scope line." {
+	if err := ValidateStaticServer(c.StaticServer); err == nil || err.Error() != "staticServer: no server image was resolved for the static parts" {
 		t.Fatal(err)
 	}
 }

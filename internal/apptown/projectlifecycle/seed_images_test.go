@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/stock"
 )
@@ -31,9 +30,6 @@ func (r seedResolver) Answer(_ context.Context, ref string, scope imageline.Scop
 	if ref == "python:3.12-slim" {
 		tag = "3.12.99-slim"
 	}
-	if ref == appcontract.StaticServerLine {
-		tag = "2.99.1-alpine"
-	}
 	return imagelines.Reading{Answer: imageline.Answer{Tag: s.Repository.Tag(tag).Name(), Digest: "sha256:" + strings.Repeat("a", 64), Registry: "registry.test"}, ReadAt: time.Date(2026, 11, 17, 0, 0, 0, 0, time.UTC), Stale: true, Error: "registry offline"}, nil
 }
 func TestSeedImagesArePinnedBeforeAnyFileIsWritten(t *testing.T) {
@@ -45,7 +41,7 @@ func TestSeedImagesArePinnedBeforeAnyFileIsWritten(t *testing.T) {
 	}
 	dir := t.TempDir()
 	written, _, images, err := writePackSeeds(t.Context(), dir, seed, seedResolver{})
-	if err != nil || len(written) != 3 || len(images) != 2 {
+	if err != nil || len(written) != 3 || len(images) != 1 {
 		t.Fatalf("%v %+v %v", written, images, err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
@@ -59,9 +55,10 @@ func TestSeedImagesArePinnedBeforeAnyFileIsWritten(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := appcontract.Parse(raw)
-	if err != nil || !strings.Contains(c.StaticServer, "caddy:2.99.1-alpine@sha256:") {
-		t.Fatalf("%s %v", raw, err)
+	// A static seed is served from the line (imagelines.StaticServer):
+	// creation writes no staticServer: pin for it.
+	if string(raw) != "app:\n  web: {static: ., public: true}\n" {
+		t.Fatalf("the static seed's contract was changed: %s", raw)
 	}
 	for _, im := range images {
 		if !im.Stale || im.ReadAt.IsZero() || !strings.Contains(im.Evidence, "registry unreachable") {
@@ -81,9 +78,13 @@ func TestExplicitSeedDigestsRemainTheAuthorsPin(t *testing.T) {
 	t.Parallel()
 	const body = "FROM example.test/own/app:1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
 	dir := t.TempDir()
-	_, _, images, err := writePackSeeds(t.Context(), dir, fstest.MapFS{"Dockerfile": {Data: []byte(body)}}, seedResolver{refused: true})
+	const contract = "staticServer: caddy:2.11.9-alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\napp:\n  web: {static: ., public: true}\n"
+	_, _, images, err := writePackSeeds(t.Context(), dir, fstest.MapFS{"Dockerfile": {Data: []byte(body)}, ".apptown/app.yaml": {Data: []byte(contract)}}, seedResolver{refused: true})
 	if err != nil || len(images) != 0 {
 		t.Fatalf("%+v %v", images, err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(dir, ".apptown/app.yaml")); err != nil || string(raw) != contract {
+		t.Fatalf("the author's static server pin: %s %v", raw, err)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
 	if err != nil || string(raw) != body {

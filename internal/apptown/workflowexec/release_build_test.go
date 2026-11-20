@@ -92,13 +92,16 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	}
 }
 
-func TestReleaseStaticBuildRefusesAMissingProjectServer(t *testing.T) {
+// RunBuild gives an unpinned contract its server (imagelines.StaticServer)
+// before the request is made; a contract that reaches it without one is
+// refused, never built from a default.
+func TestReleaseStaticBuildRefusesAnUnresolvedServer(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("app:\n  web: {static: ., public: true}\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := releaseBuildRequest(t.TempDir(), c, "linux/amd64"); err == nil || !strings.Contains(err.Error(), "Add staticServer:") {
+	if _, _, _, err := releaseBuildRequest(t.TempDir(), c, "linux/amd64"); err == nil || !strings.Contains(err.Error(), "no server image was resolved") {
 		t.Fatal(err)
 	}
 }

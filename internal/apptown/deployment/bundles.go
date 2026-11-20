@@ -59,6 +59,11 @@ type BundleOrigin struct {
 	Registry string      `json:"registry,omitempty"`
 	Platform string      `json:"platform,omitempty"`
 	Build    BundleBuild `json:"build,omitzero"`
+	// StaticServer is the image the release's static images were built
+	// from, by tag and digest: the contract's pin, or the reading an
+	// unpinned contract was given. Empty when it has no static image. A
+	// source repair builds with it again (RebuildPlan).
+	StaticServer string `json:"staticServer,omitempty"`
 	// StepID and Attempt are the build step attempt that committed the
 	// bundle; 0 for a bundle recorded outside one. Kept in their own
 	// columns.

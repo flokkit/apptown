@@ -90,7 +90,7 @@ func hostSettingsFor(a *App) deployment.HostSettings {
 // from, for a release and a preview alike.
 func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 	return deployment.EnvironmentDependencies{Secrets: a.Secrets, Integrations: a.Integrations, Needs: a.Dependencies,
-		Probe: a.probe, ToolVersions: a.cfg.stock.Tools, Routes: a.cfg.routing(), Projects: a.Projects}
+		Probe: a.probe, ToolVersions: a.cfg.stock.Tools, Routes: a.cfg.routing(), Projects: a.Projects, Images: a.imageLines}
 }
 
 // providerDependencies are the providers' owners and settings.

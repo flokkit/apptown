@@ -36,6 +36,10 @@ type RebuildPlan struct {
 	// instead of building: a digest bundle, pulled by digest, or, in an AppTown
 	// with no local Docker, any bundle, whose images are on the target.
 	bundle *ReleaseBundle
+	// staticServer is the image the generation's bundle records its static
+	// images were built from: a rebuild from source builds with it again,
+	// never with a newer reading (BundleOrigin.StaticServer).
+	staticServer string
 }
 
 // prepareRebuild decides whether a standing deployment's serving attempt,
@@ -97,6 +101,9 @@ func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, serving i
 	b, err := s.generationBundle(ctx, dep.ProjectID, plan.inputs)
 	if err != nil {
 		return plan, err
+	}
+	if b != nil {
+		plan.staticServer = b.BuiltFrom.StaticServer
 	}
 	if s.hosts.settings.NoLocalDocker || (b != nil && b.ByDigest()) {
 		if err := s.providers.RefusesBundle(ctx, b, t); err != nil {
@@ -188,6 +195,20 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 	if art.Source != nil {
 		source := *art.Source
 		source.Contract = inputs.Applied.On(source.Contract)
+		// Built from source, its static parts are built with the server
+		// the release was built with. A release from before the bundle
+		// recorded one, of a contract that pins none, cannot say which: it
+		// is deployed again. A rebuild running the bundle's images builds
+		// nothing.
+		if plan.bundle == nil && source.Contract != nil && source.Contract.HasStaticParts() {
+			if plan.staticServer != "" {
+				c := *source.Contract
+				c.StaticServer = plan.staticServer
+				source.Contract = &c
+			} else if source.Contract.StaticServer == "" {
+				return rebuildResult{}, fmt.Errorf("%w: this release records no static server image; deploy it again", ErrReleaseRefused)
+			}
+		}
 		art.Source = &source
 	}
 	if len(inputs.Applied.Services) > 0 {

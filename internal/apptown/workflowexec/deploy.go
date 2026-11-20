@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
@@ -100,6 +101,16 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 		fail(err)
 		return
 	}
+	// Static parts are built with the contract's pin, or the newest build
+	// read on the server line now; the bundle records which.
+	contract, reading, err := imagelines.StaticServer(task.Context(), a.images, contract)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error(), "failedStage": deploy.Building})
+		return
+	}
+	if reading != "" {
+		a.progress.Append(step.ID, fmt.Sprintf("Serving the static parts with %s (%s)", contract.StaticServer, reading))
+	}
 	var bundle *deployment.ReleaseBundle
 	if a.builds != nil {
 		var ok bool
@@ -124,5 +135,9 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 		fail(err)
 		return
 	}
-	finish(workflow.StatusPass, map[string]any{"bundle": bundle.ID, "commit": revision, "runtime": true})
+	evidence := map[string]any{"bundle": bundle.ID, "commit": revision, "runtime": true}
+	if contract.StaticServer != "" {
+		evidence["staticServer"] = contract.StaticServer
+	}
+	finish(workflow.StatusPass, evidence)
 }

@@ -311,6 +311,34 @@ func TestTheTryItButtonBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 	}
 }
 
+// A static site that names no staticServer: previews: the boot is prepared
+// with the newest build read on the server line (testImageResolver's answer
+// here), by tag and digest, and the worker is sent that contract.
+//
+// Kills: the rc.16 refusal of an unpinned static preview; a prepared
+// contract left without a server for the worker to refuse.
+func TestAnUnpinnedStaticChangePreviewsWithTheLinesNewestServer(t *testing.T) {
+	t.Parallel()
+	a, _, fake, ch := previewWorkerWorld(t, false)
+	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	unpinned := "version: 1\napp:\n  web:\n    static: .\n    public: true\n"
+	if err := os.WriteFile(filepath.Join(folder, ".apptown", "app.yaml"), []byte(unpinned), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	resp := authzCall(a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/preview", ch.ID), `{}`)
+	if resp.Code != 200 {
+		t.Fatalf("try it: %d %s", resp.Code, resp.Body.String())
+	}
+	boots := fake.bootsNamed(docker.PreviewChangeName(ch.ID))
+	if len(boots) != 1 || boots[0].prepared.Contract == nil {
+		t.Fatalf("boots on the worker: %+v", boots)
+	}
+	read := "index.docker.io/library/caddy:2-alpine@sha256:" + strings.Repeat("a", 64)
+	if got := boots[0].prepared.Contract.StaticServer; got != read || boots[0].files[".apptown/app.yaml"] != unpinned {
+		t.Fatalf("the prepared server %q, want %q; the tree's contract %q", got, read, boots[0].files[".apptown/app.yaml"])
+	}
+}
+
 // Previews on a worker are reached only through the preview domain: an AppTown
 // without one refuses them with that reason, and boots nothing anywhere.
 func TestWithoutAPreviewDomainAWorkerPreviewIsRefused(t *testing.T) {
