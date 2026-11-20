@@ -43,6 +43,11 @@ const (
 	// never given. Nothing reads it on a container.
 	Built = "apptown.built"
 
+	// AgentRecipe is the build context's content (worker.AgentRecipe) a
+	// locally built agent image was built from; a different recipe at boot
+	// builds the image again.
+	AgentRecipe = "apptown.agent.recipe"
+
 	ConsoleDind   = "apptown.console.dind"   // a chat container's Docker mode, to know when to rebuild it
 	ConsoleModel  = "apptown.console.model"  // a chat container's model, likewise
 	ConsoleMounts = "apptown.console.mounts" // a digest of a chat container's mounts, likewise
@@ -106,7 +111,7 @@ var keys = []string{
 	Class, ReadyFor, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
 	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts, ConsoleSecrets, ConsoleInstance,
 	Deployment, Generation, Artifact, infoProject, infoDeployment, infoChange,
-	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,
+	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion, AgentRecipe,
 }
 
 // imageKeys are the keys the agent image's build writes.

@@ -57,6 +57,7 @@ type fixtureCheckAgent struct {
 	refuseOnce  bool
 	noInference bool
 	badVerdict  string
+	stderr      string // the agent's error output, written when it makes no inference request
 }
 
 func (d *fixtureCheckAgent) Ensure(ctx context.Context, s execution.TaskSpec) (execution.TaskObservation, error) {
@@ -76,10 +77,19 @@ func (d *fixtureCheckAgent) Ensure(ctx context.Context, s execution.TaskSpec) (e
 }
 func (d *fixtureCheckAgent) Start(ctx context.Context, ref execution.TaskRef) error {
 	d.starts++
+	s := d.specs[ref.Key]
 	if d.noInference {
+		if d.stderr != "" {
+			dir := filepath.Join(s.Workspace, ".apptown")
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(filepath.Join(dir, "stderr"), []byte(d.stderr), 0o600); err != nil {
+				return err
+			}
+		}
 		return d.Tasks.Start(ctx, ref)
 	}
-	s := d.specs[ref.Key]
 	if s.ReadOnlySource == "" || s.Workspace == "" {
 		return fmt.Errorf("check has no separate source and work")
 	}
@@ -566,5 +576,23 @@ func TestFinishedJudgeWithoutValidVerdictIsAppTownFault(t *testing.T) {
 				t.Fatalf("invalid answer classified as project fault: %+v", r)
 			}
 		})
+	}
+}
+
+// An agent that exits with an error before asking the model says why: its
+// exit status and last error line, not only that no inference request was
+// observed (live's old agent image refused the check's --no-mcp flag and
+// every AI check read "made no observed inference requests").
+//
+// Kills: the gateway's empty-usage note settled before the agent's exit.
+func TestAnAgentThatExitsBeforeAskingTheModelSaysWhy(t *testing.T) {
+	t.Parallel()
+	j, d, pid := fixtureCheckJudge(t)
+	in := fixtureInvocation(t, pid)
+	d.noInference, d.fail = true, true
+	d.stderr = "Warning: something earlier\nError: Unknown option: --no-mcp\n\n"
+	r := j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Recheck: in.Recheck}, in.Call, in.Diff)
+	if r.Reason != "check agent exited with status 1: Error: Unknown option: --no-mcp" || r.Verdict.Verdict != "" || !r.Evidence.AppTownFault {
+		t.Fatalf("agent failure masked: %+v", r)
 	}
 }

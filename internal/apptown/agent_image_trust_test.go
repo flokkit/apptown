@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 type agentImageDocker struct{ calls []string }
@@ -37,10 +38,15 @@ func (c *agentImageDocker) Run(_ context.Context, host string, req docker.Comman
 func TestTheAgentImageBuildIsGivenTheExtraCertificates(t *testing.T) {
 	trusttest.Install(t, trusttest.New(t, "Company CA").Bundle(t), trust.Bundle{})
 	client := &agentImageDocker{}
-	if err := fetchAgentImage(context.Background(), docker.Scope{Client: client}, "apptown-agent", "/ctx", false, io.Discard); err != nil {
+	dir := t.TempDir()
+	recipe, err := worker.AgentRecipe(dir)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if len(client.calls) != 1 || client.calls[0] != "build "+strings.Join(trust.BuildArgs(true), " ")+" "+strings.Join(dockerlabel.BuiltArgs(), " ")+" --builder default -t apptown-agent /ctx" ||
+	if err := fetchAgentImage(context.Background(), docker.Scope{Client: client}, "apptown-agent", dir, false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.calls) != 1 || client.calls[0] != "build "+strings.Join(trust.BuildArgs(true), " ")+" "+strings.Join(dockerlabel.BuiltArgs(), " ")+" --builder default --label "+dockerlabel.AgentRecipe+"="+recipe+" -t apptown-agent "+dir ||
 		!strings.Contains(client.calls[0], "--secret id=apptown-trust,env=APPTOWN_TRUST ") {
 		t.Fatalf("calls %q", client.calls)
 	}

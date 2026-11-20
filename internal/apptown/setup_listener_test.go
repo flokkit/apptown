@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/worker"
 )
 
 func TestLoopbackAddr(t *testing.T) {
@@ -167,7 +169,11 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	if state, reason := agentImageSettled(t, &s); state != "present" {
 		t.Fatalf("after a build: %q %q", state, reason)
 	}
-	if got := rec.seen(); len(got) != 1 || got[0] != "build --label apptown.built=1 --builder default -t apptown-agent ../../deploy/apptown-agent" {
+	recipe, err := worker.AgentRecipe("../../deploy/apptown-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := rec.seen(); len(got) != 1 || got[0] != "build --label apptown.built=1 --builder default --label apptown.agent.recipe="+recipe+" -t apptown-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
 	}
 }
@@ -177,10 +183,11 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 type labelledImageDocker struct {
 	recordingDocker
 	version string // "" is an image without apptown.pi.version
+	recipe  string // "" is an image without apptown.agent.recipe
 }
 
 func (d *labelledImageDocker) Run(ctx context.Context, binary string, req docker.Command) ([]byte, error) {
-	_, _ = d.recordingDocker.Run(ctx, binary, req)
+	out, err := d.recordingDocker.Run(ctx, binary, req)
 	args := strings.Join(req.Args, " ")
 	switch {
 	case strings.HasPrefix(args, "info"):
@@ -188,11 +195,11 @@ func (d *labelledImageDocker) Run(ctx context.Context, binary string, req docker
 	case strings.HasPrefix(args, "image inspect"):
 		labels := "null"
 		if d.version != "" {
-			labels = fmt.Sprintf(`{%q:%q}`, dockerlabel.PiVersion, d.version)
+			labels = fmt.Sprintf(`{%q:%q,%q:%q}`, dockerlabel.PiVersion, d.version, dockerlabel.AgentRecipe, d.recipe)
 		}
 		return []byte(`"sha256:` + strings.Repeat("a", 64) + `" ` + labels), nil
 	}
-	return nil, nil
+	return out, err
 }
 
 // The agent image is fetched again when it lacks AppTown's version label
@@ -211,6 +218,37 @@ func TestAnAgentImageWithoutAppTownsVersionLabelIsFetchedAgain(t *testing.T) {
 		pulled := slices.Contains(d.seen(), "pull "+image)
 		if pulled != fetched || state != "present" {
 			t.Errorf("an image with version label %q: pulled %v, state %q (%v)", version, pulled, state, d.seen())
+		}
+	}
+}
+
+// A built agent image is built again when the build context beside the
+// binary is not the one it was built from: an AppTown upgraded from a release
+// with another recipe would otherwise keep running the old image's tools
+// (live kept Pi 0.84.3 after the move to 1.5.0, and every AI check failed on
+// a flag the old Pi did not know). One built from this context is left alone.
+//
+// Kills: an existing labelled image taken as present whatever recipe built it.
+func TestABuiltAgentImageFromAnotherRecipeIsBuiltAgain(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM scratch\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	recipe, err := worker.AgentRecipe(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for label, built := range map[string]bool{"": true, "0123456789ab": true, recipe: false} {
+		d := &labelledImageDocker{version: "1.5.0", recipe: label}
+		a := testApp(t, Config{DockerClient: d, AgentImage: "apptown-agent", AgentContext: dir})
+		a.EnsureAgentImage()
+		state, reason := agentImageSettled(t, &a.setup)
+		rebuilt := slices.ContainsFunc(d.seen(), func(c string) bool {
+			return strings.HasPrefix(c, "build ") && strings.Contains(c, "--label "+dockerlabel.AgentRecipe+"="+recipe+" ")
+		})
+		if rebuilt != built || state != "present" {
+			t.Errorf("an image built from recipe %q: built %v, state %q %q (%v)", label, rebuilt, state, reason, d.seen())
 		}
 	}
 }
