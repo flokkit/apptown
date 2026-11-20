@@ -59,3 +59,62 @@ func TestARegistryProbeIsOneRequestAndNamesIt(t *testing.T) {
 		t.Fatalf("a failing registry: %+v after %d requests", h, requests.Load())
 	}
 }
+
+// A Docker Hub mirror (Nexus) answers an anonymous /v2/ with 401 and the
+// registry token challenge. The check gets an anonymous token, as Docker
+// does before a pull, and the /v2/ answer with it is the reading: 200 is
+// healthy, 401 after the token is a failure that says so. No credential is
+// sent to the token service.
+//
+// Kills: the challenge's 401 taken as the mirror's failure (live's
+// docker-hub, "GET /v2/ → 401"), and a token taken as health without the
+// /v2/ answer after it.
+func TestADockerHubMirrorFollowsTheTokenChallenge(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name      string
+		challenge bool // /v2/ without a token answers with a Bearer challenge
+		accept    bool // /v2/ with the token answers 200
+		tokenCode int
+		ok        bool
+		detail    string
+	}{
+		{"accepted", true, true, http.StatusOK, true, "GET /v2/ → 200 with an anonymous token"},
+		{"refused after the token", true, false, http.StatusOK, false, "GET /v2/ → 401 with an anonymous token"},
+		{"token refused", true, true, http.StatusForbidden, false, "GET /v2/ → 401; anonymous token: GET "},
+		{"no challenge", false, true, http.StatusOK, false, "GET /v2/ → 401"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var tokenAuth atomic.Value
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/v2/token":
+					tokenAuth.Store(r.Header.Get("Authorization") + "|" + r.URL.Query().Get("service"))
+					w.WriteHeader(tc.tokenCode)
+					_, _ = w.Write([]byte(`{"token":"anon-token"}`))
+				case "/v2/":
+					if r.Header.Get("Authorization") == "Bearer anon-token" && tc.accept {
+						_, _ = w.Write([]byte("{}"))
+						return
+					}
+					if tc.challenge {
+						w.Header().Set("WWW-Authenticate", `Bearer realm="`+srv.URL+`/v2/token",service="Nexus Docker"`)
+					}
+					w.WriteHeader(http.StatusUnauthorized)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer srv.Close()
+			h := ProbeRegistry("docker-hub", srv.URL)
+			if h.OK != tc.ok || !strings.HasPrefix(h.Detail, tc.detail) {
+				t.Fatalf("probe: %+v, want ok %v and %q", h, tc.ok, tc.detail)
+			}
+			if got, _ := tokenAuth.Load().(string); tc.challenge && got != "|Nexus Docker" {
+				t.Fatalf("token request (authorization|service) %q, want no credential and the challenge's service", got)
+			}
+		})
+	}
+}

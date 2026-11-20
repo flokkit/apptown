@@ -22,14 +22,14 @@ func TestADiskReadRunsInTheImageItIsGiven(t *testing.T) {
 		}
 		return "", "", context.Canceled
 	}
-	_, _ = ReadThroughDocker(t.Context(), dk, "example.invalid/df@sha256:0", "/var/lib/docker", time.Now, false)
+	_, _ = ReadThroughDocker(t.Context(), dk, "example.invalid/df@sha256:0", time.Now, false)
 	if !slices.Contains(created, "example.invalid/df@sha256:0") {
 		t.Fatalf("the reader was made as %v, not in the given image", created)
 	}
-	if !slices.Contains(created, "--cgroupns") || !slices.Contains(created, "host") || !slices.Contains(created, "none") || !slices.Contains(created, "/var/lib/docker:/d:ro") {
-		t.Fatalf("reader must share the host cgroup namespace, with no network and read-only data: %v", created)
+	if !slices.Contains(created, "--cgroupns") || !slices.Contains(created, "host") || !slices.Contains(created, "none") || !slices.Contains(created, "type=volume,dst=/d,readonly") {
+		t.Fatalf("reader must share the host cgroup namespace, with no network and a read-only anonymous volume: %v", created)
 	}
-	if _, err := ReadThroughDocker(t.Context(), dk, "", "/var/lib/docker", time.Now, false); err == nil {
+	if _, err := ReadThroughDocker(t.Context(), dk, "", time.Now, false); err == nil {
 		t.Fatal("a read with no image read something")
 	}
 }

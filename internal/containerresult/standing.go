@@ -143,7 +143,8 @@ func ensureStanding(ctx context.Context, dk Docker, class, name string, s Spec, 
 		if inUse(other) {
 			continue
 		}
-		if out, err := dk(ctx, nil, "rm", "-f", other); err != nil {
+		// -v: a reader's anonymous volumes go with it (diskspace's reads one).
+		if out, err := dk(ctx, nil, "rm", "-f", "-v", other); err != nil {
 			return step("removing the replaced reader", other, err, out)
 		}
 	}

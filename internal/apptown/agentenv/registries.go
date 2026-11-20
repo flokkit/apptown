@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -44,6 +45,9 @@ type registryAdapter struct {
 	cargoConf func(url string) string   // fragment for the generated $CARGO_HOME/config.toml
 	files     func(url string) []generatedFile
 	testPath  string // probe path appended to the bound URL (known-small artifact)
+	// registryAPI: the endpoint is the Docker registry API, whose /v2/
+	// answers an anonymous client with a token challenge by design.
+	registryAPI bool
 }
 
 var registryAdapters = []registryAdapter{
@@ -51,8 +55,9 @@ var registryAdapters = []registryAdapter{
 		// Consumed by the per-step private docker daemons (dind.go), not by
 		// step env: dockerd --registry-mirror. Pull-through cache for Hub.
 		format: "docker-hub", title: "Docker Hub mirror", layer: "images",
-		mechanism: "dockerd `--registry-mirror` on agent daemons",
-		testPath:  "/v2/",
+		mechanism:   "dockerd `--registry-mirror` on agent daemons",
+		testPath:    "/v2/",
+		registryAPI: true,
 	},
 	{
 		format: "go-proxy", title: "Go module proxy", layer: "packages",
@@ -401,6 +406,8 @@ func AmbientFor(bound map[string]integration.BoundRegistry, ws string) Ambient {
 }
 
 // ProbeRegistry probes a bound URL with the format's known-small artifact.
+// A Docker registry API's token challenge is answered as Docker answers it
+// (registryToken); its /v2/ answer after the token is the reading.
 func ProbeRegistry(format, url string) integration.Health {
 	ad := registryAdapterFor(format)
 	if ad == nil {
@@ -414,16 +421,83 @@ func ProbeRegistry(format, url string) integration.Health {
 	client := &http.Client{Timeout: 20 * time.Second, Transport: trust.Transport(trust.Deployments)}
 	defer client.CloseIdleConnections()
 	// One GET, of which at most 64 KiB is read: a large artifact is not
-	// downloaded, and its answer is the registry's answer, never a second
-	// request's.
-	resp, err := client.Get(probe)
+	// downloaded, and its answer is the registry's answer, never a retry's.
+	// The registry API's token challenge is not a failure but the protocol's
+	// first step: the GET after the token is the answer.
+	status, challenge, err := probeGet(client, probe, "")
 	if err != nil {
 		return integration.Health{OK: false, Detail: "probe failed: " + err.Error()}
 	}
+	detail := fmt.Sprintf("GET %s → %d", ad.testPath, status)
+	if ad.registryAPI && status == http.StatusUnauthorized && challenge != nil && challenge["realm"] != "" {
+		token, err := registryToken(client, challenge)
+		if err != nil {
+			return integration.Health{OK: false, Detail: detail + "; anonymous token: " + err.Error()}
+		}
+		status, _, err = probeGet(client, probe, token)
+		if err != nil {
+			return integration.Health{OK: false, Detail: detail + "; with an anonymous token: probe failed: " + err.Error()}
+		}
+		detail = fmt.Sprintf("GET %s → %d with an anonymous token", ad.testPath, status)
+	}
+	return integration.Health{OK: status >= 200 && status < 300, Detail: detail}
+}
+
+// probeGet is one GET of at most 64 KiB, with a Bearer token when one is
+// given: its status and any Bearer challenge.
+func probeGet(client *http.Client, u, token string) (int, map[string]string, error) {
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-	detail := fmt.Sprintf("GET %s → %d", ad.testPath, resp.StatusCode)
-	return integration.Health{OK: resp.StatusCode >= 200 && resp.StatusCode < 300, Detail: detail}
+	return resp.StatusCode, integration.RegistryBearerChallenge(resp.Header.Values("WWW-Authenticate")), nil
+}
+
+// registryToken asks a registry challenge's realm for an anonymous token,
+// as Docker does before an anonymous pull. A mirror binding holds no
+// credential, so none is sent, not even one written into the realm.
+func registryToken(client *http.Client, challenge map[string]string) (string, error) {
+	realm, err := neturl.Parse(challenge["realm"])
+	if err != nil || (realm.Scheme != "https" && realm.Scheme != "http") || realm.Host == "" {
+		return "", fmt.Errorf("the challenge's realm %q is not an address", challenge["realm"])
+	}
+	realm.User = nil
+	if service := challenge["service"]; service != "" {
+		q := realm.Query()
+		q.Set("service", service)
+		realm.RawQuery = q.Encode()
+	}
+	resp, err := client.Get(realm.String())
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GET %s → %d", realm.Redacted(), resp.StatusCode)
+	}
+	var answer struct {
+		Token       string `json:"token"`
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&answer); err != nil {
+		return "", fmt.Errorf("the token service's answer is not a token: %v", err)
+	}
+	if answer.Token != "" {
+		return answer.Token, nil
+	}
+	if answer.AccessToken != "" {
+		return answer.AccessToken, nil
+	}
+	return "", fmt.Errorf("the token service answered without a token")
 }
 
 // DeclaresToolchain: does the workspace opt in to mise? The repo file IS

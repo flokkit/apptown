@@ -16,22 +16,29 @@ type docker func(context.Context, ...string) (stdout, stderr string, err error)
 // ReaderClass is the apptown.class of a daemon's standing disk reader.
 const ReaderClass = "disk-reader"
 
-// ReadThroughDocker reads the filesystem holding root through a read-only
-// mount in the caller's snapshotted df image, in the daemon's standing disk
-// reader (containerresult.RunStanding): readings recur for as long as a page
+// ReadThroughDocker reads the filesystem holding the daemon's data root in the
+// caller's snapshotted df image, in the daemon's standing disk reader
+// (containerresult.RunStanding): readings recur for as long as a page
 // is open, and each through a container of its own cost the host a container
 // start. The answer is copied from a file and validated. Unknown or
 // malformed answers refuse disk admission; logs are never answers.
 //
+// The reader reads an anonymous volume, not the data root through a host
+// bind: a local volume is a folder under the data root, so df on it reports
+// the data root's filesystem (its size, free space and kernel id) on every
+// storage driver, and Portainer lets a regular user make it under its
+// default security, which refuses host binds. A container's own root
+// would not do: under the zfs driver it is a dataset of its own.
+//
 // plain says the daemon carries only plain requests, not attached streams
 // (Portainer's Docker proxy): the same reader is then made and read by
 // plain requests (containerresult.Spec.Plain).
-func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now func() time.Time, plain bool) (Space, error) {
+func ReadThroughDocker(ctx context.Context, dk docker, image string, now func() time.Time, plain bool) (Space, error) {
 	if image == "" {
 		return Space{}, fmt.Errorf("no df image: the tool versions name it")
 	}
 	var space Space
-	_, err := readStanding(ctx, dk, image, root, "df -Pk /d && stat -f -c %i /d", now, plain, func(answer []byte) error { var err error; space, err = parseDF(answer); return err })
+	_, err := readStanding(ctx, dk, image, "df -Pk /d && stat -f -c %i /d", now, plain, func(answer []byte) error { var err error; space, err = parseDF(answer); return err })
 	return space, err
 }
 
@@ -39,8 +46,8 @@ func ReadThroughDocker(ctx context.Context, dk docker, image, root string, now f
 // Uptime is sampled on the Docker host so transport latency cannot change the
 // cgroup CPU rate. The reader identity and options are shared with disk reads,
 // and plain is as for ReadThroughDocker.
-func ReadKernel(ctx context.Context, dk docker, image, root string, now func() time.Time, plain bool) (map[string][]byte, error) {
-	answer, err := readStanding(ctx, dk, image, root, kernelScript, now, plain, nil)
+func ReadKernel(ctx context.Context, dk docker, image string, now func() time.Time, plain bool) (map[string][]byte, error) {
+	answer, err := readStanding(ctx, dk, image, kernelScript, now, plain, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +124,7 @@ func parseKernel(answer []byte) (map[string][]byte, error) {
 	return parts, nil
 }
 
-func readStanding(ctx context.Context, dk docker, image, root, script string, now func() time.Time, plain bool, validate func([]byte) error) ([]byte, error) {
+func readStanding(ctx context.Context, dk docker, image, script string, now func() time.Time, plain bool, validate func([]byte) error) ([]byte, error) {
 	return containerresult.RunStanding(ctx, func(ctx context.Context, _ []string, args ...string) ([]byte, error) {
 		out, stderr, err := dk(ctx, args...)
 		if err != nil {
@@ -128,7 +135,7 @@ func readStanding(ctx context.Context, dk docker, image, root, script string, no
 		}
 		return []byte(out), nil
 	}, ReaderClass, containerresult.Spec{
-		Image: image, Options: []string{"--network", "none", "--cgroupns", "host", "-v", root + ":/d:ro"},
+		Image: image, Options: []string{"--network", "none", "--cgroupns", "host", "--mount", "type=volume,dst=/d,readonly"},
 		Script: script, Now: now,
 		Validate: validate, Plain: plain,
 	})

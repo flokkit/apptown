@@ -328,7 +328,7 @@ or deployment identity. There is no process-memory reading fallback.
 
 Every Docker host, built-in or attached, reads whole-host memory and CPU through
 its standing disk reader container, with `--cgroupns host`, no network and a
-read-only data mount. A Docker host needs cgroup v2 for these readings. If the
+read-only anonymous volume on the data root's filesystem. A Docker host needs cgroup v2 for these readings. If the
 reader's cgroup root has `memory.current`, the host is a slice of a larger
 machine: memory use is `memory.current - inactive_file` from `memory.stat`, and
 CPU use is the change in `cpu.stat`'s `usage_usec` divided by elapsed time,
