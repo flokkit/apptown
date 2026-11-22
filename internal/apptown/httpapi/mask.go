@@ -5,6 +5,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // mask gives a function replacing known secret values in text AppTown
@@ -27,8 +28,9 @@ func (m mask) snapshot(ctx context.Context) func(string) string {
 }
 
 // maskDraft is the message the helper is still writing, masked as text
-// still being written (secret.Mask.Partial): the start of a value at its
-// end is hidden too. A draft whose masking cannot be decided is not sent.
+// still being written (secret.Mask.Partial): its unfinished last word is
+// withheld. A draft whose masking cannot be decided, or with nothing left
+// to show, is not sent.
 func maskDraft(mask secret.Mask, draft *console.Message) *console.Message {
 	if draft == nil {
 		return nil
@@ -39,12 +41,17 @@ func maskDraft(mask secret.Mask, draft *console.Message) *console.Message {
 		return nil
 	}
 	out.Text = text
+	if text == "" && len(out.Tools) == 0 {
+		return nil
+	}
 	if len(out.Tools) > 0 {
 		out.Tools = append(out.Tools[:0:0], out.Tools...)
 		for j := range out.Tools {
-			if out.Tools[j].Detail, ok = mask.Partial(out.Tools[j].Detail); !ok {
+			detail, decided := mask.Partial(out.Tools[j].Detail) // uncut: see console.ToolDetailMax
+			if !decided {
 				return nil
 			}
+			out.Tools[j].Detail = strs.Truncate(detail, console.ToolDetailMax)
 		}
 	}
 	return &out

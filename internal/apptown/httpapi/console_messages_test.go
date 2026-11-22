@@ -383,12 +383,12 @@ func followFor(t *testing.T, h ConsoleMessages, sid string, d time.Duration) str
 	return string(body)
 }
 
-// A secret the helper is part-way through writing never reaches the reader
-// in clear: the start of a value at the end of the words being written is
-// hidden as the whole value would be.
+// A secret the helper is part-way through writing never reaches the reader,
+// in clear or as "[secret]": the unfinished last word is withheld whatever
+// it is, so watching the stream tells the reader nothing about a value.
 //
 // Kills: a draft masked only for whole values, which sent all but the last
-// character of the secret.
+// character of the secret; hiding an ending only when it starts a value.
 func TestASecretBeingWrittenNeverReachesTheReader(t *testing.T) {
 	t.Parallel()
 	sessions, agent, session, h := consoleHTTPFixture(t, nil)
@@ -398,7 +398,28 @@ func TestASecretBeingWrittenNeverReachesTheReader(t *testing.T) {
 	}
 	agent.Drafting(session.ID, "the token is hunter2-long-valu", consoletest.PiNow())
 	body := followFor(t, h, session.ID, 500*time.Millisecond)
-	if strings.Contains(body, "hunter2") || !strings.Contains(body, `"text":"the token is [secret]"`) {
+	if strings.Contains(body, "hunter2") || strings.Contains(body, "[secret]") || !strings.Contains(body, `"text":"the token is "`) {
+		t.Fatalf("the stream sent: %s", body)
+	}
+}
+
+// A long command the helper is writing, with a value containing spaces
+// part-way written across the point where a tool's detail is cut for the
+// bubble, sends none of the value: the detail is masked as written, then
+// cut.
+//
+// Kills: cutting the draft's detail before masking it, which moved its end
+// and sent the value's first character.
+func TestASecretBeingWrittenInALongCommandNeverReachesTheReader(t *testing.T) {
+	t.Parallel()
+	sessions, agent, session, h := consoleHTTPFixture(t, nil)
+	h.masks = secretsHolding(t, "PHRASE=ABCD EFGHIJK\n").Mask // gitleaks:allow (test fixture, not a credential)
+	if err := sessions.Send(t.Context(), session.ID, "log in"); err != nil {
+		t.Fatal(err)
+	}
+	agent.DraftingCommand(session.ID, "logging in ", strings.Repeat("a", 70)+"ABCD EFGHIJ", consoletest.PiNow())
+	body := followFor(t, h, session.ID, 500*time.Millisecond)
+	if !strings.Contains(body, `"detail":"aaaaaaaaaa`) || strings.Contains(body, "aA") || strings.Contains(body, "ABCD") {
 		t.Fatalf("the stream sent: %s", body)
 	}
 }

@@ -282,11 +282,26 @@ func (f *Agent) Drafting(id, text string, sent time.Time, tools ...string) {
 // DraftingFor is Drafting by a pi whose record is the file named, as a
 // delegate with its own session would be if it wrote the chat's draft.
 func (f *Agent) DraftingFor(id, record, text string, sent time.Time, tools ...string) {
-	l := f.Started(id)
 	content := []map[string]any{{"type": "text", "text": text}}
 	for _, call := range tools {
 		content = append(content, map[string]any{"type": "toolCall", "id": call, "name": "bash", "arguments": map[string]any{"command": "ls"}})
 	}
+	f.drafting(id, record, sent, content)
+}
+
+// DraftingCommand is Drafting with one bash call whose command, as far as
+// pi has written it, is the one given.
+func (f *Agent) DraftingCommand(id, text, command string, sent time.Time) {
+	l := f.Started(id)
+	f.drafting(id, filepath.Base(recordPath(l.Dir, l.AgentSession)), sent, []map[string]any{
+		{"type": "text", "text": text},
+		{"type": "toolCall", "id": "call-1", "name": "bash", "arguments": map[string]any{"command": command}},
+	})
+}
+
+// drafting writes the draft of a message of the content given.
+func (f *Agent) drafting(id, record string, sent time.Time, content []map[string]any) {
+	l := f.Started(id)
 	_ = writeBeside(l.Dir, map[string]any{"type": "draft", "record": record, "message": map[string]any{"role": "assistant", "timestamp": sent.UnixMilli(), "content": content}})
 }
 

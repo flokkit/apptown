@@ -5,6 +5,8 @@ import (
 	"log"
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // maskMin is the shortest stored value Mask replaces: shorter values (a
@@ -28,6 +30,7 @@ func (a *Service) Masker(ctx context.Context) func(string) string { return a.Mas
 type Mask struct {
 	values   []string // eight characters or longer, longest first
 	complete bool     // every store was read
+	holdBack int      // characters Partial withholds: 0 (the unfinished word) unless a value contains whitespace
 }
 
 // Mask reads every value AppTown's stores hold once (see Masker).
@@ -43,7 +46,14 @@ func (a *Service) Mask(ctx context.Context) Mask {
 		}
 	}
 	slices.SortFunc(values, func(x, y string) int { return len(y) - len(x) })
-	return Mask{values: values, complete: complete}
+	m := Mask{values: values, complete: complete}
+	for _, v := range values {
+		if strings.IndexFunc(v, unicode.IsSpace) >= 0 {
+			m.holdBack = len(values[0]) // the longest value
+			break
+		}
+	}
+	return m
 }
 
 // Text replaces every whole value in text with "[secret]".
@@ -54,20 +64,33 @@ func (m Mask) Text(text string) string {
 	return text
 }
 
-// partialMin is the shortest ending of a message still being written that
-// is masked for being the start of a value: half the shortest value masked.
-const partialMin = 4
-
-// Partial masks text that is still being written (a chat's draft): every
-// whole value, and its ending when that is the start of a value (partialMin
-// characters or more), since the rest of the value is about to follow. It
-// decides on the text as written, so a value inside the start of a longer
-// one does not hide the longer one's start. It answers false when a store
+// Partial is text that is still being written (a chat's draft) as it may
+// be shown: its unfinished last word is withheld, since a value may be
+// part-way written there, and every whole value is masked. What is
+// withheld never depends on the values: hiding only an ending that starts
+// a value would let a reader test guesses by watching which turn into
+// "[secret]". When a value contains whitespace a word does not bound it,
+// so the last holdBack characters (the longest value's length) are
+// withheld instead. Whole values are found in the full text, so one that
+// starts before the cut is hidden there too. It answers false when a store
 // could not be read: what to mask is then not known, and the text must not
 // be shown.
 func (m Mask) Partial(text string) (string, bool) {
 	if !m.complete {
 		return "", false
+	}
+	cut := strings.LastIndexFunc(text, unicode.IsSpace)
+	if cut >= 0 {
+		_, size := utf8.DecodeRuneInString(text[cut:])
+		cut += size
+	} else {
+		cut = 0
+	}
+	if m.holdBack > 0 {
+		cut = max(0, len(text)-m.holdBack)
+		for cut > 0 && !utf8.RuneStart(text[cut]) {
+			cut--
+		}
 	}
 	hide := make([]bool, len(text))
 	for _, v := range m.values {
@@ -81,23 +104,15 @@ func (m Mask) Partial(text string) (string, bool) {
 			}
 			at += i + 1
 		}
-		for k := min(len(v)-1, len(text)); k >= partialMin; k-- {
-			if strings.HasSuffix(text, v[:k]) {
-				for j := len(text) - k; j < len(text); j++ {
-					hide[j] = true
-				}
-				break
-			}
-		}
 	}
 	var out strings.Builder
-	for i := 0; i < len(text); i++ {
+	for i := 0; i < cut; i++ {
 		if !hide[i] {
 			out.WriteByte(text[i])
 			continue
 		}
 		out.WriteString(masked)
-		for i+1 < len(text) && hide[i+1] {
+		for i+1 < cut && hide[i+1] {
 			i++
 		}
 	}

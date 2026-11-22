@@ -555,7 +555,7 @@ func (t *Transcript) refresh() {
 		if !e.At.IsZero() {
 			m.At = e.At.UTC().Format("2006-01-02T15:04:05.000Z07:00")
 		}
-		m.Tools = bubbleTools(e.Tools)
+		m.Tools = bubbleTools(e.Tools, ToolDetailMax)
 		for j, tc := range e.Tools {
 			if tc.ID != "" {
 				t.calls[tc.ID] = [2]int{len(t.msgs), j}
@@ -565,11 +565,22 @@ func (t *Transcript) refresh() {
 	}
 }
 
-// bubbleTools is the tools of an entry as a bubble shows them.
-func bubbleTools(calls []toolCall) []Tool {
+// ToolDetailMax is the most of a tool's detail a bubble shows. A draft's
+// details are not cut here: whoever shows a draft masks them as text still
+// being written first and cuts them after, since cutting moves the end a
+// mask of unfinished text relies on.
+const ToolDetailMax = 80
+
+// bubbleTools is the tools of an entry as a bubble shows them, each detail
+// cut to max characters (0: uncut).
+func bubbleTools(calls []toolCall, max int) []Tool {
 	var out []Tool
 	for _, tc := range calls {
-		out = append(out, Tool{Name: tc.Name, Detail: strs.Truncate(tc.detail(), 80)})
+		d := tc.detail()
+		if max > 0 {
+			d = strs.Truncate(d, max)
+		}
+		out = append(out, Tool{Name: tc.Name, Detail: d})
 	}
 	return out
 }
@@ -610,13 +621,14 @@ const maxDraft = 1 << 20
 // or nil. It shows only while it is the chat's own (readBeside) and newer
 // than every message the record holds: once pi records the message, which
 // shares the draft's time, the same read shows the message and not the
-// draft. Caller holds t.mu, after refresh.
+// draft. Its tool details are uncut (ToolDetailMax). Caller holds t.mu,
+// after refresh.
 func (t *Transcript) draft(index int) *Message {
 	e := t.drafting
 	if e == nil || !t.besideOwn() || e.Sent <= t.newest || (!e.hasText() && len(e.Tools) == 0) {
 		return nil
 	}
-	return &Message{I: index, Role: "helper", Text: e.Text, Tools: bubbleTools(e.Tools)}
+	return &Message{I: index, Role: "helper", Text: e.Text, Tools: bubbleTools(e.Tools, 0)}
 }
 
 // readBeside reads what pi's extension wrote beside the record: a draft or
