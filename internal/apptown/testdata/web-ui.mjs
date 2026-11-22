@@ -3,6 +3,40 @@ import { rowFontDifferences } from '../../../web/row-font-sizes.mjs';
 import { wrappedRowActions } from '../../../web/row-action-lines.mjs';
 import { splitWords } from '../../../web/word-splits.mjs';
 import { runQueue, oneFailure } from './camera-queue.mjs';
+
+// A page's own reads have settled: no request in flight, and none started or
+// ended, for half a second. A chat's event stream
+// (/api/v1/console/<id>/stream) stays open by design: it counts until its
+// first answer arrives (the server answers with the conversation as read),
+// and not after; Playwright's networkidle would wait on it for ever.
+const requests = new WeakMap();
+const isChatStream = url => /\/api\/v1\/console\/[^/]+\/stream/.test(url);
+function watchRequests(page) {
+  if (requests.has(page)) return;
+  const state = { open: new Set(), last: Date.now() };
+  requests.set(page, state);
+  const start = r => { state.open.add(r); state.last = Date.now(); };
+  const done = r => { state.open.delete(r); state.last = Date.now(); };
+  page.on('request', start);
+  page.on('requestfinished', done);
+  page.on('requestfailed', done);
+  page.on('response', res => { if (isChatStream(res.url())) done(res.request()); });
+}
+async function idle(page) {
+  watchRequests(page);
+  const state = requests.get(page);
+  const until = Date.now() + 60_000;
+  while (state.open.size > 0 || Date.now() - state.last < 500) {
+    if (Date.now() > until) throw new Error('the page kept reading for a minute: ' + [...state.open].map(r => r.url()).join(' '));
+    await page.waitForTimeout(50);
+  }
+}
+async function gotoIdle(page, url) {
+  watchRequests(page);
+  await page.goto(url, { waitUntil: 'load' });
+  await idle(page);
+}
+
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE);
 const base = process.env.DESIGN_URL, out = process.env.DESIGN_OUT;
 // The scene's AppTown has a real-looking name (DESIGN_RESOLVE: that name and
@@ -241,7 +275,7 @@ try {
   await writeFile(`${out}/realism.json`, JSON.stringify(realism, null, 2));
   if (realism.problems.length) throw new Error('the scene is unlike a real install:\n  ' + realism.problems.join('\n  '));
   phase('realism');
-  if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
+  if (process.env.DESIGN_AUDIT) await gotoIdle(page, base + '/?cameraPrepare=1');
   const routes = {
     'target-settings': '/targets/design-preview', 'target-resources': '/targets/built-in-docker/resources', 'target-capacity': '/targets/built-in-docker/capacity', 'target-capacity-unknown': '/targets/design-preview/capacity', 'target-history': '/targets/built-in-docker/history', 'executor': '/integrations/executor',
     'backup-store-details': '/backups', 'release-invalid': '/releases/6', 'usage-90': '/usage', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-revoke': '/people/agents-and-tokens', 'people-disconnect': '/people/agents-and-tokens',
@@ -299,7 +333,7 @@ try {
     ['adr', '/projects/club-newsletter/memory/decisions', /^\/adrs\/[^/]+$/],
     ['doc', '/docs', /^\/docs\/[^/]+\/[^/]+$/],
   ]) {
-    await page.goto(base + path, { waitUntil: 'networkidle' });
+    await gotoIdle(page, base + path);
     try { await page.waitForFunction(source => [...document.querySelectorAll('main a[href]')].some(el => new RegExp(source).test(el.getAttribute('href'))), pattern.source); }
     catch (err) {
       await mkdir(out, { recursive: true });
@@ -312,11 +346,11 @@ try {
     if (screen === 'target') routes['target-unknown'] = '/targets/design-preview';
     if (!detail) throw new Error(`No detail link for ${screen}`);
   }
-  await page.goto(`${base}/changes/${seeded.delivered}?tab=conversation`, { waitUntil: 'networkidle' });
+  await gotoIdle(page, `${base}/changes/${seeded.delivered}?tab=conversation`);
   await page.locator('a[href*="/work/"]').first().waitFor();
   const workRecords = await page.locator('a[href*="/work/"]').evaluateAll(els => [...new Set(els.map(el => el.getAttribute('href')))]);
   for (const href of workRecords) {
-    await page.goto(base + href, {waitUntil:'networkidle'});
+    await gotoIdle(page, base + href);
     const artifact = page.locator('main a[href*="/records/"]').first();
     if (await artifact.count()) {
       routes['work-record'] = href;
@@ -392,7 +426,7 @@ try {
   Object.keys(deployScenes).forEach(stage => { routes['deployment-' + stage] = '/projects/club-newsletter/deployments/' + (stageDeployments[stage] ?? 'members-preview'); });
   routes['automatic-guidance'] = '/guidance/generated';
   if (linked.generated) routes['generated-guidance'] = `/guidance/generated/${encodeURIComponent(linked.generated)}`;
-  await page.goto(`${base}/changes/${seeded.delivered}?tab=details`, {waitUntil:'networkidle'});
+  await gotoIdle(page, `${base}/changes/${seeded.delivered}?tab=details`);
   routes['change-review-record'] = `/changes/${seeded.delivered}/records/review`;
   routes['change-record'] = await page.locator('a[href*="/records/"]').first().getAttribute('href');
   routes['change-artifact'] = await page.locator('a[href*="/records/record-"]').first().getAttribute('href');
@@ -473,7 +507,7 @@ try {
             const captureURL = new URL(path, base);
             captureURL.searchParams.set('theme', theme);
             captureURL.searchParams.set('size', size.endsWith('-large') ? 'large' : 'medium');
-            await page.goto(captureURL.href, { waitUntil: 'networkidle' });
+            await gotoIdle(page, captureURL.href);
             await page.locator('#root > *').first().waitFor({ state: 'visible' });
           }
           timer.lap('load');
@@ -731,7 +765,7 @@ try {
             }
             if (await page.getByRole('combobox', { name: 'Model profile', exact: true }).isDisabled()) throw new Error('administrator cannot select a model profile');
           }
-          await page.waitForLoadState('networkidle');
+          await idle(page);
           await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
           if (!process.env.DESIGN_BASELINE) await page.getByRole('heading', { level: 1 }).first().waitFor();
           await page.evaluate(() => document.fonts.ready);
@@ -1059,7 +1093,7 @@ try {
           }
 
           if (!process.env.DESIGN_BASELINE && screen === 'change') {
-            await page.goto(`${base}/changes/${process.env.DESIGN_CHANGE}?tab=details&theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });
+            await gotoIdle(page, `${base}/changes/${process.env.DESIGN_CHANGE}?tab=details&theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`);
             const checks = page.getByRole('table', { name: 'Checks', exact: true });
             const tests = checks.getByRole('row').filter({ hasText: 'Tests' }).first();
             await tests.getByRole('link', { name: 'details', exact: true }).click();
@@ -1111,7 +1145,7 @@ try {
     for (const [size, viewport] of Object.entries(variants)) {
       await page.setViewportSize(viewport);
       for (const theme of (process.env.DESIGN_AUDIT ? [size.startsWith('phone') ? 'dark' : 'light'] : ['light', 'dark'])) {
-        await page.goto(`${base}/?theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`, { waitUntil: 'networkidle' });
+        await gotoIdle(page, `${base}/?theme=${theme}&size=${size.endsWith('-large') ? 'large' : 'medium'}`);
         await page.locator('form').waitFor();
         await mkdir(`${out}/login`, { recursive: true });
         const words = await page.locator('body').innerText();

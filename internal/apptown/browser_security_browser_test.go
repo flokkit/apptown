@@ -2048,7 +2048,7 @@ func (s *tourScene) chat(c *tourChange, who string) string {
 }
 
 // transcript gives a chat what was said in it: the recording the console's
-// fake agent plays (no model is called).
+// fake agent plays (no model is called), ending with pi's settled mark.
 func (s *tourScene) transcript(sessionID string, log *piLog) {
 	s.t.Helper()
 	session, err := s.a.Console.Get(context.Background(), sessionID)
@@ -2059,7 +2059,19 @@ func (s *tourScene) transcript(sessionID string, log *piLog) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		s.t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, log.started.UTC().Format("2006-01-02T15-04-05")+"_console.jsonl"), log.bytes(), 0o600); err != nil {
+	record := log.started.UTC().Format("2006-01-02T15-04-05") + "_console.jsonl"
+	if err := os.WriteFile(filepath.Join(dir, record), log.bytes(), 0o600); err != nil {
+		s.t.Fatal(err)
+	}
+	// Every recording ends with the helper's answer, after which pi says
+	// its turn has settled; AppTown's extension writes that beside the
+	// record, and the chat has handed back (its preview rehearsed, its
+	// work saved).
+	mark, err := json.Marshal(map[string]any{"type": "settled", "record": record, "at": log.at.Add(time.Second).UnixMilli()})
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, console.DraftFile), mark, 0o600); err != nil {
 		s.t.Fatal(err)
 	}
 }

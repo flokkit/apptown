@@ -10,6 +10,39 @@
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.TOUR_URL;
 const shots = JSON.parse(process.env.TOUR_SHOTS);
+
+// A page's own reads have settled: no request in flight, and none started or
+// ended, for half a second. A chat's event stream
+// (/api/v1/console/<id>/stream) stays open by design: it counts until its
+// first answer arrives (the server answers with the conversation as read),
+// and not after; Playwright's networkidle would wait on it for ever.
+const requests = new WeakMap();
+const isChatStream = url => /\/api\/v1\/console\/[^/]+\/stream/.test(url);
+function watchRequests(page) {
+  if (requests.has(page)) return;
+  const state = { open: new Set(), last: Date.now() };
+  requests.set(page, state);
+  const start = r => { state.open.add(r); state.last = Date.now(); };
+  const done = r => { state.open.delete(r); state.last = Date.now(); };
+  page.on('request', start);
+  page.on('requestfinished', done);
+  page.on('requestfailed', done);
+  page.on('response', res => { if (isChatStream(res.url())) done(res.request()); });
+}
+async function idle(page) {
+  watchRequests(page);
+  const state = requests.get(page);
+  const until = Date.now() + 60_000;
+  while (state.open.size > 0 || Date.now() - state.last < 500) {
+    if (Date.now() > until) throw new Error('the page kept reading for a minute: ' + [...state.open].map(r => r.url()).join(' '));
+    await page.waitForTimeout(50);
+  }
+}
+async function gotoIdle(page, url) {
+  watchRequests(page);
+  await page.goto(url, { waitUntil: 'load' });
+  await idle(page);
+}
 const out = process.env.TOUR_OUT;
 
 const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
@@ -48,7 +81,7 @@ try {
       // The theme is a query parameter; a path's #anchor stays last.
       const url = new URL(/^https?:\/\//.test(shot.path) ? shot.path : base + shot.path);
       url.searchParams.set('theme', theme);
-      await page.goto(url.href, { waitUntil: 'networkidle' });
+      await gotoIdle(page, url.href);
       if (shot.wait) await page.getByText(shot.wait, { exact: false }).first().waitFor();
       // A stop that shows an error instead of its page fails the tour: a
       // removed page (the app's "Page not found"), a page that could not
@@ -71,7 +104,7 @@ try {
       if (shot.happy) {
         // The scene settled before the camera came (tourWorld.settle): once
         // the page has finished its reads, it is judged once.
-        await page.waitForLoadState('networkidle');
+        await idle(page);
         const trouble = await page.evaluate(() => {
           const main = document.querySelector('main') || document.body;
           // A chip is judged where the shot sees it: a standing note
