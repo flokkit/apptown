@@ -230,7 +230,7 @@ func (r Runner) serviceExited(ctx context.Context, name string) error {
 // docker runs the Docker CLI; a failure carries its output.
 func (r Runner) docker(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, r.dockerBinary(), args...)
-	configureCancellation(cmd)
+	configureCancellation(ctx, cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, fmt.Errorf("docker %s: %w: %s", args[0], err, strings.TrimSpace(string(out)))
