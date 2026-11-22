@@ -61,11 +61,11 @@ func TestIncludingMajorMovesOnlyWhenAMajorIsDue(t *testing.T) {
 		{name: "an unreadable registry allows nothing, even past end of support", toLine: "5", linesErr: offline, support: ended,
 			unknown: []string{"the registry could not be read: dial tcp"}},
 		{name: "a move short of the newest major is refused", toLine: "5", lines: packagefacts.Lines{Newest: "6", First: settled.First, Since: 9}, support: ended,
-			why: []string{"a major move goes to the newest major, 6"}},
+			why: []string{"a major move goes to the newest line, 6"}},
 		{name: "asking without a target decides the newest", lines: young, support: ended, allowed: true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			got := decideMajor(now, django, c.toLine, c.lines, c.linesErr, c.support, c.supportErr, c.findings)
+			got := decideMajor(now, django, c.toLine, packagefacts.Line, c.lines, c.linesErr, c.support, c.supportErr, c.findings)
 			text := got.Text()
 			if got.Allowed != c.allowed {
 				t.Fatalf("allowed=%t: %s", got.Allowed, text)
@@ -84,16 +84,21 @@ func TestIncludingMajorMovesOnlyWhenAMajorIsDue(t *testing.T) {
 	}
 }
 
-// An ended minor beside a supported minor of the same major does not end the
-// major's support (review R1): Django 5.1 ended while 5.2 is supported.
-func TestAnEndedMinorDoesNotEndItsMajor(t *testing.T) {
+// A tracked product's line is its endoflife.date cycle: Django 5.1 ended
+// while 5.2 is supported, and 5.1 is a line of its own, so leaving it is due,
+// to the newest cycle. Grouped by semver major, 5.2's support kept 5 open.
+func TestAnEndedCycleIsDueWhateverItsMajor(t *testing.T) {
 	t.Parallel()
 	dep := packagefacts.Dependency{Package: packagefacts.Package{Type: packagefacts.PyPI, Name: "django"}, Version: "5.1.4"}
-	lines := packagefacts.Lines{Newest: "6", First: packagefacts.Release{Version: "6.0", Published: majorDay("2025-12-03")}, Since: 0}
+	lines := packagefacts.Lines{Newest: "6.0", First: packagefacts.Release{Version: "6.0", Published: majorDay("2025-12-03")}, Since: 0}
 	support := packagefacts.Support{Tracked: true, Product: "django", Cycles: []packagefacts.Cycle{{Name: "6.0", Ends: majorDay("2027-04-30")}, {Name: "5.2", Ends: majorDay("2028-04-30")}, {Name: "5.1", Ends: majorDay("2025-12-03"), Ended: true}}}
-	got := decideMajor(majorDay("2025-12-15"), dep, "6", lines, nil, support, nil, nil)
-	if got.Allowed || !strings.Contains(got.Why, "5.2 is supported until 2028-04-30") {
+	line := func(v string) string { l, _ := releaseLine(dep.Package, support, nil, v); return l }
+	got := decideMajor(majorDay("2025-12-15"), dep, "6.0", line, lines, nil, support, nil, nil)
+	if !got.Allowed || !strings.Contains(got.Text(), "django 5.1 → 6.0 due: 5.1 ended support 2025-12-03 (endoflife.date)") {
 		t.Fatal(got.Text())
+	}
+	if got := decideMajor(majorDay("2025-12-15"), dep, "5.2", line, lines, nil, support, nil, nil); got.Allowed {
+		t.Fatalf("a move short of the newest cycle was allowed: %s", got.Text())
 	}
 }
 
@@ -105,7 +110,7 @@ func TestMovesBetweenListsDirectLineChanges(t *testing.T) {
 	base := []packagefacts.Dependency{dep("npm", "react", "18.3.1"), dep("npm", "vite", "5.4.0"), dep("npm", "tiny", "0.3.1"), dep("golang", "github.com/x/y", "v1.2.0")}
 	candidate := []packagefacts.Dependency{dep("npm", "react", "19.2.0"), dep("npm", "vite", "5.4.9"), dep("npm", "tiny", "0.4.0"), dep("golang", "github.com/x/y/v2", "v2.0.1"), dep("npm", "new", "3.0.0")}
 	var got []string
-	for _, m := range MovesBetween(base, candidate) {
+	for _, m := range movesBetween(base, candidate, semverLine) {
 		got = append(got, m.Package.Name+" "+m.FromLine+"→"+m.ToLine)
 	}
 	if strings.Join(got, ", ") != "github.com/x/y 1→2, react 18→19, tiny 0.3→0.4" {
@@ -116,7 +121,7 @@ func TestMovesBetweenListsDirectLineChanges(t *testing.T) {
 	// explain it moves from every version on a lower line.
 	moves := func(base, candidate []packagefacts.Dependency) string {
 		var out []string
-		for _, m := range MovesBetween(base, candidate) {
+		for _, m := range movesBetween(base, candidate, semverLine) {
 			out = append(out, m.From+"→"+m.To)
 		}
 		return strings.Join(out, ", ")

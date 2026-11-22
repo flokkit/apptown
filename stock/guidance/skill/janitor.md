@@ -4,9 +4,9 @@ tags: skill,maintenance
 ---
 <!-- skill: Repair updates. -->
 Make the failing check pass within this change's intent. Keep to the selected
-level (routine: patch and minor, a 0.x package within its minor; aggressive:
-the same, plus a direct dependency's newest major when `apptown janitor majors`
-says it is due; an indirect package may change major when a moved direct
+level (routine: within each release line, a 0.x package within its minor;
+aggressive: the same, plus a direct dependency's newest line when
+`apptown janitor majors` says it is due; an indirect package may change major when a moved direct
 dependency's declared range requires it) and each ecosystem's dependency guidance. Never downgrade, change
 sources, make a direct dependency a pre-release, pin an indirect package to
 one, or add a direct dependency the update does not need. An indirect
@@ -29,9 +29,14 @@ when Toolchain patches is on, `--scope line` when it is off (for that example,
 `node:24.22.2-slim --scope patch`). The declaration decides the line at every
 level: aggressive never moves a declared toolchain's image to a newer major or
 minor, because that changes the toolchain and needs a person. Match by version, not image
-name: an unrelated image sharing that version stays on the same line too. With no agreeing numeric declaration, run
-`apptown image newest <current> --scope minor` at routine, or `--scope major`
-at aggressive. Choose the printed tag and digest. AppTown permits any registry
+name: an unrelated image sharing that version stays on the same line too. With no agreeing numeric declaration, the image stays on its release line:
+the cycle endoflife.date lists for it (php 8.3, python 3.12, node 24), or its
+x.y when that is unknown. Ask `apptown janitor majors pkg:docker/library/<name>@<version>`
+(for php:8.3.35-apache-bookworm, `pkg:docker/library/php@8.3.35`): it names the
+line and, at aggressive, whether the newest line is due. Then run
+`apptown image newest <repo>:<line><variant> --scope line` (for that example,
+`php:8.3-apache-bookworm --scope line`), or at aggressive, when the answer says
+the newest line is due, `<repo>:<newest line><variant> --scope line`. Choose the printed tag and digest. AppTown permits any registry
 build on the allowed line that is not older than the current pin; it proves
 the candidate tag's digest with a registry HEAD and records its own reading.
 If the lookup refuses, change nothing for that image and say so. For a security target, use

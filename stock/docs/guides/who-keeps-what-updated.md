@@ -5,8 +5,8 @@ bigger moves, and a place where a person hears when it is stuck.
 
 | What the app runs on | Kept up to date by | Bigger moves decided by | You hear about it in |
 | --- | --- | --- | --- |
-| App dependencies | The [Janitor](janitor.md), patch and minor releases | The project owner, by a change; the Janitor too when its level is Including major and a major is due | Maintenance › Needs you |
-| Base images in the project's Dockerfiles | The Janitor, within its dependency level, keeping each image's name and variant | Another image or variant: the project owner, by a change | Maintenance › Needs you |
+| App dependencies | The [Janitor](janitor.md), within each release line (a tracked product's cycle such as Django 5.2, otherwise its major) | The project owner, by a change; the Janitor too when its level is Including major and another line is due | Maintenance › Needs you |
+| Base images in the project's Dockerfiles | The Janitor, within each image's release line (PHP 8.3, Python 3.12, Node 24), keeping its name and variant | Another release line: the Janitor at Including major when it is due; another image or variant: the project owner, by a change | Maintenance › Needs you |
 | Static server (Caddy 2 on Alpine) | AppTown, when there is no `staticServer:` pin: each build uses the newest `caddy:2-alpine` it reads; the Janitor moves an existing pin ([app contract](contract-reference.md)) | The project owner, by adding or changing a pin | Maintenance › Needs you |
 | Prebuilt images an `app:` part runs (`image:`) | Nobody automatically | The project owner, by a change | The project's Security tab, for the public part |
 | Language toolchains (`mise.toml`) | mise installs what is declared: a line such as `node = "24"` gets its newest release, an exact pin stays; the Janitor moves a pin only for a patch a security finding needs | The project owner, by a change | Maintenance › Needs you |
@@ -21,7 +21,7 @@ bigger moves, and a place where a person hears when it is stuck.
 | Hosts, disks and Docker | The administrator, or the cloud provider for its machines | The administrator | Attention |
 | A vulnerability with no fixed release | Upstream; a source dependency's is listed with an empty Fix column, and the image scan leaves out findings with no fix until one is published | The Janitor within its level once a fix ships; the static server only through routine updates of its pin | The project's Security tab |
 
-The Janitor starts on at patch and minor, with security fixes, base images,
+The Janitor starts on at patch and minor (within each release line), with security fixes, base images,
 toolchain patches and packs; Maintenance › Settings changes
 that for every project.
 Each project can choose its own level or turn the Janitor off in Settings ›

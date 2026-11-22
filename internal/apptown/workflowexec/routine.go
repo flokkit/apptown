@@ -25,10 +25,11 @@ type updateJudge interface {
 	JudgeUpdate(context.Context, workflow.Source, check.Item, string) (workflow.CheckReceipt, error)
 }
 
-// majorDecider decides direct dependency major moves at the aggressive level
-// (verification.Majors).
+// majorDecider decides direct dependency and image moves to another
+// release line (verification.Majors).
 type majorDecider interface {
-	Decide(context.Context, ids.ID, []verification.MajorMove) ([]verification.MajorMove, error)
+	Check(context.Context, ids.ID, []packagefacts.Dependency, []packagefacts.Dependency, bool) ([]verification.MajorMove, error)
+	Images(verification.ImageUpdates) verification.ImageUpdates
 }
 type routineConfig struct {
 	Rubric string `json:"rubric"`
@@ -117,9 +118,14 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	var inputs [2]map[string]any
-	// At aggressive a direct dependency's major moves only when AppTown's
-	// rules say it is due; the lockfiles say which ones moved.
+	// A direct dependency stays on its release line at Routine; at
+	// aggressive it leaves it only when AppTown's rules say it is due. The
+	// lockfiles say which ones moved.
 	aggressive := bound == "aggressive"
+	if a.majors == nil {
+		fail(fmt.Errorf("release line facts are unavailable"))
+		return
+	}
 	var direct [2][]packagefacts.Dependency
 	for i, commit := range []string{base, sel.Commit} {
 		tree, remove, err := verification.StageCommittedTree(task.Context(), a.cfg.DataDir, sel.Repo, commit)
@@ -128,10 +134,10 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			return
 		}
 		inputs[i], err = verification.UpdateInputs(tree)
-		if err == nil && aggressive {
+		if err == nil {
 			if direct[i], err = packagefacts.Direct(tree); err != nil {
 				remove()
-				finish(workflow.StatusFail, "AppTown could not read the direct dependencies to check major moves: "+err.Error())
+				finish(workflow.StatusFail, "AppTown could not read the direct dependencies to check their release lines: "+err.Error())
 				return
 			}
 		}
@@ -175,7 +181,11 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			return
 		}
 	}
-	if err := verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, ToolchainPatches: choices.ToolchainPatches, Readings: &readings}); err != nil {
+	var imageLines []verification.MajorMove
+	images := a.majors.Images(verification.ImageUpdates{Resolver: a.images, Scope: verification.UpdateScope(bound), Security: len(targets) > 0, ToolchainPatches: choices.ToolchainPatches, Readings: &readings, Lines: &imageLines})
+	err = verification.CompareUpdateInputs(task.Context(), inputs[0], inputs[1], choices.BaseImages, images)
+	majors = append(majors, imageLines...)
+	if err != nil {
 		if fault.KindOf(err) == fault.Unavailable {
 			receipt.Verdict = workflow.VerdictCannotAssess
 			finish(workflow.StatusError, err.Error())
@@ -184,26 +194,26 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		}
 		return
 	}
-	if moves := verification.MovesBetween(direct[0], direct[1]); len(moves) > 0 {
-		if a.majors == nil {
-			fail(fmt.Errorf("major move facts are unavailable"))
-			return
+	decided, err := a.majors.Check(task.Context(), task.Run().ProjectID, direct[0], direct[1], aggressive)
+	if err != nil {
+		fail(err)
+		return
+	}
+	majors = append(majors, decided...)
+	var refused []string
+	for _, m := range decided {
+		if !m.Allowed {
+			refused = append(refused, m.Text())
 		}
-		decided, err := a.majors.Decide(task.Context(), task.Run().ProjectID, moves)
-		if err != nil {
-			fail(err)
-			return
-		}
-		majors = decided
-		var refused []string
-		for _, m := range decided {
-			if !m.Allowed {
-				refused = append(refused, m.Text())
-			}
-		}
-		if len(refused) > 0 {
-			finish(workflow.StatusFail, "A direct dependency moves to a major that is not due:\n"+strings.Join(refused, "\n"))
-			return
+	}
+	if len(refused) > 0 {
+		finish(workflow.StatusFail, "A direct dependency moves to another release line that is not allowed:\n"+strings.Join(refused, "\n"))
+		return
+	}
+	var unknownLines []string
+	for _, m := range majors {
+		if m.LineUnknown != "" {
+			unknownLines = append(unknownLines, m.LineUnknown+"; held to "+m.FromLine)
 		}
 	}
 	var cfg routineConfig
@@ -216,17 +226,26 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		return
 	}
 	facts := "\n\nApproved level: " + bound
+	var lineMoves []verification.MajorMove
+	for _, m := range majors {
+		if m.FromLine != m.ToLine {
+			lineMoves = append(lineMoves, m)
+		}
+	}
 	if aggressive {
-		facts += " (patch and minor; a direct dependency's major only where listed below)"
-		facts += "\nDirect dependency major moves AppTown allowed:"
-		if len(majors) == 0 {
+		facts += " (within each release line; a direct dependency or image moves to another line only where listed below)"
+		facts += "\nRelease line moves AppTown allowed:"
+		if len(lineMoves) == 0 {
 			facts += " none"
 		}
-		for _, m := range majors {
+		for _, m := range lineMoves {
 			facts += "\n  " + m.Text()
 		}
 	} else {
-		facts += " (patch and minor)"
+		facts += " (within each release line)"
+	}
+	if len(unknownLines) > 0 {
+		facts += "\nUnknown release lines: " + strings.Join(unknownLines, "; ")
 	}
 	if choices.ToolchainPatches {
 		facts += "\nToolchain patches: on"
@@ -283,11 +302,14 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 		status = workflow.StatusFail
 	}
 	why := receipt.Detail
-	if len(majors) > 0 {
-		why += "\nMajor moves:"
-		for _, m := range majors {
+	if len(lineMoves) > 0 {
+		why += "\nRelease line moves:"
+		for _, m := range lineMoves {
 			why += "\n" + m.Text()
 		}
+	}
+	if len(unknownLines) > 0 {
+		why += "\nUnknown release lines: " + strings.Join(unknownLines, "; ")
 	}
 	finish(status, why)
 }

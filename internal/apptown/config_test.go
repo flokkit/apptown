@@ -16,10 +16,12 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/packagefacts"
 
 	"github.com/flokkit/apptown/internal/execution"
 
@@ -552,5 +554,26 @@ func TestABackupWithoutItsRecordFailsItsJob(t *testing.T) {
 	restore()
 	if err == nil {
 		t.Fatal("a backup whose record failed reported success")
+	}
+}
+
+// The instance reads endoflife.date at the address the operator gave
+// (-endoflife-url), so an offline install can use a mirror of its data.
+func TestInstanceReadsEndOfLifeAtTheConfiguredAddress(t *testing.T) {
+	t.Parallel()
+	var asked atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/identifiers/purl/", func(w http.ResponseWriter, r *http.Request) {
+		asked.Add(1)
+		w.Write([]byte(`{"result":[{"identifier":"pkg:docker/library/python","product":{"name":"python"}}]}`))
+	})
+	mux.HandleFunc("/api/v1/products/python/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":{"releases":[{"name":"3.12","releaseDate":"2023-10-02","isEol":false,"eolFrom":"2028-10-31"}]}}`))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	got, err := packageFacts(Config{EndOfLifeURL: server.URL}).Support(t.Context(), packagefacts.Package{Type: packagefacts.Docker, Name: "library/python"})
+	if err != nil || !got.Tracked || got.Product != "python" || asked.Load() != 1 {
+		t.Fatalf("%+v %v asked=%d", got, err, asked.Load())
 	}
 }

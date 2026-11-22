@@ -199,3 +199,28 @@ func TestPrivateDockerIsOneSettingOnByDefault(t *testing.T) {
 		t.Fatal("-no-private-docker is still a flag")
 	}
 }
+
+// endoflife.date's address is an operator setting, by flag or environment,
+// that reaches AppTown's configuration; the default is the public service.
+func TestEndOfLifeAddressIsASetting(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	o := defineFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := bindEnv(fs, func(k string) string {
+		if k == "APPTOWN_ENDOFLIFE_URL" {
+			return "http://eol.mirror.internal:8080"
+		}
+		return ""
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := o.apptownConfig(t.TempDir()).EndOfLifeURL; got != "http://eol.mirror.internal:8080" {
+		t.Fatalf("APPTOWN_ENDOFLIFE_URL gave %q", got)
+	}
+	fs = flag.NewFlagSet("test", flag.ContinueOnError)
+	if o = defineFlags(fs); fs.Parse(nil) != nil || o.apptownConfig(t.TempDir()).EndOfLifeURL != "https://endoflife.date" {
+		t.Fatalf("default %q", o.endOfLifeURL)
+	}
+}

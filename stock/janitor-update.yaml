@@ -24,14 +24,16 @@ spec:
             skills: [skill/janitor]
             prompt: |
               Update this project's dependencies at level ${{inputs.level}}: routine
-              means patch and minor releases (a 0.x package stays within its minor).
-              Aggressive means the same, and a direct dependency also moves to its
-              newest major (a 0.x package to its newest minor) when AppTown says that
-              major is due: list the direct dependencies that have a newer major, ask
+              means patch and minor releases within each release line: a language,
+              runtime or package endoflife.date tracks stays on its cycle (Django 5.1
+              stays on 5.1, PHP 8.3 on 8.3), any other package on its major (a 0.x
+              package within its minor). Aggressive means the same, and a direct
+              dependency also moves to its newest line when AppTown says that line is
+              due: list the direct dependencies that have a newer line, ask
               `apptown janitor majors` once with all of them as package URLs
               (pkg:npm/react@18.3.1, pkg:pypi/django@4.2.16), move only those it says
               are due, to the newest release of that major, and quote its reason in the
-              commit message. Keep every other direct dependency within its major. An
+              commit message. Keep every other direct dependency within its line. An
               indirect package may change major when a moved direct dependency's own
               declared range requires it. Cover every
               ecosystem and every workspace or sub-project in the repository, following
@@ -76,10 +78,11 @@ spec:
               and how each changed file is classified; read the complete diff, including
               dependency files. Pass only when all of these hold. (1) Every version change
               in manifests and lockfiles stays within the level: at routine, patch and
-              minor releases only, and a 0.x package stays within its minor; at
-              aggressive, the same, and a direct dependency moves to a new major (or a
-              0.x package to a new minor) only where AppTown's facts below list that move
-              as allowed. An indirect package may change major when a moved stable
+              minor releases within each release line only (AppTown has already
+              refused a direct dependency leaving its line in the lockfiles it reads),
+              and a 0.x package stays within its minor; at aggressive, the same, and a
+              direct dependency moves to a new line only where AppTown's facts below
+              list that move as allowed. An indirect package may change major when a moved stable
               direct dependency's own declared range needs that version. AppTown reads npm,
               uv, Go module, Bundler and Composer lockfiles itself; with any other
               package manager a direct dependency's major move is outside the level at

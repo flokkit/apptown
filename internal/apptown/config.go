@@ -45,6 +45,11 @@ type Config struct {
 	// PackageFacts reads package registries and endoflife.date for the
 	// Janitor's major moves; nil reads the public services.
 	PackageFacts verification.MajorFacts
+	// EndOfLifeURL is endoflife.date's base address (-endoflife-url), or a
+	// server with its API v1 such as a mirror of its open data; empty is
+	// https://endoflife.date. Only the Janitor's release line decisions read
+	// it.
+	EndOfLifeURL string
 	// UpdateChannel selects stable releases unless explicitly set to prerelease.
 	UpdateChannel string
 	// DockerClient supplies the command transport before owners are wired.

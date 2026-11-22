@@ -12,14 +12,17 @@ import (
 	"sort"
 
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/BurntSushi/toml"
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
+	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/imageline"
+	"github.com/flokkit/apptown/internal/packagefacts"
 	"gopkg.in/yaml.v3"
 )
 
@@ -238,6 +241,14 @@ type ImageUpdates struct {
 	// declared toolchain line may move within that declaration's minor.
 	ToolchainPatches bool
 	Readings         *[]imagelines.Reading
+	// facts reads endoflife.date's cycles, which are an image's release
+	// lines; nil leaves every line unknown (x.y). now is the rules' clock.
+	facts MajorFacts
+	now   func() time.Time
+	// Lines records each moved image's release line decision, with any
+	// unknown line, as evidence.
+	Lines *[]MajorMove
+	read  *supports
 }
 
 // UpdateScope is the image scope authorized by the dependency level.
@@ -278,6 +289,16 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 		}
 		return err
 	}
+	release, err := p.releaseLine(ctx, old, next)
+	if err != nil {
+		return err
+	}
+	// The registry reading is of the newest build on the line the move may
+	// take: the release line, unless a declaration or Including major
+	// already decided it.
+	if release != "" && !declared && p.Scope != imageline.Major {
+		line, scope = release, imageline.Line
+	}
 	answer, err := p.Resolver.Answer(ctx, line, scope)
 	if err != nil {
 		return fault.Wrap(fault.Unavailable, fmt.Errorf("image update is unknown: %w", err))
@@ -297,10 +318,69 @@ func (p ImageUpdates) compare(ctx context.Context, old, next string) error {
 	return nil
 }
 
+// releaseLine holds an image move to the old tag's release line
+// (endoflife.date's cycle for the image's product, x.y when unknown): at
+// Routine it may not leave it; at Including major it leaves it only when the
+// rules say the newest line is due. It returns the release line as an image
+// reference (php:8.3-apache) when the tag has a version.
+func (p ImageUpdates) releaseLine(ctx context.Context, old, next string) (string, error) {
+	a, err := imageline.Parse(old, imageline.Line)
+	if err != nil {
+		return "", err
+	}
+	b, err := imageline.Parse(next, imageline.Line)
+	if err != nil {
+		return "", err
+	}
+	if a.Prefix == "" || b.Prefix == "" {
+		return "", nil
+	}
+	repo := a.Repository.Name()
+	if a.Repository.RegistryStr() == name.DefaultRegistry {
+		repo = a.Repository.RepositoryStr()
+	}
+	pkg := packagefacts.Package{Type: packagefacts.Docker, Name: repo}
+	read := p.read
+	if read == nil {
+		read = &supports{facts: p.facts}
+	}
+	support, supportErr := read.of(ctx, pkg)
+	fromLine, unknown := releaseLine(pkg, support, supportErr, a.Prefix)
+	toLine, _ := releaseLine(pkg, support, supportErr, b.Prefix)
+	mv := MajorMove{Package: pkg, From: a.Prefix, To: b.Prefix, FromLine: fromLine, ToLine: toLine, Allowed: true, LineUnknown: unknown}
+	record := func() {
+		if p.Lines != nil {
+			*p.Lines = append(*p.Lines, mv)
+		}
+	}
+	ref := a.Repository.Tag(fromLine + a.Variant).Name()
+	if onLine(b.Prefix, fromLine) {
+		mv.ToLine = fromLine
+		mv.Why = fmt.Sprintf("%s stays on its line %s%s.", b.Prefix, fromLine, lineSource(support, supportErr))
+		record()
+		return ref, nil
+	}
+	if p.Scope != imageline.Major {
+		mv.Allowed, mv.Routine = false, true
+		mv.Why = fmt.Sprintf("%s leaves its line %s%s; Routine keeps it on %s.", b.Prefix, fromLine, lineSource(support, supportErr), fromLine)
+		record()
+		return "", fmt.Errorf("image %s: %s", next, mv.Text())
+	}
+	d := decideLine(ctx, clock.Or(p.now)(), p.facts, read, mv, nil)
+	d.To = mv.To
+	mv = d
+	record()
+	if !mv.Allowed {
+		return "", fmt.Errorf("image %s: %s", next, mv.Text())
+	}
+	return "", nil
+}
+
 // CompareUpdateInputs is the shared deterministic boundary for agent updates.
 // The Toolchain patches choice permits exact same-minor toolchain patch moves.
 func CompareUpdateInputs(ctx context.Context, before, after map[string]any, baseImages bool, images ImageUpdates) error {
 	images.declarations = declaredTools(before)
+	images.read = &supports{facts: images.facts}
 	keys := make([]string, 0, len(before)+len(after))
 	for k := range before {
 		keys = append(keys, k)

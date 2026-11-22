@@ -53,7 +53,7 @@ dependencies = [{ name = "numpy" }]
 			t.Fatal(err)
 		}
 	}
-	moves := MovesBetween(deps[0], deps[1])
+	moves := movesBetween(deps[0], deps[1], semverLine)
 	if len(moves) != 1 || moves[0].FromLine != "1" || moves[0].ToLine != "2" {
 		t.Fatalf("numpy 1 -> 2 disappeared: base=%+v candidate=%+v moves=%+v", deps[0], deps[1], moves)
 	}
@@ -67,7 +67,7 @@ func TestAFindingOnAnotherVersionAllowsNothing(t *testing.T) {
 	// Another manifest uses 1.8.0, affected by an advisory introduced in 1.8;
 	// this dependency on 1.7.0 has no matching finding.
 	findings := []check.Finding{{Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example", Ecosystem: "npm", Version: "1.8.0", FixedIn: "2.0.1"}}}
-	got := decideMajor(majorDay("2026-11-21"), dep, "2", young, nil, supported, nil, findings)
+	got := decideMajor(majorDay("2026-11-21"), dep, "2", packagefacts.Line, young, nil, supported, nil, findings)
 	if got.Allowed {
 		t.Fatalf("a finding on another version authorized this move: %s", got.Text())
 	}

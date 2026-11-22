@@ -34,7 +34,8 @@ type Lines struct {
 	// Newest is the highest line with a stable release.
 	Newest string `json:"newest"`
 	// First is the newest line's first stable release; Since counts the
-	// stable releases published on that line after it.
+	// stable releases published on that line after it, or is -1 when the
+	// source does not say (endoflife.date's cycles).
 	First Release `json:"first"`
 	Since int     `json:"since"`
 	// Deprecated is the registry's deprecation message on the newest stable
@@ -83,8 +84,9 @@ func base(configured, public string) string {
 }
 
 // Lines reads the package's stable releases from its registry and
-// summarizes them relative to the version in use.
-func (c Client) Lines(ctx context.Context, p Package, current string) (Lines, error) {
+// summarizes them relative to the version in use, grouping versions by the
+// caller's line (Line for semver, a release cycle for a tracked product).
+func (c Client) Lines(ctx context.Context, p Package, current string, line func(string) string) (Lines, error) {
 	var releases []Release
 	deprecated := map[string]string{}
 	var err error
@@ -105,13 +107,13 @@ func (c Client) Lines(ctx context.Context, p Package, current string) (Lines, er
 	if err != nil {
 		return Lines{}, err
 	}
-	return summarize(p.Type, releases, deprecated, current)
+	return summarize(p.Type, releases, deprecated, current, line)
 }
 
-func summarize(typ string, releases []Release, deprecated map[string]string, current string) (Lines, error) {
+func summarize(typ string, releases []Release, deprecated map[string]string, current string, line func(string) string) (Lines, error) {
 	var stable []Release
 	for _, r := range releases {
-		if isStable(typ, r.Version) && Line(r.Version) != "" {
+		if isStable(typ, r.Version) && line(r.Version) != "" {
 			r.Published = r.Published.UTC()
 			stable = append(stable, r)
 		}
@@ -120,22 +122,42 @@ func summarize(typ string, releases []Release, deprecated map[string]string, cur
 		return Lines{}, errors.New("the registry lists no stable release")
 	}
 	sort.SliceStable(stable, func(i, j int) bool { return Less(stable[i].Version, stable[j].Version) })
-	out := Lines{Newest: Line(stable[len(stable)-1].Version)}
-	currentLine, newestOnCurrent := Line(current), ""
+	out := Lines{Newest: line(stable[len(stable)-1].Version)}
+	currentLine, newestOnCurrent := line(current), ""
 	for _, r := range stable {
-		if Line(r.Version) == out.Newest {
+		if line(r.Version) == out.Newest {
 			if out.First.Version == "" {
 				out.First = r
 			} else {
 				out.Since++
 			}
 		}
-		if Line(r.Version) == currentLine {
+		if line(r.Version) == currentLine {
 			newestOnCurrent = r.Version
 		}
 	}
 	out.Deprecated = deprecated[newestOnCurrent]
 	return out, nil
+}
+
+// CycleLines summarizes a product's lines from endoflife.date's cycles, for
+// what AppTown reads no registry history of (images): the newest numeric
+// cycle and when it was first released. endoflife.date does not say how
+// many releases followed, so Since is -1.
+func CycleLines(s Support) (Lines, error) {
+	var newest Cycle
+	for _, c := range s.Cycles {
+		if numbers(c.Name) == nil || strings.Trim(c.Name, "0123456789.") != "" {
+			continue
+		}
+		if newest.Name == "" || LineLess(newest.Name, c.Name) {
+			newest = c
+		}
+	}
+	if newest.Name == "" {
+		return Lines{}, errors.New("endoflife.date lists no numbered cycle for " + s.Product)
+	}
+	return Lines{Newest: newest.Name, First: Release{Version: newest.Name, Published: newest.Released}, Since: -1}, nil
 }
 
 func (c Client) npm(ctx context.Context, name string) ([]Release, map[string]string, error) {

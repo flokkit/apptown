@@ -21,6 +21,10 @@ const (
 	Go       = "golang"
 	Gem      = "gem"
 	Composer = "composer"
+	// Docker is a Docker Hub image (pkg:docker/library/php): endoflife.date
+	// maps images by it. AppTown reads no registry for it here; its lines
+	// are endoflife.date's cycles.
+	Docker = "docker"
 )
 
 // Package is one package in one ecosystem.
@@ -77,9 +81,9 @@ func ParsePurl(s string) (Package, string, error) {
 		return Package{}, "", fmt.Errorf("%q: %w", s, err)
 	}
 	switch typ = strings.ToLower(typ); typ {
-	case NPM, PyPI, Go, Gem, Composer:
+	case NPM, PyPI, Go, Gem, Composer, Docker:
 	default:
-		return Package{}, "", fmt.Errorf("%q: AppTown reads npm, pypi, golang, gem and composer packages", s)
+		return Package{}, "", fmt.Errorf("%q: AppTown reads npm, pypi, golang, gem, composer and docker packages", s)
 	}
 	return Package{Type: typ, Name: name}, version, nil
 }
@@ -158,6 +162,20 @@ func Line(version string) string {
 		return fmt.Sprintf("0.%d", n[1])
 	}
 	return strconv.Itoa(n[0])
+}
+
+// Narrow is the narrowest line a version can be on: its first two numbers
+// (8.3 for 8.3.35), or fewer when it has fewer. Empty when unreadable.
+func Narrow(version string) string {
+	n := numbers(version)
+	if len(n) > 2 {
+		n = n[:2]
+	}
+	parts := make([]string, len(n))
+	for i, x := range n {
+		parts[i] = strconv.Itoa(x)
+	}
+	return strings.Join(parts, ".")
 }
 
 // LineLess orders two lines (0.9 < 0.10 < 1 < 2).

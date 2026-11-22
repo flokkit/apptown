@@ -27,7 +27,7 @@ type majorFacts struct {
 // settledMajor: the newest major, 2, has settled at any date the fixtures use.
 var settledMajor = packagefacts.Lines{Newest: "2", First: packagefacts.Release{Version: "2.0.0", Published: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}, Since: 3}
 
-func (m majorFacts) Lines(_ context.Context, p packagefacts.Package, _ string) (packagefacts.Lines, error) {
+func (m majorFacts) Lines(_ context.Context, p packagefacts.Package, _ string, _ func(string) string) (packagefacts.Lines, error) {
 	m.reads.Add(1)
 	if l, ok := m.lines[p.Name]; ok {
 		return l, nil
@@ -59,7 +59,9 @@ func npmLock(direct, indirect map[string]string) string {
 // At Including major (aggressive) the routine step refuses a direct
 // dependency's major move that no rule allows before the model judges, and
 // names the rule for one that is due. An indirect package's major change
-// needs no decision. Routine reads no major facts.
+// needs no decision. At Routine a direct dependency leaving its line fails
+// before the judge, and a minor of a package endoflife.date does not track
+// stays on its line.
 func TestRoutineStepDecidesDirectMajorMoves(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC)
@@ -73,10 +75,13 @@ func TestRoutineStepDecidesDirectMajorMoves(t *testing.T) {
 		reason      []string
 	}{
 		{name: "a due major passes and names its rule", level: "aggressive", after: map[string]string{"example": "2.0.1"}, pass: true, judge: true, reads: true,
-			reason: []string{"Major moves:", "example 1 → 2 due: 2.0.0 was released 2025-11-21; 4 releases since."}},
+			reason: []string{"Release line moves:", "example 1 → 2 due: 2.0.0 was released 2025-11-21; 4 releases since."}},
 		{name: "a major that is not due fails before the judge", level: "aggressive", after: map[string]string{"example": "2.0.1", "other": "2.0.0"}, reads: true,
 			reason: []string{"not due", "other 1 → 2 not due", "Keep other on 1"}},
-		{name: "routine reads no major facts", level: "routine", after: map[string]string{"example": "2.0.1", "other": "2.0.0"}, pass: true, judge: true},
+		{name: "routine refuses leaving a line before the judge", level: "routine", after: map[string]string{"example": "2.0.1"}, reads: true,
+			reason: []string{"example 1 → 2 not allowed at Routine: 2.0.1 leaves its line 1; Routine keeps it on 1."}},
+		{name: "routine moves an untracked minor", level: "routine", after: map[string]string{"other": "1.5.0"}, pass: true, judge: true, reads: true},
+		{name: "routine reads nothing for a patch", level: "routine", after: map[string]string{"other": "1.4.1"}, pass: true, judge: true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -104,7 +109,7 @@ func TestRoutineStepDecidesDirectMajorMoves(t *testing.T) {
 			judged := false
 			f.commands.judge = updateJudgeFunc(func(_ context.Context, _ workflow.Source, item check.Item, _ string) (workflow.CheckReceipt, error) {
 				judged = true
-				if c.level == "aggressive" && !strings.Contains(item.Rubric, "Direct dependency major moves AppTown allowed:\n  example 1 → 2 due") {
+				if c.level == "aggressive" && !strings.Contains(item.Rubric, "Release line moves AppTown allowed:\n  example 1 → 2 due") {
 					t.Errorf("the judge was not told the allowed move: %s", item.Rubric)
 				}
 				return workflow.CheckReceipt{Verdict: workflow.VerdictPass, Detail: "within the level"}, nil

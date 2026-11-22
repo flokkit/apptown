@@ -89,7 +89,8 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 		return out, nil
 	}
 	var readings []imagelines.Reading
-	if err := CompareUpdateInputs(ctx, inputs[0], inputs[1], categories.BaseImages, ImageUpdates{Resolver: r.images, Scope: UpdateScope(categories.Dependencies), Security: len(targets) > 0, ToolchainPatches: categories.ToolchainPatches, Readings: &readings}); err != nil {
+	var lines []MajorMove
+	if err := CompareUpdateInputs(ctx, inputs[0], inputs[1], categories.BaseImages, r.majors.Images(ImageUpdates{Resolver: r.images, Scope: UpdateScope(categories.Dependencies), Security: len(targets) > 0, ToolchainPatches: categories.ToolchainPatches, Readings: &readings, Lines: &lines})); err != nil {
 		if fault.KindOf(err) == fault.Unavailable {
 			out.Reason = err.Error()
 			return out, nil
@@ -119,6 +120,11 @@ func (r routineInspector) inspectUpdates(ctx context.Context, source workflow.So
 	for _, r := range readings {
 		if r.Stale {
 			evidence = append(evidence, r.Evidence())
+		}
+	}
+	for _, l := range lines {
+		if l.LineUnknown != "" {
+			evidence = append(evidence, l.LineUnknown+"; held to "+l.FromLine)
 		}
 	}
 	if len(evidence) > 0 {

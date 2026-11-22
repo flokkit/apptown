@@ -4428,6 +4428,9 @@
           "fromLine": {
             "type": "string"
           },
+          "lineUnknown": {
+            "type": "string"
+          },
           "manifest": {
             "type": "string"
           },
@@ -4436,6 +4439,9 @@
           },
           "package": {
             "$ref": "#/components/schemas/Package"
+          },
+          "routine": {
+            "type": "boolean"
           },
           "to": {
             "type": "string"

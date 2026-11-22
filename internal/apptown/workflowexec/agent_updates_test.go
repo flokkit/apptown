@@ -735,7 +735,7 @@ func TestRoutineImageRefusalIsAnUnknownCheck(t *testing.T) {
 	updateCommit(t, f.hub, "base image")
 	f.commands.images = testImageReadings{err: errors.New("registry offline")}
 	installFakePi(f, func(_ int, req execution.Request) execution.Outcome {
-		updateWrite(t, req.Workspace, "Dockerfile", "FROM node:24.9-slim@sha256:"+strings.Repeat("a", 64)+"\n")
+		updateWrite(t, req.Workspace, "Dockerfile", "FROM node:24.1.5-slim@sha256:"+strings.Repeat("a", 64)+"\n")
 		updateCommit(t, req.Workspace, "move image")
 		return execution.Outcome{Termination: execution.Exited, Output: piSays("moved image")}
 	})
