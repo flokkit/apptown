@@ -14,7 +14,7 @@ try {
     <select aria-label="Select"><option>Choice</option></select>
     <input aria-label="Inline" style="font-size: var(--fs-xs)">
     <div class="ch-sendback"><textarea aria-label="Send back"></textarea></div>
-    <div class="console"><div class="chat-input"><textarea aria-label="Composer"></textarea></div></div>
+    <div class="console"><div class="composer"><textarea aria-label="Composer"></textarea></div></div>
     <div id="page-spacing" class="evals-note"></div>
     <div id="spacing-slice" class="evals-note mt-2"></div>
     <table class="stack"><tbody><tr><td>Retained table layout</td></tr></tbody></table>
@@ -104,7 +104,7 @@ try {
     <h2>Head <span class="muted" id="muted-in-heading">3</span></h2><strong>Name <span class="muted" id="muted-in-name">#12</span></strong>
     <div id="controls"><button>Go</button><input aria-label="Text"><select aria-label="Select"><option>One</option></select>
       <textarea aria-label="Code"></textarea><textarea class="prose" aria-label="Prose"></textarea><input class="text-code" aria-label="Command"></div>
-    <div class="console"><div class="chat-input"><textarea aria-label="Composer"></textarea></div></div>`)
+    <div class="console"><div class="composer"><textarea aria-label="Composer"></textarea></div></div>`)
   await fontsReady(roles)
   const owned = {
     title: { fontFamily: '--font-heading', fontSize: '--fs-xl', fontWeight: '--fw-strong', lineHeight: '--lh-tight', letterSpacing: '--ls-title', color: '--text' },
@@ -147,7 +147,7 @@ try {
         if (innerWidth <= 800) out.label.elements.push({ name: 'phone value label', value: read(document.querySelector('#phone-label'), owned.label, '::before') })
         const weight = sel => getComputedStyle(document.querySelector(sel)).fontWeight
         const px = (el, prop) => parseFloat(getComputedStyle(el)[prop])
-        const controls = Object.fromEntries([...document.querySelectorAll('#controls > *, .chat-input textarea')].map(el => [el.getAttribute('aria-label') || el.tagName, {
+        const controls = Object.fromEntries([...document.querySelectorAll('#controls > *, .composer textarea')].map(el => [el.getAttribute('aria-label') || el.tagName, {
           family: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight, size: px(el, 'fontSize'), lineHeight: px(el, 'lineHeight'),
         }]))
         return {

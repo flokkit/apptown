@@ -52,15 +52,34 @@ terminal attachment alone does not establish that Pi can accept input.
 
 The chat page fills the space below the topbar at every width without page
 scrolling. On narrow screens it follows the visual viewport, including while
-the keyboard is open. Only the conversation scrolls as messages arrive, and it follows new activity only while the reader is already at the
-bottom. The working indicator and stop button have a reserved row above the
-composer, so pauses between tool calls do not change the conversation's height.
-Tool folds keep their place and open state when the helper's busy state changes.
+the keyboard is open. One bar sits above the conversation: the change's number
+and title (linking to its Overview) or "Project chat", the change's status, the
+helper's activity (working, your turn, checking and landing, or connection lost
+when the conversation's read is not current), the change's verbs (Try it or
+Open, Check and land, or the door to a waiting decision) and a ⋯ menu with the
+chat's facts and less common acts. On the change page's live Conversation tab
+this bar stands for the change: the state panel and tab strip give way to it,
+and the other tabs are in its menu. Notes about the chat (the project chat's
+intro, a lane it continues, a worker's save line, changes it started) are the
+first items of the conversation and scroll away with it.
 
-On phones, the change's state panel, tab strip and chat stack in the available
-viewport. The chat's actions and session menu remain above the conversation;
-only the conversation and bounded history rows scroll, keeping the input
-reachable while the keyboard is open.
+The conversation is drawn as a thread, the same for live and recorded chats:
+the person's words right, the helper's working words small, its answer in a
+bubble, and each run of tool steps as one line naming the newest step (or what
+the run amounted to) and how many steps it holds. Tapping it opens the run's
+steps: a sheet on a phone, the steps column beside the chat on wider screens.
+The column shows every turn's steps, opens by default from 1280 px, and keeps
+each person's choice to close or reopen it. "Show helper actions" lists every
+step inline.
+
+Only the conversation scrolls. It follows new activity of any kind (a message,
+words streaming in, a picture loading, the input growing) only while the
+reader is at the bottom; scrolling up always wins, and growth while up offers
+"New messages below". Showing the conversation again (the change page's tab)
+opens at the newest message. Pictures keep their box before they load. The
+input is one line growing to five; Stop takes Send's place while the helper
+works, and sits beside Send as a square once something is typed. Enter sends
+with a keyboard; on a touch screen Enter adds a line and the button sends.
 
 A chat is not private to the person who opened it.
 Anyone who can read its project may look at it: its conversation, its

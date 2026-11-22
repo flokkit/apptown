@@ -7,13 +7,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
 import { ChatPage } from '../Console'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { LAND_REQUEST, StartedChanges, WorkshopActions } from './ChangeBar'
+import { LAND_REQUEST, StartedChanges, useStartedChanges } from './ChangeBar'
 import { chatStreamOf } from './chatStream.fixture'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0001-7000-8000-000000000000'
-const OTHER = '00000000-0004-7000-8000-000000000000'
 
 
 // The terminal stands still: no canvas, no socket.
@@ -85,9 +83,9 @@ describe("the change a chat works on", () => {
   })
 
   for (const [what, v, shows] of [
-    ['shipped', view('shipped'), 'Shipped to main.'],
+    ['shipped', view('shipped'), 'See the record'],
     ['waiting on a person', view('in progress', 'waiting on you'), 'Review and approve →'],
-    ['in progress', view('in progress'), '✓ Check and land'],
+    ['in progress', view('in progress'), 'Check and land'],
   ] as const) {
     it(`keeps a change ${what} shown under a stale note when its refresh fails`, async () => {
       change = down
@@ -100,18 +98,42 @@ describe("the change a chat works on", () => {
       // saw the note before the list answered, 11 October).
       await vi.waitFor(() => {
         expect([...el.querySelectorAll('.chip.unknown')].some(chip => chip.getAttribute('aria-label')?.includes('(database unavailable)'))).toBe(true)
-        expect(el.textContent).toContain(shows)
-        expect(el.querySelector('.console-head h1')).toBeNull()
+        expect(el.querySelector('.chat-bar')!.textContent).toContain(shows)
       })
+      // The bar names who the change waits on; it never claims the checks
+      // passed, and its doors go to the change's Overview, where the decision is.
+      expect(el.querySelector('.chat-bar')!.textContent).not.toContain('passed')
+      for (const a of el.querySelectorAll<HTMLAnchorElement>('.chat-bar a')) expect(a.getAttribute('href')).toBe(`/changes/${CHANGE}?tab=overview`)
       done()
     })
   }
+
+  // Check and land asks first, in full words, over the input; the bar's
+  // button may say only "Land" on a phone.
+  it('asks to check and land over the input, and hands the request to the helper', async () => {
+    change = () => new Response(JSON.stringify(view('in progress')))
+    const said: string[] = []
+    const answered = globalThis.fetch
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith('/say')) { said.push(JSON.parse(String(init?.body)).text); return new Response('{}') }
+      return answered(url, init)
+    }))
+    const { el, done } = await mount()
+    await vi.waitFor(() => expect(el.querySelector('.chat-bar button.finish')).not.toBeNull())
+    await act(async () => el.querySelector<HTMLButtonElement>('.chat-bar button.finish')!.click())
+    const ask = el.querySelector('.chat-dock .land-confirm')!
+    expect(ask.textContent).toContain('Check and land? Your helper runs every check')
+    await act(async () => [...ask.querySelectorAll('button')].find(b => b.textContent === 'Check and land')!.click())
+    await vi.waitFor(() => expect(said).toEqual([LAND_REQUEST]))
+    done()
+  })
 })
 
 // The changes a chat started are a read like any other: a failed read is
 // not "none", and an old empty answer says it may be old.
 describe('the changes a chat started', () => {
   afterEach(() => vi.unstubAllGlobals())
+  const Started = () => <StartedChanges q={useStartedChanges('s1')} />
   const mount = async (reply: () => Response, seed?: unknown) => {
     vi.stubGlobal('fetch', vi.fn(withFeatures(async () => reply())))
     const client = newQueryClient()
@@ -119,7 +141,7 @@ describe('the changes a chat started', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
-      root.render(<MemoryRouter><QueryClientProvider client={client}><StartedChanges sessionId="s1" /></QueryClientProvider></MemoryRouter>)
+      root.render(<MemoryRouter><QueryClientProvider client={client}><Started /></QueryClientProvider></MemoryRouter>)
     })
     return { el, done: () => { act(() => root.unmount()); client.clear() } }
   }
@@ -139,18 +161,5 @@ describe('the changes a chat started', () => {
     const { el, done } = await mount(down, { changes: [] })
     await vi.waitFor(() => expect([...el.querySelectorAll('.chip.unknown')].some(chip => chip.getAttribute('aria-label')?.includes('(database unavailable)'))).toBe(true))
     done()
-  })
-})
-
-// The bar names who the change waits on; it never claims the checks passed,
-// which a pass with unreadable evidence would make untrue.
-describe('the workshop bar', () => {
-  it('says the change waits for a person without claiming the checks passed', () => {
-    const view = { change: { id: OTHER, number: 4, title: 'Blue cat', state: 'in_progress' }, state: 'waiting on you' } as Parameters<typeof WorkshopActions>[0]['view']
-    const html = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter>
-      <WorkshopActions changeId={OTHER} view={view} robotBusy={false} />
-    </MemoryRouter></QueryClientProvider>)
-    expect(html).toContain('waiting for a person to approve')
-    expect(html).not.toContain('passed')
   })
 })

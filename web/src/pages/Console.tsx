@@ -1,30 +1,33 @@
 import { PreviewBesideChat } from './console/PreviewBesideChat'
 import { EarlierChats } from './change/Conversation'
-import { AgentActionsSwitch, useAgentActions } from '../AgentActions'
+import { useAgentActions } from '../AgentActions'
+import { Switch } from '../Switch'
 import './Console.css'
 import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
-import AgentActivity from '../AgentActivity'
 import { useChatViewport, useNarrow } from '../chrome'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
+import { ChangeStatus } from '../Status'
+import { TryItButton, usePreview, usePreviewBoot } from '../TryIt'
 import type { ConsoleSessionView } from '../wire.gen'
 import { WorkerSaveLine } from './WorkerChat'
-import { Bubbles } from './console/Bubbles'
-import { ChangeFacts, StartedChanges, WorkshopActions } from './console/ChangeBar'
+import { Bubbles, type ChatActivity } from './console/Bubbles'
+import { Activity, type ActivityWord } from './console/Activity'
+import { LandConfirm, StartedChanges, changeFacts, landTitle, useLanding, useStartedChanges, type Landing } from './console/ChangeBar'
 import { useConsoleSession } from './console/useConsoleSession'
 import { useTerminal } from './console/useTerminal'
 import { useTechnicalDetail } from './change/TechnicalDetail'
 
 // The chat page (C1.5): a conversation with the project's helper, and the
 // same session as a real terminal one toggle away. Which chat it shows
-// (useConsoleSession), the terminal (useTerminal), the conversation (Bubbles)
-// and the change it works on (ChangeBar) are each their own part; this page
-// lays them out. Sessions survive disconnects and idle stops (see
-// design/subsystems/console.md §5b).
+// (useConsoleSession), the terminal (useTerminal), the conversation (Bubbles,
+// drawn as a thread) and the change it works on (ChangeBar) are each their
+// own part; this page lays them out: one bar, then the conversation.
+// Sessions survive disconnects and idle stops (design/subsystems/console.md §5b).
 
 // Console is keyed by the chat address, so each address gets its own reading
 // of which chats exist: moving to another change's chat never acts on what
@@ -43,6 +46,10 @@ export default function Console() {
     forcedSession={forced} kickoff={params.get('kickoff') ?? ''} />
 }
 
+// The change page's links, when the chat is its Conversation tab: the bar's
+// title and ⋯ menu are the way to the other tabs.
+export type ChangeNav = { overview: string; code: string; details: string }
+
 // ?kickoff=1 is "Build the first version"; ?kickoff=go is any change whose
 // brief already says what to do (e.g. wiring in an integration); ?kickoff=stuck
 // continues a lane that stopped. ?session=<id> lands on one exact session
@@ -50,10 +57,11 @@ export default function Console() {
 // of the remembered one.
 // shown is false while the change page shows another tab: the chat stays
 // mounted, and coming back follows the newest message like a fresh view.
-export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true }: { slug: string; changeId: string; forcedSession: string; kickoff: string; shown?: boolean }) {
+// history is the change's earlier work records, shown above its earlier chats.
+export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true, nav, history }: { slug: string; changeId: string; forcedSession: string; kickoff: string; shown?: boolean; nav?: ChangeNav; history?: ReactNode }) {
   const { session, list, openErr, appTownInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
-  // The layering principle: bubbles are the story, the terminal is under
-  // the hood. Same pi, same conversation, two zooms — remembered per person.
+  // The layering principle: the conversation is the story, the terminal is
+  // under the hood. Same pi, same conversation, two zooms — remembered per person.
   const [zoom, setZoom] = useState<'chat' | 'terminal'>(
     () => (localStorage.getItem('chat-zoom') === 'terminal' ? 'terminal' : 'chat'))
   // The terminal only shows until the person takes control: a key pressed
@@ -61,9 +69,9 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true 
   // another chat, gives control back.
   const [controlOf, setControlOf] = useState<string | null>(null)
   const setZoomKeep = (z: 'chat' | 'terminal') => { setZoom(z); setControlOf(null); localStorage.setItem('chat-zoom', z) }
-  const [robotBusy, setRobotBusy] = useState(false)
+  const [activity, setActivity] = useState<ChatActivity>({ busy: false, read: 'loading' })
+  const onActivity = useCallback((a: ChatActivity) => setActivity(a), [])
   const [showActions, setShowActions] = useAgentActions()
-  // Context stays inline at both widths.
   const narrow = useNarrow()
   useChatViewport(narrow)
   const [technical] = useTechnicalDetail()
@@ -73,17 +81,17 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true 
   const mayType = !!session?.mayAct && controlOf === session.id && zoom === 'terminal'
   const status = useTerminal(session?.id ?? null, !!session?.mayAct, termRef, zoom === 'terminal', mayType)
 
-  // Two visually distinct kinds of chat:
-  // the project chat (questions, setup, starting work) and the change chat
-  // (where building happens). People were confusing them; the chat says
-  // which it is before a word is typed.
+  // Two kinds of chat: the project chat (questions, setup, starting work)
+  // and the change chat (where building happens). The bar says which.
   const shopId = session?.changeId || changeId
   const isWorkshop = shopId !== ''
-  // The action bar shares the change reading with the surrounding page.
   const change = useGet<ChangeView>(shopId ? `/changes/${shopId}` : null, { poll: 4000 })
   useKickoff(kickoff, slug, changeId, session, status === 'attached', change.data?.change.body)
-  // A change is named by its number, known once the change is read.
+  const landing = useLanding(shopId, change.data ?? null, session?.id)
+  const started = useStartedChanges(session?.id ?? null)
   const shopName = change.data ? `change ${change.data.change.number}` : 'this change'
+  const overview = nav?.overview ?? (shopId ? `/changes/${shopId}?tab=overview` : '')
+
   // A chat that cannot open says why in one line and goes back where the
   // person came from: the change, or the project for its own chat.
   if (!session && openErr) return <div>
@@ -94,117 +102,144 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true 
       {appTownInstead && <button onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button>}
     </p>
   </div>
+
+  // What the helper is doing. A conversation whose read is not current
+  // cannot say whose turn it is: that reads as connection lost.
+  const mayAct = !!session?.mayAct
+  const word: ActivityWord = !session ? 'starting'
+    : mayAct && status !== 'attached' ? 'connecting'
+      : activity.read === 'stale' ? 'connection lost'
+        : activity.read === 'loading' ? 'connecting'
+          : activity.busy ? (landing.stage === 'handed' ? 'checking and landing' : 'working') : 'your turn'
+
+  const showActivity = zoom === 'chat' && (mayAct || word !== 'your turn')
+
+  const notices = <>
+    {/* Which chats exist: until it is read, nothing opens; a chat on the
+        worker's save line already marks this same read when it is old. */}
+    <ReadStatus q={list} what="this project's chats" className="small" />
+    {session?.placement !== 'worker' && <StaleNote q={list} />}
+    {isWorkshop && <><ReadStatus q={change} what={shopName} className="small" /><StaleNote q={change} /></>}
+    {openErr && <div className="error small">
+      {openErr} <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
+      {appTownInstead && <> <button className="subtle" onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button></>}
+    </div>}
+    {session?.cliMissing && <div className="error small">
+      This helper is missing its {PRODUCT} tools (a build problem on the server) · it can chat and edit, but can't preview, start work, or file complaints. The server log says why.
+    </div>}
+    {!shopId && !introSeen && <div className="chat-intro">
+      <span>Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.</span>
+      <button type="button" className="subtle" onClick={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }}>Dismiss</button>
+    </div>}
+    {session?.continuedFrom && <div className="chat-notice">This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.</div>}
+    {/* An unreachable worker leaves this conversation as the last saved copy. */}
+    {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
+    {session && <StartedChanges q={started} />}
+  </>
+
   return (
-    <PreviewBesideChat changeId={changeId}>{previewToggle =>
+    <PreviewBesideChat changeId={changeId}>{(previewToggle, previewShown) =>
     <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
-      <div className="console-controls">
-      {/* One row, three zones (layering: story left, escape hatches right):
-          where am I → what is this chat about → (only if degraded) connection.
-          The robot buddy owns the turn state; plumbing (model, session, reset
-          actions) lives behind ⋯ where those who need it can find it. */}
-      <div className="row console-head mb-2" >
-        {!isWorkshop && <>
-          <h1 className="console-chat-page-h1">Project chat</h1>
-          <span className="badge here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>
-        </>}
-        {/* The change's actions share the head's line: the page is the conversation's. */}
-        {isWorkshop && change.data && zoom === 'chat' && (change.data.change.summary || change.data.report) && <Link className="small" to={`/changes/${change.data.change.id}/records/summary`}>What was made →</Link>}
-        <span className="console-head-space grow" />
-        {previewToggle}
-        {isWorkshop && changeId !== '' && session?.mayAct && zoom === 'chat' && change.data && <span className="console-strip"><WorkshopActions compact changeId={changeId} view={change.data} robotBusy={robotBusy} sessionId={session?.id} /></span>}
-        {session?.mayAct && zoom === 'chat' && (!shopId || status !== 'attached') && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
-        {zoom === 'terminal' && session?.mayAct && (mayType
-          ? <span className="badge here" title="Your keys go to the helper; Escape stops what it is doing.">you have control</span>
-          : <button className="subtle" title="Type into the helper's terminal. Until then it only shows." onClick={() => setControlOf(session.id)}>Take control</button>)}
-        {(!narrow || zoom !== 'chat') && <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
-          {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
-        </button>}
-        <FormMenu className="head-menu" trigger={<button className="subtle" aria-label="Session details and resets">⋯</button>}>
-          <div className="head-menu-card">
-            {change.data && <ChangeFacts view={change.data} />}
-            <div className="muted small console-chat-page-div">
-              {session?.openedBy && <>opened by {session.openedBy}<br /></>}
-              {session?.model || 'default model'}<br />
-              {session?.continuedFrom && <>continuing {session.continuedFrom}<br /></>}
-              {status === 'attached' ? 'connected' : status}
+      <div className="chat-bar">
+        <div className="chat-bar-title">
+          {isWorkshop
+            ? <Link className="chat-title" to={overview} title={change.data?.change.title}>
+              {change.data ? <><span className="num">#{change.data.change.number}</span><span className="name">{change.data.change.title}</span></> : 'This change'}</Link>
+            : <h1 className="chat-title">Project chat</h1>}
+          {!isWorkshop && <span className="chat-kind" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
+          {/* One status: what the helper is doing, with the change's state as
+              the dot's colour. "your turn" is the chat owner's: someone looking
+              sees where the change stands instead. */}
+          {(showActivity || change.data) && <Activity word={showActivity ? word : null} change={change.data?.waitingOn} />}
+        </div>
+        {zoom === 'chat' && mayAct && isWorkshop && change.data && <BarVerbs changeId={shopId} landing={landing} busy={activity.busy} overview={overview} />}
+        {zoom === 'terminal' && mayAct && (mayType
+          ? <span className="chat-kind" title="Your keys go to the helper; Escape stops what it is doing.">you have control</span>
+          : <button type="button" className="bar-btn" title="Type into the helper's terminal. Until then it only shows." onClick={() => setControlOf(session!.id)}>Take control</button>)}
+        <button type="button" disabled={!session} className={'bar-btn' + (zoom === 'chat' ? ' bar-wide' : '')} onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
+          {zoom === 'chat' ? 'Terminal' : '← back to the chat'}
+        </button>
+        <FormMenu className="chat-menu" title={isWorkshop && change.data ? `Change ${change.data.change.number}` : 'This chat'}
+          trigger={<button type="button" className="bar-icon" aria-label="Chat details and actions">⋯</button>}>
+          <div className="chat-menu-card">
+            <dl className="chat-facts">
+              {change.data && <><dt>status</dt><dd><ChangeStatus waiting={change.data.waitingOn} /></dd><dt>so far</dt><dd>{changeFacts(change.data)}</dd></>}
+              {isWorkshop && <PreviewFact changeId={shopId} />}
+              {session?.openedBy && <><dt>opened by</dt><dd>{session.openedBy}</dd></>}
+              <dt>model</dt><dd>{session?.model || 'default model'}</dd>
+              {session?.continuedFrom && <><dt>continuing</dt><dd>{session.continuedFrom}</dd></>}
+              <dt>connection</dt><dd>{status === 'attached' ? 'connected' : status}</dd>
               {/* The session id is what `apptown wait-chat` takes: for
                   diagnosis, so it shows with the technical switch. */}
-              {session && technical && <><br /><span className="mono">session {session.id}</span></>}
-            </div>
-            {/* A remembered way of reading the chat, not something to flip
-                mid-conversation: it lives here, not above the input. */}
-            {zoom === 'chat' && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
-            {narrow && zoom === 'chat' && <button className="subtle" disabled={!session} onClick={() => setZoomKeep('terminal')}>Open terminal</button>}
-            {session?.mayAct && <>
-              <button className="subtle" onClick={startFresh}>↺ Start fresh</button>
-              <button className="subtle danger" onClick={() => void end()}>End chat</button>
+              {session && technical && <><dt>session</dt><dd className="mono">{session.id}</dd></>}
+            </dl>
+            {change.data && (change.data.change.summary || change.data.report) && <Link to={`/changes/${change.data.change.id}/records/summary`}>What was made →</Link>}
+            {(started.data?.changes ?? []).map((c) => <Link key={c.changeId} to={`/changes/${c.changeId}`}>{c.title} <span className="muted small">{c.stateLabel}</span></Link>)}
+            {nav && <><Link to={nav.overview}>Overview</Link><Link to={nav.code}>Code</Link><Link to={nav.details}>Details</Link></>}
+            {zoom === 'chat' && <div className="chat-menu-switch">Show helper actions<Switch label="Show helper actions" checked={showActions} onChange={setShowActions} /></div>}
+            {zoom === 'chat' && previewToggle && <div className="chat-menu-switch">Preview beside chat{previewToggle}</div>}
+            <button type="button" className="subtle" disabled={!session} onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>{zoom === 'chat' ? 'Open terminal' : '← back to the chat'}</button>
+            {mayAct && isWorkshop && <RestartPreview changeId={shopId} />}
+            {mayAct && <>
+              <button type="button" className="subtle" onClick={startFresh}>↺ Start fresh</button>
+              <button type="button" className="subtle danger" onClick={() => void end()}>End chat</button>
             </>}
           </div>
         </FormMenu>
       </div>
-      {/* Which chats exist: until it is read, nothing opens; a chat on the
-          worker's save line already marks this same read when it is old. */}
-      <ReadStatus q={list} what="this project's chats" />
-      {session?.placement !== 'worker' && <StaleNote q={list} />}
-      {isWorkshop && (
-        <div className="console-actions">
-          <ReadStatus q={change} what={shopName} />
-          <StaleNote q={change} />
-        </div>
-      )}
-      {openErr && (
-        <div className="error">
-          {openErr}
-          <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
-      {appTownInstead && (
-            <> <button className="subtle" onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button></>
-          )}
-        </div>
-      )}
-      {session?.cliMissing && (
-        <div className="error">
-          This helper is missing its {PRODUCT} tools (a build problem on the
-          server) · it can chat and edit, but can't preview, start work, or
-          file complaints. The server log says why.
-        </div>
-      )}
-      {/* Keep context, the worker's saved-copy warning and started changes visible. */}
-      <div className="console-extra console-secondary">
-        {((!shopId && !introSeen) || session?.continuedFrom) && (
-          <div>
-            <section className="console-about">
-              {!shopId && <h3 className="small">About this chat</h3>}
-              {!shopId && !introSeen && <ChatIntro slug={slug}
-                onDismiss={() => { localStorage.setItem(introKey, '1'); setIntroSeen(true) }} />}
-              {session?.continuedFrom && (
-                <div className="muted small mb-2" >
-                  This chat continues {session.continuedFrom}: it remembers what it did in the lane. That earlier work is on the change page.
-                </div>
-              )}
-            </section>
-          </div>
-        )}
-      </div>
-      </div>
-      <div className="console-extra">
-        {/* An unreachable worker leaves this conversation as the last saved copy. */}
-        {session?.changeId ? <WorkerSaveLine slug={slug} session={session} /> : null}
-        {session && <StartedChanges sessionId={session.id} />}
-      </div>
-      <Bubbles before={shopId ? <EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /> : undefined} hidden={zoom !== 'chat' || !shown} sessionId={session?.id ?? null} attached={status === 'attached'}
-          starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onBusy={setRobotBusy}
-          readOnly={!session || session.mayAct ? undefined : session.openedBy}
-          starters={shopId ? undefined : [
-            // The project chat's three jobs, as things you could say (the
-            // empty page's next action, design/subsystems/ui-coherence.md).
-            'What does this project do right now?',
-            'I want to change something',
-            'Set up a database for it',
-          ]} />
+      <Bubbles before={shopId ? <>{history}<EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /></> : undefined}
+        hidden={zoom !== 'chat' || !shown} sessionId={session?.id ?? null} attached={status === 'attached'}
+        starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onActivity={onActivity}
+        readOnly={!session || session.mayAct ? undefined : session.openedBy}
+        notices={notices} noColumn={previewShown}
+        dockTop={isWorkshop && mayAct ? <LandConfirm landing={landing} hasChat={!!session} /> : undefined}
+        columnFacts={change.data ? changeFacts(change.data) : undefined}
+        starters={shopId ? undefined : [
+          // The project chat's three jobs, as things you could say (the
+          // empty page's next action, design/subsystems/ui-coherence.md).
+          'What does this project do right now?',
+          'I want to change something',
+          'Set up a database for it',
+        ]} />
       <div className={`console-term${zoom === 'terminal' ? '' : ' console-term-offscreen'}`} ref={termRef} />
     </div>
     }</PreviewBesideChat>
   )
+}
+
+// BarVerbs are the change's verbs in the bar: see it (Try it / Open) and
+// ship it (Check and land, "Land" on a phone). When the change waits on the
+// person the same place is the door to that decision; once the helper has
+// the request, the activity says so instead.
+function BarVerbs({ changeId, landing, busy, overview }: { changeId: string; landing: Landing; busy: boolean; overview: string }) {
+  switch (landing.stage) {
+    case 'shipped': return <Link className="bar-btn" to={overview}>See the record</Link>
+    case 'review': return <Link className="bar-btn finish" to={overview}><span className="long">Review and approve →</span><span className="short">Approve →</span></Link>
+    case 'landing': return <Link className="bar-btn" to={overview} title="Nothing goes live until it is approved."><span className="long">The checks are running →</span><span className="short">Checks →</span></Link>
+    case 'handed': return null
+    default: return <>
+      <TryItButton changeId={changeId} className="bar-btn primary" />
+      <button type="button" className="bar-btn finish" disabled={busy} title={landTitle(busy)} onClick={landing.ask}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        <span className="long">Check and land</span><span className="short">Land</span>
+      </button>
+    </>
+  }
+}
+
+// The preview's state in the ⋯ menu: why it failed, or what it was built from.
+function PreviewFact({ changeId }: { changeId: string }) {
+  const st = usePreview(changeId).data
+  if (!st) return null
+  const words = st.state === 'broken' ? `failed: ${st.reason ?? ''}` : st.state === 'unavailable' ? `not known: ${st.reason ?? ''}`
+    : st.state === 'live' ? 'running' : st.state === 'none' ? 'nothing to try yet' : st.state === 'starting' ? 'starting' : 'not started'
+  return <><dt>preview</dt><dd>{words}</dd></>
+}
+
+function RestartPreview({ changeId }: { changeId: string }) {
+  const { state, restart } = usePreviewBoot(changeId)
+  if (state !== 'live') return null
+  return <button type="button" className="subtle" title="Stop the preview and start it again from the current files" onClick={() => void restart()}>Restart preview</button>
 }
 
 // "Build the first version" arrives with ?kickoff=1: send the opening
@@ -231,20 +266,6 @@ function useKickoff(kickoff: string, slug: string, changeId: string, session: Co
     const text = kickoffText(kickoff, request)
     post(`/console/${session.id}/say`, { text }).catch(() => localStorage.removeItem(guard))
   }, [kickoff, session, attached, changeId, slug, request])
-}
-
-// The project chat's one-card answer to "what happens here?": nothing is
-// built in it; the helper opens a change. Dismissible per project. A change
-// chat has none: its box says what to do, and the change shows the rest.
-function ChatIntro({ slug, onDismiss }: { slug: string; onDismiss: () => void }) {
-  return (
-    <div className="card row tone-accent mb-2" >
-      <span className="small grow console-chat-intro-span">
-        Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.
-      </span>
-      <button className="subtle" onClick={onDismiss}>Dismiss</button>
-    </div>
-  )
 }
 
 // Count real elapsed seconds without motion or guessed progress.

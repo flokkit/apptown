@@ -1,123 +1,60 @@
-import './Bubbles.css'
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { post } from '../../api'
-import { useNarrow } from '../../chrome'
 import { useFollow } from '../../data'
-import { renderMd } from '../../md'
-import { pastedPictures } from '../../pictures'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { ToolFold, foldTools, useAgentActions } from '../../AgentActions'
-export { foldTools, toolSummary } from '../../AgentActions'
-import type { ChatUpload, ConsoleStreamUpdate } from '../../wire.gen'
+import { useAgentActions } from '../../AgentActions'
+import { Activity } from './Activity'
+import type { ChatUpload, ConsoleStreamUpdate, Message } from '../../wire.gen'
+import { Composer, type DraftFile } from './Composer'
+import { StepsColumn, StepsSheet, Thread, useStepsColumn } from './Thread'
+import { toThread, type RunPart } from './threadModel'
+import { useStickToEnd } from './useStickToEnd'
 
-// ---- the bubble surface ----------------------------------------------------
-// A projection of pi's own session record: user words right, helper words
-// left, tool use as quiet chips. The terminal (one toggle away) is the same
-// conversation at forensic zoom — nothing exists only here.
+// ---- the conversation ------------------------------------------------------
+// A projection of pi's own session record, drawn as a thread (Thread.tsx):
+// your words right, the helper's left, each run of steps one pill. The
+// terminal (one toggle away) is the same conversation at forensic zoom —
+// nothing exists only here.
 
-
-// The mark on AppTown's own check messages in a chat, either spelling.
-const CHECK_MARK = /^\[(?:apptown|forge) check\]/
-const BUTTON_MARK = /^\[apptown button: ([^\]]+)\]/
-type DraftFile = { file: File; name: string; path: string; thumb: string }
-
-export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string; done?: boolean }[]; error?: boolean; stopped?: boolean }
+export type Bubble = Message & { role: 'you' | 'helper' }
 
 // The chat as its stream has told it: the record's messages, the message
 // the helper is writing (its draft, until the record holds it), and whose
 // turn it is. The cursor is what the reader holds, to resume from.
-export type ChatRecord = { messages: Bubble[]; draft: Bubble | null; turn: string; cursor: string }
+export type ChatRecord = { messages: Message[]; draft: Message | null; turn: string; cursor: string }
 
 // foldChat applies one update of the chat's stream: the messages from
 // `from` on replace what is held from there (0 replaces everything); the
-// messages before it keep their identity, so their bubbles are not drawn
+// messages before it keep their identity, so their turns are not drawn
 // again.
 export function foldChat(held: ChatRecord | null, u: ConsoleStreamUpdate): ChatRecord {
   const kept = (held?.messages ?? []).slice(0, u.from)
-  return { messages: kept.concat(u.messages as Bubble[]), draft: (u.draft as Bubble | null) ?? null, turn: u.turn, cursor: u.cursor }
+  return { messages: kept.concat(u.messages), draft: u.draft ?? null, turn: u.turn, cursor: u.cursor }
 }
 const chatCursor = (held: ChatRecord) => held.cursor
-const NO_MESSAGES: Bubble[] = []
-
-const isCheck = (x?: Bubble) => !!x && x.role === 'you' && !!x.text && CHECK_MARK.test(x.text)
-
-// BubbleRow is one message as a bubble. It is drawn again only when its
-// message or place changes, so the words streaming into the last bubble do
-// not redraw the whole conversation and its markdown.
-const BubbleRow = memo(function BubbleRow({ m, isFinal, isWorking, showActions, sessionId }: { m: Bubble; isFinal: boolean; isWorking: boolean; showActions: boolean; sessionId: string | null }) {
-  if (m.stopped) {
-    return (
-      <div className="bubble-row">
-        <div className="bubble bubbles-bubble">
-          <div className="small bubbles-div-3">⏹ stopped by you</div>
-          <div className="bubbles-div-4">{m.text}</div>
-        </div>
-      </div>
-    )
-  }
-  if (m.error) {
-    return (
-      <div className="bubble-row">
-        <div className="bubble error">
-          <div className="small bubbles-div-3">⚠ the helper stopped</div>
-          <div className="bubbles-div-4">{m.text}</div>
-        </div>
-      </div>
-    )
-  }
-  const button = m.role === 'you' && m.text?.match(BUTTON_MARK)
-  if (button) return <div className="bubble-row"><div className="bubble check">
-    <div>{button[1]}</div>
-    <div className="small muted bubbles-div-4">{m.text!.slice(button[0].length).trim()}</div>
-  </div></div>
-  if (isCheck(m)) {
-    return (
-      <div className="bubble-row">
-        <div className="bubble check">
-          <div className="small bubbles-div-3">⚙ Boot check: the app did not start</div>
-          <div className="bubbles-div-4">{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
-        </div>
-      </div>
-    )
-  }
-  if (!m.text && m.tools?.length) return <ToolFold key={String(showActions)} tools={m.tools} show={showActions} />
-  return (
-    <div className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
-      <div className={'bubble' + (m.role === 'you' ? ' you' : isFinal ? ' final' : '') + (isWorking ? ' working' : '')}>
-        {(m.tools?.length ?? 0) > 0 && <ToolFold key={String(showActions)} tools={m.tools!} show={showActions} />}
-        {m.text && (m.role === 'helper'
-          ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
-          : (() => {
-            // A pasted picture travels as "(I pasted a picture —
-            // look at /console/uploads/picture-N.png)"; show the
-            // picture itself, not the plumbing sentence.
-            const { names, files, display } = pastedPictures(m.text)
-            return (
-              <div>
-                {display && <div className="bubbles-div-4">{display}</div>}
-                {files.map((f) => <div key={f.name}><a href={`/api/v1/console/${sessionId}/uploads/${f.name}`} download>{f.name}</a> ({f.size} bytes)</div>)}
-                {names.map((n) => (
-                  <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
-                    style={{ marginTop: display ? 6 : 0 }} className="bubbles-img" />
-                ))}
-              </div>
-            )
-          })())}
-      </div>
-    </div>
-  )
-})
+const NO_MESSAGES: Message[] = []
 
 // retired says the record holds the message just sent: any "you" message at
 // or after the count the record had when it was sent. Text is never compared
 // (the terminal path may normalise it).
-export function retired(sent: { at: number } | null, msgs: Bubble[]): boolean {
+export function retired(sent: { at: number } | null, msgs: Message[]): boolean {
   return !!sent && msgs.some((m, i) => m.role === 'you' && i >= sent.at)
 }
 
+// What the bar says about the helper: working, your turn, or that the
+// conversation's read is not current (then nobody can say whose turn it is).
+export type ChatActivity = { busy: boolean; read: 'loading' | 'current' | 'stale' }
+
 // readOnly names whose chat it is when the reader may look but not act:
 // the conversation shows, the ways to act on it do not.
-export function Bubbles({ sessionId, attached = true, starting, hidden = false, onBusy, onHasMessages, footer, starters, readOnly, before }: { before?: React.ReactNode; sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean; onHasMessages?: (hasMessages: boolean) => void; onBusy?: (b: boolean) => void; footer?: React.ReactNode; starters?: string[]; readOnly?: string }) {
+// notices sit at the top of the conversation and scroll away with it;
+// dockTop sits over the input (the check-and-land confirmation).
+export function Bubbles({ sessionId, attached = true, starting, hidden = false, onActivity, starters, readOnly, before, notices, dockTop, columnFacts, noColumn = false }: {
+  noColumn?: boolean
+  sessionId: string | null; attached?: boolean; starting?: React.ReactNode; hidden?: boolean
+  onActivity?: (a: ChatActivity) => void; starters?: string[]; readOnly?: string
+  before?: React.ReactNode; notices?: React.ReactNode; dockTop?: React.ReactNode; columnFacts?: React.ReactNode
+}) {
   // The conversation is the record's answer; the only local message is the
   // queued message and the one just sent, until the record holds it.
   const [sent, setSent] = useState<{ text: string; at: number } | null>(null)
@@ -125,34 +62,22 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   const [queued, setQueued] = useState('')
   const queuedRef = useRef('')
   const previousSession = useRef(sessionId)
-  useEffect(() => {
-    if (previousSession.current && previousSession.current !== sessionId) {
-      queuedRef.current = ''; queuedImages.current = []; setQueued(''); setText(''); setSent(null); setImages([]); setSendErr('')
-    }
-    previousSession.current = sessionId
-  }, [sessionId])
-  const narrow = useNarrow()
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  // Measure wrapping and pasted text too; the CSS cap leaves long drafts scrollable.
-  useEffect(() => {
-    const input = inputRef.current
-    if (!input) return
-    if (!narrow) { input.style.height = 'auto'; return }
-    const fit = () => { input.style.height = 'auto'; input.style.height = `${input.scrollHeight + 2}px` }
-    fit()
-    const observer = new ResizeObserver(fit)
-    observer.observe(input)
-    return () => observer.disconnect()
-  }, [narrow, text])
   const [sendErr, setSendErr] = useState('')
+  const [stopErr, setStopErr] = useState('')
   // Pasted pictures waiting to go with the next message: server path + a
   // local thumbnail. Before a session exists, delivery uploads the picture.
   const [images, setImages] = useState<DraftFile[]>([])
   const queuedImages = useRef<DraftFile[]>([])
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const stick = useRef(true) // autoscroll unless the reader scrolled up
+  // Which run's steps are shown (the sheet, or the column's mark): the
+  // displayed chat's, so they reset with it.
+  const [picked, setPicked] = useState<{ key: string; sheet: boolean } | null>(null)
+  useEffect(() => {
+    if (previousSession.current && previousSession.current !== sessionId) {
+      queuedRef.current = ''; queuedImages.current = []; setQueued(''); setText(''); setSent(null); setImages([]); setSendErr(''); setPicked(null)
+    }
+    previousSession.current = sessionId
+  }, [sessionId])
 
-  const fileInput = useRef<HTMLInputElement>(null)
   const previewURLs = useRef<string[]>([])
   useEffect(() => () => { previewURLs.current.forEach((url) => URL.revokeObjectURL(url)) }, [])
   const addFiles = (files: File[]) => {
@@ -167,10 +92,6 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     })
     setImages((cur) => [...cur, ...added])
   }
-  const onPaste = (e: React.ClipboardEvent) => {
-    const files = Array.from(e.clipboardData.files)
-    if (files.length) { e.preventDefault(); addFiles(files) }
-  }
 
   // The chat streams: words as the helper writes them, the record's
   // messages as pi records them (console.md, "Following a chat").
@@ -178,9 +99,6 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   const msgs = record.data?.messages ?? NO_MESSAGES
   const draft = record.data?.draft ?? null
   const pending = retired(sent, msgs) ? null : sent?.text ?? null
-  const hasMessages = msgs.length > 0 || pending !== null || !!queued
-  useEffect(() => { onHasMessages?.(hasMessages) }, [hasMessages, onHasMessages])
-  const [stopErr, setStopErr] = useState('')
 
   // /say waits for pi's input readiness, just as it does for kickoff.
   // Consume the queue before starting the request: effect replays and terminal
@@ -224,141 +142,84 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
       setQueued(queuedRef.current || '(File)')
     } else void deliver(t, images)
   }
+  const stop = () => {
+    setStopErr('')
+    post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`))
+  }
 
   const [showActions] = useAgentActions()
-  const shown = useMemo(() => {
-    const all = draft ? [...msgs, draft] : msgs
-    return showActions ? all : foldTools(all)
-  }, [msgs, draft, showActions])
   // Whose turn it is is the server's reading of the record: the helper has
-  // handed back only when its last message is words with no tool call (or
-  // failed) and the record has been quiet. Read from the bubbles alone,
-  // "Let me create it now:" with its command still running looked finished.
-  const helperBusy = pending !== null || (msgs.length > 0 && record.data?.turn !== 'handed-back')
-  useEffect(() => { onBusy?.(!!helperBusy) }, [helperBusy, onBusy])
-  useEffect(() => {
-    const box = scrollRef.current
-    // Only the conversation moves. Scrolling a descendant into view also
-    // pans Safari's page, leaving the head behind and space below the input.
-    if (box && stick.current) box.scrollTop = box.scrollHeight
-  }, [record.data?.messages, draft, pending, queued, showActions, hidden])
+  // handed back only when pi said its turn settled. Read from the messages
+  // alone, "Let me create it now:" with its command still running looked
+  // finished.
+  const handedBack = record.data?.turn === 'handed-back'
+  const turns = useMemo(() => toThread(msgs, draft, handedBack), [msgs, draft, handedBack])
+  const helperBusy = pending !== null || (msgs.length > 0 && !handedBack)
+  const read = record.data ? (record.refreshFailed ? 'stale' : 'current') : record.err ? 'stale' : 'loading'
+  useEffect(() => { onActivity?.({ busy: helperBusy, read }) }, [helperBusy, read, onActivity])
 
-  // History shown above the live messages can arrive after them; it grows the
-  // scroller, so keep a reader who has not scrolled up at the bottom.
-  const beforeRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = beforeRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const watch = new ResizeObserver(() => { const box = scrollRef.current; if (box && stick.current) box.scrollTop = box.scrollHeight })
-    watch.observe(el)
-    return () => watch.disconnect()
+  const pictures = useCallback((name: string) => `/api/v1/console/${sessionId}/uploads/${name}`, [sessionId])
+  const column = useStepsColumn()
+  // The column opens only where there is one: on a phone, or while the
+  // preview stands beside the chat, the run opens as a sheet.
+  const columnNow = useRef({ ...column, room: column.room && !noColumn })
+  columnNow.current = { ...column, room: column.room && !noColumn }
+  const onPill = useCallback((run: RunPart) => {
+    if (columnNow.current.room) { columnNow.current.open(); setPicked({ key: run.key, sheet: false }) }
+    else setPicked({ key: run.key, sheet: true })
   }, [])
+  // The sheet follows its run as it grows: it is looked up in the newest turns.
+  const sheetTurn = picked?.sheet ? turns.find((t) => t.parts.some((p) => p.key === picked.key)) : undefined
+  const sheetRun = sheetTurn?.parts.find((p): p is RunPart => p.key === picked?.key && p.kind === 'run')
 
-  const working = <>
-    <span className="small robot-busy bubbles-robot-busy">Working…</span>
-    {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
-      onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
-      ⏹ stop
-    </button>}
-  </>
+  const closeSheet = useCallback(() => setPicked(null), [])
+  const scroller = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const { cue, toEnd } = useStickToEnd(scroller, content, !hidden)
+
+  const empty = !!record.data && msgs.length === 0 && !draft && !pending && !queued
   return (
-    <div className="chat-pane" hidden={hidden}>
-      <div
-        ref={scrollRef}
-        onScroll={(e) => {
-          const el = e.currentTarget
-          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-        }}
-        className="chat-scroll grow bubbles-chat-scroll">
-        {before && <div ref={beforeRef}>{before}</div>}
-        {starting}
-        {(!starting || !record.loading) && <ReadStatus q={record} what="the conversation" className="small" />}
-        <StaleNote q={record} />
-        {record.data && msgs.length === 0 && !pending && (
-          <div className="muted bubbles-div">
-            {readOnly === undefined && starters && starters.length > 0 && (
-              <div className="row bubbles-div-2">
-                {starters.map((st) => (
-                  <button key={st} className="subtle chat-starter"
-                    onClick={() => setText(st)}>{st}</button>
-                ))}
-              </div>
-            )}
+    <div className="chat-body" hidden={hidden}>
+      <div className="chat-pane">
+        <div className="chat-scroll-wrap">
+        <div ref={scroller} className="chat-scroll">
+          <div ref={content} className="chat-feed">
+            {before}
+            {notices}
+            {starting}
+            {(!starting || !record.loading) && <ReadStatus q={record} what="the conversation" className="small" />}
+            {empty && readOnly === undefined && starters && starters.length > 0 && <div className="starters">
+              {starters.map((st) => <button key={st} type="button" onClick={() => setText(st)}>{st}</button>)}
+            </div>}
+            <Thread turns={turns} pictures={pictures} showActions={showActions} onPill={onPill}
+              selectedRun={column.shown && picked && !picked.sheet ? picked.key : undefined} />
+            {queued && <section className="turn"><div className="ask pending"><div className="ask-t">{queued}</div>
+              <div className="queued">will send when your helper is ready</div></div></section>}
+            {pending && <section className="turn"><div className="ask pending"><div className="ask-t">{pending}</div></div></section>}
           </div>
-        )}
-        {shown.map((m, idx) => {
-          // Levels of detail from STRUCTURE, not model steering: within a
-          // helper turn, a text message followed by more helper activity is
-          // working-it-out (dim); the message where the helper stops and
-          // hands back is the answer (green). Position in the record decides.
-          // A [apptown check] message is AppTown itself reporting a failed
-          // cold boot into the chat — it renders as AppTown, not the
-          // operator, and it CANCELS the green on the claim before it.
-          // Chats from before the AppTown rename keep their "[forge check]"
-          // messages as written; both read as AppTown's own. A draft (the
-          // helper still writing) is never the answer yet.
-          const next = shown[idx + 1]
-          const isFinal = m.role === 'helper' && !!m.text && m !== draft && (!next || (next.role === 'you' && !isCheck(next)))
-          const isWorking = m.role === 'helper' && !isFinal && !isCheck(m)
-          // The draft's index is the one its message takes once recorded,
-          // so the bubble stays in place as the record catches up.
-          return <BubbleRow key={m.i} m={m} isFinal={isFinal} isWorking={isWorking} showActions={showActions} sessionId={sessionId} />
-        })}
-        {queued && <div className="bubble-row you">
-          <div className="bubble you pending bubbles-div-4">{queued}
-            <div className="small">will send when your helper is ready</div>
-          </div>
-        </div>}
-        {pending && (
-          <div className="bubble-row you">
-            <div className="bubble you pending">{pending}</div>
-          </div>
-        )}
-        {stopErr && <div className="error small">{stopErr}</div>}
+        </div>
+        {cue && <button type="button" className="chat-cue" onClick={toEnd}>
+          {cue === 'new' ? 'New messages below' : 'Newest'}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
+        </button>}
+        </div>
+        <div className="chat-dock">
+          <StaleNote q={record} className="chat-stale" />
+          {stopErr && <div className="error small chat-err">{stopErr}</div>}
+          {sendErr && <div className="error small chat-err">{sendErr}</div>}
+          {readOnly !== undefined
+            ? <div className="chat-readonly">
+              {helperBusy && !starting && <Activity word="working" />}
+              <span>Viewing only: this is {readOnly || 'someone else'}’s chat. Saying something to this chat needs the Project contributor role.</span>
+            </div>
+            : <Composer text={text} onText={setText} files={images} onAddFiles={addFiles}
+              onRemoveFile={(i) => setImages(images.filter((_, j) => j !== i))}
+              onSend={send} onStop={sessionId ? stop : undefined} busy={helperBusy && !starting} top={dockTop} />}
+        </div>
       </div>
-      {/* Keep this slot for the session, including pauses between tool calls.
-          Visibility preserves its height without offering an idle stop button. */}
-      {/* While the helper works, Working… and stop sit in the input's own
-          row (or alone, for a viewer), so they take no row of their own. */}
-      {readOnly !== undefined && <div className="row chat-working" hidden={!helperBusy || !!starting}>{working}</div>}
-      {footer}
-      {sendErr && <div className="error">{sendErr}</div>}
-      {images.length > 0 && (
-        <div className="row mt-2 bubbles-div-5">
-          {images.map((im, i) => (
-            <span key={`${im.path}-${i}`} className="bubbles-span">
-              {im.thumb ? <img src={im.thumb} alt="picture to send" className="bubbles-img-2" /> : <span>{im.name} ({im.file.size} bytes)</span>}
-              <button onClick={() => setImages(images.filter((_, j) => j !== i))}
-                title="don't send this file" aria-label="don't send this file"
-                 className="bubbles-button">×</button>
-            </span>
-          ))}
-          <span className="muted small">going with your next message</span>
-        </div>
-      )}
-      {readOnly !== undefined ? (
-        <div className="muted small chat-readonly mt-2" >
-          Viewing only: this is {readOnly || 'someone else'}’s chat. Saying something to this chat needs the
-          Project contributor role.
-        </div>
-      ) : <div className="row chat-input mt-2"
-        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}
-        onDrop={(e) => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)) }}>
-        <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
-        <textarea
-          ref={inputRef}
-          rows={narrow ? 2 : 1}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onPaste={onPaste}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-          placeholder="Say what to change. Attach, drop or paste files."
-          aria-label="your message"
-        />
-        <span className="row chat-working" hidden={!helperBusy || !!starting}>{working}</span>
-        <button type="button" className="subtle chat-attach" aria-label="Attach files" title="Attach files" onClick={() => fileInput.current?.click()}>📎</button>
-        <button className="primary" onClick={send} disabled={!text.trim() && images.length === 0}>Send</button>
-      </div>}
+      {column.shown && !noColumn && <StepsColumn turns={turns} selected={picked && !picked.sheet ? picked.key : undefined} facts={columnFacts}
+        onClose={() => { column.close(); setPicked(null) }} />}
+      {sheetRun && sheetTurn && <StepsSheet run={sheetRun} turn={sheetTurn} onClose={closeSheet} />}
     </div>
   )
 }

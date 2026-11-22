@@ -7,17 +7,12 @@ import { useState } from 'react'
 import { ChangeState, ChangeView, Doing, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { TryIt } from '../../TryIt'
 
-// What a change chat shows of its change: the bar of its three verbs, the
-// change's status card, and the changes a chat started. The bar and the card
-// take the change as the page read it; the page shows that read's status.
+// What a change chat shows of its change: its land verb (in the chat bar)
+// and the confirmation over the input, its facts (in the ⋯ menu), and the
+// changes a chat started. They take the change as the page read it; the
+// page shows that read's status.
 
-// WorkshopActions: the workshop's three verbs as one bar of equal,
-// big buttons right under the header — see it (Try it), inspect it (Go to
-// change), ship it (Check and land, the same words as on the change page).
-// Check and land waits for the robot: checks run on the work, not on the
-// middle of it.
 // The message Check and land hands to the in-session agent — the SAME thing as
 // typing "check and land it" in the chat, so the button and the sentence share
 // one code path and can't diverge. It names the button the person pressed and
@@ -29,131 +24,65 @@ export const LAND_REQUEST =
   'anything with a clear fix, then land it and follow it through. If something needs a ' +
   'decision only I can make, stop and ask me.'
 
-// compact is the chat's strip: ordinary-size buttons, and no Go to change,
-// since the chat's title links to the change.
-export function WorkshopActions({ changeId, view, robotBusy, sessionId, hideRestart = false, compact = false }: { changeId: string; view: ChangeView; robotBusy: boolean; sessionId?: string; hideRestart?: boolean; compact?: boolean }) {
+// Where the change's landing stands, for the bar: the bar knows where the
+// change is at, so it points at the NEXT action. When AppTown needs the
+// person, the loudest thing on screen is the door to the decision.
+export type LandStage = 'ready' | 'confirm' | 'handed' | 'landing' | 'review' | 'shipped'
+
+export function useLanding(changeId: string, view: ChangeView | null, sessionId?: string) {
   const [confirming, setConfirming] = useState(false)
   const [landed, setLanded] = useState(false)
   const [handed, setHanded] = useState(false)
-  const { run, busy: landBusy, err } = useAction()
-  // The bar knows where the change is at, so it can point at the NEXT action:
-  // when AppTown needs the person,
-  // the loudest thing on screen is the door to the decision.
-  // The page reads the change once for this bar and ChangeContext, and says
-  // there whether that read is old; the bar shows only on an answer.
-  const changeState: ChangeState = view.change.state
-  const doing: Doing | '' = view.state ?? ''
+  const { run, busy, err } = useAction()
+  const changeState: ChangeState | undefined = view?.change.state
+  const doing: Doing | '' = view?.state ?? ''
+  const stage: LandStage = changeState === 'shipped' ? 'shipped'
+    : doing === 'waiting on you' ? 'review'
+      : handed && changeState !== 'landing' ? 'handed'
+        : landed || changeState === 'landing' ? 'landing'
+          : confirming ? 'confirm' : 'ready'
   const land = async () => {
     // With a live chat, hand the land to the agent (it runs the full checks,
     // fixes what it can, and escalates real decisions) — the same as asking it
-    // in the chat. Without one, fall back to the headless land workflow.
+    // in the chat. Without one, the headless land workflow.
     const done = await run(async () => {
       if (sessionId) await post(`/console/${sessionId}/say`, { text: LAND_REQUEST })
       else await post(`/changes/${changeId}/land`, {})
       return true
     })
-    if (!done) { setConfirming(false); return }
+    setConfirming(false)
+    if (!done) return
     if (sessionId) setHanded(true)
     else setLanded(true)
   }
-  if (changeState === 'shipped') {
-    return (
-      <div className="workshop-actions">
-        <span className="small"><strong>Shipped to main.</strong></span>
-        <Link to={`/changes/${changeId}`}><button>See the record</button></Link>
-      </div>
-    )
-  }
-  if (doing === 'waiting on you') {
-    return (
-      <div className="workshop-actions">
-        <Link to={`/changes/${changeId}`}>
-          <button className="finish robot-busy">Review and approve →</button>
-        </Link>
-        <span className="small">waiting for a person to approve</span>
-      </div>
-    )
-  }
-  if (handed && changeState !== 'landing') {
-    return (
-      <div className="workshop-actions">
-        <span className="small"><strong>Your helper has the request to check and land</strong> — it runs the checks, fixes what it can, then starts the landing. Follow along in the chat below; it stops and asks if it needs a decision.</span>
-      </div>
-    )
-  }
-  if (landed || changeState === 'landing') {
-    return (
-      <div className="workshop-actions">
-        <span className="small">The checks are running · <Link to={`/changes/${changeId}`}>watch them here</Link>. Nothing goes live until it is approved.</span>
-      </div>
-    )
-  }
-  return (
-    <div className="workshop-actions">
-      {!confirming ? (
-        <>
-          <TryIt changeId={changeId} hideRestart={hideRestart} hideBuilt={compact} className="primary" />
-          {!compact && <Link className="go-change" to={`/changes/${changeId}`}><button>Go to change</button></Link>}
-          <button className="finish" disabled={robotBusy}
-            title={robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
-            onClick={() => setConfirming(true)}>✓ Check and land</button>
-        </>
-      ) : (
-        <>
-          <span className="small"><strong>Check and land?</strong> Your helper runs every check, then starts the landing. Nothing goes live until it is approved.</span>
-          <button className="primary" disabled={landBusy} onClick={land}>{landBusy ? (sessionId ? 'Asking your helper…' : 'Starting…') : 'Check and land'}</button>
-          <button className="subtle" onClick={() => setConfirming(false)}>Not yet</button>
-        </>
-      )}
-      {err && <span className="error small">{err}</span>}
-    </div>
-  )
+  return { stage, busy, err, ask: () => setConfirming(true), cancel: () => setConfirming(false), land }
+}
+export type Landing = ReturnType<typeof useLanding>
+
+// LandConfirm is the question Check and land asks, over the input, in full
+// words; the bar's button may say only "Land".
+export function LandConfirm({ landing, hasChat }: { landing: Landing; hasChat: boolean }) {
+  if (landing.stage !== 'confirm') return landing.err ? <div className="error small chat-err">{landing.err}</div> : null
+  return <div className="land-confirm" role="group" aria-label="Check and land?">
+    <span><strong>Check and land?</strong> Your helper runs every check, then starts the landing. Nothing goes live until it is approved.</span>
+    <button type="button" onClick={landing.cancel}>Not yet</button>
+    <button type="button" className="primary" disabled={landing.busy} onClick={() => void landing.land()}>
+      {landing.busy ? (hasChat ? 'Asking your helper…' : 'Starting…') : 'Check and land'}</button>
+  </div>
 }
 
-// The chrome around a change-scoped chat reflects the change as it grows:
-// title, what's-in-it-so-far, the diff so far, the latest run's state, and
-// a try-it link when a preview is up. Polls in place — same layout, fresher
-// facts; the conversation's effects are visible without leaving the chat.
-export function ChangeContext({ view: v }: { view: ChangeView }) {
+// ChangeFacts is what the change holds so far, for the chat's ⋯ menu and
+// the steps column's head: the page keeps its room for the conversation.
+export function changeFacts(v: ChangeView): string {
   const run = v.detail?.run
-  const chip = changeChip(v)
-  const soFar = v.change.summary || v.report
-  return (
-    <div className="card mb-2" style={{ padding: '8px 12px' }}>
-      <div className="row">
-        {chip}
-        <strong className="small">{v.change.title}</strong>
-        <span className="muted small">
-          {(v.editing ?? 0) > 0
-            ? `${v.editing} file${v.editing === 1 ? '' : 's'} being edited`
-            : (v.diffstat || 'no edits yet')}
-          {(v.commits?.length ?? 0) > 0 && ` · ${v.commits!.length} commit${v.commits!.length === 1 ? '' : 's'}`}
-          {run?.status === 'running' && v.stateDetail ? ` · ${v.stateDetail}` : ''}
-        </span>
-        <span className="grow" />
-      </div>
-      {soFar && <p><Link to={`/changes/${v.change.id}/records/summary`}>What was made</Link></p>}
-    </div>
-  )
+  return ((v.editing ?? 0) > 0 ? `${v.editing} file${v.editing === 1 ? '' : 's'} being edited` : (v.diffstat || 'no edits yet')) +
+    ((v.commits?.length ?? 0) > 0 ? ` · ${v.commits!.length} commit${v.commits!.length === 1 ? '' : 's'}` : '') +
+    (run?.status === 'running' && v.stateDetail ? ` · ${v.stateDetail}` : '')
 }
 
-// ChangeFacts is what the change holds so far, for the chat's ⋯ menu: the
-// conversation's page keeps its room for the conversation.
-export function ChangeFacts({ view: v }: { view: ChangeView }) {
-  const run = v.detail?.run
-  return <span className="muted small console-facts">
-    {(v.editing ?? 0) > 0
-      ? `${v.editing} file${v.editing === 1 ? '' : 's'} being edited`
-      : (v.diffstat || 'no edits yet')}
-    {(v.commits?.length ?? 0) > 0 && ` · ${v.commits!.length} commit${v.commits!.length === 1 ? '' : 's'}`}
-    {run?.status === 'running' && v.stateDetail ? ` · ${v.stateDetail}` : ''}
-  </span>
-}
-
-// Where the change stands, as one chip: the status card and the chat's
-// folded line (Console.tsx) say it in the same words.
-export function changeChip(v: ChangeView) {
-  return <ChangeStatus waiting={v.waitingOn} />
+// The words Check and land's button carries in each stage, and its title.
+export function landTitle(robotBusy: boolean): string {
+  return robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`
 }
 
 // The change state, REFLECTED not explained: every change this conversation
@@ -161,19 +90,23 @@ export function changeChip(v: ChangeView) {
 // through being built → needs you → shipped.
 export type StartedChange = import('../../wire.gen').ConsoleChange
 
-export function StartedChanges({ sessionId }: { sessionId: string }) {
-  const q = useGet<{ changes: StartedChange[] }>(`/console/${sessionId}/changes`, { poll: 4000 })
+export function useStartedChanges(sessionId: string | null) {
+  return useGet<{ changes: StartedChange[] }>(sessionId ? `/console/${sessionId}/changes` : null, { poll: 4000 })
+}
+
+// StartedChanges are rows at the top of the conversation: there is no time
+// to place each at the turn that started it.
+export function StartedChanges({ q }: { q: ReturnType<typeof useStartedChanges> }) {
   // Quiet while the first answer is on its way; a failure says so, and an
   // old answer (even an empty one) says it may be old, never "none".
   if (!q.data) return q.err ? <ReadStatus q={q} what="the changes this chat started" className="small" /> : null
   const changes = q.data.changes
   if (changes.length === 0) return <StaleNote q={q} />
-  const chip = (c: StartedChange) => <ChangeStatus waiting={c.waitingOn} />
   return (
-    <div className="mb-2">
+    <div className="started-changes">
       <StaleNote q={q} />
       {changes.map((c) => (
-        <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row mb-1 started-change-row" state={chip(c)} identity={<>
+        <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="row started-change-row" state={<ChangeStatus waiting={c.waitingOn} />} identity={<>
           <Link to={`/changes/${c.changeId}`} className="run-link"><strong className="small">{c.title}</strong></Link>
           <span className="muted small">started from this chat{c.detail ? ` · ${c.detail}` : ''}</span>
           </>} />

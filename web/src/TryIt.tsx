@@ -33,20 +33,43 @@ export function builtWords(st?: PreviewState): string {
 
 // hideBuilt leaves out when the preview was built, for the chat's strip:
 // Open always serves the change's files as they are now.
-export function TryIt({ changeId, label, style, className, hideRestart = false, hideBuilt = false }: {
-  changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean; hideBuilt?: boolean
-}) {
+// usePreviewBoot is the preview's state and the act of starting or opening
+// it, shared by the change page's Try it and the chat bar's.
+export function usePreviewBoot(changeId: string) {
   const { data: st, reload: load } = usePreview(changeId)
   const { run, busy, err } = useAction()
-
   const boot = async (path: string) => {
     // An address that answers on the AppTown host only is shown, not opened.
     await run(() => openAfter(async () => { const r = await post<{ url: string; hostOnly?: boolean }>(path, {}); return r.hostOnly ? '' : r.url }))
     // A boot that failed records why on the preview, so read it either way.
     void load()
   }
-  const cls = className ?? 'primary'
   const state = busy ? 'starting' : (st?.state ?? 'cold')
+  return { st, state, err, open: () => boot(`/changes/${changeId}/preview`), restart: () => boot(`/changes/${changeId}/preview/restart`) }
+}
+
+// TryItButton is Try it as one button, for the chat bar: its state is the
+// button's word, and why it failed or what it was built from is its title
+// (and in the chat's ⋯ menu).
+export function TryItButton({ changeId, className = '' }: { changeId: string; className?: string }) {
+  const { st, state, err, open } = usePreviewBoot(changeId)
+  if (state === 'none') return <button type="button" className={className} disabled title="the first change makes the app">Nothing to try yet</button>
+  if (state === 'starting') return <button type="button" className={className} disabled>starting…</button>
+  const failed = state === 'broken' || state === 'unavailable'
+  const live = state === 'live' && !!st?.url
+  const title = err || (failed ? `${state === 'broken' ? 'failed' : 'not known'}: ${st?.reason ?? ''}` : live ? (st!.hostOnly ? hostOnlyWords(st!.url!) : builtWords(st) || "Opens the preview of the change's files as they are now") : "Starts a preview of the change's files as they are now")
+  return <button type="button" className={`${className}${failed ? ' failed' : ''}`} title={title} onClick={() => void open()}>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" /></svg>
+    <span className="tryit-word">{failed ? 'Try again' : live ? 'Open' : 'Try it'}</span>
+  </button>
+}
+
+export function TryIt({ changeId, label, style, className, hideRestart = false, hideBuilt = false }: {
+  changeId: string; label?: string; style?: CSSProperties; className?: string; hideRestart?: boolean; hideBuilt?: boolean
+}) {
+  const { st, state, err, open, restart } = usePreviewBoot(changeId)
+  const boot = (path: string) => path.endsWith('/restart') ? restart() : open()
+  const cls = className ?? 'primary'
 
   if (state === 'none') {
     return (

@@ -41,9 +41,6 @@
   "web/src/pages/conformance.css": {
     "apptown/pixel-spacing": 1
   },
-  "web/src/pages/console/Bubbles.css": {
-    "apptown/pixel-spacing": 2
-  },
   "web/src/pages/infrastructure.css": {
     "apptown/pixel-spacing": 1,
     "declaration-no-important": 1
@@ -94,8 +91,7 @@
     "apptown/pixel-spacing": 7
   },
   "web/src/styles/console.css": {
-    "apptown/pixel-spacing": 44,
-    "declaration-no-important": 4
+    "apptown/pixel-spacing": 10
   },
   "web/src/styles/decision.css": {
     "apptown/pixel-spacing": 5

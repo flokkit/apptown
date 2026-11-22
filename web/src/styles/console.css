@@ -1,205 +1,192 @@
 @layer components {
-/* Chat bubbles: yours on the right in accent, the helper's on the left;
-   its final answer in a turn is green, its working-it-out is dimmed, and
-   AppTown's own check reads as AppTown (amber). */
-.bubble-row { display: flex; justify-content: flex-start; margin: 6px 0; }
-.bubble-row.you { justify-content: flex-end; }
-.bubble {
-  max-width: 75%; border-radius: var(--radius-bubble); padding: 8px 12px; font-size: var(--fs-base);
-  background: var(--panel); color: var(--text); border: 1px solid var(--border);
-}
-.bubble.you { background: var(--accent); color: var(--on-accent); border: none; }
-.bubble.final { background: var(--ok-bg); border-color: var(--ok); }
-.bubble.working { opacity: 0.55; }
-.bubble.check { background: var(--warn-bg); border-color: var(--warn-mark); }
-.bubble.error { background: var(--bad-bg); border-color: var(--bad); }
-.bubble.pending { opacity: 0.6; }
-/* the helper's tool use, folded: its summary, and the commands one click down */
-.tool-fold { margin: 1px 0; }
-.tool-fold > summary { cursor: pointer; opacity: 0.8; }
-.tool-fold .tool-line { opacity: 0.75; margin: 2px 0 0 14px; overflow-wrap: anywhere; }
-.tool-fold code { font-size: var(--fs-xs); }
-.chat-scroll { padding: 4px 2px; }
-.bubble.working .md { font-size: var(--fs-sm); }
-.chat-input textarea { flex: 1; font-family: inherit; font-size: var(--fs-field); padding: 10px 12px; resize: none; }
-.chat-input button { font-size: var(--fs-field); padding: 10px 22px; }
-button.chat-starter { border: 1px solid var(--border); padding: 6px 14px; border-radius: var(--radius-sm); }
+/* The chat page (Console.tsx): one bar, then the conversation and its input;
+   on a wide screen the steps column beside them. Only the conversation
+   scrolls; the bar never hides. */
 
 /* The layout bounds the chat at every width; padding participates in its
    flex sizing instead of being subtracted from a viewport calculation. */
 html:has(.console-desk, .ch-page-chat) { height: 100%; overflow: clip; }
 body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: clip; }
 .layout:has(.console-desk, .ch-page-chat) { height: 100dvh; min-height: 0; overflow: clip; }
-.main:has(.console-desk, .ch-page-chat) { display: flex; flex-direction: column; min-height: 0; overflow: clip; }
-.console { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.console-controls { display: contents; }
-.console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
-.console-extra { max-height: 33dvh; overflow-y: auto; background-image: none; }
-.console .chat-scroll { overscroll-behavior-y: contain; }
-/* Two rooms, unmistakable at a glance:
-   the FRONT DESK (project chat — amber, questions/setup/dispatch) and the
-   WORKSHOP (change chat — accent, where building happens). */
-.console-desk { padding-top: 10px; border-top: 1px solid var(--border); }
-.console-desk h1 { color: var(--text); }
-.console-workshop { padding-top: 10px; border-top: 1px solid var(--border); }
-.console-workshop h1 { color: var(--text); }
-.chip.robot-busy, .robot-busy { color: var(--busy); background: var(--busy-bg); }
-@media (prefers-reduced-motion: no-preference) {
-  .robot-busy { animation: robot-pulse 1.6s ease-in-out infinite; }
-  @keyframes robot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+/* The chat runs edge to edge: its bar and conversation keep their own gutters. */
+.main:has(.console-desk, .ch-page-chat) { display: flex; flex-direction: column; min-height: 0; overflow: clip; padding: 0; }
+.main:has(.console-desk, .ch-page-chat) > :is(.error, .muted, .stale-notice) { margin: calc(var(--space-1) * 1.3125) calc(var(--space-1) * 2.625); }
+/* On the change page's live Conversation tab the chat's bar stands for the
+   change, so the chat is the page: one bounded column, no outer scrolling. */
+.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body {
+  display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; padding: 0; border: 0;
 }
-.console-term {
-  flex: 1; min-height: 0; background: var(--term-bg);
-  border: 1px solid var(--border); border-radius: var(--radius); padding: 8px;
-  overflow: hidden;
-}
-.console-term .xterm { height: 100%; }
-/* The conversation and its input (console/Bubbles.tsx). */
-.chat-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-/* What the chat is about (Console.tsx): one fold, open on a desk with its
-   line hidden, so a desk shows the cards as they always were. */
-details.console-about { margin: 0; }
-@media (width > 800px) {
-  .console-about > summary { display: none; }
-}
+.conversation-split, .conversation-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.console { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+/* The live chat kept mounted across tabs lays out as if unwrapped. */
+.conversation-kept:not([hidden]) { display: contents; }
 
-/* the workshop's verb bar: see it, inspect it, ship it — equal weight */
-.workshop-actions {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  margin: 2px 0 10px; padding: 10px 12px; border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--panel);
+/* ---- the bar: "#n Title · ● status · activity", then the verbs ---- */
+.chat-bar {
+  display: flex; align-items: center; gap: calc(var(--space-1) * 1.3125); min-height: 44px; padding: 0 calc(var(--space-1) * 0.4375) 0 calc(var(--space-1) * 2.625); flex: none;
+  border-bottom: 1px solid var(--border); background: var(--panel);
 }
-.workshop-actions .finish {
-  font-weight: var(--fw-strong);
-  color: var(--ok);
-  border: 1px solid var(--ok);
-  background: var(--ok-bg);
-  font-weight: var(--fw-strong);
+.chat-bar-title { display: flex; align-items: center; gap: calc(var(--space-1) * 2.1875); flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; }
+.chat-title {
+  flex: 0 1 auto; min-width: 2.5em; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-base); font-weight: var(--fw-strong); line-height: 1.3; color: var(--text); letter-spacing: 0;
+}
+a.chat-title:hover .name { text-decoration: underline; }
+.chat-title .num { color: var(--muted); font-weight: var(--fw-regular); margin-right: .3em; }
+a.chat-title { display: flex; min-width: 0; text-decoration: none; }
+a.chat-title .num { flex: none; }
+a.chat-title .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.chat-bar-title > :not(.chat-title) { flex: none; }
+.chat-kind { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+/* The helper's activity: a dot and a word. Unknown is a hollow dot. */
+.activity { display: inline-flex; align-items: center; gap: calc(var(--space-1) * 1.09375); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--muted); white-space: nowrap; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; border: 1.5px solid currentColor; flex: none; box-sizing: border-box; }
+.activity.busy { color: var(--busy); }
+.activity.unknown { color: var(--unknown); }
+/* The dot is the change's state (Status.tsx waitingTone), hollow when not known. */
+.activity-dot.dot-running { color: var(--busy); }
+.activity-dot.dot-pass { color: var(--ok); }
+.activity-dot.dot-fail { color: var(--bad); }
+.activity-dot.dot-pending { color: var(--warn-mark); }
+.activity-dot.dot-neutral { color: var(--muted); }
+.activity-dot.dot-unknown { color: var(--unknown); background: transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  .activity.busy .activity-dot { animation: chat-pulse 1.6s ease-in-out infinite; }
+  @keyframes chat-pulse { 50% { opacity: .35; } }
+}
+.chat-bar :is(.bar-btn, .bar-icon) {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: calc(var(--space-1) * 1.09375); flex: none;
+  min-height: 36px; padding: 0 calc(var(--space-1) * 2.1875); white-space: nowrap; font-size: var(--fs-sm); font-weight: var(--fw-medium);
+  border: 1px solid var(--border-strong); background: var(--panel); color: var(--text); border-radius: var(--radius-sm); text-decoration: none;
+}
+/* A 44 px target without a 44 px box (the outset below); on a phone the
+   buttons fill the bar's 44 px, as every phone control does. */
+.chat-bar :is(.bar-btn, .bar-icon)::after { content: ""; position: absolute; inset: calc(var(--space-1) * -1) 0; }
+.chat-bar .bar-btn:hover:not(:disabled) { border-color: var(--accent); }
+.chat-bar .bar-btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.chat-bar .bar-btn.finish { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); font-weight: var(--fw-strong); }
+.chat-bar .bar-btn.failed { color: var(--bad); border-color: var(--bad); background: var(--panel); }
+.chat-bar .bar-btn:disabled { color: var(--muted); border-color: var(--border-strong); background: var(--panel2); }
+.chat-bar .bar-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chat-bar .bar-icon { border-color: transparent; background: none; min-width: 44px; padding: 0; font-size: var(--fs-lg); color: var(--muted); }
+.chat-bar .bar-icon:hover { color: var(--text); background: var(--hover); }
+.chat-bar .short { display: none; }
+
+/* ---- the ⋯ menu: the chat's facts and its less common acts ---- */
+.chat-menu-card { display: grid; gap: calc(var(--space-1) * 0.4375); min-width: 16rem; max-width: 22rem; }
+.chat-menu-card > :is(a, button) {
+  display: flex; align-items: center; gap: calc(var(--space-1) * 1.75); width: 100%; min-height: 44px; padding: 0 calc(var(--space-1) * 2.1875); margin: 0;
+  color: var(--text); text-align: left; text-decoration: none; font-size: var(--fs-base); font-weight: var(--fw-regular);
+  border: 0; border-top: 1px solid var(--rule-faint); border-radius: 0; background: none;
+}
+.chat-menu-card > button.danger { color: var(--bad); }
+.chat-menu-card > :is(a, button):hover { background: var(--hover); }
+.chat-menu-switch { display: flex; align-items: center; justify-content: space-between; gap: calc(var(--space-1) * 2.625); min-height: 44px; padding: 0 calc(var(--space-1) * 2.1875); border-top: 1px solid var(--rule-faint); }
+.chat-facts { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--space-1) * 0.4375) calc(var(--space-1) * 2.625); margin: 0; padding: calc(var(--space-1) * 0.875) calc(var(--space-1) * 2.1875) calc(var(--space-1) * 1.75); font-size: var(--fs-sm); color: var(--muted); }
+.chat-facts dt { margin: 0; }
+.chat-facts dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+/* ---- the conversation and its input, and the steps column ---- */
+.chat-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.chat-body[hidden] { display: none; }
+.chat-pane { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.chat-scroll-wrap { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.chat-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; overflow-anchor: none; }
+.chat-feed { max-width: 860px; margin: 0 auto; padding: 12px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+.chat-feed > :is(.error, .muted, .stale-note) { margin: 0 0 calc(var(--space-1) * 1.75); }
+.chat-intro, .chat-notice { display: flex; align-items: center; gap: calc(var(--space-1) * 1.75); margin: 0 0 calc(var(--space-1) * 2.1875); font-size: var(--fs-sm); color: var(--muted); }
+.chat-intro { border-left: 3px solid var(--accent); background: var(--panel); padding: calc(var(--space-1) * 0.875) calc(var(--space-1) * 0.875) calc(var(--space-1) * 0.875) calc(var(--space-1) * 2.1875); color: var(--text); }
+.chat-intro > span { flex: 1; min-width: 0; }
+.chat-intro > button { flex: none; min-height: 36px; }
+.chat-starting { padding: calc(var(--space-1) * 1.3125) 0 calc(var(--space-1) * 2.1875); font-size: var(--fs-sm); color: var(--muted); }
+.starters { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--space-1) * 1.75); padding: calc(var(--space-1) * 6.125) 0; }
+.starters > button { min-height: 44px; padding: 0 calc(var(--space-1) * 3.0625); border: 1px solid var(--border-strong); background: var(--panel); border-radius: var(--radius-tab); }
+.starters > button:hover { border-color: var(--accent); }
+.started-changes { margin: 0 0 calc(var(--space-1) * 2.1875); display: grid; gap: calc(var(--space-1) * 0.875); }
+.started-change-row { border: 1px solid var(--border); background: var(--panel); padding: calc(var(--space-1) * 0.875) calc(var(--space-1) * 2.1875); }
+/* "New messages below": on the conversation's bottom edge, over the input's border. */
+.chat-cue {
+  position: absolute; left: 50%; bottom: calc(var(--space-1) * 2.1875); transform: translateX(-50%); z-index: var(--z-sticky);
+  display: inline-flex; align-items: center; gap: calc(var(--space-1) * 1.3125); min-height: 40px; padding: 0 calc(var(--space-1) * 3.5); white-space: nowrap;
+  background: var(--accent); color: var(--on-accent); border: 0; border-radius: var(--radius-tab); font-weight: var(--fw-strong); font-size: var(--fs-sm);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.chat-cue svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.chat-dock { position: relative; flex: none; border-top: 1px solid var(--border); background: var(--bg); padding-bottom: env(safe-area-inset-bottom); }
+.chat-dock > .chat-stale { margin: 0; padding: 4px 12px 0; }
+.chat-err { padding: calc(var(--space-1) * 0.875) calc(var(--space-1) * 2.625) 0; }
+.chat-readonly { display: flex; align-items: center; gap: calc(var(--space-1) * 2.1875); min-height: 44px; max-width: 860px; margin: 0 auto; padding: calc(var(--space-1) * 1.3125) calc(var(--space-1) * 2.625); font-size: var(--fs-sm); color: var(--muted); }
+.land-confirm { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: calc(var(--space-1) * 1.75); padding: calc(var(--space-1) * 1.75) calc(var(--space-1) * 2.625); background: var(--ok-bg); border-bottom: 1px solid var(--rule); font-size: var(--fs-sm); }
+.land-confirm > span { flex: 1 1 100%; }
+.land-confirm > button { min-height: 44px; }
+
+/* The input: one line growing to five; Stop joins only while working. */
+.composer-dock { max-width: 860px; margin: 0 auto; }
+.composer { display: flex; align-items: flex-end; gap: 2px; padding: 6px 2px 6px 0; }
+.composer textarea {
+  flex: 1 1 0; min-width: 0; resize: none; field-sizing: content; height: auto; min-height: 44px; max-height: calc(5lh + 22px);
+  padding: 10px 12px; font: inherit; font-size: var(--fs-field); line-height: 1.375; overflow-y: auto;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel); color: var(--text);
+}
+.composer textarea::placeholder { color: var(--subtle); }
+.composer > button { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; min-height: 44px; padding: 0; }
+.composer svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.composer-attach { width: 44px; border: 0; background: none; color: var(--muted); }
+.composer-attach:hover { color: var(--text); }
+.composer-send { width: 44px; }
+.composer-stop { min-width: 68px; padding: 0 12px; color: var(--bad); border: 1px solid var(--bad); background: var(--panel); font-weight: var(--fw-strong); }
+.composer-stop.small { min-width: 44px; width: 44px; padding: 0; }
+.composer-stop i { width: 10px; height: 10px; background: currentColor; display: block; }
+.drafts { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--space-1) * 2.1875); padding: calc(var(--space-1) * 1.75) calc(var(--space-1) * 2.625) 0; font-size: var(--fs-sm); color: var(--muted); }
+.draft { position: relative; display: inline-flex; align-items: center; border: 1px solid var(--border); background: var(--panel); }
+.draft img { height: 44px; display: block; }
+.draft > span { padding: 0 calc(var(--space-1) * 1.75); }
+.draft button { width: 32px; height: 44px; padding: 0; border: 0; background: none; color: var(--muted); font-size: var(--fs-lg); }
+
+/* ---- the terminal: the same conversation at forensic zoom ---- */
+.console-term { flex: 1; min-height: 0; background: var(--term-bg); padding: calc(var(--space-1) * 1.75); overflow: hidden; }
+.console-term .xterm { height: 100%; }
+
+/* The preview beside the chat (mounted only above 1100px). */
+.conversation-split.with-preview { flex-direction: row; }
+.conversation-preview { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: calc(var(--space-1) * 1.75); padding: calc(var(--space-1) * 1.75); border-left: 1px solid var(--border); }
+.conversation-preview iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); }
+
+@media (width > 800px) {
+  .chat-bar { padding-left: calc(var(--space-1) * 3.5); gap: calc(var(--space-1) * 1.75); }
+  .chat-feed { padding: calc(var(--space-1) * 3.0625) calc(var(--space-1) * 4.375) calc(var(--space-1) * 2.1875); }
+  .composer { padding: 8px 12px; gap: 6px; }
+  .composer textarea { padding: 9px 12px; }
+}
+@media (width > 800px) and (pointer: fine) {
+  .chat-bar :is(.bar-btn, .bar-icon) { min-height: 32px; }
+  .chat-bar .bar-icon { min-width: 36px; }
+  .composer > button, .composer textarea { min-height: 40px; height: 40px; }
+  .composer textarea { height: auto; }
+  .composer-send { width: 40px; }
 }
 @media (max-width: 800px) {
-  .md, .bubble { font-size: var(--fs-base); }
   /* Hidden overflow still permits programmatic scrolling. Fix the body and
-     clip the page; the visual viewport positions the chat shell below. */
-  html:has(.console-desk, .ch-page-chat) { height: 100%; overflow: clip; }
-  body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: clip; }
+     clip the page; the visual viewport positions the chat shell below, so
+     the input stays above the keyboard. */
   .layout:has(.console-desk, .ch-page-chat) {
     position: fixed; top: var(--viewport-top, 0px); left: 0; right: 0;
     height: var(--viewport-h, 100dvh); min-height: 0; overflow: hidden;
   }
   .layout:has(.console-desk, .ch-page-chat) .topbar { top: var(--viewport-top, 0px); }
-  .main:has(.console-desk, .ch-page-chat) { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; overflow: clip; }
-  .console > :not(.chat-pane):not(.console-term) { flex-shrink: 0; }
-  /* The head is one line: the chip gives way first. */
-  .console-head h1 { font-size: var(--fs-lg); overflow-wrap: anywhere; }
-  .console-head { gap: 6px; flex-wrap: wrap; }
-  .console-head .chip { min-width: 0; white-space: nowrap; }
-  .console-head button { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
-  .console-about .card.row { flex-direction: column; align-items: stretch; }
-  .console-about .card.row > button { align-self: flex-end; }
-  .console:has(.chat-input textarea:focus) .console-secondary { display: none; }
-  /* However much the chat is about, the conversation keeps the room: the
-     part above it is folded to one line (Console.tsx), holds at most a
-     third when opened and scrolls, shaded at the edge where there is more;
-     the conversation takes the remaining height and scrolls inside the
-     page, leaving the composer at the bottom even when it is empty. */
-  .console .chat-pane { flex: 1; min-height: 0; }
-  .console .chat-scroll { overscroll-behavior-y: contain; padding: 2px 0; }
-  .console .chat-input { flex-shrink: 0; margin-top: 4px !important; gap: 6px; align-items: flex-end; }
-  .console-about[open] > summary { margin-bottom: 8px; }
-  .console-extra { max-height: calc(var(--viewport-h, 100dvh) / 3); overflow-y: auto; flex-shrink: 0; background: linear-gradient(to top, var(--ground), transparent) center bottom / 100% 24px no-repeat local, radial-gradient(farthest-side at 50% 100%, var(--scroll-shade), transparent) center bottom / 100% 12px no-repeat scroll; background-image: none; }
-  /* The input starts one line high and grows with what is typed (up to a
-     third of the screen), so the conversation keeps the room. */
-  .chat-input textarea { min-height: 44px; field-sizing: content; max-height: 33dvh; }
-  /* The change's verbs are one compact row; Check and land keeps its
-     green and the row's end. */
-  /* On a phone the two verbs are a plain row: no panel around them. */
-  .workshop-actions { gap: 8px; padding: 0; margin: 0 0 8px; border: 0; background: none; flex-wrap: nowrap; }
-  /* What the preview was built from is on the change page; the row keeps its verbs. */
-  .workshop-actions .tryit-built { display: none; }
-  .workshop-actions button { font-size: var(--fs-sm); padding: 6px 10px; }
-  .workshop-actions .finish { margin-left: auto; }
-  /* The head's change chip is the same door to the change page. */
-  .workshop-actions .go-change { display: none; }
-  .console-extra .card { padding: 10px 12px; }
-  .bubble { max-width: 88%; }
-  .chat-input { flex-wrap: nowrap; padding-bottom: env(safe-area-inset-bottom); }
-  .chat-input button { padding: 10px 16px; }
+  .chat-bar .bar-wide { display: none; }
+  .chat-bar .long { display: none; }
+  .chat-bar .short { display: inline; }
+  .chat-bar .bar-btn { padding: 0 calc(var(--space-1) * 1.96875); }
+  .chat-bar-title { gap: calc(var(--space-1) * 1.75); }
 }
+@media (max-width: 600px) {
+  /* A phone keeps every word of the status line: the preview's verb is its icon. */
+  .chat-bar .tryit-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .chat-bar .bar-btn.primary { min-width: 44px; padding: 0; }
 
-.agent-activity { padding: 4px 6px; white-space: nowrap; }
-@media(max-width:800px) {
-  /* Wrap the header before shortening its activity label or menu. */
-  .console-head { flex-wrap: wrap; min-width: 0; }
-  .console-head h1 { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-lg); }
-  .console-head h1 a { color: inherit; text-decoration: none; }
-  .console-head > .chip, .console-head > .agent-activity { flex: none; }
+  .chat-bar { gap: calc(var(--space-1) * 0.875); padding-left: calc(var(--space-1) * 1.75); }
+  .chat-bar .bar-btn { padding: 0 calc(var(--space-1) * 1.53125); }
+  .chat-bar-title { gap: calc(var(--space-1) * 1.3125); }
 }
-
-.agent-activity.compact .chip { font-size: 0; }
-.agent-activity.compact .chip:not(.unknown) > span { font-size: var(--fs-xs); }
-
-.agent-actions-switch { display: flex; align-items: center; gap: 6px; margin: 6px 0 12px; cursor: pointer; }
-@media (max-width: 800px) {
-  .console { padding-top: 6px; }
-  .console .console-head { margin-bottom: 4px !important; }
-  .console-head .head-menu { margin-top: 0; flex: none; }
-  .console-head .head-menu > button {
-    min-height: 44px; min-width: 44px; padding: 0 6px;
-    border: 0; line-height: 1.7142857143; margin-bottom: 0;
-  }
-  .console .workshop-actions { margin-bottom: 4px; gap: 6px; }
-  .console .workshop-actions button { min-height: 44px; padding: 4px 10px; white-space: nowrap; }
-  .console-about-line { display: flex; flex-wrap: wrap; align-items: start; column-gap: 6px; }
-  .console-about-line > details { flex: 1 1 12rem; }
-  .console-about-line > details.console-about > summary { width: auto; min-height: 44px; padding: 0; margin: 0; font-size: var(--fs-xs); }
-  .console-about > summary { min-height: 44px; padding: 2px 0; gap: 4px; font-size: var(--fs-xs); flex-wrap: wrap; }
-  .console-about-line > .agent-actions-switch {
-    flex: 0 0 auto; z-index: var(--z-base); min-height: 44px;
-    margin: 0; gap: 4px; font-size: var(--fs-xs); white-space: nowrap;
-  }
-  .console .agent-actions-switch input { width: 14px; height: 14px; padding: 0; }
-  .console .bubble-row { margin: 4px 0; }
-  .console .bubble { width: 100%; max-width: 100%; min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
-  .console .bubble > :first-child, .console .bubble .md > :first-child { margin-top: 0; }
-  .console .bubble > :last-child, .console .bubble .md > :last-child { margin-bottom: 0; }
-  .console .chat-working { margin: 0 !important; gap: 6px !important; }
-  .console .chat-working button { min-height: 44px; padding: 0 8px; font-size: var(--fs-xs); }
-  .console .chat-input textarea {
-    min-width: 0; min-height: calc(2lh + 12px); max-height: min(160px, calc(var(--viewport-h, 100dvh) / 3));
-    padding: 5px 8px; font-size: var(--fs-field); line-height: 1.4; field-sizing: fixed; overflow-y: auto;
-  }
-  .console .chat-input button { min-height: 44px; padding: 4px 10px; font-size: var(--fs-sm); }
-  .console-controls { display: block; min-height: 0; max-height: 45%; overflow-y: auto; }
-}
-.agent-actions-switch input { width: auto; margin: 0; }
-/* The change chat's head and strip: two lines, so the conversation keeps the page. */
-.console-chat-title { font-size: var(--fs-lg); margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.console-chat-title a { color: inherit; }
-.console-strip { gap: var(--space-2); margin-bottom: var(--space-2); }
-.console-strip .workshop-actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
-.console-facts { min-width: 0; }
-.chat-attach { padding-inline: calc(var(--space-1) * 2.5); }
-.console-strip .workshop-actions { margin: 0; padding: 0; border: 0; background: none; gap: var(--space-2); }
-.console-workshop { padding-top: var(--space-1); }
-.chat-working[hidden] { display: none; }
-/* The live chat kept mounted across tabs lays out as if unwrapped. */
-.conversation-kept:not([hidden]) { display: contents; }
-/* The state panel and tabs share the bounded conversation page. */
-.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body {
-  display: flex; flex-direction: column; flex: 1; min-height: 0;
-}
-/* Keep the composer's intrinsic height before allocating room to history.
-   Short viewports scroll the surrounding content instead of clipping controls. */
-.ch-page-chat { overflow-y: auto; }
-.ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body { min-height: min-content; }
-.ch-page-chat .ch-tab-body { overflow-y: auto; }
-.ch-page-chat :is(.conversation-split, .conversation-chat, .console, .chat-pane) { min-height: auto; }
-.ch-page-chat .ch-tab-body > .page-section { max-height: 20dvh; min-height: 0; overflow-y: auto; flex-shrink: 0; }
-.conversation-split, .conversation-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-/* The preview component mounts these only above 1100px. */
-.preview-toggle { display: flex; align-items: center; gap: var(--space-2); }
-.conversation-split.with-preview { flex-direction: row; gap: var(--space-4); }
-.conversation-preview { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: var(--space-2); }
-.conversation-preview iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); }
 }

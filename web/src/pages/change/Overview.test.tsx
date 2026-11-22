@@ -154,7 +154,7 @@ it('never puts terminal output or the acceptance form in the top card', async ()
   v.waitingOn = { ...v.waitingOn, kind: 'work', says: 'working', tone: 'neutral', you: 'no' }; v.state = 'agent working'; v.change.state = 'in_progress'
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/console') ? { sessions: [] } : String(url).endsWith('/deployments') ? [] : String(url).endsWith('/auth/me') ? { user: 'sam' } : v)))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/changes/${id}?tab=overview`]}><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
   await act(async () => { for (let i = 0; i < 5; i++) await new Promise(r => setTimeout(r, 0)) })
   expect(el.querySelector('.ch-state h1')?.textContent).toBe('Change #9: Winter rides')
   expect(el.querySelector('.ch-state .terminal')).toBeNull()

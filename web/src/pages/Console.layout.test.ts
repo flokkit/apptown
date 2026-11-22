@@ -20,15 +20,24 @@ it('bounds the chat shell and gives the console remaining flex space without pix
   expect(declarations('body:has(.console-desk, .ch-page-chat)')).toMatch(/overflow:\s*clip/)
 })
 
-it('wraps phone controls and keeps their touch targets', () => {
-  expect(declarations('.console-head')).toContain('flex-wrap: wrap')
-  expect(declarations('.console .workshop-actions button')).toContain('min-height: 44px')
-  expect(declarations('.console .chat-input button')).toContain('min-height: 44px')
+it('keeps the bar to one line and every control a finger-sized target', () => {
+  expect(declarations('.chat-bar')).not.toMatch(/flex-wrap:\s*wrap/)
+  expect(declarations('.chat-bar')).toMatch(/min-height:\s*44px/)
+  // A 36 px button reaches 44 px through its outset target.
+  expect(declarations('.chat-bar :is(.bar-btn, .bar-icon)')).toMatch(/min-height:\s*36px/)
+  expect(declarations('.chat-bar :is(.bar-btn, .bar-icon)::after')).toMatch(/inset:\s*calc\(var\(--space-1\) \* -1\) 0/)
+  expect(declarations('.composer > button')).toContain('min-height: 44px')
 })
 
-it('gives the change conversation the remaining space under its state panel and tabs', () => {
- expect(declarations('.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body')).toMatch(/flex:\s*1/)
- expect(declarations('.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body')).toMatch(/min-height:\s*0/)
+// The change page's live Conversation tab is one bounded column: only the
+// conversation scrolls, so "at the end of the conversation" is what shows.
+it('gives the change conversation the whole bounded page, with no outer scrolling', () => {
+ const chain = '.ch-page-chat, .ch-page-chat .ch-tabs-sheet, .ch-page-chat .ch-tab-body'
+ expect(declarations(chain)).toMatch(/flex:\s*1/)
+ expect(declarations(chain)).toMatch(/min-height:\s*0/)
+ expect(css).not.toMatch(/\.ch-page-chat[^{]*\{[^}]*overflow-y:\s*auto/)
+ expect(css).not.toMatch(/min-height:\s*(auto|min-content)/)
+ expect(declarations('.chat-scroll')).toMatch(/overflow-y:\s*auto/)
  expect(declarations('.conversation-split, .conversation-chat')).toMatch(/min-width:\s*0/)
  expect(declarations('.conversation-split.with-preview')).toMatch(/flex-direction:\s*row/)
  expect(declarations('.conversation-preview iframe')).toMatch(/min-height:\s*0/)
