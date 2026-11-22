@@ -1,14 +1,14 @@
 import './Bubbles.css'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { post } from '../../api'
 import { useNarrow } from '../../chrome'
-import { useGet } from '../../data'
+import { useFollow } from '../../data'
 import { renderMd } from '../../md'
 import { pastedPictures } from '../../pictures'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { ToolFold, foldTools, useAgentActions } from '../../AgentActions'
 export { foldTools, toolSummary } from '../../AgentActions'
-import type { ChatUpload } from '../../wire.gen'
+import type { ChatUpload, ConsoleStreamUpdate } from '../../wire.gen'
 
 // ---- the bubble surface ----------------------------------------------------
 // A projection of pi's own session record: user words right, helper words
@@ -21,7 +21,92 @@ const CHECK_MARK = /^\[(?:apptown|forge) check\]/
 const BUTTON_MARK = /^\[apptown button: ([^\]]+)\]/
 type DraftFile = { file: File; name: string; path: string; thumb: string }
 
-export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string }[]; error?: boolean; stopped?: boolean }
+export type Bubble = { i: number; role: 'you' | 'helper'; text?: string; tools?: { name: string; detail?: string; done?: boolean }[]; error?: boolean; stopped?: boolean }
+
+// The chat as its stream has told it: the record's messages, the message
+// the helper is writing (its draft, until the record holds it), and whose
+// turn it is. The cursor is what the reader holds, to resume from.
+export type ChatRecord = { messages: Bubble[]; draft: Bubble | null; turn: string; cursor: string }
+
+// foldChat applies one update of the chat's stream: the messages from
+// `from` on replace what is held from there (0 replaces everything); the
+// messages before it keep their identity, so their bubbles are not drawn
+// again.
+export function foldChat(held: ChatRecord | null, u: ConsoleStreamUpdate): ChatRecord {
+  const kept = (held?.messages ?? []).slice(0, u.from)
+  return { messages: kept.concat(u.messages as Bubble[]), draft: (u.draft as Bubble | null) ?? null, turn: u.turn, cursor: u.cursor }
+}
+const chatCursor = (held: ChatRecord) => held.cursor
+const NO_MESSAGES: Bubble[] = []
+
+const isCheck = (x?: Bubble) => !!x && x.role === 'you' && !!x.text && CHECK_MARK.test(x.text)
+
+// BubbleRow is one message as a bubble. It is drawn again only when its
+// message or place changes, so the words streaming into the last bubble do
+// not redraw the whole conversation and its markdown.
+const BubbleRow = memo(function BubbleRow({ m, isFinal, isWorking, showActions, sessionId }: { m: Bubble; isFinal: boolean; isWorking: boolean; showActions: boolean; sessionId: string | null }) {
+  if (m.stopped) {
+    return (
+      <div className="bubble-row">
+        <div className="bubble bubbles-bubble">
+          <div className="small bubbles-div-3">⏹ stopped by you</div>
+          <div className="bubbles-div-4">{m.text}</div>
+        </div>
+      </div>
+    )
+  }
+  if (m.error) {
+    return (
+      <div className="bubble-row">
+        <div className="bubble error">
+          <div className="small bubbles-div-3">⚠ the helper stopped</div>
+          <div className="bubbles-div-4">{m.text}</div>
+        </div>
+      </div>
+    )
+  }
+  const button = m.role === 'you' && m.text?.match(BUTTON_MARK)
+  if (button) return <div className="bubble-row"><div className="bubble check">
+    <div>{button[1]}</div>
+    <div className="small muted bubbles-div-4">{m.text!.slice(button[0].length).trim()}</div>
+  </div></div>
+  if (isCheck(m)) {
+    return (
+      <div className="bubble-row">
+        <div className="bubble check">
+          <div className="small bubbles-div-3">⚙ Boot check: the app did not start</div>
+          <div className="bubbles-div-4">{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
+        </div>
+      </div>
+    )
+  }
+  if (!m.text && m.tools?.length) return <ToolFold key={String(showActions)} tools={m.tools} show={showActions} />
+  return (
+    <div className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
+      <div className={'bubble' + (m.role === 'you' ? ' you' : isFinal ? ' final' : '') + (isWorking ? ' working' : '')}>
+        {(m.tools?.length ?? 0) > 0 && <ToolFold key={String(showActions)} tools={m.tools!} show={showActions} />}
+        {m.text && (m.role === 'helper'
+          ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
+          : (() => {
+            // A pasted picture travels as "(I pasted a picture —
+            // look at /console/uploads/picture-N.png)"; show the
+            // picture itself, not the plumbing sentence.
+            const { names, files, display } = pastedPictures(m.text)
+            return (
+              <div>
+                {display && <div className="bubbles-div-4">{display}</div>}
+                {files.map((f) => <div key={f.name}><a href={`/api/v1/console/${sessionId}/uploads/${f.name}`} download>{f.name}</a> ({f.size} bytes)</div>)}
+                {names.map((n) => (
+                  <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
+                    style={{ marginTop: display ? 6 : 0 }} className="bubbles-img" />
+                ))}
+              </div>
+            )
+          })())}
+      </div>
+    </div>
+  )
+})
 
 // retired says the record holds the message just sent: any "you" message at
 // or after the count the record had when it was sent. Text is never compared
@@ -87,8 +172,11 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     if (files.length) { e.preventDefault(); addFiles(files) }
   }
 
-  const record = useGet<{ messages: Bubble[]; turn?: string }>(sessionId ? `/console/${sessionId}/messages?from=0` : null, { poll: 2000 })
-  const msgs = record.data?.messages ?? []
+  // The chat streams: words as the helper writes them, the record's
+  // messages as pi records them (console.md, "Following a chat").
+  const record = useFollow<ChatRecord, ConsoleStreamUpdate>(sessionId ? `/console/${sessionId}/stream` : null, foldChat, chatCursor)
+  const msgs = record.data?.messages ?? NO_MESSAGES
+  const draft = record.data?.draft ?? null
   const pending = retired(sent, msgs) ? null : sent?.text ?? null
   const hasMessages = msgs.length > 0 || pending !== null || !!queued
   useEffect(() => { onHasMessages?.(hasMessages) }, [hasMessages, onHasMessages])
@@ -138,7 +226,10 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
   }
 
   const [showActions] = useAgentActions()
-  const shown = showActions ? msgs : foldTools(msgs)
+  const shown = useMemo(() => {
+    const all = draft ? [...msgs, draft] : msgs
+    return showActions ? all : foldTools(all)
+  }, [msgs, draft, showActions])
   // Whose turn it is is the server's reading of the record: the helper has
   // handed back only when its last message is words with no tool call (or
   // failed) and the record has been quiet. Read from the bubbles alone,
@@ -150,7 +241,7 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
     // Only the conversation moves. Scrolling a descendant into view also
     // pans Safari's page, leaving the head behind and space below the input.
     if (box && stick.current) box.scrollTop = box.scrollHeight
-  }, [record.data?.messages, pending, queued, showActions, hidden])
+  }, [record.data?.messages, draft, pending, queued, showActions, hidden])
 
   // History shown above the live messages can arrive after them; it grows the
   // scroller, so keep a reader who has not scrolled up at the bottom.
@@ -204,72 +295,14 @@ export function Bubbles({ sessionId, attached = true, starting, hidden = false, 
           // cold boot into the chat — it renders as AppTown, not the
           // operator, and it CANCELS the green on the claim before it.
           // Chats from before the AppTown rename keep their "[forge check]"
-          // messages as written; both read as AppTown's own.
-          const isCheck = (x?: Bubble) => !!x && x.role === 'you' && !!x.text && CHECK_MARK.test(x.text)
+          // messages as written; both read as AppTown's own. A draft (the
+          // helper still writing) is never the answer yet.
           const next = shown[idx + 1]
-          const isFinal = m.role === 'helper' && !!m.text && (!next || (next.role === 'you' && !isCheck(next)))
+          const isFinal = m.role === 'helper' && !!m.text && m !== draft && (!next || (next.role === 'you' && !isCheck(next)))
           const isWorking = m.role === 'helper' && !isFinal && !isCheck(m)
-          if (m.stopped) {
-            return (
-              <div key={m.i} className="bubble-row">
-                <div className="bubble bubbles-bubble">
-                  <div className="small bubbles-div-3">⏹ stopped by you</div>
-                  <div className="bubbles-div-4">{m.text}</div>
-                </div>
-              </div>
-            )
-          }
-          if (m.error) {
-            return (
-              <div key={m.i} className="bubble-row">
-                <div className="bubble error">
-                  <div className="small bubbles-div-3">⚠ the helper stopped</div>
-                  <div className="bubbles-div-4">{m.text}</div>
-                </div>
-              </div>
-            )
-          }
-          const button = m.role === 'you' && m.text?.match(BUTTON_MARK)
-          if (button) return <div key={m.i} className="bubble-row"><div className="bubble check">
-            <div>{button[1]}</div>
-            <div className="small muted bubbles-div-4">{m.text!.slice(button[0].length).trim()}</div>
-          </div></div>
-          if (isCheck(m)) {
-            return (
-              <div key={m.i} className="bubble-row">
-                <div className="bubble check">
-                  <div className="small bubbles-div-3">⚙ Boot check: the app did not start</div>
-                  <div className="bubbles-div-4">{(m.text ?? '').replace(CHECK_MARK, '').trim()}</div>
-                </div>
-              </div>
-            )
-          }
-          if (!m.text && m.tools?.length) return <ToolFold key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} />
-          return (
-            <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
-              <div className={'bubble' + (m.role === 'you' ? ' you' : isFinal ? ' final' : '') + (isWorking ? ' working' : '')}>
-                {(m.tools?.length ?? 0) > 0 && <ToolFold key={String(showActions)} tools={m.tools!} show={showActions} />}
-                {m.text && (m.role === 'helper'
-                  ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
-                  : (() => {
-                    // A pasted picture travels as "(I pasted a picture —
-                    // look at /console/uploads/picture-N.png)"; show the
-                    // picture itself, not the plumbing sentence.
-                    const { names, files, display } = pastedPictures(m.text)
-                    return (
-                      <div>
-                        {display && <div className="bubbles-div-4">{display}</div>}
-                        {files.map((f) => <div key={f.name}><a href={`/api/v1/console/${sessionId}/uploads/${f.name}`} download>{f.name}</a> ({f.size} bytes)</div>)}
-                        {names.map((n) => (
-                          <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
-                            style={{ marginTop: display ? 6 : 0 }} className="bubbles-img" />
-                        ))}
-                      </div>
-                    )
-                  })())}
-              </div>
-            </div>
-          )
+          // The draft's index is the one its message takes once recorded,
+          // so the bubble stays in place as the record catches up.
+          return <BubbleRow key={m.i} m={m} isFinal={isFinal} isWorking={isWorking} showActions={showActions} sessionId={sessionId} />
         })}
         {queued && <div className="bubble-row you">
           <div className="bubble you pending bubbles-div-4">{queued}

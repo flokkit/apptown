@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
+import { chatStreamOf } from './console/chatStream.fixture'
 import { ChatPage, kickoffText } from './Console'
 
 function Console() {
@@ -132,7 +133,7 @@ describe('a change chat keeps its head to two lines', () => {
           changeId: CHANGE, openedBy: 'ana', mayAct: false, placement: 'worker', recordAsOf: '2026-10-16T01:00:00Z' }] }))
       }
       if (u === `/api/v1/changes/${CHANGE}`) return new Response(JSON.stringify({ goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }))
-      if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [{ i: 0, role: 'helper', text: 'Done.' }] }))
+      if (u.includes('/stream')) return chatStreamOf([{ i: 0, role: 'helper', text: 'Done.' }])
       if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
       return new Response('{}')
     })))
@@ -177,14 +178,16 @@ describe('phone change controls', () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const u = String(url)
-      if (u.includes('/messages')) await messagesReady
+      if (u.includes('/stream')) {
+        await messagesReady
+        return chatStreamOf(Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), 'handed-back')
+      }
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
         : u.endsWith(`/changes/${CHANGE}`)
           ? { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
           : u.endsWith('/preview') ? { state: 'live', url: 'https://preview.example' }
-            : u.includes('/messages') ? { messages: Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), turn: 'handed-back' }
-              : { changes: [] }
+            : { changes: [] }
       return new Response(JSON.stringify(data))
     })))
   })
@@ -223,12 +226,12 @@ describe('phone change controls', () => {
     messageCount = 1
     let releaseMessages!: () => void
     messagesReady = new Promise<void>(resolve => { releaseMessages = resolve })
-    const { el, client, done } = await mount()
+    const { el, done } = await mount()
     try {
       expect(el.querySelector('.change-controls-toggle')).toBeNull()
       secondary(el, false); mainActions(el)
       await act(async () => releaseMessages())
-      await act(async () => { client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [{ i: 0, role: 'you', text: 'Hello' }] }) })
+      await vi.waitFor(() => expect(el.textContent).toContain('Hello'))
       secondary(el, false); mainActions(el)
       act(() => el.querySelector<HTMLTextAreaElement>('textarea')!.focus())
       secondary(el, false); mainActions(el)
@@ -291,7 +294,7 @@ describe('writing while the helper starts', () => {
         return new Response('{"sessions":[]}')
       }
       if (u.endsWith('/say')) { said.push(JSON.parse(String(init?.body)).text); return sayFails ? new Response('{"error":"Could not send"}', { status: 400 }) : new Response('{}') }
-      if (u.includes('/messages')) return new Response('{"messages":[]}')
+      if (u.includes('/stream')) return chatStreamOf([])
       return new Response('{"changes":[]}')
     })))
     const client = newQueryClient()
@@ -398,11 +401,12 @@ describe('the surrounding page owns the change status', () => {
     Element.prototype.scrollIntoView = () => {}
     vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
       const u = String(url)
+      if (u.includes('/stream')) return chatStreamOf([{ i: 0, role: 'you', text: 'Build it' }], busy ? 'working' : 'handed-back')
       const data = u.endsWith('/projects/p/console')
         ? { sessions: [{ id: 'one-chip', changeId: CHANGE, mayAct: true, state: 'detached' }] }
         : u.endsWith(`/changes/${CHANGE}`)
           ? { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'checking', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 'One label', state: 'in_progress' } }
-          : u.includes('/messages') ? { messages: [{ i: 0, role: 'you', text: 'Build it' }], turn: busy ? 'working' : 'handed-back' } : { changes: [] }
+          : { changes: [] }
       return new Response(JSON.stringify(data))
     })))
     const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)

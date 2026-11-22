@@ -260,8 +260,11 @@ workspace. Protocol 4 answers a task's result files as states and sizes
 and serves each present one on its own read as a stream, so a result (a
 database dump) of any declared size passes through neither side's memory
 whole; an AppTown of 3 would read a present result without its bytes as
-empty. It is a stop-both-and-upgrade change: this worker serves protocol 4
-alone, so stop AppTown and its worker and upgrade both.
+empty. Protocol 5 lists a chat's record with its draft (the message pi is
+writing) and a state AppTown waits on, so a worker chat's words reach
+AppTown as they are written; a worker of 4 would answer each wait at once.
+Protocols 4 and 5 are stop-both-and-upgrade changes: this worker serves
+protocol 5 alone, so stop AppTown and its worker and upgrade both.
 
 Behind a company's TLS-inspecting proxy, give the worker the company
 authority's certificate as a PEM file: `-trust-deployments` for its
@@ -927,6 +930,14 @@ A chat on the worker runs under the same rules as a task's private Docker:
   skipped). AppTown sends its Docker Hub mirror (the `docker-hub`
   registry binding) with each chat that has private Docker, and the daemon
   and its builder pull through it. No registry credential is sent.
+
+**Following a chat on the worker.** AppTown copies a worker chat's record
+and its draft (the message pi is writing, beside the record) back as they
+change: it asks the worker for the record's listing with the state it last
+copied, and the worker answers when that changes, or after twenty seconds
+unchanged. The chat page follows AppTown's copy, so a
+worker chat's words reach it as they are written. A failed copy is asked
+again after two seconds.
 
 **Upgrading a worker to these rules.** A chat started before the upgrade
 keeps its container: it still mounts the shared cache volume and has no

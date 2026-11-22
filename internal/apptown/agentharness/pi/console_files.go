@@ -33,6 +33,15 @@ func (home Preparer) ConsoleFiles(ctx context.Context, dataDir string, projectID
 	if err := home.StageAgentDir(ctx, piAgent, projectID); err != nil {
 		return nil, err
 	}
+	// The chat's draft writer (draft.js): the message pi is writing, beside
+	// its record. Global extensions load from here; trust stays "never".
+	extensions := filepath.Join(piAgent, "extensions")
+	if err := os.MkdirAll(extensions, 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(extensions, draftExtension), draftWriterFor(console.SessionsMount), 0o644); err != nil {
+		return nil, err
+	}
 	// Stage the fd binary pi would otherwise download on first use.
 	if fd, err := os.ReadFile(filepath.Join(dataDir, "tools", "fd-linux-"+runtime.GOARCH)); err == nil {
 		binDir := filepath.Join(piAgent, "bin")

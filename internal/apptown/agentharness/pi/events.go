@@ -4,11 +4,26 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"strconv"
 	"strings"
 )
 
 //go:embed events.js
 var eventFilter string
+
+//go:embed draft.js
+var draftWriter string
+
+// draftExtension is the chat's draft writer's file name among pi's global
+// extensions.
+const draftExtension = "apptown-draft.js"
+
+// draftWriterFor is the pi extension that writes a chat's draft
+// (console.DraftFile) into sessions, the chat's sessions folder as its pi
+// sees it.
+func draftWriterFor(sessions string) []byte {
+	return []byte(strings.Replace(draftWriter, "__SESSIONS__", strconv.Quote(sessions), 1))
+}
 
 // CaptureEvents is the end of a script (run under set -e) that runs "$@",
 // pi, with its event stream written to the file events as it goes, except

@@ -78,23 +78,20 @@ func TestTranscript(t *testing.T) {
 		t.Fatalf("bubbles: %+v", msgs)
 	}
 	if tr.TurnHandedBack() {
-		t.Fatal("a record written just now is not quiet yet")
+		t.Fatal("a turn pi has not said is settled is not handed back")
 	}
 	if got := (&Session{Dir: dir}).Activity(); got != working {
-		t.Fatalf("a chat whose record is still moving is working, got %q", got)
+		t.Fatalf("a chat whose turn pi has not settled is working, got %q", got)
 	}
 	if got := (&Session{Dir: t.TempDir()}).Activity(); got != "" {
 		t.Fatalf("a chat nobody has spoken in is not working, got %q", got)
 	}
-	old := time.Now().Add(-time.Minute)
-	if err := os.Chtimes(path, old, old); err != nil {
-		t.Fatal(err)
-	}
+	settledAt(path, time.Date(2026, 5, 15, 9, 0, 4, 200_000_000, time.UTC)) // after the answer, before "thanks"
 	if !tr.TurnHandedBack() {
-		t.Fatal("a quiet record ending in an answer is handed back")
+		t.Fatal("a turn pi says is settled is handed back at once")
 	}
 	if got := (&Session{Dir: dir}).Activity(); got != HandedBack {
-		t.Fatalf("a quiet chat ending in an answer has handed back, got %q", got)
+		t.Fatalf("a chat whose turn pi settled has handed back, got %q", got)
 	}
 	file, size := tr.LatestSessionFile()
 	if file != path || size == 0 {
@@ -112,6 +109,9 @@ func TestTranscript(t *testing.T) {
 	before := tr.rd.Off
 	if msgs = tr.messages(); len(msgs) != 4 || msgs[3].Text != "thanks" || tr.rd.Off <= before {
 		t.Fatalf("resume: %+v", msgs)
+	}
+	if tr.TurnHandedBack() {
+		t.Fatal("the next message starts a turn: the earlier settled mark no longer covers the record")
 	}
 	// A chat that continues a lane's session hides the turns before it.
 	later := &Transcript{Dir: dir, since: time.Date(2026, 5, 15, 9, 0, 4, 500_000_000, time.UTC)}

@@ -145,10 +145,15 @@ func (c SessionClient) interrupt(ctx context.Context, id string) error {
 	return c.call(ctx, http.MethodPost, sessionPath(id, "/interrupt"), nil, &out)
 }
 
-// records lists the chat's record files.
-func (c SessionClient) records(ctx context.Context, id string) ([]RecordFile, error) {
-	var out []RecordFile
-	return out, c.call(ctx, http.MethodGet, sessionPath(id, "/records"), nil, &out)
+// records lists the chat's record files and draft; with a state, the
+// worker answers once the listing has changed from it (or after its wait).
+func (c SessionClient) records(ctx context.Context, id, wait string) (RecordListing, error) {
+	var out RecordListing
+	path := sessionPath(id, "/records")
+	if wait != "" {
+		path += "?wait=" + url.QueryEscape(wait)
+	}
+	return out, c.call(ctx, http.MethodGet, path, nil, &out)
 }
 
 // record reads a record file from an offset.

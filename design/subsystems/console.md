@@ -140,6 +140,48 @@ authority the agent then acts with (the opener's, or the speaker's for that
 turn), and presence (who else has the chat open). Nothing here blocks that:
 the rule already admits several people acting on one chat.
 
+## Following a chat
+
+The chat page follows a chat over one event stream,
+`GET /console/{sid}/stream` (`console.Service.Follow`, through
+`conversation.Chats.Follow`), instead of reading the whole conversation
+again on a timer. The record stays the conversation: each update is a
+reading of it, sent when it changes, with the messages from the first one
+that changed, the message the helper is writing, and whether its turn is
+over. A reader that reconnects (a phone waking, a dropped signal) sends the
+cursor it holds, `<count>.<hash of its last message>`, and is sent only what
+it lacks; a cursor that no longer matches the record is sent everything
+again, which replaces what the reader held. The stream asks before each
+update whether the reader may still look, with current grants, and ends
+with a refusal once it may not. The JSON read (`/console/{sid}/messages`)
+stays for the CLI.
+
+pi records a message only when it ends. So that its words appear as it
+writes them, AppTown stages a pi extension in every chat's home
+(`agentharness/pi/draft.js`) that writes the message pi is writing beside
+the record (`sessions/draft.json`, at most every 50 ms). It names the record
+file, and only the chat's own pi writes it: a delegate started with the same
+home has its session elsewhere. The draft shows as the helper's next bubble
+only while it is newer than every message the record holds; once pi records
+the message, which carries the draft's time, the same reading shows the
+message instead. The draft is never part of the record, its usage or an
+ended chat's transcript.
+
+**The end of a turn is pi's own word.** When pi's turn settles (nothing more
+will follow: no retry, no queued message) the same extension writes a mark
+saying so. The helper has handed back when that mark is at or after the
+newest message the record holds, or when the person stopped it. A model
+error's bubble shows once pi settles with it, never while pi may still
+retry it. A chat whose pi started before AppTown shipped the extension never
+writes the mark: it reads as working, saves no turn on a worker and is not
+rebuilt while running, until its pi next stops (idle, or ended) and starts
+again with the extension.
+
+Secret values are masked in the stream as in every read; a value the helper
+is in the middle of writing shows unmasked until its last character arrives.
+A proxy in front of AppTown must pass the stream on as it arrives
+([server setup](../../stock/docs/guides/server-setup.md#your-own-proxy)).
+
 ## Files in a chat
 
 Use Attach, drop files on the composer, or paste files and pictures. A message

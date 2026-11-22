@@ -1,6 +1,7 @@
 package console
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,7 +102,7 @@ func TestRecordFollowsARenamedFile(t *testing.T) {
 }
 
 // A turn that ends in a model error becomes a helper bubble saying so, in
-// plain words, once the record has settled (pi may still retry it), and
+// plain words, once pi says the turn settled (it may still retry it), and
 // counts as handed back: the chat must never look busy over a helper that
 // has stopped.
 func TestModelErrorSurfacesInChat(t *testing.T) {
@@ -112,11 +113,10 @@ func TestModelErrorSurfacesInChat(t *testing.T) {
 `
 	path := writeSessionRecord(t, dir, "2026-09-04T09-57-00-000Z_console.jsonl", rec)
 	s := &Session{Dir: dir}
-	if msgs := s.messages(); len(msgs) != 1 {
-		t.Fatalf("before the record settles, the failure may yet be retried: %+v", msgs)
+	if msgs := s.messages(); len(msgs) != 1 || s.HandedBack() {
+		t.Fatalf("before pi settles the turn, the failure may yet be retried: %+v", msgs)
 	}
-	past := time.Date(2026, 9, 4, 9, 58, 0, 0, time.UTC)
-	_ = os.Chtimes(path, past, past)
+	settled(path)
 	msgs := s.messages()
 	if len(msgs) != 2 {
 		t.Fatalf("want the user turn and the helper's error, got %+v", msgs)
@@ -222,7 +222,6 @@ func TestRetriedModelErrorIsNotAStop(t *testing.T) {
 		t.Fatalf("a failed attempt pi has not settled is not a stop: %+v", msgs)
 	}
 	appendRecord(t, path, `{"type":"context_edit","id":"c","parentId":"b","timestamp":"2026-11-12T00:11:54.100Z","targetId":"b","replacement":null}`)
-	settled(path)
 	if msgs := s.messages(); len(msgs) != 1 || msgs[0].Role != "you" {
 		t.Fatalf("an attempt pi is retrying is not a bubble: %+v", msgs)
 	}
@@ -282,10 +281,14 @@ func appendRecord(t *testing.T, path, line string) {
 	}
 }
 
-// settled ages the record past the settle time.
-func settled(path string) {
-	past := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	_ = os.Chtimes(path, past, past)
+// settled is pi saying the turn is over (agent_settled), as AppTown's
+// extension writes it beside the record at path.
+func settled(path string) { settledAt(path, time.Now()) }
+
+// settledAt is settled with pi's time for the mark.
+func settledAt(path string, at time.Time) {
+	raw, _ := json.Marshal(map[string]any{"type": "settled", "record": filepath.Base(path), "at": at.UnixMilli()})
+	_ = os.WriteFile(filepath.Join(filepath.Dir(path), DraftFile), raw, 0o644)
 }
 
 func writeSessionRecord(t *testing.T, dir, name, body string) string {

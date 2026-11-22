@@ -486,6 +486,14 @@ export type ConsoleSessionView = {
   recordAsOf?: string | null
 }
 
+export type ConsoleStreamUpdate = {
+  from: number
+  messages: Message[]
+  draft: Message | null
+  turn: string
+  cursor: string
+}
+
 export type ContractCheck = {
   ok: boolean
   errors: string[]
@@ -3214,7 +3222,7 @@ export type Message = {
   i: number
   role: string
   text?: string
-  tools?: ({ name: string; detail?: string })[]
+  tools?: Tool[]
   at?: string
   error?: boolean
   stopped?: boolean
@@ -5286,6 +5294,12 @@ export type ConnectorPreset = {
   description: string
   suggest?: string
   config: Record<string, unknown>
+}
+
+export type Tool = {
+  name: string
+  detail?: string
+  done?: boolean
 }
 
 export type DepartureLabel = "running" | "deploying" | "deployed" | "failed" | "waiting for approval" | "cancelled" | "superseded"

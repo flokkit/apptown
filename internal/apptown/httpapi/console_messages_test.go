@@ -331,10 +331,7 @@ func TestAPageOfMessagesTakesOneMaskSnapshot(t *testing.T) {
 	msgs := make([]console.Message, 50)
 	for i := range msgs {
 		msgs[i].Text = "words"
-		msgs[i].Tools = append(msgs[i].Tools, struct {
-			Name   string `json:"name"`
-			Detail string `json:"detail,omitempty"`
-		}{Name: "bash", Detail: "ls"})
+		msgs[i].Tools = append(msgs[i].Tools, console.Tool{Name: "bash", Detail: "ls"})
 	}
 	m.messages(context.Background(), msgs)
 	if snapshots != 1 {

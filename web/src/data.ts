@@ -1,7 +1,7 @@
 import { clearProjectScope } from './projectScope'
-import { useCallback, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { CancelledError, QueryCache, QueryClient, onlineManager, useMutation, useQuery, useQueryClient, type Query, type QueryKey } from '@tanstack/react-query'
-import { HttpError, get, getText, writeListeners } from './api'
+import { HttpError, get, getText, openStream, writeListeners } from './api'
 
 // The page data layer, on TanStack Query. It keeps the promises the hand-built
 // poller made (debt review, findings 24 and 25): two components asking for the
@@ -73,8 +73,12 @@ const isAuth = (key: QueryKey) => key.length === authKey.length && key.every((k,
 // show what was read for another. (Removing the answers alone left readers on
 // screen showing them, the independent reviewer found on 28 September.)
 let identityEpoch = 0
+// Streams (useFollow) are not in the query cache; they hear of a change of
+// identity here, drop what they hold and start again.
+const identityListeners = new Set<() => void>()
 export function identityChanged(client: QueryClient) {
   identityEpoch++
+  identityListeners.forEach((l) => l())
   clearProjectScope()
   const others = { predicate: (q: Query) => !isAuth(q.queryKey) }
   void client.cancelQueries(others)
@@ -334,5 +338,102 @@ export function useGetText(path: string | null, opts: { kind?: ReadKind } = {}) 
     denied: q.error instanceof HttpError && q.error.status === 403,
     notFound: q.error instanceof HttpError && q.error.status === 404,
     answeredAt: q.data !== undefined ? q.dataUpdatedAt : 0,
+  }
+}
+
+// useFollow follows an event stream (a chat's conversation) and answers in
+// the same terms as useGet, so the same read gates show it. Each event's
+// data is an update that fold applies to what the reader holds; cursor
+// names what it holds, sent back as ?after= when the stream reconnects, so
+// a reconnect resends nothing held and misses nothing. A dropped stream
+// keeps the last answer, marked as a failed refresh, and reconnects with a
+// backoff from half a second to thirty, at once when the tab is shown again
+// or the browser comes back online (a phone waking). A refusal (403, 404,
+// or a "refused" event naming one) ends it; 401 asks who this is, as a read
+// does. A change of identity drops what was held and starts again.
+export function useFollow<T, U>(path: string | null, fold: (held: T | null, update: U) => T, cursor: (held: T) => string): Read<T> {
+  const client = useQueryClient()
+  const [state, setState] = useState<{ path: string | null; data: T | null; err: HttpError | Error | null; live: boolean; answeredAt: number }>(
+    { path, data: null, err: null, live: false, answeredAt: 0 })
+  const kick = useRef<() => void>(() => {})
+  const [restarts, setRestarts] = useState(0)
+  useEffect(() => {
+    const restart = () => setRestarts((n) => n + 1)
+    identityListeners.add(restart)
+    return () => { identityListeners.delete(restart) }
+  }, [])
+  useEffect(() => {
+    setState({ path, data: null, err: null, live: false, answeredAt: 0 })
+    if (path === null) return
+    let held: T | null = null
+    let closed = false
+    const epoch = identityEpoch // an answer read for another person is dropped
+    let abort = new AbortController()
+    let backoff = 500
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const connect = async () => {
+      clearTimeout(timer)
+      abort.abort()
+      abort = new AbortController()
+      const signal = abort.signal
+      const at = held === null ? '' : cursor(held)
+      try {
+        const events = await openStream(path + (path.includes('?') ? '&' : '?') + 'after=' + encodeURIComponent(at), signal)
+        for await (const ev of events) {
+          if (closed || signal.aborted || epoch !== identityEpoch) return
+          if (ev.event === 'refused') {
+            const r = JSON.parse(ev.data) as { error: string; status: number }
+            throw new HttpError(r.status, r.error)
+          }
+          held = fold(held, JSON.parse(ev.data) as U)
+          backoff = 500
+          const data = held
+          setState({ path, data, err: null, live: true, answeredAt: Date.now() })
+        }
+        throw new Error('the connection closed')
+      } catch (e) {
+        if (closed || signal.aborted || epoch !== identityEpoch) return
+        const err = e instanceof Error ? e : new Error(String(e))
+        setState((cur) => ({ ...cur, err, live: false }))
+        if (err instanceof HttpError && err.status === 401) void client.invalidateQueries({ queryKey: getKey('/auth/me') })
+        if (err instanceof HttpError && err.status >= 400 && err.status < 500) return
+        timer = setTimeout(() => void connect(), backoff)
+        backoff = Math.min(backoff * 2, 30_000)
+      }
+    }
+    kick.current = () => { backoff = 500; void connect() }
+    const wake = () => { if (document.visibilityState === 'visible') kick.current() }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('online', wake)
+    void connect()
+    return () => {
+      closed = true
+      clearTimeout(timer)
+      abort.abort()
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('online', wake)
+    }
+    // fold and cursor are the caller's fixed functions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, restarts, client])
+  const current = state.path === path
+  const data = current ? state.data : null
+  const err = current ? state.err : null
+  const message = err ? err.message : ''
+  const refreshFailed = data !== null && err !== null
+  const reload = useCallback(async () => { kick.current() }, [])
+  return {
+    data,
+    err: refreshFailed ? `${message} (showing the last answer read)` : message,
+    reason: message,
+    loading: path !== null && data === null && err === null,
+    refreshing: false,
+    refreshFailed,
+    paused: err !== null && !onlineManager.isOnline(),
+    current: data !== null && current && state.live,
+    denied: err instanceof HttpError && err.status === 403,
+    notFound: err instanceof HttpError && err.status === 404,
+    answeredAt: current ? state.answeredAt : 0,
+    reload,
   }
 }

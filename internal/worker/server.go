@@ -65,6 +65,9 @@ type Server struct {
 	// Sessions runs chats (sessions.go): AppTown's own chat runtime on the
 	// worker's Docker. Nil for a worker that runs none.
 	Sessions console.Agent
+	// recordsWait is how long a chat's record listing asked to wait holds
+	// for a change before answering unchanged; zero is twenty seconds.
+	recordsWait time.Duration
 	// Images answers whether a session's image is on the worker's Docker;
 	// a session whose image is absent is refused with the reason. Nil
 	// checks nothing.

@@ -154,6 +154,38 @@ func (c Chats) Messages(ctx context.Context, s *console.Session, from int) (cons
 	return c.Sessions.Messages(ctx, s.ID, from)
 }
 
+// Follow sends the chat's conversation as it changes (console.Service.Follow)
+// to whoever may look at it. Looking needs the project's read, and a chat's
+// own credential reaches only its own chat. That is asked again before each
+// update, with current grants rather than those the opening GET read: a
+// viewer whose read is taken away is sent nothing more, and Follow returns
+// the refusal.
+func (c Chats) Follow(ctx context.Context, s *console.Session, after console.Cursor, send func(console.Update) error) error {
+	later := identity.WithoutReadFacts(ctx)
+	return c.Sessions.Follow(ctx, s.ID, after, func(u console.Update) error {
+		if err := c.look(later, s); err != nil {
+			return err
+		}
+		return send(u)
+	})
+}
+
+// look answers whether the caller may look at the chat.
+func (c Chats) look(ctx context.Context, s *console.Session) error {
+	caller, _ := access.CallerFrom(ctx)
+	if pr := caller.Principal; pr.Kind == "instrument" && pr.Instrument == "console" && pr.ConsoleID != s.ID {
+		return errNotThisChat
+	}
+	if c.Authority == nil {
+		return access.ErrAuthorityUnavailable
+	}
+	scope := Of(s)
+	_, err := c.Authority.Require(ctx, access.Permission{Capability: access.CapProjectRead,
+		Resource: access.Resource{Type: "project", ID: scope.ProjectID.String(), ProjectID: scope.ProjectID},
+		Context:  access.Context{Route: "chat"}})
+	return err
+}
+
 // Terminal opens the chat's terminal. Someone who may act on the chat
 // attaches to it, waking the chat first; anyone else watches it: its screen
 // only, while it runs (console.Service.Watch). An attached terminal shows

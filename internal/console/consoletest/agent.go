@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
@@ -259,7 +260,76 @@ func (f *Agent) ReplyWith(id, text, provider string, usage map[string]any) {
 	l := f.Started(id)
 	_ = appendEntry(l.Dir, l.AgentSession, map[string]any{"role": "assistant", "provider": provider, "model": l.Model,
 		"content": []map[string]any{{"type": "text", "text": text}}, "usage": usage}, time.Now())
-	settle(l.Dir)
+	f.Settled(id)
+}
+
+// Settled is pi saying its turn is over, as its AppTown extension writes
+// it at agent_settled: the chat has handed back.
+func (f *Agent) Settled(id string) {
+	l := f.Started(id)
+	_ = writeBeside(l.Dir, map[string]any{"type": "settled", "record": filepath.Base(recordPath(l.Dir, l.AgentSession)), "at": piClock()})
+}
+
+// Drafting is pi writing a message it has not finished: the draft its
+// AppTown extension keeps beside the record, naming the record file and the
+// message's own start time (sent), as pi's draft.js writes it. A tool call
+// in the draft is named by its id.
+func (f *Agent) Drafting(id, text string, sent time.Time, tools ...string) {
+	l := f.Started(id)
+	f.DraftingFor(id, filepath.Base(recordPath(l.Dir, l.AgentSession)), text, sent, tools...)
+}
+
+// DraftingFor is Drafting by a pi whose record is the file named, as a
+// delegate with its own session would be if it wrote the chat's draft.
+func (f *Agent) DraftingFor(id, record, text string, sent time.Time, tools ...string) {
+	l := f.Started(id)
+	content := []map[string]any{{"type": "text", "text": text}}
+	for _, call := range tools {
+		content = append(content, map[string]any{"type": "toolCall", "id": call, "name": "bash", "arguments": map[string]any{"command": "ls"}})
+	}
+	_ = writeBeside(l.Dir, map[string]any{"type": "draft", "record": record, "message": map[string]any{"role": "assistant", "timestamp": sent.UnixMilli(), "content": content}})
+}
+
+// ReplySent is Reply with pi's own message time: the message a draft with
+// the same sent time becomes once pi records it. A tool call is named by
+// its id, so ToolResult can answer it.
+func (f *Agent) ReplySent(id, text string, sent time.Time, tools ...string) {
+	l := f.Started(id)
+	content := []map[string]any{{"type": "text", "text": text}}
+	for _, call := range tools {
+		content = append(content, map[string]any{"type": "toolCall", "id": call, "name": "bash", "arguments": map[string]any{"command": "ls"}})
+	}
+	_ = appendEntry(l.Dir, l.AgentSession, map[string]any{"role": "assistant", "provider": "fake", "model": l.Model,
+		"timestamp": sent.UnixMilli(), "content": content}, time.Now())
+}
+
+// ToolResult records a tool call's result, as pi does when the tool ends.
+func (f *Agent) ToolResult(id, call string) {
+	l := f.Started(id)
+	_ = appendEntry(l.Dir, l.AgentSession, map[string]any{"role": "toolResult", "toolCallId": call,
+		"content": []map[string]any{{"type": "text", "text": "done"}}}, time.Now())
+}
+
+// NewRecordFile starts the chat's record again in a new file, as a fresh
+// pi runtime does: a later file name, its header only.
+func (f *Agent) NewRecordFile(id string) {
+	l := f.Started(id)
+	path := filepath.Join(l.Dir, "sessions", "2026-01-02T00-00-00-000Z_"+l.AgentSession+".jsonl")
+	_ = os.WriteFile(path, []byte(`{"type":"session","version":3,"id":"`+l.AgentSession+`"}`+"\n"), 0o644)
+}
+
+// FailedTurn is a model call that failed, not yet retried: pi may still
+// retry it (Retry) or settle with it (Settled).
+func (f *Agent) FailedTurn(id string) {
+	l := f.Started(id)
+	_ = appendLine(l.Dir, l.AgentSession, map[string]any{"type": "message", "id": "failed", "timestamp": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"message": map[string]any{"role": "assistant", "timestamp": piClock(), "content": []any{}, "stopReason": "error", "errorMessage": "503 overloaded"}})
+}
+
+// Retry is pi retrying the failed attempt: its edit dropping that attempt.
+func (f *Agent) Retry(id string) {
+	l := f.Started(id)
+	_ = appendLine(l.Dir, l.AgentSession, map[string]any{"type": "context_edit", "id": "retry", "timestamp": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), "targetId": "failed", "replacement": nil})
 }
 
 // Working is the agent mid-turn: its newest entry is a tool call, just now.
@@ -307,8 +377,46 @@ func recordPath(dir, piSession string) string {
 	return filepath.Join(dir, "sessions", "2026-01-01T00-00-00-000Z_"+piSession+".jsonl")
 }
 
+// piClock is pi's own time for a message or a mark, in ms: each call
+// later than the last, as pi's are in a real turn, so a mark and the next
+// message are never in the same millisecond.
+func piClock() int64 {
+	for {
+		last, now := lastPiTime.Load(), time.Now().UnixMilli()
+		next := max(now, last+1)
+		if lastPiTime.CompareAndSwap(last, next) {
+			return next
+		}
+	}
+}
+
+var lastPiTime atomic.Int64
+
+// PiNow is pi's time for a message starting now: what a draft and the
+// message it becomes share (Drafting, ReplySent).
+func PiNow() time.Time { return time.UnixMilli(piClock()) }
+
+// appendEntry records a message, stamped with pi's own time when the
+// message carries none.
 func appendEntry(dir, piSession string, message map[string]any, at time.Time) error {
+	if _, ok := message["timestamp"]; !ok {
+		message["timestamp"] = piClock()
+	}
 	return appendLine(dir, piSession, map[string]any{"type": "message", "timestamp": at.UTC().Format("2006-01-02T15:04:05.000Z"), "message": message})
+}
+
+// writeBeside writes the file beside the record as pi's extension does:
+// aside, then renamed into place.
+func writeBeside(dir string, line map[string]any) error {
+	raw, err := json.Marshal(line)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "sessions", console.DraftFile)
+	if err := os.WriteFile(path+".tmp", raw, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(path+".tmp", path)
 }
 
 func appendLine(dir, piSession string, entry map[string]any) error {
@@ -326,15 +434,6 @@ func appendLine(dir, piSession string, entry map[string]any) error {
 	defer f.Close()
 	_, err = f.Write(append(line, '\n'))
 	return err
-}
-
-// settle backdates the record so the transcript's quiet period has passed.
-func settle(dir string) {
-	files, _ := filepath.Glob(filepath.Join(dir, "sessions", "*.jsonl"))
-	for _, f := range files {
-		old := time.Now().Add(-10 * time.Second)
-		_ = os.Chtimes(f, old, old)
-	}
 }
 
 // --- a terminal onto the fake screen ---------------------------------------------

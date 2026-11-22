@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { getKey, newQueryClient } from '../../data'
+import { newQueryClient } from '../../data'
+import { chatFeed, chatStreamOf } from './chatStream.fixture'
 import { NARROW_QUERY } from '../../chrome'
 import { Bubbles, foldTools, retired, toolSummary, type Bubble } from './Bubbles'
 
@@ -35,10 +36,10 @@ describe('a chat the reader may only look at', () => {
   const show = async (readOnly?: string) => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     Element.prototype.scrollIntoView = () => {} // jsdom lays nothing out
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ messages: [
+    vi.stubGlobal('fetch', vi.fn(async () => chatStreamOf([
       { i: 0, role: 'you', text: 'make the cat blue' },
       { i: 1, role: 'helper', tools: [{ name: 'bash', detail: 'ls' }] },
-    ] }))))
+    ])))
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
@@ -72,16 +73,14 @@ describe('a chat the reader may only look at', () => {
 // never shown as an empty chat with its starters.
 describe('the conversation as read', () => {
   afterEach(() => { vi.unstubAllGlobals() })
-  const messages = '/console/s1/messages?from=0'
-  const mount = async (reply: () => Response, seed?: Bubble[]) => {
+  const mount = async (reply: () => Response) => {
     Element.prototype.scrollIntoView = () => {}
     const said: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith('/say')) { said.push(JSON.parse(String(init?.body)).text); return new Response('{}') }
-      return reply()
+      return String(url).includes('/stream') ? reply() : new Response('{}')
     }))
     const client = newQueryClient()
-    if (seed) client.setQueryData(getKey(messages), { messages: seed })
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
@@ -102,8 +101,9 @@ describe('the conversation as read', () => {
     const windowScrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const windowScrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => {})
     let record: Bubble[] = [{ i: 0, role: 'you', text: 'build it' }]
+    const feed = chatFeed({ messages: record })
     // mount's other tests supply a jsdom scrollIntoView stub.
-    const { el, client, done } = await mount(() => new Response(JSON.stringify({ messages: record })))
+    const { el, done } = await mount(() => feed.response)
     Element.prototype.scrollIntoView = intoView
     try {
       await vi.waitFor(() => expect(el.textContent).toContain('build it'))
@@ -114,7 +114,7 @@ describe('the conversation as read', () => {
       })
       const append = async () => {
         record = [...record, { i: record.length, role: 'helper', text: `update ${record.length}` }]
-        await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
+        await act(async () => { feed.push({ messages: record }) })
         await vi.waitFor(() => expect(el.textContent).toContain(`update ${record.length - 1}`))
       }
       await append()
@@ -140,7 +140,8 @@ describe('the conversation as read', () => {
       { i: 1, role: 'helper', tools: [{ name: 'read', detail: 'main.go' }] },
     ]
     let turn = 'working'
-    const { el, client, done } = await mount(() => new Response(JSON.stringify({ messages: record, turn })))
+    const feed = chatFeed({ messages: record, turn })
+    const { el, done } = await mount(() => feed.response)
     try {
       await vi.waitFor(() => expect(el.querySelector('.tool-fold')).not.toBeNull())
       const slot = el.querySelector<HTMLElement>('.chat-working')!
@@ -151,7 +152,7 @@ describe('the conversation as read', () => {
       const after = slot.nextElementSibling
       expect(slot.closest('.chat-scroll')).toBeNull()
       for (turn of ['handed-back', 'working', 'handed-back', 'working']) {
-        await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
+        await act(async () => { feed.push({ from: 2, messages: [], turn }) })
         // Working… and stop show in the input's row while the helper works,
         // in the same element, so nothing around them moves or remounts.
         await vi.waitFor(() => expect(slot.hidden).toBe(turn !== 'working'))
@@ -171,7 +172,7 @@ describe('the conversation as read', () => {
       { i: 0, role: 'you', text: 'build it' },
       { i: 1, role: 'helper', stopped: true, text: 'You stopped me.' },
     ]
-    const { el, done } = await mount(() => new Response(JSON.stringify({ messages: record, turn: 'handed-back' })))
+    const { el, done } = await mount(() => chatStreamOf(record, 'handed-back'))
     try {
       await vi.waitFor(() => expect(el.textContent).toContain('stopped by you'))
       expect(el.querySelector<HTMLElement>('.chat-working')!.hidden).toBe(true)
@@ -186,13 +187,17 @@ describe('the conversation as read', () => {
   })
 
   it('offers the starters only for a conversation read as empty', async () => {
-    const { el, done } = await mount(() => new Response(JSON.stringify({ messages: [] })))
+    const { el, done } = await mount(() => chatStreamOf([]))
     await vi.waitFor(() => expect(el.textContent).toContain('What does this project do right now?'))
     done()
   })
 
-  it('keeps an old conversation shown, saying it may be old, when its refresh fails', async () => {
-    const { el, done } = await mount(down, [{ i: 0, role: 'you', text: 'make the cat blue' }])
+  it('keeps an old conversation shown, saying it may be old, when its stream drops and cannot be read again', async () => {
+    const feed = chatFeed({ messages: [{ i: 0, role: 'you', text: 'make the cat blue' }] })
+    let calls = 0
+    const { el, done } = await mount(() => calls++ === 0 ? feed.response : down())
+    await vi.waitFor(() => expect(el.textContent).toContain('make the cat blue'))
+    act(() => feed.drop())
     await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(the worker cannot be reached)'))
     expect(el.textContent).toContain('make the cat blue')
     done()
@@ -202,7 +207,8 @@ describe('the conversation as read', () => {
   // copy as soon as the record holds a new message from the person.
   it('shows the message just sent until the record holds it', async () => {
     let record: Bubble[] = [{ i: 0, role: 'helper', text: 'Hello.' }]
-    const { el, client, said, done } = await mount(() => new Response(JSON.stringify({ messages: record })))
+    const feed = chatFeed({ messages: record })
+    const { el, said, done } = await mount(() => feed.response)
     await vi.waitFor(() => expect(el.textContent).toContain('Hello.'))
     const box = el.querySelector('textarea')!
     await act(async () => {
@@ -214,7 +220,7 @@ describe('the conversation as read', () => {
     expect(said).toEqual(['make it blue'])
     expect(el.querySelector('.bubble.you.pending')?.textContent).toBe('make it blue')
     record = [...record, { i: 1, role: 'you', text: 'make it blue.' }]
-    await act(async () => { await client.refetchQueries({ queryKey: getKey(messages) }) })
+    await act(async () => { feed.push({ messages: record }) })
     await vi.waitFor(() => expect(el.querySelector('.bubble.you.pending')).toBeNull())
     expect(el.querySelectorAll('.bubble.you')).toHaveLength(1)
     done()
@@ -224,7 +230,7 @@ describe('the conversation as read', () => {
   it('on a phone the composer starts with two rows, grows for a draft and shrinks after sending', async () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, addEventListener() {}, removeEventListener() {} }))
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
-    const { el, done } = await mount(() => new Response(JSON.stringify({ messages: [] })))
+    const { el, done } = await mount(() => chatStreamOf([]))
     try {
       const box = el.querySelector('textarea')!
       expect(box.rows).toBe(2)
@@ -257,10 +263,10 @@ describe('whose turn it is', () => {
   afterEach(() => { vi.unstubAllGlobals() })
   const busyFor = async (turn: string) => {
     Element.prototype.scrollIntoView = () => {}
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ turn, messages: [
+    vi.stubGlobal('fetch', vi.fn(async () => chatStreamOf([
       { i: 0, role: 'you', text: 'build it' },
       { i: 1, role: 'helper', text: 'Let me create it now:', tools: [{ name: 'bash', detail: 'django-admin startproject app' }] },
-    ] }))))
+    ], turn)))
     let busy: boolean | undefined
     const el = document.createElement('div')
     const root = createRoot(el)
@@ -286,7 +292,7 @@ it('does not restore a failed send from a previous session into a fresh chat', a
   let refuse!: (r: Response) => void
   vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).endsWith('/say')
     ? new Promise<Response>(resolve => { refuse = resolve })
-    : new Response('{"messages":[]}')))
+    : chatStreamOf([])))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -320,7 +326,7 @@ describe('files in the composer', () => {
     return new Response(JSON.stringify({ name: 'data.csv', path: '/console/uploads/data.csv', size: 8, picture: false }))
    }
    if (String(url).endsWith('/say')) { said.push(JSON.parse(String(init?.body))); return new Response('{}') }
-   return new Response(JSON.stringify({ messages: [], turn: 'handed-back' }))
+   return chatStreamOf([], 'handed-back')
   }))
   const el = document.createElement('div')
   const root = createRoot(el)
@@ -370,15 +376,15 @@ describe('files in the composer', () => {
 
 it('shows a button request as an AppTown event and leaves ordinary words in their own voice', async () => {
   const client = newQueryClient()
-  client.setQueryData(getKey('/console/s1/messages?from=0'), { messages: [
+  vi.stubGlobal('fetch', vi.fn(async () => chatStreamOf([
     { i: 0, role: 'helper', text: 'Ready.' },
     { i: 1, role: 'you', text: '[apptown button: Check and land] Please check and land this change now.' },
     { i: 2, role: 'you', text: 'My own words' },
-  ], turn: 'handed-back' })
-  vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+  ], 'handed-back')))
   const el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId="s1" readOnly="sam" /></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.bubble.check')).not.toBeNull())
     const event = el.querySelector('.bubble.check')!
     expect(event).not.toBeNull()
     expect(event.children[0].textContent).toBe('Check and land')
@@ -386,5 +392,29 @@ it('shows a button request as an AppTown event and leaves ordinary words in thei
     expect(event.children[1].className).toContain('small muted')
     expect([...el.querySelectorAll('.bubble.you')].map(e => e.textContent)).toEqual(['My own words'])
     expect(el.querySelector('.bubble.working')).toBeNull()
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+// The helper's words show as it writes them, as its next bubble, still
+// working (never the green answer); once the record holds the message the
+// same bubble shows it, never twice.
+it('shows the helper\'s words as they are written, then the recorded message in their place', async () => {
+  Element.prototype.scrollIntoView = () => {}
+  const you = { i: 0, role: 'you', text: 'make it blue' }
+  const feed = chatFeed({ messages: [you] })
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).includes('/stream') ? feed.response : new Response('{}')))
+  const client = newQueryClient()
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId="s1" /></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.textContent).toContain('make it blue'))
+    for (const words of ['Let', 'Let me look', 'Let me look first.']) {
+      await act(async () => feed.push({ from: 1, messages: [], draft: { i: 1, role: 'helper', text: words } }))
+      await vi.waitFor(() => expect(el.querySelector('.bubble.working')?.textContent?.trim()).toBe(words))
+    }
+    expect(el.querySelector('.bubble.final')).toBeNull()
+    await act(async () => feed.push({ from: 1, messages: [{ i: 1, role: 'helper', text: 'Let me look first.' }], draft: null, turn: 'handed-back' }))
+    await vi.waitFor(() => expect(el.querySelector('.bubble.final')?.textContent?.trim()).toBe('Let me look first.'))
+    expect([...el.querySelectorAll('.bubble')].filter((b) => b.textContent?.trim() === 'Let me look first.')).toHaveLength(1)
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
