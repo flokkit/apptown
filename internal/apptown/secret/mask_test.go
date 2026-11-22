@@ -62,3 +62,43 @@ func TestAMaskerReadsTheStoresOnce(t *testing.T) {
 		t.Fatalf("a new masker reads the stores again: %q", got)
 	}
 }
+
+// A message still being written hides the start of a value at its end, not
+// only whole values: the rest of the value is about to follow. It decides
+// on the text as written, so a value inside the start of a longer one does
+// not leave the longer one's start in clear.
+func TestPartialHidesTheStartOfAValueAtTheEnd(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("TOKEN=abcd1234efgh\nLONGER=abcd1234efgh-and-more\nPORT=5432\n"), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
+		t.Fatal(err)
+	}
+	m := NewService(nil, Config{DataDir: dir}).Mask(t.Context())
+	for text, want := range map[string]string{
+		"key: abcd1234efg":            "key: [secret]",        // all but the last character
+		"key: abcd":                   "key: [secret]",        // four characters
+		"key: abc":                    "key: abc",             // three are left
+		"value=abcd1234efgh-and-mor":  "value=[secret]",       // a value inside a longer one's start
+		"a=abcd1234efgh then more":    "a=[secret] then more", // a whole value
+		"the port is 5432 and abcd12": "the port is 5432 and [secret]",
+		"nothing secret here":         "nothing secret here",
+	} {
+		got, ok := m.Partial(text)
+		if !ok || got != want {
+			t.Errorf("Partial(%q) = %q %v, want %q", text, got, ok, want)
+		}
+	}
+}
+
+// What to hide in a message still being written cannot be decided when a
+// store could not be read, so it is not shown at all.
+func TestPartialIsUndecidedWhenAStoreCannotBeRead(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil { // a folder: the file cannot be read
+		t.Fatal(err)
+	}
+	if got, ok := NewService(nil, Config{DataDir: dir}).Mask(t.Context()).Partial("abcd"); ok || got != "" {
+		t.Fatalf("an unreadable store decided %q %v", got, ok)
+	}
+}

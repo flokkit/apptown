@@ -177,8 +177,15 @@ writes the mark: it reads as working, saves no turn on a worker and is not
 rebuilt while running, until its pi next stops (idle, or ended) and starts
 again with the extension.
 
-Secret values are masked in the stream as in every read; a value the helper
-is in the middle of writing shows unmasked until its last character arrives.
+Secret values are masked in the stream as in every read. The message the
+helper is still writing is masked as text still being written
+(`secret.Mask.Partial`): its ending is hidden too when it is the first four
+or more characters of a known value, since the rest is about to follow, so
+at most three characters of a value being written show. Ordinary words that
+happen to start a value read `[secret]` while they match; the finished
+message is masked for whole values as before. When a secret store could not
+be read, what to hide is not known, and the message being written is not
+sent until the record holds it.
 A proxy in front of AppTown must pass the stream on as it arrives
 ([server setup](../../stock/docs/guides/server-setup.md#your-own-proxy)).
 
