@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { usePageName } from '../chrome'
 import { ProjectCount } from './DependentProjects'
 import './GuidanceBlockPage.css'
@@ -35,7 +36,7 @@ export default function GuidanceBlockPage() {
   }, [view, editing, current])
 
   usePageName(`/guidance/${encodeURIComponent(name)}`, view?.block.name)
-  if (!view) return <div><h1>{viewQ.err && !viewQ.denied ? 'Guidance unavailable' : 'Guidance'}</h1>
+  if (!view) return <div><PageBar title={viewQ.err && !viewQ.denied ? 'Guidance unavailable' : 'Guidance'} />
     <ReadStatus q={viewQ} what="the guidance block" />
     {viewQ.err && <p>This guidance could not be opened. Choose it from the library.</p>}
     <Link to="/guidance">Back to guidance</Link></div>
@@ -53,10 +54,8 @@ export default function GuidanceBlockPage() {
   const canEdit = !editing && !viewingOld && block.origin !== 'stock'
   return (
     <div>
-      <div className="row guidance-block-page-div">
-        <h1 className="grow guidance-block-page-h1">{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
-        {canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>}
-      </div>
+      <PageBar title={block.name.split('/').at(-1)!.replaceAll('-', ' ')}
+        actions={canEdit && <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit</button>} />
       {/* Who ships it, its size and tags in words; its full name and version,
           which packs refer to it by, on a technical line of their own. */}
       <p className="muted small mt-1" >

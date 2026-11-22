@@ -33,10 +33,10 @@
 .account-switches .ch-goggles.active { background: color-mix(in srgb, var(--text) 30%, transparent); box-shadow: inset 0 0 0 1px var(--warn-mark); }
 .goggles-mark { margin-left: 6px; font-size: var(--fs-sm); opacity: .55; }
 .account-action-list { display: grid; gap: 10px; padding: 4px; }
-.topbar-find { width: 24rem; max-width: 100%; }
-.popover .topbar-find input { width: 100%; }
-.topbar-find-menu { display: grid; gap: 4px; margin-top: 6px; }
-.topbar-find-menu button { white-space: normal; overflow-wrap: anywhere; }
+.find-box { width: 24rem; max-width: 100%; }
+.find-box input { width: 100%; }
+.find-box-menu { display: grid; gap: 4px; margin-top: 6px; }
+.find-box-menu button { white-space: normal; overflow-wrap: anywhere; }
 .catalog-entry { display: block; width: 100%; text-align: left; }
 @media (max-width: 800px), (pointer: coarse) {
   .popover button, .head-menu > button, .account-actions > button { min-height: 44px; min-width: 44px; }

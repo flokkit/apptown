@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { PreviewBesideChat } from './console/PreviewBesideChat'
 import { EarlierChats } from './change/Conversation'
 import { useAgentActions } from '../AgentActions'
@@ -95,7 +96,7 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
   // A chat that cannot open says why in one line and goes back where the
   // person came from: the change, or the project for its own chat.
   if (!session && openErr) return <div>
-    {!isWorkshop && <h1>Project chat</h1>}
+    {!isWorkshop && shown && <PageBar title="Project chat" />}
     <p className="row console-chat-page-p">
       <span>Chat can't open here: {openErr}</span>
       <Link to={shopId ? `/changes/${shopId}` : `/projects/${slug}`}>{shopId ? `Back to ${change.data ? shopName : 'the change'}` : 'Back to the project'}</Link>
@@ -140,18 +141,21 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
   return (
     <PreviewBesideChat changeId={changeId}>{(previewToggle, previewShown) =>
     <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
-      <div className="chat-bar">
-        <div className="chat-bar-title">
-          {isWorkshop
-            ? <h1 className="chat-title"><Link to={overview} title={change.data?.change.title}>
-              {change.data ? <><span className="num">#{change.data.change.number}</span><span className="name">{change.data.change.title}</span></> : 'This change'}</Link></h1>
-            : <h1 className="chat-title">Project chat</h1>}
+      {/* The chat's bar is the page's: only while the chat is on screen (the
+          change page keeps it mounted behind its other tabs). */}
+      {shown && <PageBar className="chat-bar" titleClass="chat-title"
+        title={isWorkshop
+          ? <Link to={overview} title={change.data?.change.title}>
+            {change.data ? <><span className="num">#{change.data.change.number}</span><span className="name">{change.data.change.title}</span></> : 'This change'}</Link>
+          : 'Project chat'}
+        after={<>
           {!isWorkshop && <span className="chat-kind" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
           {/* One status: what the helper is doing, with the change's state as
               the dot's colour. "your turn" is the chat owner's: someone looking
               sees where the change stands instead. */}
           {(showActivity || change.data) && <Activity word={showActivity ? word : null} change={change.data?.waitingOn} />}
-        </div>
+        </>}
+        actions={<>
         {zoom === 'chat' && mayAct && isWorkshop && change.data && <BarVerbs changeId={shopId} landing={landing} busy={activity.busy} overview={overview} />}
         {zoom === 'terminal' && mayAct && (mayType
           ? <span className="chat-kind" title="Your keys go to the helper; Escape stops what it is doing.">you have control</span>
@@ -186,7 +190,7 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
             </>}
           </div>
         </FormMenu>
-      </div>
+        </>} />}
       <Bubbles before={shopId ? <>{history}<EarlierChats changeId={shopId} currentOpenedAt={session?.createdAt} /></> : undefined}
         hidden={zoom !== 'chat' || !shown} sessionId={session?.id ?? null} attached={status === 'attached'}
         starting={status !== 'attached' || !session ? <StartingLine opening={!session} /> : undefined} onActivity={onActivity}

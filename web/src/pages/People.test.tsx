@@ -395,7 +395,7 @@ it('shows active, disabled and never-signed-in accounts without fold-downs', asy
  expect(newcomer.querySelector('td:nth-last-child(2)')?.textContent).toBe('—')
  expect(el.querySelector('a[href="/people/accounts/kim"]')).not.toBeNull()
  expect(el.querySelector('details')).toBeNull()
- expect(el.querySelector('.page-head button.primary')?.textContent).toBe('Invite')
+ expect(el.querySelector('.page-bar-actions button.primary')?.textContent).toBe('Invite')
  expect([...el.querySelectorAll('th')].map(c => c.textContent)).toEqual(['Name', 'Role', 'Groups', 'Status', 'Last seen', ''])
  expect(el.querySelectorAll('h1')).toHaveLength(1)
  expect(el.querySelector('h1')?.textContent).toBe('Accounts')
@@ -488,7 +488,7 @@ it.each([['groups', 'Groups', 'New group'], ['roles', 'Roles', 'Grant role']] as
  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
  try {
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><People view={view} /></MemoryRouter></QueryClientProvider>))
-  await vi.waitFor(() => expect(el.querySelector('.page-head .primary')?.textContent).toBe(action))
+  await vi.waitFor(() => expect(el.querySelector('.page-bar-actions .primary')?.textContent).toBe(action))
   expect(el.querySelectorAll('h1')).toHaveLength(1)
   expect(el.querySelector('h1')?.textContent).toBe(title)
   expect(el.querySelector('h2')?.textContent).toBe(`All ${title.toLowerCase()}0`)

@@ -15,27 +15,35 @@ export function usePageName(path: string, name: string | undefined): void {
   }, [path, name])
 }
 
-// The shell's one breakpoint: under it the sidebar folds into a menu button
-// and the top bar keeps only the menu, the name and where you are; finding,
-// the theme and who you are move into the menu. Kept in step with the
-// @media (max-width: 800px) rules in styles/shell.css.
-// Local reflow and shell widths match the stylesheet allow-list.
-export const BREAKPOINTS = { compact: 600, narrow: 800 } as const
+// The shared widths (web/DESIGN.md). Under narrow (800) pages take their
+// phone layout: help and Find open as dialogs and rows stack. Under fold
+// (1100) the left nav folds behind the menu button at the start of the
+// page's bar: beside a 210px nav a portrait tablet or a half-screen window
+// would leave the page less than its reading width. Kept in step with the
+// @media rules in the stylesheets and the Stylelint allow-list.
+export const BREAKPOINTS = { compact: 600, narrow: 800, fold: 1100 } as const
 export const NARROW_QUERY = `(max-width: ${BREAKPOINTS.narrow}px)`
+export const FOLD_QUERY = `(max-width: ${BREAKPOINTS.fold}px)`
 
-export function useNarrow(): boolean {
-  const query = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(NARROW_QUERY).matches
-  const [narrow, setNarrow] = useState(query)
+function useMedia(q: string): boolean {
+  const query = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(q).matches
+  const [matches, setMatches] = useState(query)
   useEffect(() => {
     if (!window.matchMedia) return
-    const mq = window.matchMedia(NARROW_QUERY)
-    const on = () => setNarrow(mq.matches)
+    const mq = window.matchMedia(q)
+    const on = () => setMatches(mq.matches)
     on()
     mq.addEventListener('change', on)
     return () => mq.removeEventListener('change', on)
-  }, [])
-  return narrow
+  }, [q])
+  return matches
 }
+
+// useNarrow: the phone layout.
+export function useNarrow(): boolean { return useMedia(NARROW_QUERY) }
+
+// useFolded: the left nav is behind the menu button.
+export function useFolded(): boolean { return useMedia(FOLD_QUERY) }
 
 // Safari's keyboard resizes the visual viewport, not the CSS viewport.
 // Publish its position too, so focus panning cannot move the chat's head away.

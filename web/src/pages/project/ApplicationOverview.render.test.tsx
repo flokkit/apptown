@@ -72,7 +72,7 @@ it.each([true, false])('offers Home\'s Change split button beside Open app only 
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><StaleScope><ApplicationOverview project={{ slug: 'demo', name: 'Demo', chatAvailable: true } as ProjectDetail} /></StaleScope></MemoryRouter></QueryClientProvider>))
-    const actions = () => el.querySelector('header .page-head-actions')
+    const actions = () => el.querySelector('.page-bar-page .page-bar-actions')
     await vi.waitFor(() => expect(actions()?.textContent).toContain('Open app'))
     if (may) await vi.waitFor(() => expect(actions()?.querySelector('.split-button [aria-label="Change: more options"]')).not.toBeNull())
     else expect(actions()?.querySelector('.split-button')).toBeNull()

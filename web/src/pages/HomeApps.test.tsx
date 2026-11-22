@@ -59,7 +59,7 @@ it('shows the recent projects in the order given, with All projects for the rest
   }
   // Create project looks as it does on the Projects page.
   expect(el.querySelector('a[href="/projects/_new"]')?.textContent).toBe('+ Create project')
-  expect(el.querySelector('.dash-head button')?.classList.contains('primary')).toBe(true)
+  expect(el.querySelector('.page-bar-actions button')?.classList.contains('primary')).toBe(true)
 })
 
 // Unknown runtime cannot offer a currently running app.

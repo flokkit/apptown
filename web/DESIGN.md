@@ -95,10 +95,11 @@ for actions.
 `src/theme.ts` and `src/size.ts` select the viewer's theme and text size.
 Small is the 14px reference; rem tokens scale with the viewer's choice.
 Use `--space-1` through `--space-6` for 4, 8, 12, 16, 24 and 32 reference pixels.
-Use named depth roles (`--z-base`, `--z-sticky`, `--z-topbar`, `--z-popover`,
+Use named depth roles (`--z-base`, `--z-sticky`, `--z-popover`,
 `--z-modal`, `--z-toast`) and their contextual variants rather than numbers.
-Responsive widths are 600px and 800px, mirrored in `src/chrome.ts`;
-use `(width > 800px)` for the desktop complement.
+Page reflow widths are 600px and 800px, mirrored in `src/chrome.ts`;
+use `(width > 800px)` for the desktop complement. 1100px is only the nav
+fold: at or under it the left nav is behind the menu button in the page's bar.
 
 `src/layers.css` declares tokens, base, type, components, pages and utilities.
 Shared CSS lives by owner in `src/styles/`; page CSS uses the pages layer.
@@ -152,10 +153,10 @@ then run `make check-web-layout`. Its fixtures bundle the production entry's
 CSS order and check text sizes, phone fields, rows, plot bounds and popovers.
 The page-disclosure gate allows zero fold-downs outside the menu components.
 Rows of the same component use the same text sizes; free text wraps at phone
-width. The top bar derives its sole breadcrumb trail from registered routes,
-linking every ancestor page and ending at the parent; on phones it shows
-only the parent, as a back link. Pages supply only dynamic
-segment names. Dependent project lists live on per-item projects pages; their
+width. Every page's heading is a `PageBar` (`src/PageBar.tsx`), the page's
+one bar; no other file draws an h1. Where the nav is folded, the menu's first
+item is the parent page, derived from registered routes. Pages supply only
+dynamic segment names. Dependent project lists live on per-item projects pages; their
 parents show count links.
 The whole-page camera is `internal/apptown/web_ui_browser_test.go` with
 `testdata/web-ui.mjs`; inspect its screenshots at phone and desktop widths in

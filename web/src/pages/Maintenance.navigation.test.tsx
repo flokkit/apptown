@@ -50,7 +50,7 @@ it.each([['/maintenance', 'Needs you'], ['/maintenance/updates', 'Updates'], ['/
     expect(selected(m.el)).toBe(name)
     expect(drawer(m.el)?.querySelector('.nav-drawer-head a')?.classList.contains('active-area')).toBe(true)
     expect([...m.el.querySelectorAll('h1')].map(h => h.textContent)).toEqual([name])
-    expect(m.el.querySelectorAll('.page-head .page-help-q')).toHaveLength(1)
+    expect(m.el.querySelectorAll('.page-bar-page .page-help-q')).toHaveLength(1)
     expect(m.el.textContent).toContain(path.endsWith('/settings') ? 'What to keep updated' : path.endsWith('/updates') ? 'Last 7 days' : path.endsWith('/statistics') ? 'By kind' : path.endsWith('/standards') ? 'Check now' : 'Nothing needs you.')
     if (path.endsWith('/standards')) expect([...m.el.querySelectorAll('[aria-label="Standards"] a')].map(a => a.textContent)).toEqual(['Projects', 'Checks', 'Reviews', 'Remediations', 'Pack upgrades'])
   } finally { m.close() }

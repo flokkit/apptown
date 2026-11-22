@@ -39,7 +39,6 @@
   --radius-sm: 2px;  /* buttons, inputs, code blocks */
   --radius: 0px;     /* cards, panels, dialogs */
   --shadow-pop: none;  /* menus and dialogs only */
-  --topbar-h: 44px;
 
   /* Existing shapes retain their reference geometry. */
   --radius-bar: 3px;
@@ -60,7 +59,6 @@
   --z-modal: 40;
   --z-sidebar-backdrop: 60;
   --z-sidebar: 65;
-  --z-topbar: 70;
   --z-modal-phone: 90;
   --z-popover-status: 100;
   --z-popover: 200;

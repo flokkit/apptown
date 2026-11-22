@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Ident } from '../Ident'
 import { ProjectCount } from './DependentProjects'
@@ -40,7 +41,7 @@ const blank = (): PolicyLibraryEntry => ({ name: '', description: '', rule: 'req
 // it and the top bar leads back to Policies. Save and Cancel return there.
 export function PolicyNewPage() {
   const nav = useNavigate()
-  return <div><h1>New policy</h1><PolicyEditor policy={blank()} titled={false} onDone={() => nav('/policies')} /></div>
+  return <div><PageBar title="New policy" /><PolicyEditor policy={blank()} titled={false} onDone={() => nav('/policies')} /></div>
 }
 
 export default function PoliciesPage({ page = false }: { page?: boolean }) {
@@ -63,12 +64,12 @@ export default function PoliciesPage({ page = false }: { page?: boolean }) {
   const totalProjects = projectsQ.data.length
 
   if (editing) {
-    return <>{page && <h1>Edit {name}</h1>}<PolicyEditor policy={editing} onDone={() => setEditing(null)} /></>
+    return <>{page && <PageBar title={`Edit ${name}`} />}<PolicyEditor policy={editing} onDone={() => setEditing(null)} /></>
   }
 
   return (
     <div>
-      {page && <h1>{name}</h1>}
+      {page && <PageBar title={name} />}
       <StaleNote q={[libQ, projectsQ]} />
       {actErr && <div className="error">{actErr}</div>}
       {page && !lib.some(p => p.name === name) && <p>This policy is no longer in the library.</p>}

@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { usePageName } from '../chrome'
 import { FeatureOnly } from '../features'
 import './WhatIfPage.css'
@@ -58,12 +59,12 @@ export default function WhatIfPage() {
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
   if (w && slug) {
     const p = w.projects.find(p => p.projectSlug === slug)
-    return <><h1>{slug}</h1><StaleNote q={q} />{p ? <ProjectResult w={w} p={p} /> : <p>This project was not assessed.</p>}</>
+    return <><PageBar title={slug} /><StaleNote q={q} />{p ? <ProjectResult w={w} p={p} /> : <p>This project was not assessed.</p>}</>
   }
   if (!w) return <ReadStatus q={q} what="the what-if" />
   return (
     <div className="what-if-page-div">
-      <h1 className="mb-1">What-if: {w.pack} v{w.version}</h1>
+      <PageBar title={`What-if: ${w.pack} v${w.version}`} />
       <StaleNote q={q} />
       <section><h3>Test details</h3><div className="row small what-if-page-div-2">
         <State w={w} />

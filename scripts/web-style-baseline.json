@@ -19,6 +19,10 @@
     "styles": 4,
     "numericPx": 6
   },
+  "web/src/PageBar.tsx": {
+    "styles": 2,
+    "numericPx": 3
+  },
   "web/src/ProjectListRow.tsx": {
     "styles": 1,
     "numericPx": 0
@@ -34,10 +38,6 @@
   "web/src/SplitButton.tsx": {
     "styles": 5,
     "numericPx": 5
-  },
-  "web/src/TopBar.tsx": {
-    "styles": 2,
-    "numericPx": 3
   },
   "web/src/TryIt.tsx": {
     "styles": 5,

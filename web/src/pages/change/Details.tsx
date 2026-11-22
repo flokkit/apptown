@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { useSetProjectScope } from '../../projectScope'
 import { CheckRow, EvidenceLink, Records, ResultMark } from './CheckTable'
 import { ListRow } from '../../ListRow'
@@ -130,7 +131,7 @@ export function ChangeDetails({ recordId, view, current, reload, runId }: { reco
     const entry = story.find(e => `entry-${e.key}` === recordId)
       || (recordId === 'preview' ? previewEntry : recordId === 'review' ? reviewEntry : undefined)
     const artifact = story.flatMap(e => e.records).find(a => `record-${a.id}` === recordId)
-    return <><h1>{recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact ? recordTitle(artifact) : 'Record'}</h1>
+    return <><PageBar title={recordId === 'request' ? 'Request' : recordId === 'summary' ? 'Report' : recordId === 'preview' ? 'Preview' : recordId === 'review' ? 'Review' : recordId === 'checks' ? 'Checks' : entry?.step ? stepTitle(entry.step) : artifact ? recordTitle(artifact) : 'Record'} />
       <p className="muted small">From <Link to={`/changes/${view.change.id}`}>change {view.change.number} · {view.change.title}</Link></p>
       {[...ids].map(id => <TraceRead key={id} id={id} receive={receive} />)}
       {recordId === 'request' ? <RequestEntry full view={view} current={current} reload={reload} /> : recordId === 'summary' ? <Report text={fullReport || 'No report was recorded.'} changeId={view.change.id!} />

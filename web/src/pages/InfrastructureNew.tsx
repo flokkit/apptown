@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useFeature, targetFeatureArea } from '../features'
 import './InfrastructureNew.css'
 import { changedTargetSettings, editTarget, offerTarget, targetOffer, NEEDS_MODES, type TargetSettings } from '../targetCommands'
@@ -44,9 +45,7 @@ export function InfrastructureNew() {
   const catalog = useGet<TargetList>('/targets').data?.kinds
   return (
     <div className="infrastructure-new-div">
-      <div className="row infrastructure-new-div-2">
-        <h1 className="infrastructure-new-h1">Add a deployment target</h1>
-      </div>
+      <PageBar title="Add a deployment target" />
       <ol className="wiz-steps">
         <li className={step === 1 ? 'current' : 'done'}>Kind{chosen && step > 1 ? <small>{chosen.title}</small> : null}</li>
         <li className={step === 2 ? 'current' : step > 2 ? 'done' : ''}>Connection{saved ? <small>{saved.name} connected</small> : null}</li>

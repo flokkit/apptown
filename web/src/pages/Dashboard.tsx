@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { ListRow } from '../ListRow'
 import './Dashboard.css'
 import { Status } from '../Status'
@@ -174,12 +175,7 @@ export default function Dashboard() {
     <div>
       <SetupCard />
       <StaleNote q={[actQ, dashQ, projectsQ]} />
-      <div className="dash-head">
-        <div>
-          <h1>Home</h1>
-        </div>
-        {!noProjects && <Link to="/projects/_new"><button className="primary">+ Create project</button></Link>}
-      </div>
+      <PageBar title="Home" actions={!noProjects && <Link to="/projects/_new"><button className="primary">+ Create project</button></Link>} />
 
       {!noProjects && act && projects !== null && (dash || dashErr) && <HomeStatus {...status} />}
       {operator && <><ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} /></>}

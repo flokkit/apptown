@@ -57,7 +57,7 @@ const fixture = await build({
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
         <div className="ch-page" style={{paddingInline:6}}><QueryClientProvider client={new QueryClient()}>{['running', 'finished', 'failed'].map(state => <div key={state} data-change-progress={state}><ChangeProgressHeader view={{change:{id:"change",number:35,title:"Report test counts to AppTown",body:"Add one line at the end of the application configuration with a greeting for visitors",state:state==='finished'?'shipped':'landing'},waitingOn:{kind:state==='finished'?'closed':'work',run:'run',step:'build',says:state==='finished'?'Landed':state==='failed'?'Build failed':'Building',tone:state==='finished'?'ok':state==='failed'?'bad':'busy'},goesTo:{branch:"main",deployments:[]},checks:{tone:"ok",text:"4 passed, 1 not applicable",started:true},detail:{next:[],artifacts:[],run:{id:"run",status:state==='finished'?'done':'running',currentStage:"ship"},stages:["prepare","gates","ship"],steps:[{id:"prepare",runId:"run",stage:"prepare",type:"script",name:"prepare",status:"pass",progress:"done",evidence:{}},{id:"check",runId:"run",stage:"gates",type:"script",name:"tests",status:"pass",progress:"done",evidence:{}},...['approval','merged','build','required-file','publish','release'].map((name,i)=>({id:name,runId:"run",stage:"ship",type:['approval','scm/merged','build','artifact/require','script','script'][i],name,config:{},status:state==='finished'||i<2?'pass':i===2?(state==='failed'?'fail':'running'):'pending',progress:state==='finished'||i<2?'done':i===2?(state==='failed'?'failed':'running'):'waiting',evidence:{},startedAt:"",finishedAt:""}))]},next:[]}} /></div>)}</QueryClientProvider></div>
-        <div className="console"><div className="chat-bar"><div className="chat-bar-title"><h1 className="chat-title">Project chat</h1><span className="chat-kind">questions &amp; setup</span><Activity word="your turn" /></div><div className="chat-menu"><button className="bar-icon" aria-label="Chat menu">⋯</button></div></div></div>
+        <div className="console"><div className="page-bar-page chat-bar"><div className="page-bar-title"><h1 className="chat-title">Project chat</h1><span className="chat-kind">questions &amp; setup</span><Activity word="your turn" /></div><div className="page-bar-actions"><div className="chat-menu"><button className="bar-icon" aria-label="Chat menu">⋯</button></div></div></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
         <section role="list"><div className="int-row"><ListRow className="int-list-row" identity={long} state="Not checked yet" action={<button>Check connection</button>} /></div></section>
@@ -67,7 +67,7 @@ const fixture = await build({
         <Disclosure className="account-corner" placement="above" closeOnAction={false} trigger={<button>Account</button>}><a href="#account">Your account</a><button>Theme</button></Disclosure>
         <Disclosure className="account-actions" closeOnAction={false} trigger={<button>Manage</button>}><label>Role<select><option>Member</option></select></label><button>Set password</button></Disclosure>
         <Disclosure className="head-menu" trigger={<button>Session details</button>}><button>Start fresh</button></Disclosure>
-        <Disclosure className="account-menu" closeOnAction={false} trigger={<button>Find</button>}>{close=><div className="topbar-find"><input aria-label="Find" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.body.dataset.found=e.currentTarget.value;close()}}}/><button onClick={close}>First match</button></div>}</Disclosure>
+        <Disclosure className="account-menu" closeOnAction={false} trigger={<button>Find</button>}>{close=><div className="find-box"><input aria-label="Find" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();document.body.dataset.found=e.currentTarget.value;close()}}}/><button onClick={close}>First match</button></div>}</Disclosure>
         <section className="content-fixtures">
           <button className="primary disabled-fixture" disabled>Save pack</button>
           <button className="subtle danger quiet-danger-fixture">revoke</button>
@@ -189,21 +189,22 @@ const releasesFixture = await build({
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><div className="layout"><aside className="sidebar" /><main className="main"><Deployments page="releases" /></main></div></MemoryRouter></QueryClientProvider>)
   ` },
 })
+// The production shell at a deep project page: the page's own bar with the
+// menu, its title, search and the attention dot, and the folded menu.
 const trailFixture = await build({
   absWorkingDir: new URL('.', import.meta.url).pathname, bundle: true, write: false, format: 'iife', jsx: 'automatic', loader: { '.css': 'empty' },
   stdin: { loader: 'tsx', resolveDir: new URL('./src/', import.meta.url).pathname, contents: `
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter } from 'react-router-dom'
     import { QueryClientProvider } from '@tanstack/react-query'
-    import { newQueryClient, getKey } from './data'
-    import TopBar from './TopBar'
+    import { newQueryClient } from './data'
+    import { enabledFeatures } from './features.fixture'
+    import App from './App'
     const me = {mode:'internal',user:'sam'}, client = newQueryClient()
     const attention = {items:[{key:'workers/a',title:'Worker unavailable',detail:'Work is waiting.',href:'/targets',statusLabel:'failed',severity:'warning',observedAt:'2026-11-10T00:00:00Z',stale:false}],sources:[]}
-    window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/auth/me') ? me : String(path).endsWith('/authz/me') ? {instance:{'platform:manage-deploy-targets':true}} : attention))
-    client.setQueryData(getKey('/auth/me'), me)
-    client.setQueryData(getKey('/authz/me'), {instance:{'platform:manage-deploy-targets':true}})
-    client.setQueryData(getKey('/attention'), attention)
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/club-newsletter/memory/decisions']}><TopBar me={me} narrow /></MemoryRouter></QueryClientProvider>)
+    const answers = {'/auth/me': me, '/authz/me': {instance:{'platform:manage-deploy-targets':true}}, '/attention': attention, '/features': enabledFeatures, '/projects/club-newsletter': {slug:'club-newsletter',name:'Club Newsletter'}}
+    window.fetch = async path => new Response(JSON.stringify(answers[String(path).replace(/^.*\\/api\\/v1/, '')] ?? {}))
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[window.trailPath || '/projects/club-newsletter/memory/notes']}><App /></MemoryRouter></QueryClientProvider>)
   ` },
 })
 // Overlays on a phone: help and status details open as sized dialogs, row
@@ -217,6 +218,7 @@ const overlayFixture = await build({
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter, useLocation } from 'react-router-dom'
     import { HelpButton, PageHead } from './PageHead'
+    import { PageBar, ShellBar } from './PageBar'
     import { Status } from './Status'
     import { MoreMenu, FormMenu } from './MoreMenu'
     import { LibraryRow, LibraryRows } from './LibraryRow'
@@ -227,12 +229,12 @@ const overlayFixture = await build({
     const copies = Array.from({length: 30}, (_, i) => <label key={i} className="row row-2"><input type="radio" name="copy" /> Copy {i}</label>)
     const scenes = {
       page: <>
-        <div className="page-head"><div className="page-head-row"><h1>Things</h1><HelpButton about="Things" guide="things"><p>What things are.</p></HelpButton></div></div>
+        <PageBar title="Things" help={<HelpButton about="Things" guide="things"><p>What things are.</p></HelpButton>} />
         <div><Status word="unknown" help="No runtime reading." /></div>
         <LibraryRows><LibraryRow name="A policy with a name" purpose="What it is for." to="/policies/one" menu={<MoreMenu label="Policy" items={[{label:'Copy',hint:'Make your own copy',onClick:()=>{}}]} />} /></LibraryRows>
         <div style={{height: 3000}} />
       </>,
-      'page-head-actions': <main style={{padding:16}}><PageHead page="people" sub="Groups" title="release-managers-x" actions={<FormMenu className="more-menu" trigger={<button aria-label="Group actions">⋯</button>}><button>Delete group</button></FormMenu>} /></main>,
+      'page-head-actions': <main className="main"><ShellBar controls={false}><PageHead page="people" sub="Groups" title="release-managers-x" actions={<FormMenu className="more-menu" trigger={<button aria-label="Group actions">⋯</button>}><button>Delete group</button></FormMenu>} /></ShellBar></main>,
       'modal-long': <Modal title="Restore Production from a backup" onClose={()=>{}} actions={<><button className="danger">Restore</button><button>Cancel</button></>}>{copies}</Modal>,
       'modal-search': <Modal title="New integration" onClose={()=>{}} head={<input placeholder="Search…" aria-label="search" style={{ width: 220 }} />}><p>Tiles.</p></Modal>,
       'modal-tabs': <Modal title={<h2>GitLab docs</h2>} onClose={()=>{}} head={<Tabs className="tabs"><button className="tab active">Developer</button><button className="tab">Admin</button></Tabs>}><p>Docs.</p></Modal>,
@@ -260,6 +262,7 @@ const roundFixture = await build({
     import { ListRow } from './ListRow'
     import { LibraryRow, LibraryRows } from './LibraryRow'
     import { HelpButton, PageHead } from './PageHead'
+    import { PageBar, ShellBar } from './PageBar'
     import { AppAddress } from './runtime'
     import { CapacityTable } from './pages/integrations/CapacityBars'
     import { InfrastructureNew } from './pages/InfrastructureNew'
@@ -301,7 +304,7 @@ const roundFixture = await build({
       nested: <Section title="Connected coding agents"><div className="people-agents-card-div"><div className="agent-group"><div className="host-row"><strong>Home Assistant as sam</strong><span>Connected</span></div>
           <ListTable label="nested" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></div></div></Section>,
       direct: <Section title="Direct"><ListTable label="direct" rows={['Home Assistant']} rowKey={r => r} columns={[{ key: 'n', label: 'Agent', phone: 'name', render: r => r }, { key: 'a', label: 'Account', render: () => 'sam' }]} /></Section>,
-      help: <div className="page-head"><div className="page-head-row"><span className="page-head-title"><h1>Club Newsletter</h1><HelpButton about="Overview" guide="overview"><p>What the overview shows.</p></HelpButton></span></div></div>,
+      help: <ShellBar controls={false}><PageBar title="Club Newsletter" help={<HelpButton about="Overview" guide="overview"><p>What the overview shows.</p></HelpButton>} /></ShellBar>,
       hostOnly: <header className="application-heading"><PageHead page="projectOverview" title="Club Newsletter" actions={<AppAddress className="btn primary application-open" url="http://localhost:8000" hostOnly>Open app ↗</AppAddress>} /></header>,
       overview: <div><ListRow to="/changes/1" className="card row application-overview-card" state={<span className="row-status">deployed</span>} identity={<>
           <Link to="/changes/1" className="row grow application-overview-link"><strong>Put up the October newsletter and 9 more</strong><span className="muted small">9 Nov, 22:14</span></Link>
@@ -335,8 +338,8 @@ const roundFixture = await build({
         <ListTable label="Features" rows={['Backups']} rowKey={r => r} columns={[{ key: 'n', label: 'Area', phone: 'name', render: r => <><strong id="feature-name">{r}</strong><div className="muted small" id="name-note">Copies of each app's data</div></> }, { key: 'c', label: 'What it covers', render: () => 'Copies' }]} />
         <ListTable label="Accounts" rows={['sam']} rowKey={r => r} columns={[{ key: 'n', label: 'Name', phone: 'name', render: r => <Link id="account-name" to="/people/accounts/sam">{r}</Link> }, { key: 'c', label: 'Role', render: () => 'Member' }]} />
         <p>Plain with <strong id="para-strong">bold</strong> words.</p></div>,
-      head: <div className="deployment-page-heading"><div className="deployment-page-title"><h1>members-preview</h1><div className="deployment-page-facts muted small">no address yet · No serving release recorded · built-in-docker</div></div>
-        <div className="deployment-page-actions"><div className="deployment-menu row row-2"><button aria-label="Deployment menu" className="more-menu-button">⋯</button></div></div></div>,
+      head: <main className="main"><ShellBar><PageBar title="members-preview" actions={<div className="deployment-page-actions"><div className="deployment-menu row row-2"><button aria-label="Deployment menu" className="more-menu-button">⋯</button></div></div>} />
+        <div className="deployment-page-facts muted small">no address yet · No serving release recorded · built-in-docker</div></ShellBar></main>,
       label: <Section title="Settings"><dl className="facts"><dt>Name</dt><dd><DisplayLabelEdit keyLabel="Target ID" value="design-preview" machineKey="design-preview" path="/targets/design-preview/label" /></dd><dt id="next-fact">Kind</dt><dd id="kind-value">Docker host · over SSH</dd><dt id="third-fact">Provides</dt><dd>no disks</dd></dl></Section>,
       // Phone, last items.
       drawer: <nav className="sidebar narrow open"><div className="sidebar-inner"><a className="nav" href="#o">Overview</a><a className="nav" href="#c">Changes</a><a className="nav" id="last-nav" href="#m">Memory</a><div className="spacer" /><div className="nav-bottom"><a className="nav" href="#d">Docs</a></div></div></nav>,
@@ -359,6 +362,7 @@ const changeChatFixture = await build({
     import { newQueryClient } from './data'
     import { withFeatures } from './features.fixture'
     import ChangePage from './pages/ChangePage'
+    import { ShellBar } from './PageBar'
     const session = {id:'current',changeId:'X',mayAct:true,state:'detached',openedBy:'sam'}
     window.fetch = withFeatures(async url => {
       const path = String(url)
@@ -370,7 +374,7 @@ const changeChatFixture = await build({
         : path.endsWith('/changes') ? {changes:[]} : {}
       return new Response(JSON.stringify(body))
     })
-    createRoot(document.getElementById('root')).render(<QueryClientProvider client={newQueryClient()}><MemoryRouter initialEntries={['/changes/X?tab=conversation']}><div className="layout"><header className="topbar">AppTown</header><main className="main"><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></main></div></MemoryRouter></QueryClientProvider>)
+    createRoot(document.getElementById('root')).render(<QueryClientProvider client={newQueryClient()}><MemoryRouter initialEntries={['/changes/X?tab=conversation']}><div className="layout"><main className="main"><ShellBar><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></ShellBar></main></div></MemoryRouter></QueryClientProvider>)
   ` },
 })
 const browser = await chromium.launch({ headless: true })
@@ -629,14 +633,43 @@ try {
     await page.evaluate(size => {document.documentElement.dataset.size=size},size)
     await page.addScriptTag({content:trailFixture.outputFiles[0].text})
     await fontsReady(page)
-    await page.locator('.topbar a[href^="/attention"]').last().waitFor()
-    // A phone bar is one 44px line: the menu, a back link to the parent, one status dot and Find.
-    assert.ok(await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height <= 44.5), `phone bar stays one line at ${size}: ${await page.locator('.topbar').evaluate(bar => bar.getBoundingClientRect().height)}`)
-    assert.deepEqual(await page.locator('nav[aria-label="Breadcrumb"] a').evaluateAll(links => links.map(a => [a.getAttribute('href'), a.textContent])), [['/projects/club-newsletter/memory', '‹Memory']], `phone trail is one back link at ${size}`)
-    assert.ok(await page.locator('nav[aria-label="Breadcrumb"] a').evaluate(a => a.scrollWidth <= a.clientWidth + 1), `back link is whole at ${size}`)
-    assert.equal(await page.locator('.topbar a[href^="/attention"]').count(), 1, `one status dot at ${size}`)
-    assert.ok(await page.locator('.topbar a[href^="/attention"]').evaluate(a => { const r = a.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 }), `status dot is a full-size tap target at ${size}`)
-    assert.ok(await page.locator('.topbar').evaluate(bar => [...bar.children].every(el => {const r=el.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1})), `deep phone trail keeps controls on screen at ${size}: ${JSON.stringify(await page.locator('.topbar').evaluate(bar => [...bar.children].map(el=>({cls:el.className, left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right}))))}`)
+    const bar = page.locator('header.page-bar')
+    await bar.locator('a[href^="/attention"]').last().waitFor()
+    await bar.locator('h1').waitFor()
+    // A phone bar is one line: the menu, the page's title, one status dot and search.
+    const line = await bar.evaluate(el => [...el.querySelectorAll('.page-bar-lead, .page-bar-title, .page-bar-trail')].map(part => Math.round(part.getBoundingClientRect().top)))
+    assert.equal(new Set(line).size, 1, `phone bar keeps its menu, title and controls on one line at ${size}: ${line}`)
+    // Nothing wraps under that line: the bar is its tallest part and its padding.
+    assert.ok(await bar.evaluate(el => { const cs = getComputedStyle(el); const parts = [...el.querySelectorAll('.page-bar-lead, .page-bar-title, .page-bar-trail')].map(p => p.getBoundingClientRect().height); return el.getBoundingClientRect().height <= Math.max(...parts) + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + 1 }), `phone bar stays one line at ${size}`)
+    assert.equal(await bar.locator('a[href^="/attention"]').count(), 1, `one status dot at ${size}`)
+    for (const control of ['a[href^="/attention"]', 'button[aria-label="Search"]', 'button[aria-label="open the menu"]'])
+      assert.ok(await bar.locator(control).evaluate(a => { const r = a.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 }), `${control} is a full-size tap target at ${size}`)
+    assert.ok(await bar.evaluate(el => [...el.querySelectorAll('.page-bar-lead, .page-bar-title, .page-bar-trail')].every(part => {const r=part.getBoundingClientRect();return r.left>=0 && r.right<=innerWidth+1})), `phone bar keeps controls on screen at ${size}`)
+    // Memory is the parent, and the menu already shows it: no second link.
+    await bar.getByRole('button', { name: 'open the menu', exact: true }).click()
+    await page.locator('#sidebar a.nav:not(.sidebar-parent)[href="/projects/club-newsletter/memory"]').waitFor()
+    assert.equal(await page.locator('#sidebar a.sidebar-parent').isVisible(), false, `a parent the menu shows is not repeated at ${size}`)
+    // A parent the menu does not show is its first item, whole.
+    await page.goto('http://layout.test/')
+    await page.evaluate(size => { window.trailPath = '/maintenance/standards/reviews/r1'; document.documentElement.dataset.size = size }, size)
+    await page.addScriptTag({content:trailFixture.outputFiles[0].text})
+    await fontsReady(page)
+    await page.getByRole('button', { name: 'open the menu', exact: true }).click()
+    const back = page.locator('#sidebar a.sidebar-parent')
+    await back.waitFor()
+    assert.deepEqual(await page.locator('#sidebar a:not(.sidebar-head a):visible').first().evaluate(a => [a.getAttribute('href'), a.textContent]), ['/maintenance/standards/reviews', '‹Reviews'], `parent first in the menu at ${size}`)
+    assert.ok(await back.evaluate(a => a.scrollWidth <= a.clientWidth + 1 && a.getBoundingClientRect().right <= innerWidth), `back link is whole at ${size}`)
+  }
+  // The nav folds behind the menu at a portrait tablet's width and shows beside the page on a desktop.
+  for (const [width, folded] of [[820, true], [1100, true], [1101, false], [1440, false]]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('http://layout.test/')
+    await page.addScriptTag({content:trailFixture.outputFiles[0].text})
+    await fontsReady(page)
+    await page.locator('header.page-bar h1').waitFor()
+    assert.equal(await page.locator('header.page-bar button[aria-label="open the menu"]').count(), folded ? 1 : 0, `menu button at ${width}`)
+    assert.equal(await page.locator('#sidebar').isVisible(), !folded, `nav shown beside the page at ${width}`)
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `page fits at ${width}`)
   }
   for (const width of [390, 800, 1440]) {
     await page.setViewportSize({ width, height: 844 })
@@ -686,7 +719,7 @@ try {
     await page.waitForFunction(() => !!window.finishConformance)
     // Standards keeps its views' strip inside the phone after its counts load.
     await page.evaluate(() => window.finishConformance())
-    await page.locator('.page-head h1').first().waitFor()
+    await page.locator('h1').first().waitFor()
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Conformance fits after count loads at 390, ${size}`)
     assert.equal(await page.locator('[aria-label="Maintenance"]').count(), 0)
     assert.equal(await page.locator('[aria-label="Standards"] a').count(), 5)
@@ -761,12 +794,12 @@ try {
   // keyboard viewport; controls retain touch targets rather than shrinking.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.setContent(`<style>@layer tokens, base, type, components, pages, utilities; ${css}</style>
-    <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console console-workshop"><div class="chat-bar"><div class="chat-bar-title"><h1 class="chat-title"><a href="#change">Change chat</a></h1></div><button class="bar-btn primary">Open</button><button class="bar-btn finish">Land</button><button class="bar-icon" aria-label="Chat details and actions">⋯</button></div><div class="chat-body"><div class="chat-pane"><div class="chat-scroll-wrap"><div class="chat-scroll"><div class="chat-feed">Conversation</div></div></div><div class="chat-dock"><div class="composer-dock"><div class="composer"><button class="composer-attach" aria-label="Attach files">+</button><textarea aria-label="Message" rows="1"></textarea><button class="composer-send primary" aria-label="Send">↑</button></div></div></div></div></div></div></main></div>`)
+    <div class="layout" style="--viewport-h:450px"><main class="main"><header class="page-bar"><div class="page-bar-lead"><button class="subtle page-bar-menu" aria-label="open the menu">☰</button></div><div class="page-bar-slot"><div class="page-bar-page chat-bar"><div class="page-bar-title"><h1 class="chat-title"><a href="#change">Change chat</a></h1></div><div class="page-bar-actions"><button class="bar-btn primary">Open</button><button class="bar-btn finish">Land</button><button class="bar-icon" aria-label="Chat details and actions">⋯</button></div></div></div><div class="page-bar-trail"><button class="subtle page-bar-icon" aria-label="Search">⌕</button></div></header><div class="console console-workshop"><div class="chat-body"><div class="chat-pane"><div class="chat-scroll-wrap"><div class="chat-scroll"><div class="chat-feed">Conversation</div></div></div><div class="chat-dock"><div class="composer-dock"><div class="composer"><button class="composer-attach" aria-label="Attach files">+</button><textarea aria-label="Message" rows="1"></textarea><button class="composer-send primary" aria-label="Send">↑</button></div></div></div></div></div></div></main></div>`)
   await fontsReady(page)
   for (const size of ['small', 'medium', 'large']) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)
     await page.getByRole('textbox').focus()
-    assert.ok(await page.evaluate(() => [...document.querySelectorAll('.console button')].every(button => { const r = button.getBoundingClientRect(); return r.height >= 44 && r.width >= 44 })))
+    assert.ok(await page.evaluate(() => [...document.querySelectorAll('.main button')].every(button => { const r = button.getBoundingClientRect(); return r.height >= 44 && r.width >= 44 })))
     assert.ok(await page.getByRole('textbox').evaluate(element => { const r = element.getBoundingClientRect(); return r.bottom <= 450 && r.height >= 44 && r.width >= 100 }))
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
   }
@@ -850,7 +883,7 @@ try {
   await page.getByRole('button', { name: 'About Things', exact: true }).click()
   assert.ok(await page.locator('.page-help-pop').isVisible() && !(await page.getByRole('dialog').count()), 'desktop keeps the help popover')
   await overlay('page-head-actions', 'medium')
-  const [headingRow, headingAction] = await Promise.all([page.locator('.page-head-row').boundingBox(), page.getByRole('button', {name:'Group actions'}).boundingBox()])
+  const [headingRow, headingAction] = await Promise.all([page.locator('header.page-bar').boundingBox(), page.getByRole('button', {name:'Group actions'}).boundingBox()])
   assert.ok(Math.abs(headingAction.x + headingAction.width - (headingRow.x + headingRow.width)) <= 1, `a wrapped page action stays on the right: ${JSON.stringify({headingRow, headingAction})}`)
   // Phone round 2. Every check is collected, so one run shows each that fails.
   const misses = []
@@ -1022,9 +1055,10 @@ try {
     // A section row keeps its inset.
     await round('inset', size)
     want(await page.locator('.section-body').evaluate(b => document.getElementById('inset-identity').getBoundingClientRect().left - b.getBoundingClientRect().left >= 12), `a section row's text keeps its inset at ${where}`)
-    // The deployment menu sits beside the title.
+    // The deployment menu is in the page's bar, on the line under the title
+    // (the title's line holds the menu, the title and the controls), at the right.
     await round('head', size)
-    want(await page.evaluate(() => document.querySelector('.deployment-menu button').getBoundingClientRect().top < document.querySelector('.deployment-page-heading h1').getBoundingClientRect().bottom), `the ⋯ is on the title's line at ${where}`)
+    want(await page.evaluate(() => { const menu = document.querySelector('.deployment-menu button').getBoundingClientRect(), bar = document.querySelector('header.page-bar').getBoundingClientRect(), title = document.querySelector('header.page-bar h1').getBoundingClientRect(); return menu.top >= title.bottom - 1 && menu.bottom <= bar.bottom + 1 && bar.right - menu.right < 24 }), `the ⋯ is in the bar under the title, at the right, at ${where}`)
     // Edit display name has room after the ID, or a line of its own.
     await round('label', size)
     const text = el => { const r = document.createRange(); r.selectNodeContents(el); const rs = [...r.getClientRects()].filter(x => x.width > 0); return { top: Math.min(...rs.map(x => x.top)), bottom: Math.max(...rs.map(x => x.bottom)) } }

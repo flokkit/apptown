@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { ShellBar } from '../PageBar'
 import { expect, it, vi } from 'vitest'
 import Console, { ChatPage } from './Console'
 import ChangePage, { changeDefaultTab } from './ChangePage'
@@ -63,7 +64,8 @@ it('offers only live https previews that are reachable away from the host, with 
  for (const st of [{ state: 'cold', url: 'https://app.preview.example.org' }, { state: 'live', url: 'http://host:8080' }, { state: 'live', url: 'https://host', hostOnly: true }]) expect(canEmbedPreview(st as Parameters<typeof canEmbedPreview>[0])).toBe(false)
  let desktop = true
  let onWidth = () => {}
- vi.stubGlobal('matchMedia', () => ({ get matches() { return desktop }, addEventListener(_event: string, listener: () => void) { onWidth = listener }, removeEventListener() {} }))
+ // Desktop is where the nav is not folded (chrome.ts FOLD_QUERY).
+ vi.stubGlobal('matchMedia', (query: string) => ({ get matches() { return query.includes('max-width') ? !desktop : desktop }, addEventListener(_event: string, listener: () => void) { onWidth = listener }, removeEventListener() {} }))
  localStorage.setItem('preview-beside-chat', '1')
  const client = newQueryClient(); client.setQueryData(getKey('/changes/X/preview'), { state: 'live', url: 'https://app.preview.example.org', built: '2026-11-13T00:00:00Z', commit: '123456789' })
  // A current read is required before an iframe is mounted; a cached reading alone offers nothing.
@@ -136,8 +138,6 @@ it('opens the change Conversation with actions and starts the first build once a
   expect(page.el.textContent).toContain('Try it')
   expect(page.el.textContent).toContain('Check and land')
   expect(page.el.textContent).toContain('Recorded words')
-  // The live Conversation tab keeps one page heading: the chat bar's title.
-  await vi.waitFor(() => expect([...page.el.querySelectorAll('h1')].map(h => h.textContent)).toEqual(['#1Build a calendar']))
   page.done()
   page = await mount('/changes/X?tab=conversation&kickoff=1')
   await vi.waitFor(() => expect(page.el.textContent).toContain('Check and land'))
@@ -156,7 +156,9 @@ it('opens the change Conversation with actions and starts the first build once a
 
 // Session admission stays real: reading another tab never opens a helper,
 // and a chat once shown is the same chat (same DOM, same session, no second
-// open) after the person reads Details and comes back.
+// open) after the person reads Details and comes back. The page's one bar
+// follows the tab on screen: the chat's bar on Conversation and never on
+// another tab (this file's StatePanel, which titles those, is a stand-in).
 it('keeps a shown live chat mounted across tabs and opens none from another tab', async () => {
  Element.prototype.scrollIntoView = () => {}
  localStorage.clear(); sessionStorage.clear()
@@ -176,7 +178,8 @@ it('keeps a shown live chat mounted across tabs and opens none from another tab'
  function Address() { const l = useLocation(); return <output>{l.search}</output> }
  const mount = async (address: string) => {
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
-  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[address]}><Address /><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
+  // In the shell's bar, as the app draws it: only the tab on screen fills it.
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[address]}><ShellBar controls={false}><Address /><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></ShellBar></MemoryRouter></QueryClientProvider>))
   return { el, done: () => { act(() => root.unmount()); client.clear() } }
  }
  // On the chat tab the other tabs are in the chat's ⋯ menu.
@@ -199,13 +202,19 @@ it('keeps a shown live chat mounted across tabs and opens none from another tab'
   await tab(page.el, 'Conversation')
   await vi.waitFor(() => expect(page.el.querySelector('textarea[aria-label="your message"]')).not.toBeNull())
   const shown = page.el.querySelector('textarea')
+  const bar = (el: HTMLElement) => ({ titles: [...el.querySelectorAll('h1')].map(h => [!!h.closest('header.page-bar'), h.textContent]), chat: !!el.querySelector('header.page-bar .chat-bar'), land: !!el.querySelector('header.page-bar button.finish') })
+  expect(bar(page.el)).toEqual({ titles: [[true, '#1Build a calendar']], chat: true, land: true })
   await tab(page.el, 'Details')
   expect(page.el.textContent).toContain('Run details')
+  expect(bar(page.el)).toEqual({ titles: [], chat: false, land: false })
   expect(page.el.querySelector('.conversation-kept')?.hasAttribute('hidden')).toBe(true)
   // The chat knows it is away, so coming back follows the newest message.
   expect(page.el.querySelector('.chat-body')?.hasAttribute('hidden')).toBe(true)
+  await tab(page.el, 'Overview')
+  expect(bar(page.el)).toEqual({ titles: [], chat: false, land: false })
   await tab(page.el, 'Conversation')
   expect(page.el.querySelector('textarea')).toBe(shown)
+  expect(bar(page.el)).toEqual({ titles: [[true, '#1Build a calendar']], chat: true, land: true })
   expect(page.el.querySelector('.chat-body')?.hasAttribute('hidden')).toBe(false)
   expect(opens).toHaveLength(1)
   page.done(); opens.length = 0

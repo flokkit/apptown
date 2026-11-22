@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { QuietConfirm } from '../QuietConfirm'
 import { ListTable } from '../ListTable'
 import { Status } from '../Status'
@@ -95,7 +96,7 @@ export function EvalStartPage() {
 
   return (
     <div className="evals-form">
-      <h1>Start an eval</h1>
+      <PageBar title="Start an eval" />
       <ReadStatus q={formQ} what="the start form" denied={EVALS_DENIED} />
       <StaleNote q={[formQ, projectsQ, changesQ]} />
       {form && (
@@ -192,10 +193,7 @@ export function EvalScorecardPage() {
       {actErr && <div className="error small">{actErr}</div>}
       {e && (
         <>
-          <div className="row evals-row">
-            <h1 className="evals-title">Eval {e.number}: {e.subject}</h1>
-            <Status word={e.statusLabel} help={e.reason} />
-          </div>
+          <PageBar title={`Eval ${e.number}: ${e.subject}`} after={<Status word={e.statusLabel} help={e.reason} />} />
           <div className="muted small mt-1" >
             Started by {e.startedBy} {relTime(e.startedAt)}, meaning “{e.meaning}”
             {e.subjectDigest && <> · tested exactly <code title="digest of the version's resolved spec and pins at start">{e.subjectDigest}</code></>}

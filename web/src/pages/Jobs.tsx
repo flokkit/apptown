@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import './InfrastructureHome.css'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -27,7 +28,7 @@ function JobKey({ job }: { job: Job }) {
 }
 
 export function JobsPage() {
-  return <div><h1>Background jobs</h1><p>Backups, resource checks and workflow follow-ups run here. Safe jobs retry by themselves.</p><p><Link to="/usage">Usage</Link></p><JobQueue /></div>
+  return <div><PageBar title="Background jobs" /><p>Backups, resource checks and workflow follow-ups run here. Safe jobs retry by themselves.</p><p><Link to="/usage">Usage</Link></p><JobQueue /></div>
 }
 
 const JOB_WORDS: Record<string, string> = {

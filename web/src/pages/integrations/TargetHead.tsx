@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { BetaChip, targetFeatureArea } from '../../features'
@@ -15,16 +16,14 @@ export function TargetHead({ name }: { name: string }) {
   const hostState = useHostStates()
   const { run, busy, err } = useAction()
   const t = q.data?.target
-  if (!t) return <><h1 className="target-page-h1">{name}</h1><ReadStatus q={q} what="the deployment target" /></>
+  if (!t) return <><PageBar title={name} /><ReadStatus q={q} what="the deployment target" /></>
   const state = hostState(t.name, t.statusLabel)
   return <>
     <StaleNote q={q} />
-    <div className="row target-page-div">
-      <h1 className="grow target-page-h1">{t.displayLabel || t.name}</h1>
-      {targetFeatureArea(t.kind) !== 'deployments' && <BetaChip />}
-      <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} />
-      {t.status !== 'retired' && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await q.reload() })}>Check target</button>}
-    </div>
+    <PageBar title={t.displayLabel || t.name}
+      after={<>{targetFeatureArea(t.kind) !== 'deployments' && <BetaChip />}
+        <Status observation word={state.word} help={state.help.startsWith('Host connection') ? undefined : state.help} /></>}
+      actions={t.status !== 'retired' && <button className="primary" disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await q.reload() })}>Check target</button>} />
     {err && <div className="error small">{err}</div>}
   </>
 }

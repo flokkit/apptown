@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { PRODUCT } from '../brand'
 import { renderMd } from '../md'
 import { Section, SectionFilter } from '../Section'
@@ -26,11 +27,11 @@ export function GeneratedGuidance({ page = false }: { page?: boolean }) {
   const { name } = useParams()
   const q = useGet<GeneratedGuidance>('/guidance/generated')
   const data = q.data
-  if (!data) return <>{page && <h1>{name ? sectionTitle(name) : 'Automatic guidance'}</h1>}<ReadStatus q={q} what="the generated guidance" /></>
+  if (!data) return <>{page && <PageBar title={name ? sectionTitle(name) : 'Automatic guidance'} />}<ReadStatus q={q} what="the generated guidance" /></>
   const gens = data.generated ?? [], always = data.alwaysBytes ?? 0, conditional = data.conditionalBytes ?? 0
-  if (gens.length === 0) return page ? <><h1>{name ? sectionTitle(name) : 'Automatic guidance'}</h1><p>No automatic guidance is recorded.</p></> : null
+  if (gens.length === 0) return page ? <><PageBar title={name ? sectionTitle(name) : 'Automatic guidance'} /><p>No automatic guidance is recorded.</p></> : null
   return (
-    <>{page && <h1>{name ? titled((gens.find(g => g.name === name)?.bodyMd ?? '').trim()).title || sectionTitle(name) : 'Automatic guidance'}</h1>}<Section title={page ? '' : 'Automatic guidance'} count={name ? undefined : gens.length}
+    <>{page && <PageBar title={name ? titled((gens.find(g => g.name === name)?.bodyMd ?? '').trim()).title || sectionTitle(name) : 'Automatic guidance'} />}<Section title={page ? '' : 'Automatic guidance'} count={name ? undefined : gens.length}
       note={<>Written from instance settings. <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
         {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> in some steps</>}</>}>
       <StaleNote q={q} />

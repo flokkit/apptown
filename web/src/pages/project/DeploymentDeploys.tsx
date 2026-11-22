@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { DeploymentRuntimeActions } from './DeploymentRuntimeActions'
 import { deploymentStatus } from '../../deploymentStatus'
 import type { DeploymentView } from '../../wire.gen'
@@ -29,9 +30,10 @@ function NotDeployed({ env, current, onDeploy }: { env: DeploymentView; current:
   </section>
 }
 
-// DeploymentTitle is a deployment's name with its status, as the page heads it.
-export function DeploymentTitle({ name, env }: { name: string; env: DeploymentView }) {
-  return <h1>{name} <Status observation {...deploymentStatus(env)} /></h1>
+// DeploymentTitle is a deployment's name with its status, as the page's bar
+// heads it, and the page's actions.
+export function DeploymentTitle({ name, env, actions }: { name: string; env: DeploymentView; actions?: ReactNode }) {
+  return <PageBar title={name} after={<Status observation {...deploymentStatus(env)} />} actions={actions} />
 }
 
 // Every deploy is a release request, including requests from a landing.
@@ -54,14 +56,12 @@ function DeploymentHistory({ slug, name, url, displayLabel, env, releases, curre
   const history = releases.data?.filter(r => r.deployment === name) ?? []
   const latest = history[0]
   return <>
-    <div className="deployment-page-heading">
-      <div className="deployment-page-title"><DeploymentTitle name={displayLabel || name} env={env} />{facts}</div>
-      <div className="deployment-page-actions">
-        {/* Nothing has run yet, so there is nothing to start, stop or restart. */}
-        {!!env.generation && <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />}
-        <DeploymentMenu slug={slug} env={env} current={current} reload={reload} onDeployRelease={() => setChoice('list')} />
-      </div>
-    </div>
+    <DeploymentTitle name={displayLabel || name} env={env} actions={<div className="deployment-page-actions">
+      {/* Nothing has run yet, so there is nothing to start, stop or restart. */}
+      {!!env.generation && <DeploymentRuntimeActions key={env.id} slug={slug} env={shown} current={current} reload={reload} onPending={setPending} />}
+      <DeploymentMenu slug={slug} env={env} current={current} reload={reload} onDeployRelease={() => setChoice('list')} />
+    </div>} />
+    {facts}
     {tabs}
     {tab === 'status' && <>
     {env.runtimeState === 'stopped' && env.servingRelease && <p>stopped · will run release {env.servingRelease.number} when started</p>}

@@ -1,3 +1,4 @@
+import { PageBar } from './PageBar'
 import { PRODUCT } from './brand'
 import type { ReactNode } from 'react'
 import { useGet } from './data'
@@ -45,7 +46,7 @@ export function useHolds(cap: string, project?: string): boolean {
 export function NotAvailable({ page, heading = true }: { page: InstancePage; heading?: boolean }) {
   return (
     <div style={{ display: 'grid', gap: 10, maxWidth: 640, marginTop: heading ? 0 : 12 }}>
-      {heading && <h1 style={{ margin: 0 }}>{INSTANCE_PAGES[page].title}</h1>}
+      {heading && <PageBar title={INSTANCE_PAGES[page].title} />}
       <div className="card" role="status">
         <b>Not available to you.</b>
         <div className="muted small" style={{ marginTop: 6 }}>

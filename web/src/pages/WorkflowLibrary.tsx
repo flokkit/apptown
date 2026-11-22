@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { LibraryRow, LibraryRows, firstSentence } from '../LibraryRow'
 import { MoreMenu } from '../MoreMenu'
 import { Section } from '../Section'
@@ -98,7 +99,7 @@ export default function WorkflowLibrary({ page = false }: { page?: boolean }) {
 
   return (
     <div>
-      {page && <h1>{name}</h1>}
+      {page && <PageBar title={name} />}
       {editor && (
         <div className="card mb-4" >
           <div className="row" style={{ marginBottom: 6 }}>

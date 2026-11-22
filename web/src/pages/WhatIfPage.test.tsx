@@ -8,7 +8,7 @@ import { newQueryClient } from '../data'
 import { withFeatures } from '../features.fixture'
 import { settled } from '../settled'
 import WhatIfPage from './WhatIfPage'
-import TopBar from '../TopBar'
+import { ParentLink } from '../PageBar'
 
 // Record ids are UUIDv7 strings.
 const WHAT_IF = '00000000-0007-7000-8000-000000000000'
@@ -342,9 +342,9 @@ it('names the what-if in the back link of a project result', async () => {
   const path = `/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger`
   try {
     await act(async () => {
-      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><ParentLink /><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
     })
     await settled(client)
-    await vi.waitFor(() => expect(el.querySelector('.topbar-back')?.textContent).toBe('‹What-if: team v2'))
+    await vi.waitFor(() => expect(el.querySelector('a.sidebar-parent')?.textContent).toBe('‹What-if: team v2'))
   } finally { act(() => root.unmount()); client.clear() }
 })

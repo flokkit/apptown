@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useInstancePages } from '../instancePages'
 import { PageHead } from '../PageHead'
 import { PRODUCT } from '../brand'
@@ -70,15 +71,15 @@ export default function Project() {
 
   // A failed refresh keeps the page, and the settings form's draft, mounted
   // under a stale note; only a project never read shows the error instead.
-  if (rawTab === 'settings' && rawStab && !(rawStab in SETTINGS_LABEL) && !(rawStab in OLD_SETTINGS)) return <><h1>Page not found</h1><Link to={`/projects/${slug}/deployments`}>Deployments</Link></>
+  if (rawTab === 'settings' && rawStab && !(rawStab in SETTINGS_LABEL) && !(rawStab in OLD_SETTINGS)) return <><PageBar title="Page not found" /><Link to={`/projects/${slug}/deployments`}>Deployments</Link></>
   if (!project) return <ReadStatus q={q} what="the project" />
 
   return (
     <div>
       <StaleNote q={q} />
-      {tab === 'changes' && <h1>Changes</h1>}
+      {tab === 'changes' && <PageBar title="Changes" />}
       {tab === 'deployments' && <PageHead page="projectDeployments" actions={mayReadTargets && <Link to="/targets">Targets</Link>} />}
-      {tab === 'releases' && <h1>Release #{rawStab}</h1>}
+      {tab === 'releases' && <PageBar title={`Release #${rawStab}`} />}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />

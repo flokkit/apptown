@@ -65,7 +65,6 @@
 
 /* Overview leads with the change and its decision, with detail on demand. */
 .ch-page .ch-head { margin: 0; }
-.ch-page .ch-title-row h1 { font-size: var(--fs-xl); line-height: 1.2; overflow-wrap: anywhere; }
 .ch-page .ch-state { margin-top: 0; }
 .ch-page .ch-headline { font-size: var(--fs-lg); line-height: 1.45; }
 .ch-page .ch-state-words .ch-sentence { margin-top: 8px; }
@@ -86,7 +85,6 @@
 .ch-page .ch-record-group > h4 { padding: 8px 0; }
 @media (max-width: 600px) {
   .ch-page section.ch-state { padding: 14px; gap: 12px; }
-  .ch-page .ch-title-row h1 { font-size: var(--fs-xl); }
   .ch-page .ch-tabs { flex-wrap: nowrap; }
   .ch-page .ch-tabs a.tab { font-size: var(--fs-base); padding: 12px 8px; }
   .ch-page .ch-tabs-sheet { margin-top: 0; }
@@ -303,7 +301,7 @@
 .ch-preview-switches { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
 .ch-preview-switches .ch-technical-switch { margin: 0; }
 .ch-overview [hidden] { display: none; }
-.ch-title-row .ch-number { color: var(--muted); font-weight: inherit; }
+.page-bar-page .ch-number { color: var(--muted); font-weight: inherit; }
 
 /* The change card's first row needs no rule above it. */
 .ch-change-card > .ch-overview-line:first-of-type { border-top: 0; padding-top: 0; }

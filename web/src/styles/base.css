@@ -11,7 +11,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
    a table, a project's name and mark, a library row's name, a row title set
    in bold), a link drawn as a button or a card. Component rules that take
    the underline off their own card-like links still apply. */
-a[href]:not(:where(.tab, .project-name, .project-mark-link, .pack-name, .record-name, .btn, .card, .list-identity a:has(> strong))):not(:where(nav, header, .topbar, .sidebar, .tabs, td.phone-name) a) {
+a[href]:not(:where(.tab, .project-name, .project-mark-link, .pack-name, .record-name, .btn, .card, .list-identity a:has(> strong))):not(:where(nav, header:not(.page-bar), .page-bar-lead, .page-bar-trail, .sidebar, .tabs, td.phone-name) a) {
   text-decoration-line: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px;
 }
 a[href]:hover { text-decoration-color: currentColor; }
@@ -20,7 +20,7 @@ pre { max-width: 100%; overflow-x: auto; }
    only when wider than the line. */
 .ident { display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
 /* A section reached by its #anchor lands below the fixed top bar. */
-[id] { scroll-margin-top: calc(var(--topbar-h) + var(--space-3)); }
+[id] { scroll-margin-top: var(--space-3); }
 @media (max-width: 800px) {
   code { overflow-wrap: anywhere; }
 }

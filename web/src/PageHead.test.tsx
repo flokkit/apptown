@@ -79,7 +79,7 @@ describe('page help', () => {
 
   it('keeps the page actions in the title row', () => {
     const el = render(<PageHead page="evals" actions={<button>Start an eval</button>} />)
-    expect(el.querySelector('.page-head-row')?.textContent).toContain('Start an eval')
+    expect(el.querySelector('.page-bar-page .page-bar-actions')?.textContent).toContain('Start an eval')
   })
 
   // On a phone the popover would lie over what the page shows; the "?" opens

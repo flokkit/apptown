@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes, useNavigate, type NavigateFunction } from 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../data'
 import Project from './Project'
-import TopBar from '../TopBar'
+import { ParentLink } from '../PageBar'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -295,10 +295,10 @@ it.each([['notes', 'Notes'], ['decisions', 'Decisions']])('loaded Memory %s has 
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/memory/${tab}`]}>
-      <TopBar me={null} /><main><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></main>
+      <ParentLink /><main><Routes><Route path="/projects/:slug/:tab/:stab" element={<Project />} /></Routes></main>
     </MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('main h1')?.textContent).toBe(title))
-    expect(el.querySelector('.topbar-crumb:last-child')?.textContent).toBe('›Memory')
+    expect(el.querySelector('a.sidebar-parent')?.textContent).toBe('‹Memory')
     expect([...el.querySelectorAll('main h1')].map(h => h.textContent)).toEqual([title])
     expect(el.querySelector('main .project-heading')).toBeNull()
     // The page's own list loads after its heading; wait for it rather than

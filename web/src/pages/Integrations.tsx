@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { Notifications } from './integrations/Notifications'
 import { FeatureGate } from '../features'
 import { ProjectCount } from './DependentProjects'
@@ -95,8 +96,9 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
   }
 
   if (editing) {
-    return <ConnectorForm spec={editing.spec} icon={editing.icon} initialName={editing.name} initialConfig={editing.config}
-      onDone={(saved) => { setEditing(null); if (saved) { refresh(); navigate(`/${area}/${saved}`) } }} />
+    // The page is still this area's; the form names the provider it sets up.
+    return <><PageBar title={area === 'services' ? 'Services' : 'Integrations'} /><ConnectorForm spec={editing.spec} icon={editing.icon} initialName={editing.name} initialConfig={editing.config}
+      onDone={(saved) => { setEditing(null); if (saved) { refresh(); navigate(`/${area}/${saved}`) } }} /></>
   }
 
   // Cloud accounts are added from Infrastructure, so the catalogue offered
@@ -116,7 +118,7 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
   if (!list.data) {
     return (
       <div>
-        <h1>Integrations</h1>
+        <PageBar title="Integrations" />
         <ReadStatus q={list} what="the integrations" />
       </div>
     )
@@ -149,7 +151,7 @@ function IntegrationsBook({ name, area }: { name?: string; area: Area }) {
     }
     return (
         <div>
-              <h1>{name}</h1>
+          <PageBar title={name} />
           <div className="card">No integration is called “{name}”. It may have been removed or renamed.{' '}
             <Link to={`/${area}`}>See them all</Link>.</div>
         </div>
@@ -467,13 +469,10 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 
   return (
     <div className="int-detail">
+      <PageBar title={<><ConnIcon name={iconForBinding(b)} size={22} />{b.displayLabel || b.name}</>} titleClass="int-detail-title" />
       <div className="int-detail-head">
-        <ConnIcon name={iconForBinding(b)} size={22} />
-        <div style={{ minWidth: 0 }} className="grow">
-          <h1>{b.displayLabel || b.name}</h1>
-          <div className="int-sub">{usedFor(b, spec)}</div>
-          {b.imageRetention && <p className="small">{b.imageRetention}</p>}
-        </div>
+        <div className="int-sub">{usedFor(b, spec)}</div>
+        {b.imageRetention && <p className="small">{b.imageRetention}</p>}
       </div>
 
       <div className="int-state">

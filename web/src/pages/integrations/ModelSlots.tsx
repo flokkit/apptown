@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { usePageName } from '../../chrome'
 import { ListTable } from '../../ListTable'
 import { ProjectCount } from '../DependentProjects'
@@ -94,7 +95,7 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
   // A profile's name is the word an administrator chose; the title reads it
   // as a name ("Standard profile"), not as a bare lowercase key.
   const title = projects ? 'Projects' : `${profile.charAt(0).toUpperCase()}${profile.slice(1)} profile`
-  if (!data) return <div><h1>{title}</h1><ReadStatus q={slotsQ} what="the model profiles" /></div>
+  if (!data) return <div><PageBar title={title} /><ReadStatus q={slotsQ} what="the model profiles" /></div>
 
   const isNew = !data.profiles.includes(profile)
   const spent = data.slots.some((r) => r.spend7d)
@@ -154,8 +155,7 @@ export function ModelProfilePage({ projects = false }: { projects?: boolean }) {
 
   return (
     <div>
-
-      <h1>{title}</h1>
+      <PageBar title={title} />
       <div className="page-head-line model-slots-model-profile-page-page-head-line">
         {profile === 'standard' ? 'The default profile: every project uses it unless moved to another.'
           : isNew ? "A new profile. Choose a model for any task to keep it; tasks left unset follow this profile's basic choices, then standard's models."

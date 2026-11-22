@@ -209,7 +209,7 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
       <div className="row">
         <ConnIcon name={icon} size={30} />
         <div>
-          <h1 className="connector-form-h1">{spec.title}</h1>
+          <h2 className="connector-form-h2">{spec.title}</h2>
           <div className="muted small">{spec.description}</div>
         </div>
       </div>

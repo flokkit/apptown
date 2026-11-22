@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { usePageName } from '../../chrome'
 
 import './Release.css'
@@ -45,7 +46,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
   if (!data || !data.release) return <ReadStatus q={q} what="the release" />
   const r = data.release
   const when = r.releasedAt || r.createdAt
-  if (log) return <><h1>Release log</h1><StaleNote q={q} /><div className="release-log">{data.events.map((e, i) => <p key={i}><span className="muted">{fmtStamp(e.at)}</span> <LogText text={e.text} /></p>)}</div></>
+  if (log) return <><PageBar title="Release log" /><StaleNote q={q} /><div className="release-log">{data.events.map((e, i) => <p key={i}><span className="muted">{fmtStamp(e.at)}</span> <LogText text={e.text} /></p>)}</div></>
   return (
     <div className="release-page">
       <StaleNote q={q} />

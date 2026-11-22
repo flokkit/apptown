@@ -26,6 +26,7 @@ test('new stylesheet drift is refused by the real configuration', async () => {
     ['.new { padding: calc(8px + var(--space-1)) }', 'apptown/pixel-spacing'],
     ['@media (900px > width) { .new { display: block } }', 'apptown/breakpoints'],
     ['@media (max-width: 700px) { .new { display: block } }', 'apptown/breakpoints'],
+    ['@media (max-width: 1000px) { .new { display: block } }', 'apptown/breakpoints'],
   ]) assert.ok((await lint(css)).includes(rule), css)
 })
 
@@ -36,7 +37,8 @@ test('tokens and named exceptions pass', async () => {
     padding: calc(100vw - 32px); padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
     border-spacing: 1px; border-radius: 999px; }
     @media (max-width: 600px) { .new { color: var(--text) } }
-    @media (width > 800px) { .new { color: var(--text) } }`), [])
+    @media (width > 800px) { .new { color: var(--text) } }
+    @media (max-width: 1100px) { .new { color: var(--text) } }`), [])
   assert.deepEqual(await lint(':root { --color: #fff; --radius: 4px; --z-base: 1 }', 'src/styles/tokens.css'), [])
 })
 

@@ -8,8 +8,6 @@
 .ch-crumb { font-size: var(--fs-sm); color: var(--subtle); }
 .ch-crumb a { color: var(--subtle); }
 .ch-sep { color: var(--faint); margin: 0 6px; }
-.ch-title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.ch-title-row h1 { margin: 0; overflow-wrap: anywhere; font-size: var(--fs-xl); }
 .ch-meta { font-size: var(--fs-base); color: var(--muted); }
 .ch-oneline { font-size: var(--fs-base); color: var(--text); max-width: 900px; }
 .ch-label { margin-bottom: 4px; }

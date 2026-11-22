@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { expect, it, vi } from 'vitest'
-import TopBar from './TopBar'
+import { ParentLink } from './PageBar'
 import { SidebarNav } from './App'
 import { newQueryClient } from './data'
 
@@ -16,11 +16,11 @@ it.each(['notes', 'decisions'])('Memory has the shared group controls and active
   vi.stubGlobal('fetch', vi.fn(withFeatures(async () => new Response(JSON.stringify({ slug: 'a', name: 'Alpha' })))))
   const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/memory/${page}`]}><SidebarNav /><TopBar me={null} /></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/projects/a/memory/${page}`]}><SidebarNav /><ParentLink /></MemoryRouter></QueryClientProvider>))
     await settled(client)
     expect([...el.querySelectorAll('.nav-drawer-head > a')].map(a => a.textContent)).toEqual(['Security', 'Settings', 'Memory'])
     const toggle = el.querySelector<HTMLButtonElement>('button[aria-label="Close Memory"]')!
-    expect(el.querySelector('.topbar-crumb:last-child a')?.textContent).toBe('Memory')
+    expect(el.querySelector('a.sidebar-parent')?.textContent).toBe('‹Memory')
     expect(toggle).not.toBeNull()
     expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(el.querySelector('a[href="/projects/a/memory"]')?.classList.contains('active-area')).toBe(true)

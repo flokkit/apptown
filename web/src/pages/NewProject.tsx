@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAction, useGet } from '../data'
@@ -96,7 +97,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   if (manifest) {
     return (
       <div className="new-project-project-setup-div">
-        <h1>{manifest.project.name || manifest.project.slug} <span className="badge">created</span></h1>
+        <PageBar title={manifest.project.name || manifest.project.slug} after={<span className="badge">created</span>} />
         <div className="card mt-3">
           <ProgressLog lines={progress} />
         </div>
@@ -111,7 +112,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
   }
 
   if (saved) return <div className="new-project-project-setup-div-2">
-    <h1>Saved project setup</h1>
+    <PageBar title="Saved project setup" />
     <p><strong>{saved.draft.name}</strong> — {saved.draft.description}</p>
     {saved.project ? <p>Project <Link to={`/projects/${saved.project.slug}`}>{saved.project.slug}</Link> exists.</p>
       : <p>{saved.pending === 'rejected' ? 'Creation was refused. Your submitted choices are kept.' : 'Check the original creation request before starting another project.'}</p>}
@@ -130,7 +131,7 @@ function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityC
 
   return (
     <div className="new-project-project-setup-div-2">
-      <h1 className="new-project-project-setup-h1">Create project</h1>
+      <PageBar title="Create project" />
       <p>Start a new app or import existing code.{d.step < 3 && ' Choose the code in the Code step.'}</p>
       <fieldset disabled={busy} className="new-project-fieldset">
       <StepChips step={d.step} />

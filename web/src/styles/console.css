@@ -21,24 +21,59 @@ body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: cl
 /* The live chat kept mounted across tabs lays out as if unwrapped. */
 .conversation-kept:not([hidden]) { display: contents; }
 
-/* ---- the bar: "#n Title · ● status · activity", then the verbs ---- */
-.chat-bar {
-  display: flex; align-items: center; gap: calc(var(--space-1) * 1.3125); min-height: 44px; padding: 0 calc(var(--space-1) * 0.4375) 0 calc(var(--space-1) * 2.625); flex: none;
+/* ---- the bar: "#n Title · ● status · activity", then the verbs. It is the
+   page's bar (PageBar.tsx): one line, the shell's menu, search and lights
+   around it. ---- */
+.page-bar:has(.chat-bar) {
+  flex: none; align-items: center; margin: 0; padding: 0 calc(var(--space-1) * 0.4375) 0 calc(var(--space-1) * 2.625);
   border-bottom: 1px solid var(--border); background: var(--panel);
 }
-.chat-bar-title { display: flex; align-items: center; gap: calc(var(--space-1) * 2.1875); flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; }
-.chat-title {
-  flex: 0 1 auto; min-width: 2.5em; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.page-bar:has(.chat-bar) > :is(.page-bar-lead, .page-bar-trail) { margin: 0; }
+.page-bar:has(.chat-bar) { gap: calc(var(--space-1) * 1.3125); }
+@media (width > 800px) {
+  .page-bar:has(.chat-bar) { flex-wrap: nowrap; }
+}
+/* Wider than a phone the chat's verbs share the title's line; on a phone they
+   take the line under it, as every page's actions do (shell.css). */
+@media (width > 800px) {
+  .page-bar .chat-bar .page-bar-actions { order: 2; }
+}
+/* On a phone the title's line is the menu, the title, ⋯, the attention dot and
+   search; the kind of chat, the activity word and the verbs (Try it, Land)
+   take the line under it, the words at the left and the verbs at the right. The title's parts and
+   the actions lay out in the bar's own lines. */
+@media (max-width: 800px) {
+  .page-bar .chat-bar :is(.page-bar-title, .page-bar-actions) { display: contents; }
+  .page-bar .chat-bar h1.chat-title { order: 1; flex: 1 1 0; min-width: 0; }
+  .page-bar .chat-bar .chat-kind { order: 5; align-self: center; }
+  .page-bar .chat-bar .page-bar-actions > .chat-menu { order: 2; }
+  .page-bar:has(.chat-bar)::after { content: ""; order: 4; flex-basis: 100%; height: 0; }
+  .page-bar .chat-bar .activity { order: 5; align-self: center; }
+  .page-bar .chat-bar .page-bar-actions > :not(.chat-menu) { order: 6; }
+  .page-bar .chat-bar .page-bar-actions > :first-child:not(.chat-menu) { margin-left: auto; }
+  /* Every word stays: the title takes up to two lines rather than being cut. */
+  .page-bar:has(.chat-bar) { padding-block: 0; row-gap: 0; }
+  .page-bar .chat-bar h1.chat-title { white-space: normal; overflow: visible; }
+  .chat-bar .chat-title > a .name { white-space: normal; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .page-bar .chat-bar .chat-kind { overflow: visible; }
+}
+.chat-bar .page-bar-title { display: flex; align-items: center; flex-wrap: nowrap; gap: calc(var(--space-1) * 2.1875); flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; }
+.chat-bar .page-bar-actions { flex: none; flex-wrap: nowrap; gap: calc(var(--space-1) * 1.3125); }
+.chat-bar h1.chat-title {
+  flex: 0 1 auto; min-width: 6.5em; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: var(--fs-base); font-weight: var(--fw-strong); line-height: 1.3; color: var(--text); letter-spacing: 0;
 }
 .chat-title > a:hover .name { text-decoration: underline; }
 .chat-title .num { color: var(--muted); font-weight: var(--fw-regular); margin-right: .3em; }
 /* A change chat's title is the page's heading and the link to its Overview. */
-.chat-title > a { display: flex; min-width: 0; color: inherit; text-decoration: none; }
+.chat-title > a { display: flex; min-width: 0; text-decoration: none; color: inherit; }
 .chat-title > a .num { flex: none; }
 .chat-title > a .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.chat-bar-title > :not(.chat-title) { flex: none; }
+.chat-bar .page-bar-title > :not(.chat-title) { flex: none; }
 .chat-kind { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+/* With the menu and the controls on the bar's line, the kind of chat gives
+   way first; the title keeps its first words and the activity its word. */
+.chat-bar .page-bar-title > .chat-kind { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* The helper's activity: a dot and a word. Unknown is a hollow dot. */
 .activity { display: inline-flex; align-items: center; gap: calc(var(--space-1) * 1.09375); font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--muted); white-space: nowrap; }
 .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; border: 1.5px solid currentColor; flex: none; box-sizing: border-box; }
@@ -154,7 +189,8 @@ body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: cl
 .conversation-preview iframe { flex: 1; min-height: 0; width: 100%; border: 1px solid var(--border); }
 
 @media (width > 800px) {
-  .chat-bar { padding-left: calc(var(--space-1) * 3.5); gap: calc(var(--space-1) * 1.75); }
+  .page-bar:has(.chat-bar) { padding-left: calc(var(--space-1) * 3.5); }
+  .page-bar:has(.chat-bar), .chat-bar .page-bar-actions { gap: calc(var(--space-1) * 1.75); }
   .chat-feed { padding: calc(var(--space-1) * 3.0625) calc(var(--space-1) * 4.375) calc(var(--space-1) * 2.1875); }
   .composer { padding: 8px 12px; gap: 6px; }
   .composer textarea { padding: 9px 12px; }
@@ -174,20 +210,18 @@ body:has(.console-desk, .ch-page-chat) { position: fixed; inset: 0; overflow: cl
     position: fixed; top: var(--viewport-top, 0px); left: 0; right: 0;
     height: var(--viewport-h, 100dvh); min-height: 0; overflow: hidden;
   }
-  .layout:has(.console-desk, .ch-page-chat) .topbar { top: var(--viewport-top, 0px); }
   .chat-bar .bar-wide { display: none; }
   .chat-bar .long { display: none; }
   .chat-bar .short { display: inline; }
   .chat-bar .bar-btn { padding: 0 calc(var(--space-1) * 1.96875); }
-  .chat-bar-title { gap: calc(var(--space-1) * 1.75); }
+  .chat-bar .page-bar-title { gap: calc(var(--space-1) * 1.75); }
 }
 @media (max-width: 600px) {
   /* A phone keeps every word of the status line: the preview's verb is its icon. */
   .chat-bar .tryit-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .chat-bar .bar-btn.primary { min-width: 44px; padding: 0; }
 
-  .chat-bar { gap: calc(var(--space-1) * 0.875); padding-left: calc(var(--space-1) * 1.75); }
+  .page-bar:has(.chat-bar) { gap: calc(var(--space-1) * 0.875); padding-left: calc(var(--space-1) * 1.75); }
   .chat-bar .bar-btn { padding: 0 calc(var(--space-1) * 1.53125); }
-  .chat-bar-title { gap: calc(var(--space-1) * 1.3125); }
 }
 }
