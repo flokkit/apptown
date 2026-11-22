@@ -78,6 +78,7 @@ func init() {
 		wiregen.Named{Name: "ConsoleSessionList", Value: ConsoleSessionList{}},
 		wiregen.Named{Name: "ConsoleOpened", Value: ConsoleOpened{}},
 		wiregen.Named{Name: "ConsoleMessagePage", Value: ConsoleMessagePage{}},
+		wiregen.Named{Name: "ConsoleStreamUpdate", Value: ConsoleStreamUpdate{}},
 		wiregen.Named{Name: "ChatUpload", Value: console.Attachment{}},
 		wiregen.Named{Name: "ChatHistoryView", Value: ChatHistoryView{}},
 		wiregen.Named{Name: "ConsoleChangeList", Value: ConsoleChangeList{}},

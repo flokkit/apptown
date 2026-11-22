@@ -1,6 +1,9 @@
 package worker
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 // FailAfterRename makes every durable write of name fail right after its
 // rename has made the new file visible, as a failed folder sync would, until
@@ -44,3 +47,7 @@ var SessionClientPutSource = (SessionClient).putSource
 var SessionClientRecord = (SessionClient).record
 var SessionClientStart = (SessionClient).start
 var SessionClientTerminal = (SessionClient).terminal
+
+// SetRecordsWait sets how long the server's record listing waits for a
+// chat's record to change.
+func SetRecordsWait(s *Server, d time.Duration) { s.recordsWait = d }

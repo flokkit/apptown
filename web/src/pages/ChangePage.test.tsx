@@ -11,6 +11,7 @@ import Console, { ChatPage } from './Console'
 import ChangePage, { changeDefaultTab } from './ChangePage'
 import { ConversationLog, EarlierChats } from './change/Conversation'
 import { withFeatures } from '../features.fixture'
+import { chatStreamOf } from './console/chatStream.fixture'
 import { getKey, newQueryClient } from '../data'
 import type { ChangeView } from '../api'
 import { PreviewBesideChat, canEmbedPreview } from './console/PreviewBesideChat'
@@ -110,10 +111,10 @@ it('opens the change Conversation with actions and starts the first build once a
  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
   const path = String(url)
   if (init?.method === 'POST') writes.push(path)
+  if (path.includes('/stream')) return chatStreamOf([])
   const body = path === '/api/v1/changes/X' ? { ...view(state), change: { id: 'X', state, title: 'Build a calendar', body: 'A shared calendar', number: 1 }, projectSlug: 's', runs: [], goesTo: { branch: 'main', deployments: [] } }
    : path.endsWith('/transcript') ? history
    : path === '/api/v1/projects/s/console' ? { session, sessions: [] }
-   : path.endsWith('/messages') ? { messages: [] }
    : path.endsWith('/changes') ? { changes: [] } : {}
   return new Response(JSON.stringify(body))
  })))
@@ -156,11 +157,11 @@ it('keeps a shown live chat mounted across tabs and opens none from another tab'
  const opens: string[] = []
  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string, init?: RequestInit) => {
   const path = String(url)
+  if (path.includes('/stream')) return chatStreamOf([])
   if (init?.method === 'POST' && path === '/api/v1/projects/s/console') { opens.push(path); sessions = [{ ...chosen, id: 'opened' }] }
   const body = path === '/api/v1/changes/X' ? { ...view(), change: { id: 'X', state: 'in_progress', title: 'Build a calendar', number: 1 }, projectSlug: 's', runs: [], goesTo: { branch: 'main', deployments: [] } }
    : path.endsWith('/transcript') ? { sessions: [] }
    : path === '/api/v1/projects/s/console' ? (init?.method === 'POST' ? { session: sessions[0] } : { sessions })
-   : path.endsWith('/messages') ? { messages: [] }
    : path.endsWith('/changes') ? { changes: [] } : {}
   return new Response(JSON.stringify(body))
  })))

@@ -290,6 +290,37 @@ export async function getText(path: string, init?: { signal?: AbortSignal }): Pr
   return res.text()
 }
 
+// openStream opens an event stream (text/event-stream) at the same door,
+// and answers its events' text as they arrive: a failure status throws,
+// as any read's does.
+export async function openStream(path: string, signal: AbortSignal): Promise<AsyncIterable<{ event: string; data: string }>> {
+  const res = await fetch(`/api/v1${path}`, { headers: { 'X-AppTown-Actor': currentUser(), Accept: 'text/event-stream' }, signal })
+  noteServed(res.headers.get(ENTRY_HEADER))
+  if (!res.ok) throw await failure(res)
+  const body = res.body
+  if (!body) throw new Error('the stream has no body')
+  return (async function* events() {
+    const reader = body.pipeThrough(new TextDecoderStream()).getReader()
+    let held = ''
+    for (;;) {
+      const { value, done } = await reader.read()
+      if (done) return
+      held += value
+      let end: number
+      while ((end = held.indexOf('\n\n')) >= 0) {
+        const block = held.slice(0, end)
+        held = held.slice(end + 2)
+        let event = '', data = ''
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event: ')) event = line.slice(7)
+          else if (line.startsWith('data: ')) data += line.slice(6)
+        }
+        if (data) yield { event, data } // a comment (keep-alive) carries none
+      }
+    }
+  })()
+}
+
 export function currentUser(): string {
   return localStorage.getItem('apptown.user') || 'trial'
 }

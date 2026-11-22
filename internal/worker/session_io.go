@@ -685,8 +685,23 @@ type RecordFile struct {
 
 var recordPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,200}\.jsonl$`)
 
-// records lists the chat's record files: what AppTown copies to show the
-// conversation.
+// RecordListing is the chat's record files and its draft (the message pi
+// is writing, console.DraftFile; nil when there is none), with State naming
+// all of them as they are, so AppTown can ask to wait for a change.
+type RecordListing struct {
+	State string       `json:"state"`
+	Files []RecordFile `json:"files"`
+	Draft *RecordFile  `json:"draft"`
+}
+
+// recordsLook is how often a listing asked to wait looks for a change.
+const recordsLook = 50 * time.Millisecond
+
+// records lists the chat's record files and its draft: what AppTown copies
+// to show the conversation. With ?wait=<state>, it answers once the listing
+// is no longer that state, or after recordsWait with it unchanged, so a
+// chat's words reach AppTown as they are written and an idle chat costs a
+// request every twenty seconds.
 func (s *Server) records(w http.ResponseWriter, r *http.Request) {
 	if !s.sessionRuntime(w) {
 		return
@@ -695,47 +710,100 @@ func (s *Server) records(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := []RecordFile{}
-	root, err := os.OpenRoot(filepath.Join(in.Dir, "sessions"))
+	wait := r.URL.Query().Get("wait")
+	hold := s.recordsWait
+	if hold == 0 {
+		hold = 20 * time.Second
+	}
+	deadline := time.NewTimer(hold)
+	defer deadline.Stop()
+	look := time.NewTicker(recordsLook)
+	defer look.Stop()
+	for {
+		out, err := listRecords(filepath.Join(in.Dir, "sessions"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if wait == "" || out.State != wait {
+			writeJSON(w, out)
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			return
+		case <-deadline.C:
+			writeJSON(w, out)
+			return
+		case <-look.C:
+		}
+	}
+}
+
+// listRecords is the listing of a chat's sessions folder. The chat writes
+// it, so only regular files with a record's name, or the draft's, count.
+func listRecords(dir string) (RecordListing, error) {
+	out := RecordListing{Files: []RecordFile{}}
+	root, err := os.OpenRoot(dir)
 	if errors.Is(err, os.ErrNotExist) {
-		writeJSON(w, out)
-		return
+		out.State = listingState(out)
+		return out, nil
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return out, err
 	}
 	defer root.Close()
 	d, err := root.Open(".")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return out, err
 	}
 	entries, err := d.ReadDir(-1)
 	d.Close()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return out, err
 	}
 	for _, e := range entries {
 		info, err := e.Info()
-		if err != nil || !info.Mode().IsRegular() || !recordPattern.MatchString(e.Name()) {
+		if err != nil || !info.Mode().IsRegular() {
 			continue
 		}
-		out = append(out, RecordFile{Name: e.Name(), Size: info.Size(), Modified: info.ModTime()})
+		f := RecordFile{Name: e.Name(), Size: info.Size(), Modified: info.ModTime()}
+		switch {
+		case recordPattern.MatchString(e.Name()):
+			out.Files = append(out.Files, f)
+		case e.Name() == console.DraftFile:
+			out.Draft = &f
+		}
 	}
-	writeJSON(w, out)
+	out.State = listingState(out)
+	return out, nil
 }
 
-// record answers one record file's bytes from an offset, at most
-// maxRecordRead of them.
+// listingState names a listing: any file's size or time changing changes it.
+func listingState(l RecordListing) string {
+	h := sha256.New()
+	for _, f := range append(l.Files, ptrFiles(l.Draft)...) {
+		fmt.Fprintf(h, "%s\x00%d\x00%d\n", f.Name, f.Size, f.Modified.UnixNano())
+	}
+	return hex.EncodeToString(h.Sum(nil)[:12])
+}
+
+func ptrFiles(f *RecordFile) []RecordFile {
+	if f == nil {
+		return nil
+	}
+	return []RecordFile{*f}
+}
+
+// record answers one record file's bytes, or the draft's, from an offset,
+// at most maxRecordRead of them.
 func (s *Server) record(w http.ResponseWriter, r *http.Request) {
 	if !s.sessionRuntime(w) {
 		return
 	}
 	name := r.PathValue("name")
 	from, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
-	if !recordPattern.MatchString(name) || err != nil || from < 0 {
+	if !(recordPattern.MatchString(name) || name == console.DraftFile) || err != nil || from < 0 {
 		http.Error(w, "a record file and an offset", http.StatusBadRequest)
 		return
 	}

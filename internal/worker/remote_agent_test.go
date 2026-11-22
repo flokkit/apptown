@@ -52,11 +52,25 @@ type remoteChats struct {
 
 func startRemoteChats(t *testing.T, env console.Environment) *remoteChats {
 	t.Helper()
+	return startRemoteChatsWaiting(t, env, 100*time.Millisecond)
+}
+
+// startRemoteChatsWaiting is startRemoteChats with the worker's listing
+// holding for a change for wait: short by default, so a test sees AppTown
+// copy the same record again.
+func startRemoteChatsWaiting(t *testing.T, env console.Environment, wait time.Duration, around ...func(http.RoundTripper) http.RoundTripper) *remoteChats {
+	t.Helper()
 	ca := workertest.NewCA(t)
 	rt := consoletest.NewAgent()
 	state, data := t.TempDir(), t.TempDir()
-	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: rt})
-	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	server := &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: rt}
+	worker.SetRecordsWait(server, wait)
+	srv := workertest.StartServer(t, ca, server)
+	hc := workertest.Client(t, ca, workertest.Installation)
+	for _, wrap := range around {
+		hc.Transport = wrap(hc.Transport)
+	}
+	client := worker.SessionClient{URL: srv.URL, Client: hc}
 	agent := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond}
 	t.Cleanup(agent.Close)
 	svc := console.New(console.Dependencies{Agent: agent, Environment: env,
@@ -854,4 +868,122 @@ type changingSecretEnvironment struct{ p console.Provision }
 
 func (e *changingSecretEnvironment) Prepare(context.Context, *console.Session) (console.Provision, error) {
 	return e.p, nil
+}
+
+// A worker chat streams: the words pi is writing on the worker reach
+// AppTown's follower of the chat while the worker's listing waits for
+// changes (so nothing is asked on a timer), and the recorded message
+// replaces them.
+func TestAWorkerChatsWordsReachAFollowerAsTheyAreWritten(t *testing.T) {
+	ctx := context.Background()
+	c := startRemoteChatsWaiting(t, consoletest.Static{}, 20*time.Second)
+	s := c.open(t)
+	if err := c.service.Send(ctx, s.ID, "make it blue"); err != nil {
+		t.Fatal(err)
+	}
+	updates := make(chan console.Update, 100)
+	follow, stop := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		done <- c.service.Follow(follow, s.ID, "", func(u console.Update) error { updates <- u; return nil })
+	}()
+	t.Cleanup(func() { stop(); <-done })
+	wait := func(what string, cond func(console.Update) bool) {
+		t.Helper()
+		deadline := time.After(3 * time.Second)
+		for {
+			select {
+			case u := <-updates:
+				if cond(u) {
+					return
+				}
+			case <-deadline:
+				t.Fatalf("never: %s", what)
+			}
+		}
+	}
+	wait("the person's message", func(u console.Update) bool { return len(u.Messages) > 0 })
+	sent := consoletest.PiNow()
+	for _, words := range []string{"Painting", "Painting it blue"} {
+		c.runtime.Drafting(s.ID, words, sent)
+		wait("the draft "+words, func(u console.Update) bool { return u.Draft != nil && u.Draft.Text == words })
+	}
+	c.runtime.ReplySent(s.ID, "Painting it blue", sent)
+	wait("the recorded reply in place of its draft", func(u console.Update) bool {
+		return u.Draft == nil && len(u.Messages) == 1 && u.Messages[0].Text == "Painting it blue"
+	})
+}
+
+// roundTrip is a RoundTripper from a function.
+type roundTrip func(*http.Request) (*http.Response, error)
+
+func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// pi's settled mark says a turn is over only beside a record that holds the
+// turn: AppTown copies the mark from the worker before the record and
+// publishes it after, so a turn that ends between the copy's reads of the
+// two is never shown over without its answer, and is saved once.
+func TestAWorkerChatsTurnIsNeverOverBeforeItsAnswerIsCopied(t *testing.T) {
+	ctx := context.Background()
+	var c *remoteChats
+	var once sync.Once
+	finish := make(chan struct{})
+	// The turn ends on the worker just as AppTown reads the draft file:
+	// after it listed the record without the answer.
+	c = startRemoteChatsWaiting(t, consoletest.Static{}, 20*time.Second, func(next http.RoundTripper) http.RoundTripper {
+		return roundTrip(func(r *http.Request) (*http.Response, error) {
+			if strings.HasSuffix(r.URL.Path, "/records/"+console.DraftFile) {
+				select {
+				case <-finish:
+					once.Do(func() {
+						id := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/sessions/"), "/")[0]
+						c.runtime.ReplySent(id, "It is blue now.", consoletest.PiNow())
+						c.runtime.Settled(id)
+					})
+				default:
+				}
+			}
+			return next.RoundTrip(r)
+		})
+	})
+	var mu sync.Mutex
+	saves := 0
+	c.agent.HandedBack = func(string) { mu.Lock(); saves++; mu.Unlock() }
+	s := c.open(t)
+	if err := c.service.Send(ctx, s.ID, "make it blue"); err != nil {
+		t.Fatal(err)
+	}
+	// A follower of AppTown's copy, as the chat page is: every reading
+	// that says the turn is over holds the answer.
+	updates := make(chan console.Update, 1000)
+	following, stop := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		done <- c.service.Follow(following, s.ID, "", func(u console.Update) error { updates <- u; return nil })
+	}()
+	t.Cleanup(func() { stop(); <-done })
+	var held []console.Message
+	next := func(what string, cond func(console.Update) bool) {
+		t.Helper()
+		deadline := time.After(5 * time.Second)
+		for {
+			select {
+			case u := <-updates:
+				held = append(held[:u.From:u.From], u.Messages...)
+				if u.Turn == console.HandedBack && (len(held) != 2 || held[1].Text != "It is blue now.") {
+					t.Fatalf("the turn read as over without its answer: %+v", held)
+				}
+				if cond(u) {
+					return
+				}
+			case <-deadline:
+				t.Fatalf("never: %s", what)
+			}
+		}
+	}
+	next("the person's message copied", func(console.Update) bool { return len(held) == 1 })
+	close(finish)
+	c.runtime.Drafting(s.ID, "It is", consoletest.PiNow())
+	next("the turn over on AppTown", func(u console.Update) bool { return u.Turn == console.HandedBack })
+	eventually(t, "a save for the turn", func() bool { mu.Lock(); defer mu.Unlock(); return saves == 1 })
 }

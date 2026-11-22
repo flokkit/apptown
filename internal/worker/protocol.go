@@ -24,10 +24,17 @@ const (
 	// answering it bytes inline would keep a second way of returning
 	// results, so a worker of this build serves 4 alone: AppTown and its
 	// worker are stopped and upgraded together.
-	Protocol = 4
+	//
+	// Protocol 5 lists a chat's record with its draft (the message pi is
+	// writing) and a state to wait on, so the copy follows the chat as it
+	// writes. An AppTown of 4 reads the listing as a list; a worker of 4
+	// answers a wait at once, so AppTown would ask without pause. A worker
+	// of this build serves 5 alone: AppTown and its worker are stopped and
+	// upgraded together.
+	Protocol = 5
 	// ProtocolMin and ProtocolMax are what this build's worker serves.
-	ProtocolMin = 4
-	ProtocolMax = 4
+	ProtocolMin = 5
+	ProtocolMax = 5
 )
 
 // VersionReport is GET /v1/version.

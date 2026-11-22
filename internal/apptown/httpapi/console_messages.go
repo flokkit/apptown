@@ -1,14 +1,20 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 type ConsoleMessages struct {
@@ -46,6 +52,87 @@ func (h ConsoleMessages) ConsoleMessages(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	WriteJSON(w, 200, ConsoleMessagePage{Messages: h.mask.messages(r.Context(), page.Messages), State: h.sessions.State(r.Context(), s), Turn: string(page.Turn)})
+}
+
+// ConsoleStream: GET /console/{sid}/stream?after=<cursor> — the chat's
+// conversation as it changes, as Server-Sent Events, for the chat page
+// (conversation.Chats.Follow). Each event's data is a ConsoleStreamUpdate:
+// the messages from `from` on, the message the helper is writing, whose
+// turn it is, and the cursor to resume from. A refusal before the first
+// update is an ordinary refusal; one after it is a "refused" event naming
+// the status the read would now get, and the stream ends. A comment every 15 s keeps idle proxies from closing it; a
+// proxy must stream, not buffer, the response.
+func (h ConsoleMessages) ConsoleStream(w http.ResponseWriter, r *http.Request) {
+	s := ConsoleFromPath(h.sessions, w, r)
+	if s == nil {
+		return
+	}
+	ctx, stop := context.WithCancel(r.Context())
+	// The keep-alive writes to w too: it ends before the handler returns.
+	var alive sync.WaitGroup
+	defer alive.Wait()
+	defer stop()
+	rc := http.NewResponseController(w)
+	var (
+		mu      sync.Mutex
+		started bool
+		masked  func(string) string
+	)
+	write := func(event string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if _, err := io.WriteString(w, event); err != nil {
+			return err
+		}
+		return rc.Flush()
+	}
+	err := h.chats.Follow(ctx, s, console.Cursor(r.URL.Query().Get("after")), func(u console.Update) error {
+		// One snapshot of the secrets to mask when the stream opens and
+		// when messages arrive, never for each draft: it may ask Infisical.
+		if masked == nil || len(u.Messages) > 0 {
+			masked = h.mask.snapshot(ctx)
+		}
+		raw, err := json.Marshal(ConsoleStreamUpdate{From: u.From, Messages: maskMessages(masked, u.Messages),
+			Draft: maskDraft(masked, u.Draft), Turn: string(u.Turn), Cursor: string(u.Cursor)})
+		if err != nil {
+			return err
+		}
+		if !started {
+			started = true
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("X-Accel-Buffering", "no")
+			w.WriteHeader(http.StatusOK)
+			alive.Add(1)
+			go func() { defer alive.Done(); keepAlive(ctx, write) }()
+		}
+		return write("data: " + string(raw) + "\n\n")
+	})
+	switch {
+	case !started && err != nil:
+		WriteFaultOr(w, err, http.StatusInternalServerError)
+	case started && err != nil && ctx.Err() == nil:
+		// What the reader would have been answered had it asked now: 403
+		// when its read was taken away, 404 when the chat went.
+		raw, _ := json.Marshal(map[string]any{"error": fault.Message(err), "status": faultStatus(fault.KindOf(err), http.StatusInternalServerError)})
+		_ = write("event: refused\ndata: " + string(raw) + "\n\n")
+	}
+}
+
+// keepAlive writes a comment every 15 s until ctx ends.
+func keepAlive(ctx context.Context, write func(string) error) {
+	t := time.NewTicker(15 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if write(": still here\n\n") != nil {
+				return
+			}
+		}
+	}
 }
 
 // ConsoleSay: POST /console/{sid}/say {text} — typed words go into the
@@ -140,5 +227,16 @@ type (
 		Messages []console.Message `json:"messages"`
 		State    console.State     `json:"state"`
 		Turn     string            `json:"turn"`
+	}
+	// ConsoleStreamUpdate is one event of a chat's stream: the messages
+	// from From on replace what the reader holds from there; Draft is the
+	// message the helper is writing, whole, or null; Cursor is what the
+	// reader holds after it, sent back as ?after= to resume.
+	ConsoleStreamUpdate struct {
+		From     int               `json:"from"`
+		Messages []console.Message `json:"messages"`
+		Draft    *console.Message  `json:"draft"`
+		Turn     string            `json:"turn"`
+		Cursor   string            `json:"cursor"`
 	}
 )

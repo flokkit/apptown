@@ -71,6 +71,12 @@ func TestConsoleFilesPreservePrivateModesAndBakedLinks(t *testing.T) {
 	if !strings.Contains(string(files["pi-home/.pi/agent/agents/worker.md"].Data), "model: test/worker") {
 		t.Fatal("worker slot was lost")
 	}
+	// The chat's draft writer, among pi's global extensions, writing into
+	// the chat's sessions folder as its pi sees it.
+	draft := string(files["pi-home/.pi/agent/extensions/"+draftExtension].Data)
+	if !strings.Contains(draft, `const sessions = "/console/sessions";`) || strings.Contains(draft, "__SESSIONS__") {
+		t.Fatalf("the draft writer is not staged for the chat's sessions folder:\n%s", draft)
+	}
 	refusal := errors.New("configuration refused")
 	home.models = publicConfig{err: refusal}
 	if files, err := home.ConsoleFiles(t.Context(), t.TempDir(), idstest.N(7)); !errors.Is(err, refusal) || files != nil {

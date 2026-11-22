@@ -12108,6 +12108,42 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/console/{sid}/stream": {
+      "get": {
+        "operationId": "getConsoleSidStream",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "console"
+        ],
+        "x-apptown-access": {
+          "capability": "project:read",
+          "kind": "capability",
+          "scope": "console-session"
+        },
+        "x-apptown-feature": {
+          "area": "chats",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/console/{sid}/upload": {
       "post": {
         "operationId": "postConsoleSidUpload",

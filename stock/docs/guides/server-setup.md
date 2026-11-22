@@ -302,7 +302,11 @@ production apps on attached targets use those targets' own ingress.
 - pass the `Host` header unchanged;
 - set `X-Forwarded-For` and `X-Forwarded-Proto: https`;
 - allow WebSocket upgrades and responses that stream for many minutes
-  (agents' chats and logs);
+  (agents' chats and logs), and pass streamed responses on as they arrive
+  rather than buffering them whole: a chat's conversation is an event
+  stream (`text/event-stream`), and a proxy that holds it until the
+  response ends leaves the chat page loading. Caddy and Cloudflare stream
+  it as they are; nginx honours the `X-Accel-Buffering: no` AppTown sends;
 - if it runs on another machine, be named in `-trusted-proxies`, so AppTown
   believes its `X-Forwarded-For`.
 

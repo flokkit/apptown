@@ -7,7 +7,8 @@ import { getKey, newQueryClient } from '../../data'
 import { ChatMessages } from './Conversation'
 import { Bubbles } from '../console/Bubbles'
 import { AgentActionsSwitch, useAgentActions } from '../../AgentActions'
-import type { ChatHistoryEntry } from '../../wire.gen'
+import type { ChatHistoryEntry, Message } from '../../wire.gen'
+import { chatStreamOf } from '../console/chatStream.fixture'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const messages = [
@@ -28,7 +29,9 @@ function LiveSwitch() {
 }
 async function mount(live = false, viewer = 'sam') {
   Element.prototype.scrollIntoView = () => {}
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(String(url).endsWith('/auth/me') ? { mode: 'internal', user: viewer } : { messages, turn: 'handed-back' }))))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => String(url).includes('/stream')
+    ? chatStreamOf(messages as Message[], 'handed-back')
+    : new Response(JSON.stringify(String(url).endsWith('/auth/me') ? { mode: 'internal', user: viewer } : {}))))
   const client = newQueryClient()
   client.setQueryData(getKey('/auth/me'), { mode: 'internal', user: viewer })
   const el = document.createElement('div'), root = createRoot(el)

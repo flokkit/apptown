@@ -47,8 +47,9 @@ type RemoteAgent struct {
 	// tree to dest and names its branch and commit. It is asked once, before
 	// the chat first starts; nil sends none.
 	Source func(ctx context.Context, in console.Launch, dest string) (branch, commit string, err error)
-	// CopyEvery is how often a started chat's record is copied back; zero
-	// means two seconds.
+	// CopyEvery is the pause before asking again after a copy failed; zero
+	// means two seconds. A copy that succeeds asks again at once: the
+	// worker holds the listing until the chat's record or draft changes.
 	CopyEvery time.Duration
 	// Ending, when set, makes the last save of an ending chat, after its
 	// runtime has stopped and before it is removed (SaveLast answers that
@@ -391,29 +392,43 @@ func (a *RemoteAgent) copyRecord(id string) {
 	if every == 0 {
 		every = 2 * time.Second
 	}
+	// Stopping copying also ends a listing waiting for a change.
+	loop, cancelLoop := context.WithCancel(a.ctx)
 	a.loops.Add(1)
 	go func() {
 		defer a.loops.Done()
-		t := time.NewTicker(every)
-		defer t.Stop()
+		defer cancelLoop()
+		go func() {
+			select {
+			case <-stop:
+				cancelLoop()
+			case <-loop.Done():
+			}
+		}()
 		var turns handedBackTurns
-		for {
-			ctx, cancel := context.WithTimeout(a.ctx, 30*time.Second)
-			err := a.copyOnce(ctx, id)
+		state := "" // the listing copied last: the next one waits for a change
+		for loop.Err() == nil {
+			ctx, cancel := context.WithTimeout(loop, 30*time.Second)
+			listing, err := a.Sessions.records(ctx, id, state)
+			if err == nil {
+				err = a.copyListed(ctx, id, listing)
+			}
 			cancel()
 			if errors.Is(err, errNoSession) || errors.Is(err, errRemoteSessionRemoved) {
 				a.stopCopying(id)
 				return
 			}
-			if err == nil && a.HandedBack != nil && turns.next(&console.Transcript{Dir: filepath.Join(a.Root, id)}) {
-				a.HandedBack(id)
+			if err != nil {
+				state = ""
+				select {
+				case <-loop.Done():
+				case <-time.After(every):
+				}
+				continue
 			}
-			select {
-			case <-a.ctx.Done():
-				return
-			case <-stop:
-				return
-			case <-t.C:
+			state = listing.State
+			if a.HandedBack != nil && turns.next(&console.Transcript{Dir: filepath.Join(a.Root, id)}) {
+				a.HandedBack(id)
 			}
 		}
 	}()
@@ -446,6 +461,15 @@ func (a *RemoteAgent) copyNow(in console.Launch) {
 	_ = a.copyOnce(ctx, in.ID)
 }
 
+// copyOnce copies the chat's record as it is now.
+func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
+	listing, err := a.Sessions.records(ctx, id, "")
+	if err != nil {
+		return err
+	}
+	return a.copyListed(ctx, id, listing)
+}
+
 func (a *RemoteAgent) stopCopying(id string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -455,10 +479,12 @@ func (a *RemoteAgent) stopCopying(id string) {
 	}
 }
 
-// copyOnce brings the session's record files up to the worker's sizes:
-// bytes past AppTown's copy are appended; a file that shrank on the
-// worker is copied again whole. Then RecordAsOfFile is written.
-func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
+// copyListed brings the session's record files up to the sizes listed:
+// bytes past AppTown's copy are appended; a file that shrank on the worker
+// is copied again whole. The draft, which pi rewrites, is copied whole when
+// it changed, and removed when the worker has none. Then RecordAsOfFile is
+// written.
+func (a *RemoteAgent) copyListed(ctx context.Context, id string, listing RecordListing) error {
 	dir := filepath.Join(a.Root, id)
 	a.mu.Lock()
 	m := a.copyMu[id]
@@ -470,15 +496,21 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 	m.Lock()
 	defer m.Unlock()
 	asOf := clock.Or(a.Now)().UTC()
-	files, err := a.Sessions.records(ctx, id)
-	if err != nil {
-		return err
-	}
 	local := filepath.Join(dir, "sessions")
 	if err := os.MkdirAll(local, 0o755); err != nil {
 		return err
 	}
-	for _, f := range files {
+	// What pi says beside the record is read before the record and
+	// published after it, as AppTown's own reader reads them: a settled
+	// mark is written after the turn's last record line, so the record
+	// read to its end after the mark holds that line. Published first, the
+	// mark would say the turn is over beside a record without its answer.
+	beside, err := a.readBeside(ctx, id, local, listing.Draft)
+	if err != nil {
+		return err
+	}
+	var fresh *RecordListing // asked only when a copy is longer than listed
+	for _, f := range listing.Files {
 		if !recordPattern.MatchString(f.Name) {
 			continue
 		}
@@ -488,20 +520,30 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 			have = fi.Size()
 		}
 		if have > f.Size {
-			if err := os.Remove(path); err != nil {
-				return err
+			// Copies read to the record's end, so a listing made before the
+			// last copy can be shorter than it. Only the worker's size now
+			// says the file was rewritten shorter, to be copied again whole.
+			if fresh == nil {
+				l, err := a.Sessions.records(ctx, id, "")
+				if err != nil {
+					return err
+				}
+				fresh = &l
 			}
-			have = 0
+			if now, ok := listedSize(*fresh, f.Name); !ok || now < have {
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+				have = 0
+			}
 		}
-		for have < f.Size {
+		for {
 			chunk, err := a.Sessions.record(ctx, id, f.Name, have)
 			if err != nil {
 				return err
 			}
 			if len(chunk) == 0 {
-				// The file shrank since it was listed: this copy is not
-				// complete, and its time is not recorded.
-				return fmt.Errorf("the record %s changed while it was copied", f.Name)
+				break
 			}
 			out, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 			if err != nil {
@@ -513,13 +555,20 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 			}
 			have += int64(len(chunk))
 		}
+		if have < f.Size {
+			// The file shrank since it was listed: this copy is not
+			// complete, and its time is not recorded.
+			return fmt.Errorf("the record %s changed while it was copied", f.Name)
+		}
 		if !f.Modified.IsZero() && have == f.Size {
-			// The copy keeps the worker's time: whether the record has been
-			// quiet (a turn handed back) reads the same on both machines.
+			// The copy keeps the worker's time, as the record's.
 			if err := os.Chtimes(path, f.Modified, f.Modified); err != nil {
 				return err
 			}
 		}
+	}
+	if err := beside(); err != nil {
+		return err
 	}
 	// Written aside and renamed into place: a reader between a rewrite's
 	// truncation and its write would read the chat as never copied. The
@@ -530,6 +579,49 @@ func (a *RemoteAgent) copyOnce(ctx context.Context, id string) error {
 		return err
 	}
 	return os.Rename(tmp, filepath.Join(dir, recordAsOfFile))
+}
+
+// readBeside reads the worker's draft file (what pi says beside the
+// record) when it differs from AppTown's copy, and answers how to publish
+// what it read: written aside, then renamed into place. A listing without
+// one removes AppTown's.
+func (a *RemoteAgent) readBeside(ctx context.Context, id, local string, draft *RecordFile) (func() error, error) {
+	path := filepath.Join(local, console.DraftFile)
+	if draft == nil {
+		return func() error {
+			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return err
+			}
+			return nil
+		}, nil
+	}
+	if fi, err := os.Stat(path); err == nil && fi.Size() == draft.Size && fi.ModTime().Equal(draft.Modified) {
+		return func() error { return nil }, nil
+	}
+	body, err := a.Sessions.record(ctx, id, console.DraftFile, 0)
+	if err != nil {
+		return nil, err
+	}
+	return func() error {
+		tmp := path + ".tmp"
+		if err := os.WriteFile(tmp, body, 0o644); err != nil {
+			return err
+		}
+		if err := os.Chtimes(tmp, draft.Modified, draft.Modified); err != nil {
+			return err
+		}
+		return os.Rename(tmp, path)
+	}, nil
+}
+
+// listedSize is a record file's size in a listing.
+func listedSize(l RecordListing, name string) (int64, bool) {
+	for _, f := range l.Files {
+		if f.Name == name {
+			return f.Size, true
+		}
+	}
+	return 0, false
 }
 
 // RecordAsOf reads when a chat's record was last copied from its worker,

@@ -9,6 +9,7 @@ import { getKey, newQueryClient } from '../../data'
 import { ChatPage } from '../Console'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LAND_REQUEST, StartedChanges, WorkshopActions } from './ChangeBar'
+import { chatStreamOf } from './chatStream.fixture'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0001-7000-8000-000000000000'
@@ -53,7 +54,7 @@ describe("the change a chat works on", () => {
         return new Response(JSON.stringify({ sessions: [{ id: 's1', projectSlug: 'p', model: 'm', createdAt: '', state: 'detached', changeId: CHANGE, openedBy: 'bls', mayAct: true }] }))
       }
       if (u === `/api/v1/changes/${CHANGE}`) return change()
-      if (u.includes('/messages')) return new Response(JSON.stringify({ messages: [] }))
+      if (u.includes('/stream')) return chatStreamOf([])
       if (u.endsWith('/changes')) return new Response(JSON.stringify({ changes: [] }))
       return new Response('{}')
     })))

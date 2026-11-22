@@ -1,6 +1,7 @@
 package apptown
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -608,5 +610,180 @@ func TestAChatsFirstWordsNameItsChangeByAppTownsClock(t *testing.T) {
 	}
 	if clockNow := hw.a.cfg.clock.Now(); at.Sub(clockNow).Abs() > time.Hour {
 		t.Fatalf("change.titled stamped %v, AppTown's clock says %v", at, clockNow)
+	}
+}
+
+// chatStream is one reader of a chat's event stream over real HTTP.
+type chatStream struct {
+	status int
+	events chan chatEvent
+	cancel context.CancelFunc
+}
+
+type chatEvent struct {
+	name string // "" for an update
+	data string
+}
+
+// followChat opens GET /console/{sid}/stream as who and reads its events.
+func followChat(t *testing.T, srv *httptest.Server, who, sid, after string) *chatStream {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/v1/console/"+sid+"/stream?after="+after, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-AppTown-Actor", who)
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	s := &chatStream{status: resp.StatusCode, events: make(chan chatEvent, 100), cancel: cancel}
+	t.Cleanup(cancel)
+	go func() {
+		defer resp.Body.Close()
+		defer close(s.events)
+		sc := bufio.NewScanner(resp.Body)
+		sc.Buffer(make([]byte, 1<<20), 1<<20)
+		var ev chatEvent
+		for sc.Scan() {
+			line := sc.Text()
+			switch {
+			case strings.HasPrefix(line, "event: "):
+				ev.name = strings.TrimPrefix(line, "event: ")
+			case strings.HasPrefix(line, "data: "):
+				ev.data = strings.TrimPrefix(line, "data: ")
+			case line == "" && ev.data != "":
+				s.events <- ev
+				ev = chatEvent{}
+			}
+		}
+	}()
+	return s
+}
+
+// next is the stream's next event, or the end of the stream.
+func (s *chatStream) next(t *testing.T) (chatEvent, bool) {
+	t.Helper()
+	select {
+	case ev, ok := <-s.events:
+		return ev, ok
+	case <-time.After(5 * time.Second):
+		t.Fatal("no event")
+	}
+	return chatEvent{}, false
+}
+
+func (s *chatStream) update(t *testing.T) httpapi.ConsoleStreamUpdate {
+	t.Helper()
+	ev, ok := s.next(t)
+	if !ok || ev.name != "" {
+		t.Fatalf("want an update, got %+v (open %v)", ev, ok)
+	}
+	var u httpapi.ConsoleStreamUpdate
+	if err := json.Unmarshal([]byte(ev.data), &u); err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
+// Anyone who reads the project follows its chat as the helper writes; the
+// words being written come as the draft. Someone without the project's read
+// is refused at the door and is sent nothing.
+func TestAProjectReaderFollowsAChatAndAnOutsiderGetsNothing(t *testing.T) {
+	t.Parallel()
+	w := newChatAccessWorld(t)
+	closeTransparentReads(t, w.a)
+	srv := httptest.NewServer(w.a.Handler())
+	t.Cleanup(srv.Close)
+	if resp := authzCall(w.a.Handler(), "owner", "POST", "/api/v1/console/"+w.chat+"/say", `{"text":"make it blue"}`); resp.Code != 200 {
+		t.Fatalf("the owner says: %d %s", resp.Code, resp.Body.String())
+	}
+
+	outsider := followChat(t, srv, "outsider", w.chat, "")
+	if outsider.status != http.StatusForbidden {
+		t.Fatalf("an outsider follows the chat: %d", outsider.status)
+	}
+	if ev, ok := outsider.next(t); ok {
+		t.Fatalf("an outsider was sent %+v", ev)
+	}
+
+	vic := followChat(t, srv, "vic", w.chat, "")
+	if vic.status != http.StatusOK {
+		t.Fatalf("a project viewer follows the chat: %d", vic.status)
+	}
+	if u := vic.update(t); len(u.Messages) != 1 || u.Messages[0].Text != "make it blue" || u.Draft != nil {
+		t.Fatalf("the first update: %+v", u)
+	}
+	w.agent.Drafting(w.chat, "Painting it", consoletest.PiNow())
+	if u := vic.update(t); u.From != 1 || len(u.Messages) != 0 || u.Draft == nil || u.Draft.Text != "Painting it" {
+		t.Fatalf("the words being written: %+v", u)
+	}
+}
+
+// A follower's read is asked again, with current grants, before each update:
+// once it is taken away the stream says so and sends nothing more, though
+// it was opened by a GET whose authority was read once.
+func TestAFollowerWhoseReadIsTakenAwayIsSentNothingMore(t *testing.T) {
+	t.Parallel()
+	w := newChatAccessWorld(t)
+	closeTransparentReads(t, w.a)
+	srv := httptest.NewServer(w.a.Handler())
+	t.Cleanup(srv.Close)
+	if resp := authzCall(w.a.Handler(), "owner", "POST", "/api/v1/console/"+w.chat+"/say", `{"text":"make a plan"}`); resp.Code != 200 {
+		t.Fatalf("the owner says: %d %s", resp.Code, resp.Body.String())
+	}
+	jenny := followChat(t, srv, "jenny", w.chat, "")
+	if jenny.status != http.StatusOK {
+		t.Fatalf("jenny follows the chat: %d", jenny.status)
+	}
+	jenny.update(t)
+
+	grants, err := w.a.Access.GrantsAt(context.Background(), access.ScopeProject, idstest.N(1).String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, g := range grants {
+		if g.SubjectType == "user" && g.Subject == "jenny" {
+			if _, err := w.a.Access.Revoke(context.Background(), g.ID, "boss"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	w.agent.Drafting(w.chat, "secret plans", consoletest.PiNow())
+	ev, ok := jenny.next(t)
+	if !ok || ev.name != "refused" || strings.Contains(ev.data, "secret plans") || !strings.Contains(ev.data, `"status":403`) {
+		t.Fatalf("after her read was taken jenny was sent %+v (open %v)", ev, ok)
+	}
+	if ev, ok := jenny.next(t); ok {
+		t.Fatalf("the stream went on after refusing: %+v", ev)
+	}
+}
+
+// A chat's credential follows no other chat.
+func TestAChatsCredentialFollowsNoOtherChat(t *testing.T) {
+	t.Parallel()
+	agent := consoletest.NewAgent()
+	a := authzFixture(t, Config{AuthMode: "internal", DockerClient: newFakeDocker(), ConsoleCLI: fixtureCLI(t), ConsoleAgent: agent,
+		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
+	configureConsoleModel(t, a)
+	open := func() *console.Session {
+		meta := consoleMetaFor("", idstest.N(1), ids.Nil)
+		s, err := a.Console.Open(t.Context(), console.OpenRequest{Scope: meta.Scope, Labels: meta.Labels, Actor: "owner", Model: "fake/model",
+			Workspace: console.Workspace{Path: t.TempDir()}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _, _ = a.Console.End(context.Background(), s.ID) })
+		return s
+	}
+	mine, other := open(), open()
+	r := httptest.NewRequest("GET", "/api/v1/console/"+other.ID+"/stream", nil)
+	r.Header.Set("X-AppTown-Session-Token", mine.Token)
+	resp := httptest.NewRecorder()
+	a.Handler().ServeHTTP(resp, r)
+	if resp.Code != http.StatusForbidden || strings.Contains(resp.Body.String(), "data:") {
+		t.Fatalf("a chat follows another: %d %s", resp.Code, resp.Body.String())
 	}
 }

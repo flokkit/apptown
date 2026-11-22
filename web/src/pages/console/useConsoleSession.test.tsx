@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useParams, useSearchParams, useNavigate, type NavigateFunction } from 'react-router-dom'
 import { getKey, newQueryClient } from '../../data'
 import { ChatPage } from '../Console'
+import { chatStreamOf } from './chatStream.fixture'
 
 // Record ids are UUIDv7 strings.
 const C1 = '00000000-0001-7000-8000-000000000000'
@@ -41,7 +42,7 @@ function fakeAppTown(list: () => Reply, openReply: (body: { changeId?: string; p
     }
     if (u === '/api/v1/projects/p/console') return json(await list())
     if (u === '/api/v1/auth/me') return json({ body: { user: 'bls' } })
-    if (u.includes('/messages')) return json({ body: { messages: [] } })
+    if (u.includes('/stream')) return chatStreamOf([])
     if (u.endsWith('/changes')) return json({ body: { changes: [] } })
     if (u.startsWith('/api/v1/changes/')) return json({ body: { change: { id: C1, number: 1, title: 'a change', state: 'in progress' }, state: '', goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'chat', says: 'building', tone: 'busy', you: 'no', who: [], run: '', step: '', checks: 0 } } })
     return json({ body: {} })

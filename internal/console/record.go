@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -71,6 +72,12 @@ type entry struct {
 	// which is how pi marks a failed attempt it is retrying.
 	ID, TargetID string
 	Omits        bool
+	// Sent is pi's own time for the message (message.timestamp, in ms):
+	// when it started, shared by the draft of a message and the message
+	// recorded once it ends. Zero when the line has none.
+	Sent int64
+	// CallID is a toolResult's toolCallId: the call it answers.
+	CallID string
 }
 
 // failed: the helper's turn ended without an answer, a model error or the
@@ -90,11 +97,24 @@ func (e entry) aborted() bool {
 		e.StopReason == "error" && e.ErrorMessage == "This operation was aborted")
 }
 
+// sent is when the message started, in ms: pi's own message time, or the
+// line's when it has none.
+func (e entry) sent() int64 {
+	if e.Sent != 0 {
+		return e.Sent
+	}
+	if e.At.IsZero() {
+		return 0
+	}
+	return e.At.UnixMilli()
+}
+
 // hasText: the entry says something visible (not just thinking or tools).
 func (e entry) hasText() bool { return strings.TrimSpace(e.Text) != "" }
 
 // toolCall is one tool the helper called in an entry.
 type toolCall struct {
+	ID   string
 	Name string
 	Args map[string]any
 }
@@ -234,6 +254,8 @@ func parseLine(line string) (entry, bool) {
 			Content      json.RawMessage `json:"content"`
 			StopReason   string          `json:"stopReason"`
 			ErrorMessage string          `json:"errorMessage"`
+			Timestamp    json.RawMessage `json:"timestamp"`
+			ToolCallID   string          `json:"toolCallId"`
 		} `json:"message"`
 	}
 	if json.Unmarshal([]byte(line), &raw) != nil {
@@ -242,7 +264,12 @@ func parseLine(line string) (entry, bool) {
 	e := entry{Type: raw.Type, Role: raw.Message.Role, Provider: raw.Message.Provider,
 		Model: raw.Message.Model, Usage: raw.Message.Usage,
 		StopReason: raw.Message.StopReason, ErrorMessage: raw.Message.ErrorMessage,
-		ID: raw.ID, TargetID: raw.TargetID, Omits: raw.Type == "context_edit" && string(raw.Replacement) == "null"}
+		ID: raw.ID, TargetID: raw.TargetID, Omits: raw.Type == "context_edit" && string(raw.Replacement) == "null",
+		CallID: raw.Message.ToolCallID}
+	var sent float64
+	if json.Unmarshal(raw.Message.Timestamp, &sent) == nil {
+		e.Sent = int64(sent)
+	}
 	if raw.Type == "usage" {
 		e.Provider, e.Model, e.Usage = raw.Provider, raw.Model, raw.Usage
 	}
@@ -255,6 +282,7 @@ func parseLine(line string) (entry, bool) {
 	var parts []struct {
 		Type      string          `json:"type"`
 		Text      string          `json:"text"`
+		ID        string          `json:"id"`
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
 	}
@@ -267,7 +295,7 @@ func parseLine(line string) (entry, bool) {
 				}
 				e.Text += p.Text
 			case "toolCall":
-				t := toolCall{Name: p.Name}
+				t := toolCall{ID: p.ID, Name: p.Name}
 				_ = json.Unmarshal(p.Arguments, &t.Args)
 				e.Tools = append(e.Tools, t)
 			}
@@ -290,17 +318,22 @@ type Message struct {
 	I     int    `json:"i"`
 	Role  string `json:"role"` // "you" | "helper"
 	Text  string `json:"text,omitempty"`
-	Tools []struct {
-		Name   string `json:"name"`
-		Detail string `json:"detail,omitempty"`
-	} `json:"tools,omitempty"`
-	At string `json:"at,omitempty"`
+	Tools []Tool `json:"tools,omitempty"`
+	At    string `json:"at,omitempty"`
 	// Error: the helper's turn ended in a model error; Text says what and
 	// what to do. The chat must never look busy over a helper that has
 	// stopped.
 	Error bool `json:"error,omitempty"`
 	// Stopped: the person stopped the helper's turn.
 	Stopped bool `json:"stopped,omitempty"`
+}
+
+// Tool is one tool the helper called, as a bubble shows it.
+type Tool struct {
+	Name   string `json:"name"`
+	Detail string `json:"detail,omitempty"`
+	// Done: the record holds this call's result, so the tool has finished.
+	Done bool `json:"done,omitempty"`
 }
 
 // helperErrorText turns a provider's error into a sentence a person can
@@ -353,8 +386,8 @@ type Transcript struct {
 	msgs []Message
 	last *entry
 	err  error // the last read's failure, nil when it read
-	// failed is a turn that ended in a model error, held back until the
-	// record settles: pi may still drop it to retry (failedID names its
+	// failed is a turn that ended in a model error, held back until pi
+	// says the turn settled: pi may still drop it to retry (failedID names its
 	// entry). retrying: pi dropped one and nothing has followed yet;
 	// retried: the next failure is a retry's. stoppedAt: when the person
 	// pressed stop, until they start new work; pi records nothing when a
@@ -364,29 +397,39 @@ type Transcript struct {
 	failedID          string
 	retrying, retried bool
 	stoppedAt         time.Time
+	// calls finds each tool call's bubble and place in it by the call's id,
+	// so its result marks it done. newest is the latest time (ms) of any
+	// message the record holds: a draft is shown only while it is newer.
+	calls  map[string][2]int
+	newest int64
+	// beside is what pi's AppTown extension last wrote beside the record
+	// (DraftFile), read with it: the message it is writing (drafting), or
+	// when its turn settled (settledAt, ms), for this record only.
+	drafting     *entry
+	settledAt    int64
+	besideRecord string // the record file it names
 }
 
-// settle is how long the record stays unchanged before the helper's turn
-// counts as over: the hand-back, and a failed turn's bubble, wait for it.
-const settle = 8 * time.Second
-
-// quiet reports whether the newest record file has been unchanged for the
-// settle time.
-func (t *Transcript) quiet() bool {
-	files, err := t.sessionFiles()
-	if err != nil || len(files) == 0 {
-		return false
-	}
-	fi, err := os.Lstat(files[len(files)-1])
-	return err == nil && fi.Mode().IsRegular() && clock.System().Sub(fi.ModTime()) >= settle // an mtime: the system clock
+// settled says pi has said its turn is over since the record's newest
+// message: pi emits agent_settled once nothing more will follow (no retry,
+// no queued message), after recording the turn's last message. Anything
+// recorded later (the next message) is newer than the mark.
+func (t *Transcript) settled() bool {
+	return t.besideOwn() && t.settledAt != 0 && t.settledAt >= t.newest
 }
 
-// bubbles is the conversation so far, with a failed turn once the record
-// has settled without pi retrying it. Caller holds t.mu.
+// besideOwn says what was read beside the record is this chat's own: it
+// names the record file the transcript projects (a delegate's would not).
+func (t *Transcript) besideOwn() bool {
+	return t.file != "" && t.besideRecord == filepath.Base(t.file)
+}
+
+// bubbles is the conversation so far, with a failed turn once pi has
+// settled without retrying it. Caller holds t.mu.
 func (t *Transcript) bubbles() []Message {
 	out := make([]Message, len(t.msgs), len(t.msgs)+1)
 	copy(out, t.msgs)
-	if t.failed != nil && t.quiet() {
+	if t.failed != nil && t.settled() {
 		m := *t.failed
 		m.I = len(out)
 		out = append(out, m)
@@ -432,6 +475,7 @@ func (t *Transcript) sessionFiles() ([]string, error) {
 // refresh reads whatever the newest record file has appended since the
 // last call and folds it into the bubbles. Caller holds t.mu.
 func (t *Transcript) refresh() {
+	t.readBeside()
 	// A record that cannot be read is never taken for no record.
 	files, err := t.sessionFiles()
 	if err != nil {
@@ -446,6 +490,7 @@ func (t *Transcript) refresh() {
 	if t.file != latest {
 		t.file, t.rd, t.msgs, t.last = latest, Reader{Path: latest}, nil, nil
 		t.failed, t.failedID, t.retrying, t.retried = nil, "", false, false
+		t.calls, t.newest = map[string][2]int{}, 0
 	}
 	entries, err := t.rd.Next()
 	t.err = err
@@ -460,6 +505,13 @@ func (t *Transcript) refresh() {
 		}
 		if e.Type != "message" {
 			continue
+		}
+		t.newest = max(t.newest, e.sent())
+		if at, ok := t.calls[e.CallID]; ok && e.Role == "toolResult" {
+			// A copy, never in place: earlier answers share the slice.
+			tools := slices.Clone(t.msgs[at[0]].Tools)
+			tools[at[1]].Done = true
+			t.msgs[at[0]].Tools = tools
 		}
 		// Anything after a failed turn means pi did not retry it.
 		if t.failed != nil {
@@ -503,14 +555,23 @@ func (t *Transcript) refresh() {
 		if !e.At.IsZero() {
 			m.At = e.At.UTC().Format("2006-01-02T15:04:05.000Z07:00")
 		}
-		for _, tc := range e.Tools {
-			m.Tools = append(m.Tools, struct {
-				Name   string `json:"name"`
-				Detail string `json:"detail,omitempty"`
-			}{tc.Name, strs.Truncate(tc.detail(), 80)})
+		m.Tools = bubbleTools(e.Tools)
+		for j, tc := range e.Tools {
+			if tc.ID != "" {
+				t.calls[tc.ID] = [2]int{len(t.msgs), j}
+			}
 		}
 		t.msgs, t.retried = append(t.msgs, m), false
 	}
+}
+
+// bubbleTools is the tools of an entry as a bubble shows them.
+func bubbleTools(calls []toolCall) []Tool {
+	var out []Tool
+	for _, tc := range calls {
+		out = append(out, Tool{Name: tc.Name, Detail: strs.Truncate(tc.detail(), 80)})
+	}
+	return out
 }
 
 // messages is the conversation as chat bubbles, oldest first: shared by
@@ -536,24 +597,109 @@ func (t *Transcript) readMessages() ([]Message, error) {
 	return t.bubbles(), nil
 }
 
-// TurnHandedBack reports whether the helper has finished its turn: the
-// latest record entry is an assistant message with text and no tool
-// calls, and the transcript has been quiet for a few seconds. This is the
-// same structural signal the UI's green bubble uses; the moment the
-// helper claims "done" is exactly the moment worth verifying.
+// DraftFile, in a chat's sessions folder, holds what pi says beside its
+// record: the message it is writing now, which the record holds only once
+// it ends, or that its turn has settled. AppTown's pi extension
+// (agentharness/pi, draft.js) writes it; it is never part of the record.
+const DraftFile = "draft.json"
+
+// maxDraft bounds the draft file read; a larger one is no draft.
+const maxDraft = 1 << 20
+
+// draft is the message pi is writing, as the bubble after the record's,
+// or nil. It shows only while it is the chat's own (readBeside) and newer
+// than every message the record holds: once pi records the message, which
+// shares the draft's time, the same read shows the message and not the
+// draft. Caller holds t.mu, after refresh.
+func (t *Transcript) draft(index int) *Message {
+	e := t.drafting
+	if e == nil || !t.besideOwn() || e.Sent <= t.newest || (!e.hasText() && len(e.Tools) == 0) {
+		return nil
+	}
+	return &Message{I: index, Role: "helper", Text: e.Text, Tools: bubbleTools(e.Tools)}
+}
+
+// readBeside reads what pi's extension wrote beside the record: a draft or
+// a settled mark, and the record file it names. refresh reads it before the
+// record, so a mark read is never ahead of the record read with it: pi
+// writes the mark after recording the turn's last message. The agent writes
+// the file, so anything but a small regular file of one such line is
+// nothing. Caller holds t.mu.
+func (t *Transcript) readBeside() {
+	t.drafting, t.settledAt, t.besideRecord = nil, 0, ""
+	f, err := openRecord(filepath.Join(t.Dir, "sessions", DraftFile))
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(io.LimitReader(f, maxDraft+1))
+	if err != nil || len(raw) > maxDraft {
+		return
+	}
+	var head struct {
+		Type   string  `json:"type"`
+		Record string  `json:"record"`
+		At     float64 `json:"at"`
+	}
+	if json.Unmarshal(raw, &head) != nil {
+		return
+	}
+	t.besideRecord = head.Record
+	switch head.Type {
+	case "settled":
+		t.settledAt = int64(head.At)
+	case "draft":
+		if e, ok := parseLine(string(raw)); ok && e.Role == "assistant" {
+			t.drafting = &e
+		}
+	}
+}
+
+// chatReading is one reading of the chat: its messages, the message pi is
+// writing (nil when none) and whose turn it is, all from the same read of
+// the record.
+type chatReading struct {
+	Messages []Message
+	Draft    *Message
+	Turn     Turn
+}
+
+// snapshot reads the record once for all three. A record that cannot be
+// read is an error, never a conversation with no words or a turn over.
+func (t *Transcript) snapshot() (chatReading, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.refresh()
+	if t.err != nil {
+		return chatReading{}, fmt.Errorf("reading the chat's record in %s: %w", t.Dir, t.err)
+	}
+	msgs := t.bubbles()
+	turn := working
+	if t.handedBack() {
+		turn = HandedBack
+	}
+	return chatReading{Messages: msgs, Draft: t.draft(len(msgs)), Turn: turn}, nil
+}
+
+// TurnHandedBack reports whether the helper has finished its turn: pi
+// said its turn settled after the newest message the record holds, or the
+// person stopped it (pi records an abort; a stop while pi waits to retry
+// records nothing). The moment the helper hands back is exactly the moment
+// worth verifying.
 func (t *Transcript) TurnHandedBack() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.refresh()
+	return t.handedBack()
+}
+
+// handedBack is TurnHandedBack on what has been read. Caller holds t.mu.
+func (t *Transcript) handedBack() bool {
 	// pi never retries a turn the person stopped, so a stop needs no settling.
 	if t.retrying && !t.stoppedAt.IsZero() || t.last != nil && t.last.aborted() {
 		return true
 	}
-	if !t.quiet() {
-		return false
-	}
-	last := t.last
-	return last != nil && last.Role == "assistant" && (last.failed() || (last.hasText() && len(last.Tools) == 0))
+	return t.settled()
 }
 
 // LatestSessionFile returns the newest session record and its size: the

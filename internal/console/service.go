@@ -3,8 +3,10 @@ package console
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,8 +16,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -404,6 +408,107 @@ func (s *Service) Messages(ctx context.Context, id string, from int) (MessagePag
 		}
 	}
 	return MessagePage{Messages: out, Turn: sess.turn()}, nil
+}
+
+// Update is what a follower of a chat is sent when it changes: the
+// messages from From on (those below From are what it already holds), the
+// message pi is writing whole, and whose turn it is. Cursor names what the
+// follower holds after it, to resume from.
+type Update struct {
+	From     int
+	Messages []Message
+	Draft    *Message
+	Turn     Turn
+	Cursor   Cursor
+}
+
+// Cursor is what a follower holds: "<n>.<hash of message n-1>", or "0".
+type Cursor string
+
+// cursorOf names the messages held.
+func cursorOf(msgs []Message) Cursor {
+	if len(msgs) == 0 {
+		return "0"
+	}
+	return Cursor(fmt.Sprintf("%d.%s", len(msgs), messageHash(msgs[len(msgs)-1])))
+}
+
+func messageHash(m Message) string {
+	raw, _ := json.Marshal(m)
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:6])
+}
+
+// resumeFrom is where a follower holding after resumes: after its messages
+// when the record still has them and its last one is unchanged, otherwise
+// from the start. The projection only changes at its tail (a failed turn's
+// bubble withdrawn when pi retries it, a tool marked done) or starts over
+// (a new record file), so its last held message decides.
+func resumeFrom(msgs []Message, after Cursor) int {
+	n, hash, ok := strings.Cut(string(after), ".")
+	held, err := strconv.Atoi(n)
+	if !ok || err != nil || held <= 0 || held > len(msgs) || messageHash(msgs[held-1]) != hash {
+		return 0
+	}
+	return held
+}
+
+// firstChange is the first index at which now differs from sent.
+func firstChange(sent, now []Message) int {
+	i := 0
+	for i < len(sent) && i < len(now) && reflect.DeepEqual(sent[i], now[i]) {
+		i++
+	}
+	return i
+}
+
+// followEvery is how often a follower's chat is read again; reading what
+// has not changed is a stat of two files.
+var followEvery = 100 * time.Millisecond
+
+// Follow sends the chat's conversation to send as it changes, from after
+// (what the follower already holds) on, until ctx ends, the chat goes, its
+// record cannot be read, or send fails, and returns why. The first update is sent at once.
+// Each is the record's own reading (a faster view of it, never a second
+// history): the messages that changed, the message pi is writing, and the
+// turn. Following keeps the chat used, as reading its messages does, and
+// never wakes it.
+func (s *Service) Follow(ctx context.Context, id string, after Cursor, send func(Update) error) error {
+	sess, err := s.admit(id)
+	if err != nil {
+		return err
+	}
+	tick := time.NewTicker(followEvery)
+	defer tick.Stop()
+	var last *chatReading
+	for {
+		now, err := sess.record().snapshot()
+		if err != nil {
+			return err
+		}
+		var from int
+		switch {
+		case last == nil:
+			from = resumeFrom(now.Messages, after)
+		default:
+			from = firstChange(last.Messages, now.Messages)
+		}
+		if last == nil || from < len(now.Messages) || from < len(last.Messages) ||
+			now.Turn != last.Turn || !reflect.DeepEqual(now.Draft, last.Draft) {
+			if err := send(Update{From: from, Messages: now.Messages[from:], Draft: now.Draft, Turn: now.Turn, Cursor: cursorOf(now.Messages)}); err != nil {
+				return err
+			}
+			last = &now
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tick.C:
+		}
+		if _, err := s.admit(id); err != nil {
+			return err
+		}
+	}
 }
 
 // Warm has the agent running for the session without saying anything: an

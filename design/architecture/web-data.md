@@ -153,6 +153,28 @@ checks remain separate and current.
 
 Event timestamps use `fmtStamp` (also exposed as `fmtWhen`) in `web/src/format.ts`: `30 Oct, 17:26` in the reader's own zone. Freshness uses relative ages. Pages do not slice server timestamps for display.
 
+## Streams
+
+A read that changes faster than a poll can follow (a chat's conversation as
+the helper writes) follows an event stream with `useFollow(path, fold,
+cursor)` instead. It answers in the same `Read` terms, so `ReadGate`,
+`ReadStatus` and `StaleNote` show it as they show any read:
+
+- `loading` until the first update; each update is folded into what the
+  reader holds, and `current` while the stream is open.
+- A dropped stream keeps the last answer as a failed refresh (`refreshFailed`,
+  shown stale) and reconnects with the reader's cursor (`?after=`), so it is
+  sent only what it lacks; it backs off from half a second to thirty, and
+  reconnects at once when the tab is shown again or the browser is back
+  online.
+- 403 is `denied`, 404 `notFound`, and 401 asks who this is, as for a read;
+  the server ending a stream with a `refused` event names one of those.
+  None of them is asked again.
+- A change of identity drops what was held, discards any update still
+  arriving for the old identity, and follows again from nothing.
+
+A stream is not in the query cache: nothing else shares or refreshes it.
+
 ## Editors
 
 A form that saves server state follows these rules. General project settings

@@ -635,6 +635,7 @@ func appRoutes(a *App) []routeSpec {
 		chatActRoute("DELETE /api/v1/console/{sid}", consoleEnd.ConsoleEnd, "console-session", "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words").inArea("chats"),
 		requireRoute("GET /api/v1/console/{sid}/changes", consoleChanges.ConsoleChanges, access.CapProjectRead, "console-session").inArea("chats"),
 		requireRoute("GET /api/v1/console/{sid}/messages", consoleMessages.ConsoleMessages, access.CapProjectRead, "console-session").inArea("chats"),
+		requireRoute("GET /api/v1/console/{sid}/stream", consoleMessages.ConsoleStream, access.CapProjectRead, "console-session").inArea("chats"),
 		chatActRoute("POST /api/v1/console/{sid}/say", consoleMessages.ConsoleSay, "console-session", "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words").inArea("chats"),
 		chatActRoute("POST /api/v1/console/{sid}/interrupt", consoleMessages.ConsoleInterrupt, "console-session", "conversation.Chats.Act: change:invoke-lane on the chat's project, by a person or this chat only, refused in the chat's own words").inArea("chats"),
 		chatRoute("POST /api/v1/console/{sid}/land", consoleChanges.ConsoleLand, access.CapChangeRequestLand, "console-session").inArea("chats"),
