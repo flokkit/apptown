@@ -14,11 +14,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/dbtest"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
@@ -297,9 +299,7 @@ func TestAChatsViewMasksASecretItsRecordKeeps(t *testing.T) {
 	t.Parallel()
 	sessions, agent, session, h := consoleHTTPFixture(t, nil)
 	_ = sessions
-	h.mask = func(context.Context) func(string) string {
-		return func(s string) string { return strings.ReplaceAll(s, "hunter2-long-value", "[secret]") }
-	}
+	h.masks = secretsHolding(t, "TOKEN=hunter2-long-value\n").Mask
 	agent.Reply(session.ID, "the token is hunter2-long-value, as asked")
 	w := consoleHTTPRequest(h.ConsoleMessages, session.ID, "GET", "/?from=0", "")
 	if strings.Contains(w.Body.String(), "hunter2-long-value") || !strings.Contains(w.Body.String(), "the token is [secret], as asked") {
@@ -351,4 +351,74 @@ func sessionMessages(t *testing.T, sessions *console.Service, session *console.S
 		}
 	}
 	return nil
+}
+
+// secretsHolding is AppTown's secret stores holding the secrets file given.
+func secretsHolding(t *testing.T, file string) *secret.Service {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte(file), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return secret.NewService(nil, secret.Config{DataDir: dir})
+}
+
+// followFor is what the chat's stream sends a reader in the time given.
+func followFor(t *testing.T, h ConsoleMessages, sid string, d time.Duration) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.SetPathValue("sid", sid)
+		h.ConsoleStream(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	ctx, cancel := context.WithTimeout(t.Context(), d)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL, nil)
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body) // until the time is up
+	return string(body)
+}
+
+// A secret the helper is part-way through writing never reaches the reader
+// in clear: the start of a value at the end of the words being written is
+// hidden as the whole value would be.
+//
+// Kills: a draft masked only for whole values, which sent all but the last
+// character of the secret.
+func TestASecretBeingWrittenNeverReachesTheReader(t *testing.T) {
+	t.Parallel()
+	sessions, agent, session, h := consoleHTTPFixture(t, nil)
+	h.masks = secretsHolding(t, "TOKEN=hunter2-long-value\n").Mask
+	if err := sessions.Send(t.Context(), session.ID, "what is the token?"); err != nil {
+		t.Fatal(err)
+	}
+	agent.Drafting(session.ID, "the token is hunter2-long-valu", consoletest.PiNow())
+	body := followFor(t, h, session.ID, 500*time.Millisecond)
+	if strings.Contains(body, "hunter2") || !strings.Contains(body, `"text":"the token is [secret]"`) {
+		t.Fatalf("the stream sent: %s", body)
+	}
+}
+
+// When what to hide cannot be decided (a store could not be read), the
+// words being written are not sent; the conversation still is.
+func TestWordsBeingWrittenAreNotSentWhenWhatToHideIsUnknown(t *testing.T) {
+	t.Parallel()
+	sessions, agent, session, h := consoleHTTPFixture(t, nil)
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil { // a folder: unreadable as a file
+		t.Fatal(err)
+	}
+	h.masks = secret.NewService(nil, secret.Config{DataDir: dir}).Mask
+	if err := sessions.Send(t.Context(), session.ID, "what is the token?"); err != nil {
+		t.Fatal(err)
+	}
+	agent.Drafting(session.ID, "the token is hunt", consoletest.PiNow())
+	body := followFor(t, h, session.ID, 500*time.Millisecond)
+	if strings.Contains(body, "the token is") || !strings.Contains(body, "what is the token?") || !strings.Contains(body, `"draft":null`) {
+		t.Fatalf("the stream sent: %s", body)
+	}
 }

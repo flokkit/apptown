@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
@@ -23,15 +24,15 @@ type ConsoleMessages struct {
 	work     *workflow.Service
 	db       *database.DB
 	dataDir  string
-	mask     mask // known secret values in what the chat view shows
+	masks    func(context.Context) secret.Mask // known secret values in what the chat view shows; nil masks nothing
 }
 
 // NewConsoleMessages serves a chat's conversation to anyone who may look at
 // it, and takes words, files and interruptions through chats, which
 // decides who may act on it. work names a change from its chat's first
 // message.
-func NewConsoleMessages(chats conversation.Chats, work *workflow.Service, db *database.DB, dataDir string, mask mask) ConsoleMessages {
-	return ConsoleMessages{sessions: chats.Sessions, chats: chats, work: work, db: db, dataDir: dataDir, mask: mask}
+func NewConsoleMessages(chats conversation.Chats, work *workflow.Service, db *database.DB, dataDir string, masks func(context.Context) secret.Mask) ConsoleMessages {
+	return ConsoleMessages{sessions: chats.Sessions, chats: chats, work: work, db: db, dataDir: dataDir, masks: masks}
 }
 
 // ConsoleMessages: GET /console/{sid}/messages?from=N — the parsed
@@ -51,7 +52,7 @@ func (h ConsoleMessages) ConsoleMessages(w http.ResponseWriter, r *http.Request)
 		WriteError(w, 404, "no such session")
 		return
 	}
-	WriteJSON(w, 200, ConsoleMessagePage{Messages: h.mask.messages(r.Context(), page.Messages), State: h.sessions.State(r.Context(), s), Turn: string(page.Turn)})
+	WriteJSON(w, 200, ConsoleMessagePage{Messages: maskMessages(h.mask(r.Context()).Text, page.Messages), State: h.sessions.State(r.Context(), s), Turn: string(page.Turn)})
 }
 
 // ConsoleStream: GET /console/{sid}/stream?after=<cursor> — the chat's
@@ -76,7 +77,7 @@ func (h ConsoleMessages) ConsoleStream(w http.ResponseWriter, r *http.Request) {
 	var (
 		mu      sync.Mutex
 		started bool
-		masked  func(string) string
+		masked  *secret.Mask
 	)
 	write := func(event string) error {
 		mu.Lock()
@@ -90,10 +91,11 @@ func (h ConsoleMessages) ConsoleStream(w http.ResponseWriter, r *http.Request) {
 		// One snapshot of the secrets to mask when the stream opens and
 		// when messages arrive, never for each draft: it may ask Infisical.
 		if masked == nil || len(u.Messages) > 0 {
-			masked = h.mask.snapshot(ctx)
+			m := h.mask(ctx)
+			masked = &m
 		}
-		raw, err := json.Marshal(ConsoleStreamUpdate{From: u.From, Messages: maskMessages(masked, u.Messages),
-			Draft: maskDraft(masked, u.Draft), Turn: string(u.Turn), Cursor: string(u.Cursor)})
+		raw, err := json.Marshal(ConsoleStreamUpdate{From: u.From, Messages: maskMessages(masked.Text, u.Messages),
+			Draft: maskDraft(*masked, u.Draft), Turn: string(u.Turn), Cursor: string(u.Cursor)})
 		if err != nil {
 			return err
 		}
@@ -133,6 +135,14 @@ func keepAlive(ctx context.Context, write func(string) error) {
 			}
 		}
 	}
+}
+
+// mask is one read of the secret values the chat view hides.
+func (h ConsoleMessages) mask(ctx context.Context) secret.Mask {
+	if h.masks == nil {
+		return (*secret.Service)(nil).Mask(ctx) // nothing to hide
+	}
+	return h.masks(ctx)
 }
 
 // ConsoleSay: POST /console/{sid}/say {text} — typed words go into the

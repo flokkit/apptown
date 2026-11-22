@@ -204,7 +204,7 @@ func appRoutes(a *App) []routeSpec {
 		consoleEnd = httpapi.NewConsoleEnd(a.changeConsole)
 		consoleSessions = httpapi.NewConsoleSessions(chatsFor(a), a.cli)
 		complaintIntake = httpapi.NewComplaintIntake(a.Complaints, a.Console, a.DB)
-		consoleMessages = httpapi.NewConsoleMessages(chatsFor(a), a.Work, a.DB, a.cfg.dataDir, a.Secrets.Masker)
+		consoleMessages = httpapi.NewConsoleMessages(chatsFor(a), a.Work, a.DB, a.cfg.dataDir, a.Secrets.Mask)
 		chatHistory = httpapi.NewChatHistory(a.Console, a.Projects, a.Access, a.cfg.dataDir, a.Secrets.Masker)
 		projectServices = httpapi.NewProjectServices(a.Projects, a.Access, a.repositoryEdits, a.cfg.dataDir, a.authModeName())
 		workflowCatalog = httpapi.NewWorkflowCatalog(a.DB, a.Ways)

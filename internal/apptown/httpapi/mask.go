@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/console"
 )
 
@@ -25,12 +26,27 @@ func (m mask) snapshot(ctx context.Context) func(string) string {
 	return m(ctx)
 }
 
-// maskDraft is maskMessages for one message, nil staying nil.
-func maskDraft(mask func(string) string, draft *console.Message) *console.Message {
+// maskDraft is the message the helper is still writing, masked as text
+// still being written (secret.Mask.Partial): the start of a value at its
+// end is hidden too. A draft whose masking cannot be decided is not sent.
+func maskDraft(mask secret.Mask, draft *console.Message) *console.Message {
 	if draft == nil {
 		return nil
 	}
-	out := maskMessages(mask, []console.Message{*draft})[0]
+	out := *draft
+	text, ok := mask.Partial(out.Text)
+	if !ok {
+		return nil
+	}
+	out.Text = text
+	if len(out.Tools) > 0 {
+		out.Tools = append(out.Tools[:0:0], out.Tools...)
+		for j := range out.Tools {
+			if out.Tools[j].Detail, ok = mask.Partial(out.Tools[j].Detail); !ok {
+				return nil
+			}
+		}
+	}
 	return &out
 }
 
