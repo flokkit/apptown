@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { ListRow } from '../../ListRow'
 import './list-records.css'
 import { firstLine } from './Head'
@@ -118,7 +119,7 @@ export function PastChatsPage() {
   const q = useGet<ChatHistoryView>(`/projects/${slug}/transcript`)
   const sessions = q.data?.sessions ?? []
   const selected = sessions.find(s => s.id === sessionId)
-  return <><h1>{sessionId ? selected ? chatOpening(selected) : 'Chat' : 'Past chats'}</h1>
+  return <><PageBar title={sessionId ? selected ? chatOpening(selected) : 'Chat' : 'Past chats'} />
     <ReadStatus q={q} what="the past chats" /><StaleNote q={q} />
     {q.data && <UnreadableNote view={q.data} />}
     {q.data && (sessionId ? selected ? <>

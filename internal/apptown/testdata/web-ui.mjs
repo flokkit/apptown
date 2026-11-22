@@ -57,16 +57,6 @@ const resolve = process.env.DESIGN_RESOLVE ? [`--host-resolver-rules=MAP ${proce
 const browser = await chromium.launch({ headless: true, args: ['--no-proxy-server', ...resolve] });
 const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, timezoneId: 'UTC' });
 const page = await context.newPage();
-// A full-page shot of a scrolled page draws the fixed top bar where the
-// viewport was, pasted over the middle of the page. In full-page shots the
-// bar is placed at the top of the document instead, where a reader expects it.
-// Every tab's page gets this.
-const topBarAtTop = tabPage => {
-  const screenshot = tabPage.screenshot.bind(tabPage);
-  tabPage.screenshot = options => screenshot(options?.fullPage ? { ...options, style: `${options.style ?? ''} .topbar { position: absolute; }` } : options);
-  return tabPage;
-};
-topBarAtTop(page);
 // Each deployment row's height when it is first drawn, before its late reads
 // (the viewer's permissions, the target's reading, the backups) arrive, so the
 // deployments pages can check that rows do not grow when they do. Installed
@@ -745,8 +735,8 @@ try {
           if (screen === 'home-search') {
             await page.locator('button[aria-label="Search"]').click();
             await page.getByRole('textbox', { name: 'find', exact: true }).fill('club');
-            await page.locator('.topbar-find-menu button').filter({ hasText: 'Club Newsletter' }).waitFor();
-            const clipped = await page.locator('.topbar-find-menu button').evaluateAll(els => els.some(el => el.scrollWidth > el.clientWidth + 1));
+            await page.locator('.find-box-menu button').filter({ hasText: 'Club Newsletter' }).waitFor();
+            const clipped = await page.locator('.find-box-menu button').evaluateAll(els => els.some(el => el.scrollWidth > el.clientWidth + 1));
             if (clipped) throw new Error('search result text overflows its control');
           }
           if (screen === 'overview-navigation' && size.startsWith('phone')) await page.getByRole('button', { name: 'open the menu', exact: true }).click();
@@ -845,10 +835,10 @@ try {
             await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-decision.png` });
           }
           if (!process.env.DESIGN_BASELINE) {
-            const clipped = await page.locator('.topbar > .account-menu > button').evaluateAll(els => els.some(el => {
+            const clipped = await page.locator('header.page-bar :is(.page-bar-lead, .page-bar-trail) :is(a, button)').evaluateAll(els => els.some(el => {
               const r = el.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth;
             }));
-            if (clipped) throw new Error(screen + ': account control clipped by the topbar');
+            if (clipped) throw new Error(screen + ': menu, search or attention clipped by the page bar');
           }
           if (!process.env.DESIGN_BASELINE) {
             if (screen === 'home' && (words.includes('Fix the broken ride calendar link') || words.includes('Replace the old ride archive') || words.includes('127.4h'))) throw new Error('Home still shows stopped work');
@@ -984,8 +974,8 @@ try {
             const outside = await page.locator('body *').evaluateAll(els => els.filter(el => {const r=el.getBoundingClientRect();return r.width && (r.right>innerWidth+1 || r.left< -1)}).map(el=>({tag:el.tagName,cls:el.className,text:el.textContent.slice(0,100),width:el.getBoundingClientRect().width})).slice(-25));
             errors.push(`${screen}: horizontal overflow at ${size}: ${JSON.stringify(outside)}`);
           }
-          const headerOverflow = await page.locator('.topbar').evaluateAll(bars => bars.some(bar => [...bar.children].some(el => {const r=el.getBoundingClientRect();return r.width && (r.left < -1 || r.right > innerWidth+1)})));
-          if (headerOverflow) errors.push(`${screen}: fixed top-bar controls leave the viewport at ${size}`);
+          const headerOverflow = await page.locator('header.page-bar').evaluateAll(bars => bars.some(bar => [...bar.querySelectorAll('.page-bar-lead, .page-bar-title, .page-bar-actions, .page-bar-trail')].some(el => {const r=el.getBoundingClientRect();return r.width && (r.left < -1 || r.right > innerWidth+1)})));
+          if (headerOverflow) errors.push(`${screen}: page bar parts leave the viewport at ${size}`);
           const fonts = await page.evaluate(rowFontDifferences);
           if (fonts.length) errors.push(`${screen}: different font sizes between rows ${JSON.stringify(fonts)}`);
           if (await page.locator('main details').count()) errors.push(`${screen}: page fold-down remains`);
@@ -1026,7 +1016,7 @@ try {
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: !(screen === 'overview-navigation' && size.startsWith('phone')) && !(await page.locator('[role="dialog"]:visible').count()) });
           if (screen === 'conformance-project') {
             const section = 'Last scan';
-            await page.getByRole('region', { name: section, exact: true }).screenshot({ path: `${out}/${screen}/${size}-${theme}-scan-section.png`, style: ".topbar { visibility: hidden !important; }" });
+            await page.getByRole('region', { name: section, exact: true }).screenshot({ path: `${out}/${screen}/${size}-${theme}-scan-section.png` });
           }
           timer.lap('screenshot');
           finalPaths.add(new URL(page.url()).pathname);
@@ -1065,7 +1055,8 @@ try {
           // A page whose status has details opens those: the status is what
           // a person asks about first there.
           const statusTrigger = ['eval-scorecard', 'target-cloud'].includes(screen) ? page.locator('main .status-word button:visible').first() : null;
-          const trigger = statusTrigger && await statusTrigger.count() ? statusTrigger : page.locator('main details > summary:visible, main button[aria-expanded]:visible').first();
+          // The page's own disclosure: the bar's menu button and search are the shell's.
+          const trigger = statusTrigger && await statusTrigger.count() ? statusTrigger : page.locator('main details > summary:visible, main button[aria-expanded]:visible:not(.page-bar-lead *, .page-bar-trail *)').first();
           if (await trigger.count()) {
             const wasOpen = await trigger.evaluate(el => el.tagName === 'SUMMARY' ? el.parentElement.open : el.getAttribute('aria-expanded') === 'true');
             if (!wasOpen) await trigger.click();
@@ -1196,7 +1187,7 @@ try {
   // signed-out login page do not change the other tabs' session.
   const ownSession = async username => {
     const own = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1, timezoneId: 'UTC' });
-    const tabPage = topBarAtTop(await own.newPage());
+    const tabPage = await own.newPage();
     tabPage.on('pageerror', e => { errors.push(e.message); });
     if (username) {
       await tabPage.goto(base + '/');
@@ -1226,7 +1217,7 @@ try {
   // Four tabs: the measured run time stops falling there on a 4-CPU runner.
   const tabPages = [page];
   for (let i = 1; i < Math.min(4, pool.length); i++) {
-    const tabPage = topBarAtTop(await context.newPage());
+    const tabPage = await context.newPage();
     tabPage.on('pageerror', e => { errors.push(e.message); });
     tabPages.push(tabPage);
   }

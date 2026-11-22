@@ -1,11 +1,13 @@
 import { routeAncestors } from './breadcrumbs'
 import { Disclosure } from './Popover'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Modal } from './Modal'
 import { TechnicalDetailMark, TechnicalDetailSwitch } from './pages/change/TechnicalDetail'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Search } from 'lucide-react'
 import { post } from './api'
-import { usePageContext } from './chrome'
+import { useNarrow, usePageContext } from './chrome'
 import { AttentionLights } from './attention'
 import { PRODUCT } from './brand'
 import { useProjectScope } from './projectScope'
@@ -14,39 +16,69 @@ import { type Size, applySize, currentSize } from './size'
 import { Theme, applyTheme, currentTheme } from './theme'
 import type { ProjectDetail, ProjectPage } from './wire.gen'
 
-// One trail links the route's ancestor pages, ending at the parent; on a
-// phone only its last link, the parent, is shown. The current page is named
-// by its heading in main.
-
+// One bar at the top of every page (design/subsystems/ui-coherence.md). The
+// shell owns the row and its controls: the menu button when the nav is
+// folded, search and the attention lights. The page on screen fills the
+// middle with its title, inline facts and actions through PageBar. The
+// controls are there before the page has read anything, while it loads, when
+// it fails and on "Page not found"; the title joins them when it arrives.
 
 type Me = { user?: string; role?: string; mode: string }
 
-// On a narrow screen (chrome.ts useNarrow) the bar is the menu button, the
-// name and where you are; App puts finding, the theme and who you are in
-// the menu instead.
-export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, standalone = false }: {
-  me: Me | null; narrow?: boolean; menuOpen?: boolean; onMenu?: () => void; standalone?: boolean
+// The row's middle: undefined with no shell above (a page rendered on its
+// own draws its row in place), null until the shell's row has mounted.
+const Slot = createContext<HTMLElement | null | undefined>(undefined)
+
+// ShellBar is the row and everything under it that may fill it. lead is the
+// menu button when the nav is folded, or the wordmark on a page with no nav.
+export function ShellBar({ lead, controls = true, children }: { lead?: ReactNode; controls?: boolean; children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
+  return <>
+    <header className="page-bar">
+      {lead && <div className="page-bar-lead">{lead}</div>}
+      <div className="page-bar-slot" ref={setSlot} />
+      {controls && <div className="page-bar-trail"><ShellControls /></div>}
+    </header>
+    <Slot.Provider value={slot}>{children}</Slot.Provider>
+  </>
+}
+
+// PageBar is a page's header row: its h1 (the only place one is drawn), the
+// "?" beside it, facts that sit on the title's line, and the page's actions.
+// Only the page on screen renders it: a part kept mounted while hidden
+// renders its bar only while shown.
+export function PageBar({ title, titleClass, help, after, actions, className }: {
+  title: ReactNode; titleClass?: string; help?: ReactNode; after?: ReactNode; actions?: ReactNode; className?: string
 }) {
-  const { pathname, search } = useLocation()
-  const page = usePageContext()
+  const slot = useContext(Slot)
+  const row = (
+    <div className={'page-bar-page' + (className ? ' ' + className : '')}>
+      {/* The title and its "?" stay together; the facts follow on its line. */}
+      <div className="page-bar-title">
+        <h1 className={titleClass}>{title}</h1>
+        {help}
+        {after}
+      </div>
+      {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}
+      {actions && <div className="page-bar-actions">{actions}</div>}
+    </div>
+  )
+  if (slot === undefined) return row
+  return slot ? createPortal(row, slot) : null
+}
 
-  const slug = usePageProject()
-  // The crumb falls back to the slug, which is known, when the project
-  // itself cannot be read.
-  const proj = useGet<ProjectDetail>(slug ? `/projects/${slug}` : null).data
+// The wordmark: Home, at the top of the nav, or leading the row of a page
+// that has no nav (sign-in, an invite).
+export function Wordmark() {
+  return <Link to="/" className="wordmark">{PRODUCT}</Link>
+}
 
-  const projectCrumb = slug ? { to: `/projects/${slug}`, label: proj?.name ?? slug } : null
-  const trail = routeAncestors(pathname, {
-    ...page.names,
-    ...(projectCrumb ? { [projectCrumb.to]: projectCrumb.label } : {}),
-  }, search, slug ? { slug, name: proj?.name ?? slug } : undefined).filter(c => c.to !== '/')
-  const crumbs = trail
-  // A phone has room for one link: back to the parent, in the logo's place.
-  // Home stays the first item of the menu.
-  const parent = crumbs.at(-1)
-
+// The row's right end: the attention lights and search, for a signed-in
+// person. On a phone the lights are one dot and search is a dialog.
+function ShellControls() {
+  const narrow = useNarrow()
   // ⌘K / Ctrl-K, registered once: focuses whichever find box the page has —
-  // the front page's big one or the bar's small one (same id, never both).
+  // the front page's big one or the bar's — or opens the bar's.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -59,50 +91,66 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu, s
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+  const trigger = <button id="open-find" className="subtle page-bar-icon" aria-label="Search" title="Search (⌘K)"><Search aria-hidden size={18} /></button>
+  return <>
+    <AttentionLights compact={narrow} />
+    {narrow ? <PhoneFind trigger={trigger} /> : <Disclosure className="account-menu page-bar-search" closeOnAction={false} trigger={trigger}>
+      {close => <Find onNavigate={close} />}
+    </Disclosure>}
+  </>
+}
 
-  return (
-    <header className="topbar">
-      {narrow && !standalone && (
-        <button className="subtle topbar-menu" aria-label={menuOpen ? 'close the menu' : 'open the menu'}
-          aria-expanded={menuOpen} aria-controls="sidebar" onClick={onMenu}>{menuOpen ? '✕' : '☰'}</button>
-      )}
-      <nav className="topbar-trail" aria-label="Breadcrumb">
-      {narrow && parent
-        ? <Link to={parent.to} className="topbar-back"><span aria-hidden>‹</span>{parent.label}</Link>
-        : <Link to="/" className="topbar-logo">{PRODUCT}</Link>}
-      {!narrow && crumbs.map((c, i) => (
-        <span key={i} className="topbar-crumb">
-          <span className="topbar-sep">›</span>
-          <Link to={c.to}>{c.label}</Link>
-        </span>
-      ))}
-      </nav>
-      <span className="grow" />
-      {!standalone && <>
-      {me && <AttentionLights compact={narrow} />}
-      {narrow ? <PhoneFind /> : <Disclosure className="account-menu topbar-search" closeOnAction={false} trigger={<button id="open-find" className="subtle" aria-label="Search">Find</button>}>
-        {close => <Find onNavigate={close} />}
-      </Disclosure>}
-      <Link to="/projects">Projects</Link>
-      </>}
-    </header>
-  )
+// ParentLink is the first item of the folded menu: the page above this one,
+// the way back up on a phone or tablet. Home has none.
+// A parent the menu already links to (a project's Overview, its Settings) is
+// not repeated: the menu already offers the way there.
+export function ParentLink() {
+  const parent = useParentPage()
+  const link = useRef<HTMLAnchorElement>(null)
+  const [inMenu, setInMenu] = useState(false)
+  // The menu's items arrive with their reads (a project's areas, the
+  // features in use), so the check follows the menu as it changes.
+  const to = parent?.to
+  useLayoutEffect(() => {
+    const menu = link.current?.closest('nav')
+    if (!menu || !to) { setInMenu(false); return }
+    const check = () => setInMenu([...menu.querySelectorAll('a[href]')].some(a => a !== link.current && a.getAttribute('href') === to))
+    check()
+    const watch = new MutationObserver(check)
+    watch.observe(menu, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] })
+    return () => watch.disconnect()
+  }, [to])
+  if (!parent) return null
+  return <Link ref={link} to={parent.to} className="nav sidebar-parent" hidden={inMenu}><span aria-hidden>‹</span>{parent.label}</Link>
+}
+
+function useParentPage(): { to: string; label: string } | undefined {
+  const { pathname, search } = useLocation()
+  const page = usePageContext()
+  const slug = usePageProject()
+  // The project's name falls back to its slug, which is known, when the
+  // project itself cannot be read.
+  const proj = useGet<ProjectDetail>(slug ? `/projects/${slug}` : null).data
+  const projectCrumb = slug ? { to: `/projects/${slug}`, label: proj?.name ?? slug } : null
+  return routeAncestors(pathname, {
+    ...page.names,
+    ...(projectCrumb ? { [projectCrumb.to]: projectCrumb.label } : {}),
+  }, search, slug ? { slug, name: proj?.name ?? slug } : undefined).filter(c => c.to !== '/').at(-1)
 }
 
 // PhoneFind: on a phone, Find opens as a dialog sized to its results, as
-// help and status details do there. A box hung under the top bar would lie
-// over the page's heading and leave its figures without their labels.
-function PhoneFind() {
+// help and status details do there. A box hung under the bar would lie over
+// the page's heading and leave its figures without their labels.
+function PhoneFind({ trigger }: { trigger: React.ReactElement<React.ButtonHTMLAttributes<HTMLButtonElement>> }) {
   const [open, setOpen] = useState(false)
   const id = useId()
   const close = useCallback(() => setOpen(false), [])
-  return <div className="account-menu topbar-search">
-    <button id="open-find" className="subtle" aria-label="Search" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(true)}>Find</button>
+  return <div className="account-menu page-bar-search">
+    <button {...trigger.props} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(true)} />
     {open && <Modal fit title="Find" onClose={close}><div id={id}><Find onNavigate={close} /></div></Modal>}
   </div>
 }
 
-// AccountCorner is you, at the foot of the menu: your name, and under it
 // your account page, the theme and the way out. One place, not two.
 export function AccountCorner({ me }: { me: Me | null }) {
   const name = me?.user || 'Account'
@@ -155,7 +203,7 @@ export function Find({ onNavigate }: { onNavigate?: () => void }) {
   const go = (to: string) => { setQ(''); setOpen(false); onNavigate?.(); nav(to) }
 
   return (
-    <div className="topbar-find">
+    <div className="find-box">
       <input ref={ref} id={FIND_BOX_ID} value={q} placeholder="Find a project or #change" aria-label="find"
         onFocus={() => setOpen(true)}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
@@ -163,7 +211,7 @@ export function Find({ onNavigate }: { onNavigate?: () => void }) {
           if (e.key === 'Enter' && rows[0]) { e.preventDefault(); go(rows[0].to) }
         }} />
       {open && t && (
-        <div className="topbar-find-menu">
+        <div className="find-box-menu">
           {rows.length === 0 && <div className="muted small" style={{ padding: '6px 10px' }}>{!page ? 'looking…' : 'nothing matches'}</div>}
           {rows.map((r) => (
             <button key={r.to} className="subtle" onMouseDown={(e) => e.preventDefault()} onClick={() => go(r.to)}>

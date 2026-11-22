@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useFeature } from '../features'
 import { Section, Group } from '../Section'
 import { Status } from '../Status'
@@ -66,12 +67,9 @@ function UpdateDetails() {
   // A check that ran after the last successful one did not succeed.
   const failedCheck = !!data?.lastAttempt && (!data.lastSuccess || Date.parse(data.lastAttempt) - Date.parse(data.lastSuccess) > 1000)
   return <div>
-    <div className="page-head-row" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <h1 className="grow">{PRODUCT} updates</h1>
-      {/* A development build is updated by deploying it; a release channel
-          has nothing to say about it. */}
-      {!development && <button className="primary" disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>}
-    </div>
+    {/* A development build is updated by deploying it; a release channel
+        has nothing to say about it. */}
+    <PageBar title={`${PRODUCT} updates`} actions={!development && <button className="primary" disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>} />
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
     {!data ? <p role="status">Release status is unavailable.</p> : <>
       <Section title={`This ${PRODUCT}`} action={<Link to="/docs/guides/upgrading">Upgrade guide →</Link>}>

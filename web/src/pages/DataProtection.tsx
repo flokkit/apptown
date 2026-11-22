@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { FeatureOnly } from '../features'
 import './DataProtection.css'
 import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
@@ -341,10 +342,9 @@ export function OperationPage() {
   return (
     <div className="data-protection-operation-page-div">
       <StaleNote q={q} />
-      <div className="muted small">operation {op.number}</div>
-      <h1 className="mb-1">{kindWords[op.kind] ?? op.kind} of {op.project && typeof op.input.deployment === 'string'
+      <PageBar title={<>{kindWords[op.kind] ?? op.kind} of {op.project && typeof op.input.deployment === 'string'
         ? <Link to={`/projects/${op.project.slug}/deployments/${encodeURIComponent(op.input.deployment)}`}>{op.input.deployment}</Link>
-        : deploymentOf(op)}</h1>
+        : deploymentOf(op)}</>} after={<span className="muted small">operation {op.number}</span>} />
       {op.project && <div className="mb-1">in <Link to={`/projects/${op.project.slug}`}>{op.project.name}</Link></div>}
       {/* The subject is the hold path in ids, for an administrator matching
           holds: diagnosis only, so it is behind the technical switch. */}

@@ -21,8 +21,12 @@ it('bounds the chat shell and gives the console remaining flex space without pix
 })
 
 it('keeps the bar to one line and every control a finger-sized target', () => {
-  expect(declarations('.chat-bar')).not.toMatch(/flex-wrap:\s*wrap/)
-  expect(declarations('.chat-bar')).toMatch(/min-height:\s*44px/)
+  // The chat's bar is the page's bar (shell.css), one line wider than a
+  // phone; on a phone its verbs take the line under the title, as every
+  // page's actions do.
+  expect(declarations('.page-bar:has(.chat-bar)')).toMatch(/flex-wrap:\s*nowrap/)
+  const shell = (readFileSync('src/styles/shell.css', 'utf8') as string).replace(/\/\*[\s\S]*?\*\//g, '')
+  expect([...shell.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(r => r[1].trim() === '.page-bar')?.[2]).toMatch(/min-height:\s*44px/)
   // A 36 px button reaches 44 px through its outset target.
   expect(declarations('.chat-bar :is(.bar-btn, .bar-icon)')).toMatch(/min-height:\s*36px/)
   expect(declarations('.chat-bar :is(.bar-btn, .bar-icon)::after')).toMatch(/inset:\s*calc\(var\(--space-1\) \* -1\) 0/)

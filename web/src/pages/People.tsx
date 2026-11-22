@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { ListRow } from '../ListRow'
 import { FormMenu } from '../MoreMenu'
 import { ListTable } from '../ListTable'
@@ -57,7 +58,7 @@ export default function People({ view = 'accounts' }: { view?: typeof PEOPLE_PAG
   const pageReads = view === 'accounts' ? [usersQ] : view === 'groups' ? [groupsQ, usersQ, grantsQ] : view === 'roles' ? [rolesQ, grantsQ, usersQ, groupsQ] : []
   const pageReady = pageReads.every(q => q.data != null)
 
-  if (new URLSearchParams(location.search).has('tab')) return <h1>Page not found</h1>
+  if (new URLSearchParams(location.search).has('tab')) return <PageBar title="Page not found" />
   return (
     <div className="people-div">
       {(!pageReady || view === 'sign-in' || view === 'agents-and-tokens') && <PageHead page="people" sub={PEOPLE_PAGES.find(([key]) => key === view)?.[1]} title={name ?? PEOPLE_PAGES.find(([key]) => key === view)?.[1]} />}

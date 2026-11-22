@@ -37,7 +37,7 @@
   border-bottom-color: var(--rule);
 }
 .int-group-blurb { font-family: var(--font-sans); font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--subtle); margin-left: 10px; }
-.int-table tbody { scroll-margin-top: calc(var(--topbar-h) + 12px); }
+.int-table tbody { scroll-margin-top: var(--space-3); }
 .int-focus .int-group th { box-shadow: inset 3px 0 0 var(--accent); }
 .int-row { cursor: pointer; }
 .int-unbound { cursor: default; }

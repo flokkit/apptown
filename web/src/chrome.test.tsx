@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BREAKPOINTS, NARROW_QUERY, useChatViewport } from './chrome'
+import { BREAKPOINTS, FOLD_QUERY, NARROW_QUERY, useChatViewport } from './chrome'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -73,7 +73,8 @@ it('leaves the CSS viewport default in place when visualViewport is absent', () 
   } finally { act(() => root.unmount()) }
 })
 
-it('uses the stylesheet compact and shell widths', () => {
-  expect(BREAKPOINTS).toEqual({ compact: 600, narrow: 800 })
+it('uses the stylesheet compact and phone widths, and folds the nav at 1100', () => {
+  expect(BREAKPOINTS).toEqual({ compact: 600, narrow: 800, fold: 1100 })
   expect(NARROW_QUERY).toBe('(max-width: 800px)')
+  expect(FOLD_QUERY).toBe('(max-width: 1100px)')
 })

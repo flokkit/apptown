@@ -43,7 +43,7 @@ it.each(['working', 'unknown', 'failed', 'stopped', 'deploying'] as const)('rend
     <div id="list"><DeploymentRow slug="lunch" env={env} /></div>
     <div id="page"><DeploymentTitle name="main" env={env} /></div>
   </MemoryRouter></QueryClientProvider>)
-  for (const selector of ['#projects .project-state', '#overview .phone-state', '#list .phone-state', '#page h1']) {
+  for (const selector of ['#projects .project-state', '#overview .phone-state', '#list .phone-state', '#page .page-bar-title']) {
     const state = el.querySelector(selector)
     expect(state?.querySelector('.chip')?.textContent?.replace(/^●\s*/, '').trim(), selector).toBe(word)
     // Every view shows the word; why and when checked are its details, on

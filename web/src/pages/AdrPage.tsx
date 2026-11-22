@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { fmtWhen } from '../format'
 import { Status } from '../Status'
 import { useEffect, useState } from 'react'
@@ -85,10 +86,7 @@ export default function AdrPage() {
   return (
     <div>
 
-      <div className="row">
-        <h1 className="mb-0">ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
-        <Status word={adr.statusLabel} help={adr.statusHelp} />
-      </div>
+      <PageBar title={<>ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</>} after={<Status word={adr.statusLabel} help={adr.statusHelp} />} />
       <div className="muted small mb-3" >
         tags: {adr.tags || '—'} · updated {fmtWhen(adr.updatedAt)}
         {adr.changeId && <> · linked to <Link to={`/changes/${adr.changeId}`}>{adr.changeNumber ? `change ${adr.changeNumber}` : 'a change'}</Link></>}

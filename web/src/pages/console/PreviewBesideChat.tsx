@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useFolded } from '../../chrome'
 import { builtWords, usePreview, type PreviewState } from '../../TryIt'
 import { Switch } from '../../Switch'
 
@@ -17,15 +18,8 @@ function ChangePreview({ changeId, children }: { changeId: string; children: (to
   const [shown, setShown] = useState(() => {
     try { return localStorage.getItem('preview-beside-chat') === '1' } catch { return false }
   })
-  const [desktop, setDesktop] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(width > 1100px)').matches)
-  useEffect(() => {
-    if (!window.matchMedia) return
-    const query = window.matchMedia('(width > 1100px)')
-    const update = () => setDesktop(query.matches)
-    update()
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
+  // Beside the chat only where the nav is shown: the same width decides both.
+  const desktop = !useFolded()
   const eligible = desktop && preview.current && canEmbedPreview(preview.data ?? undefined)
   return <div className={`conversation-split${eligible && shown ? ' with-preview' : ''}`}>
     <div className="conversation-chat">

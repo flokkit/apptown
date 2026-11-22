@@ -69,11 +69,12 @@ export default [
   plugin('apptown/breakpoints', (root, report) => {
     root.walkAtRules('media', node => {
       // The lower bound is exclusive, so desktop starts immediately above 800.
+      // 1100 is the nav fold (src/chrome.ts BREAKPOINTS.fold).
       const expressions = node.params.match(/\([^()]*\bwidth[^()]*\)/gi) || []
-      const step = '(?:600|800)px'
+      const step = '(?:600|800|1100)px'
       const valid = new RegExp(`^\\(\\s*(?:(?:min-|max-)?width\\s*:\\s*${step}|width\\s*[<>=]{1,2}\\s*${step}|${step}\\s*[<>=]{1,2}\\s*width(?:\\s*[<>=]{1,2}\\s*${step})?)\\s*\\)$`, 'i')
       if ((node.params.match(/\bwidth\b/gi) || []).length !== expressions.length || expressions.some(value => !valid.test(value))) {
-        report(node, 'Use only the 600px or 800px breakpoint')
+        report(node, 'Use only the 600px, 800px or 1100px breakpoint')
       }
     })
   }),

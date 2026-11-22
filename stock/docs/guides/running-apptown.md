@@ -118,7 +118,7 @@ first project if you can: moving later is in [Split install](split-install.md).
 
 ## Operational attention
 
-Open **Attention** in the top bar to see current disk pressure, unavailable
+Open **Attention** from the lights at the right of any page's title bar to see current disk pressure, unavailable
 workers or targets, missing resources, deployment trouble and data protection
 conditions you can read. Home links to the same conditions.
 

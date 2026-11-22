@@ -26,11 +26,23 @@ the Security, Settings and Memory groups. Memory holds Notes and Decisions.
 Overview shows the project's work and deployments; the notes agents read are
 under Memory › Notes.
 
-The top bar has one breadcrumb trail built from the registered routes. It links
-every ancestor page and ends at the parent. The h1 names the current page;
-pages supply only display names for dynamic segments. There are no in-page
-parent labels. On phones the trail is one back link to the parent (“‹ Club Newsletter”), in
-the logo’s place; top-level pages show the logo.
+Every page has one bar: its own header row (`PageBar` in
+`web/src/PageBar.tsx`). There is no separate app bar above it; the lines it
+took belong to the page. The shell owns the bar's controls and the page on
+screen fills the middle with its h1, inline facts and actions, so the menu
+button and search are there while a page loads, fails or is not found. Only
+the shown page fills the bar: a part kept mounted while hidden (the change
+page's chat behind its other tabs) draws no bar. Headings inside reusable
+parts shown in dialogs are section headings, not page titles. The bar scrolls
+with the page; the chat pages are bounded to the window, so theirs stays.
+
+With the nav shown, the AppTown wordmark tops it and links Home, and Projects
+is in both the instance and project menus; there is no parent trail, as the
+nav shows where you are. Search is a magnifier at the bar's right end and
+⌘K/Ctrl-K, beside the attention lights. With the nav folded, the menu button
+starts the bar and the menu's first item is “‹ parent”, built from the
+registered routes (pages supply only display names for dynamic segments);
+Home has none. There are no in-page parent labels.
 
 Page facts stay inline at both widths. Long content opens on its own page.
 Menus and popovers are the only disclosures; the page-disclosure ratchet allows
@@ -105,14 +117,16 @@ run the ratchet.
 ## Phones and touch
 
 One interface serves every screen; a narrow one reflows rather than hides.
-Under the shell's breakpoint (`NARROW_QUERY` in `web/src/chrome.ts`) the
-sidebar is a menu. HTML disables text autosizing. Text follows the browser size choice; form fields, including
+At or under the fold (`FOLD_QUERY` in `web/src/chrome.ts`, 1100px) the
+sidebar is a menu opened from the bar: beside a 210px nav a portrait tablet or
+a half-screen window would leave the page less than its reading width. Under
+the phone width (`NARROW_QUERY`, 800px) pages reflow. HTML disables text autosizing. Text follows the browser size choice; form fields, including
 the console composer, stay at least 16px. On any touch screen controls have
 a 44px minimum.
 Every tabbed page uses `Tabs`: one horizontally scrolling row, a shaded edge
 at either edge where more tabs lie off screen, and the active tab kept in view on selection
 and resize. Links and buttons keep their native keyboard semantics. The phone
-top bar shows the same Attention count as desktop: items to fix and sources
+bar shows the same Attention count as desktop: items to fix and sources
 not known are separate. Zero parts are omitted; when both are zero it says
 All quiet. Pending and failed readings remain visible. The account control
 truncates long names; its menu shows the full identity.
@@ -146,7 +160,7 @@ sits at the bottom, including in an empty conversation, and rises with the
 keyboard. On narrow screens `useChatViewport` in `web/src/chrome.ts` sizes
 and positions the chat shell within the visual viewport; without that API,
 CSS uses `100dvh`. The conversation scrolls inside the shell rather than
-scrolling the page. The top bar and the chat's one bar stay above it; what
+scrolling the page. The chat's bar, which is the page's bar, stays above it; what
 the chat is about is the first item of the conversation and scrolls away with
 it.
 

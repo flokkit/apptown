@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MENUS = {'MoreMenu.tsx', 'SplitButton.tsx', 'Popover.tsx', 'TopBar.tsx'}
+MENUS = {'MoreMenu.tsx', 'SplitButton.tsx', 'Popover.tsx', 'PageBar.tsx'}
 
 
 def counts(root):

@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { setPageContext } from '../../chrome'
 import { Screenshots } from '../../Screenshots'
 import './work-record.css'
@@ -114,7 +115,7 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
     // An empty record says so in plain text, outside the box its content would fill.
     const empty = section === 'report' ? !report && 'No report was recorded.'
       : section === 'record' && artifact && !artifact.binary && !artifact.body && !artifact.bodyBytes && 'No text was recorded.'
-    return <div className="ch-page work-page">{notes}<h1>{title}</h1>
+    return <div className="ch-page work-page">{notes}<PageBar title={title} />
       {artifact && artifact.name !== kind && <p className="work-byline">{artifact.name}</p>}
       {empty ? <><p className="muted">{empty}</p>{artifact?.ref && <a href={artifact.ref}>Open record</a>}</> : <section className="ch-change-card work-full">
       {section === 'request' ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(v.change.body || v.change.title) }} />
@@ -127,7 +128,8 @@ function WorkRecord({ view: v, trace, entry, technical, notes, section, artifact
   }
   return <div className="ch-page work-page">
     {notes}
-    <header><h1>Work record</h1>
+    <PageBar title="Work record" />
+    <header>
       <p className="work-byline">{[
         // A run-level entry (a run with no agent step, such as landing) is the
         // run's record, not an agent's.

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, matchPath } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from './data'
-import TopBar from './TopBar'
+import { ParentLink } from './PageBar'
 import { PAGE_ROUTES, TAB_ROUTES, routeAncestors } from './breadcrumbs'
 import app from './App.tsx?raw'
 import { useSetProjectScope } from './projectScope'
@@ -13,7 +13,7 @@ import { useSetProjectScope } from './projectScope'
 vi.mock('./data', async original => ({ ...await original<typeof import('./data')>(), useGet: (path: string | null) => ({ data: path === '/projects/club' ? { name: 'Club Newsletter' } : null }) }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-it('walks every route with one linked trail ending at its parent page', () => {
+it('walks every route with one trail of ancestors ending at its parent page', () => {
   const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*') && !p.startsWith('/janitor'))
   expect([...PAGE_ROUTES]).toEqual(routes)
   for (const route of routes) {
@@ -28,30 +28,20 @@ it('walks every route with one linked trail ending at its parent page', () => {
     if ((TAB_ROUTES as readonly string[]).includes(route)) expected.splice(expected.indexOf(path.split('/').slice(0, -1).join('/')), 1)
     const trail = routeAncestors(path)
     expect(trail.map(c => c.to), route).toEqual([...new Set(expected)].sort((a,b) => a.split('/').filter(Boolean).length-b.split('/').filter(Boolean).length || (a === '/deployments' ? -1 : b === '/deployments' ? 1 : 0)))
-    const client = newQueryClient()
-    try {
-      const doc = document.createElement('div')
-      const root = createRoot(doc)
-      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} /></MemoryRouter></QueryClientProvider>))
-      expect([...doc.querySelectorAll('.topbar-crumb a')].map(a => a.getAttribute('href')), route).toEqual(trail.filter(c => c.to !== '/').map(c => c.to))
-      expect(doc.querySelector('.topbar-here'), route).toBeNull()
-      act(() => root.unmount())
-    } finally { client.clear() }
   }
 })
 
-it('shows only a back link to the parent on a phone, or the logo where the parent is home and no project is in scope', () => {
+it('offers the parent page first in the folded menu, and nothing where the parent is home and no project is in scope', () => {
   const routes = [...app.matchAll(/<Route path="([^"]+)"/g)].map(m => m[1]).filter(p => !p.includes('*') && !p.startsWith('/janitor'))
   for (const route of routes) {
     const path = route.replace(/:([a-zA-Z]+)/g, 'example-$1')
     const parent = routeAncestors(path).filter(c => c.to !== '/').at(-1)
     const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
     try {
-      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
-      const links = [...doc.querySelectorAll('nav[aria-label="Breadcrumb"] a')]
-      expect(links.map(a => a.getAttribute('href')), route).toEqual([parent?.to ?? '/'])
+      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><ParentLink /></MemoryRouter></QueryClientProvider>))
+      const links = [...doc.querySelectorAll('a')]
+      expect(links.map(a => a.getAttribute('href')), route).toEqual(parent ? [parent.to] : [])
       if (parent) expect(links[0].textContent, route).toBe('‹' + parent.label)
-      expect(doc.querySelector('.topbar-ellipsis'), route).toBeNull()
     } finally { act(() => root.unmount()); client.clear() }
   }
 })
@@ -63,8 +53,8 @@ it('leads a scoped page whose parent is home back to its project', () => {
     const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
     try {
       function Scope() { useSetProjectScope('club'); return null }
-      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Scope /><TopBar me={null} narrow /></MemoryRouter></QueryClientProvider>))
-      const links = [...doc.querySelectorAll('nav[aria-label="Breadcrumb"] a')]
+      act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Scope /><ParentLink /></MemoryRouter></QueryClientProvider>))
+      const links = [...doc.querySelectorAll('a')]
       expect(links.map(a => [a.getAttribute('href'), a.textContent]), path).toEqual([path.startsWith('/changes') ? ['/projects/club/changes', '‹Changes'] : ['/projects/club', '‹Club Newsletter']])
     } finally { act(() => root.unmount()); client.clear() }
   }
@@ -78,22 +68,10 @@ it('skips release-history groupings that have no collection page', () => {
   expect(routeAncestors('/projects/club/releases/12/log').map(c=>c.to)).toEqual(['/', '/projects', '/projects/club', '/projects/club/releases/12'])
 })
 
-it('keeps a breadcrumb trail on standalone account pages without exposing invite tokens', () => {
-  const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
-  try {
-    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/invite/secret-token']}><TopBar standalone me={null} /></MemoryRouter></QueryClientProvider>))
-    expect(doc.querySelectorAll('nav[aria-label="Breadcrumb"]')).toHaveLength(1)
-    expect(doc.querySelector('nav')?.textContent).not.toContain('secret-token')
-    expect(doc.querySelector('a[href="/invite"]')).not.toBeNull()
-    expect(doc.querySelector('button')).toBeNull()
-  } finally { act(() => root.unmount()); client.clear() }
-})
-
-
 it('retains the work-session identity in its parent link', () => {
   const client = newQueryClient(), doc = document.createElement('div'), root = createRoot(doc)
   try {
-    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/changes/c/work/s/records/a?run=r&attempt=s-1&theme=dark']}><TopBar me={null} /></MemoryRouter></QueryClientProvider>))
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/changes/c/work/s/records/a?run=r&attempt=s-1&theme=dark']}><ParentLink /></MemoryRouter></QueryClientProvider>))
     expect(doc.querySelector('a[href^="/changes/c/work/s"]')?.getAttribute('href')).toBe('/changes/c/work/s?run=r&attempt=s-1')
   } finally { act(() => root.unmount()); client.clear() }
 })

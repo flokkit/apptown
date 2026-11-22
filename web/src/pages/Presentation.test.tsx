@@ -7,7 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
 import Projects from './Projects'
-import TopBar from '../TopBar'
+import { ParentLink } from '../PageBar'
 import Packs from './Packs'
 import Deployments from './Deployments'
 import { ResourceTables } from './Infrastructure'
@@ -149,10 +149,9 @@ it.each([false, true])('offers only uncovered fixes and keeps evidence and links
   expect([...el.querySelectorAll('button')].filter(b => b.textContent === 'Open a change to fix')).toHaveLength(1)
 })
 
-it('names project creation in the top bar', async () => {
-  const el = await show(<TopBar me={null} />, {}, false, '/projects/_new')
-  expect(el.querySelector('.topbar-crumb:last-child a')?.textContent).toBe('Projects')
-  expect(el.querySelector('.topbar-here')).toBeNull()
+it('leads project creation back to Projects', async () => {
+  const el = await show(<ParentLink />, {}, false, '/projects/_new')
+  expect(el.querySelector('a.sidebar-parent')?.textContent).toBe('‹Projects')
 })
 
 // Each pack says who uses it and how many are behind its recommended version;

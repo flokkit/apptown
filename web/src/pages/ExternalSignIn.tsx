@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { ListTable } from '../ListTable'
 import { Switch } from '../Switch'
 import { useState } from 'react'
@@ -61,7 +62,7 @@ export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
   const provider = me.data?.external?.displayName
   const linked = q.data?.bindings.filter(b => !b.revoked) ?? []
   const passwordField = <input type="password" aria-label="Your password" placeholder="Your password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
-  return <>{!embedded && <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><TokensCard personal /><AgentsCard canEdit={false} /></>}
+  return <>{!embedded && <><PageBar title="Your account" /><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><TokensCard personal /><AgentsCard canEdit={false} /></>}
   <Section title={embedded ? 'Link your sign-in' : 'External sign-in'} count={q.data ? linked.length : undefined}>
     <div className="account-signin">
     {me.data && !provider && <p className="muted">No external sign-in is turned on here.</p>}

@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { newQueryClient } from '../../data'
 import { Notifications } from './Notifications'
+import { ShellBar } from '../../PageBar'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const roots: ReturnType<typeof createRoot>[] = []
@@ -13,7 +14,7 @@ afterEach(() => { for (const r of roots.splice(0)) act(() => r.unmount()); docum
 async function mount() {
   const el = document.createElement('div'); document.body.appendChild(el)
   const root = createRoot(el); roots.push(root)
-  await act(async () => { root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><Notifications /></MemoryRouter></QueryClientProvider>) })
+  await act(async () => { root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><ShellBar controls={false}><Notifications /></ShellBar></MemoryRouter></QueryClientProvider>) })
   return el
 }
 const empty = { channels: [], deliveries: [] }
@@ -64,6 +65,9 @@ it('adds a channel through the existing form and refreshes channels', async () =
   await act(async () => { (document.querySelector('.cat-tile') as HTMLElement).click() })
   await vi.waitFor(() => expect(document.body.textContent).toContain('Save'))
   expect(document.body.textContent).not.toContain('Test connection')
+  // The page keeps its title in its bar; the form names its provider inside the dialog.
+  expect([...document.querySelectorAll('h1')].map(h => [!!h.closest('header.page-bar'), h.textContent])).toEqual([[true, 'Notifications']])
+  expect(document.querySelector('[role="dialog"] h2.connector-form-h2')?.textContent).toBe('Webhook')
   await act(async () => { [...document.querySelectorAll('button')].find(b => b.textContent === 'Save')!.click() })
   await vi.waitFor(() => expect(el.textContent).toContain('Send test'))
   expect(saved).toBe(true)

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { PRODUCT } from './brand'
 import { Modal, useDismiss } from './Modal'
 import { useNarrow } from './chrome'
+import { PageBar } from './PageBar'
 
 // A page's title, one short line under it, and a "?" beside the title that
 // opens the longer explanation with a link to its guide. Pages show facts;
@@ -194,22 +195,15 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
   const h: PageHelp = PAGE_HELP[page]
   const beta = useContext(BetaPage)
   help = help ?? (sub ? SUB_HELP[page]?.[sub] : undefined)
-  return (
-    <div className="page-head">
-      <div className="page-head-row">
-        {/* The title and its "?" stay together; actions wrap as a block. */}
-        <span className="page-head-title">
-          <h1>{title ?? sub ?? h.title}</h1>
-          {help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
-            : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
-          {beta && <BetaChip />}
-        </span>
-        {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}
-        {actions && <span className="page-head-actions">{actions}</span>}
-      </div>
-      {line && <p className="page-head-line">{line}</p>}
-    </div>
-  )
+  // The title row is the page's bar; the one line stays in the page under it.
+  return <>
+    <PageBar title={title ?? sub ?? h.title}
+      help={<>{help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
+        : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
+        {beta && <BetaChip />}</>}
+      actions={actions} />
+    {line && <p className="page-head-line">{line}</p>}
+  </>
 }
 
 // The "?" and its popover: a disclosure, so the button says whether it is

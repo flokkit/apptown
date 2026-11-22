@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { ListRow } from '../ListRow'
 import './PackPage.css'
 import { Switch } from '../Switch'
@@ -44,20 +45,19 @@ export default function PackPage() {
 
   if (version) {
     const v = h.versions.find(v => String(v.version) === version)
-    return <><h1>Version {version}</h1><StaleNote q={q} />{v ? <>
+    return <><PageBar title={`Version ${version}`} /><StaleNote q={q} />{v ? <>
       <Contents v={v} /><Limits v={v} base={h.versions.find(b => b.version === v.basedOn)} />
       <FeatureOnly area="what-ifs"><BetaChip /><WhatIfPanel pack={h.name} version={v.version} /></FeatureOnly>
     </> : <p>This version does not exist.</p>}</>
   }
   return (
     <div>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-        <h1 style={{ margin: 0 }}>{h.name}</h1>
-        {/* The same tags as the list: only what is unusual, and the version new projects get. */}
+      {/* The same tags as the list: only what is unusual, and the version new projects get. */}
+      <PageBar title={h.name} after={<>
         {/^experimental\b/i.test(h.description.trim()) && <span className="badge">experimental</span>}
         {h.origin !== 'stock' && <span className="badge">yours</span>}
         <span className="badge" title="New projects get this version; projects on other versions are offered it">v{h.recommended} · recommended</span>
-      </div>
+      </>} />
       <FeatureOnly area="what-ifs"><WhatIfPanel pack={h.name} version={h.latest} /></FeatureOnly>
       {h.description && <p className="muted">{h.description}</p>}
       {d.toolchain && <p className="small">Toolchain: <code>{d.toolchain}</code></p>}

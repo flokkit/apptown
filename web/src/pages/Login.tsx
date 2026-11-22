@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useState } from 'react'
 import { post } from '../api'
 import { externalSignInFailure } from './ExternalSignIn'
@@ -43,10 +44,10 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
     } catch (e) { setErr((e as Error).message); setBusy(false) }
   }
 
-  return (
-    <div style={{ minHeight: 'calc(100vh - var(--topbar-h))', display: 'grid', placeItems: 'center' }}>
+  return (<>
+    <PageBar title={needsBootstrap ? 'Create the first administrator' : 'Sign in'} />
+    <div style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
       <form onSubmit={submit} className="card" style={{ width: 340, display: 'grid', gap: 12, padding: 24 }}>
-        <h1>{needsBootstrap ? 'Create the first administrator' : 'Sign in'}</h1>
         {needsBootstrap && (
           <div className="muted small">
             No accounts exist yet. Create the first one · it will be the
@@ -80,5 +81,5 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
         </button>
       </form>
     </div>
-  )
+  </>)
 }

@@ -3,7 +3,7 @@
     "apptown/pixel-spacing": 3
   },
   "web/src/pages/Attention.css": {
-    "apptown/pixel-spacing": 7
+    "apptown/pixel-spacing": 6
   },
   "web/src/pages/Complaints.css": {
     "apptown/pixel-spacing": 2
@@ -15,7 +15,7 @@
     "apptown/pixel-spacing": 2
   },
   "web/src/pages/Integrations.css": {
-    "apptown/pixel-spacing": 11,
+    "apptown/pixel-spacing": 10,
     "declaration-no-important": 1
   },
   "web/src/pages/NewProject.css": {
@@ -36,7 +36,7 @@
     "declaration-no-important": 3
   },
   "web/src/pages/change/work-record.css": {
-    "apptown/pixel-spacing": 10
+    "apptown/pixel-spacing": 9
   },
   "web/src/pages/conformance.css": {
     "apptown/pixel-spacing": 1
@@ -74,7 +74,7 @@
     "apptown/pixel-spacing": 23
   },
   "web/src/styles/change.css": {
-    "apptown/pixel-spacing": 60
+    "apptown/pixel-spacing": 59
   },
   "web/src/styles/charts.css": {
     "apptown/pixel-spacing": 25
@@ -104,7 +104,7 @@
     "apptown/pixel-spacing": 22
   },
   "web/src/styles/integrations.css": {
-    "apptown/pixel-spacing": 37
+    "apptown/pixel-spacing": 36
   },
   "web/src/styles/list-row.css": {
     "apptown/pixel-spacing": 26,
@@ -122,17 +122,17 @@
     "declaration-no-important": 1
   },
   "web/src/styles/page-head.css": {
-    "apptown/pixel-spacing": 11
+    "apptown/pixel-spacing": 7
   },
   "web/src/styles/projects.css": {
-    "apptown/pixel-spacing": 49,
+    "apptown/pixel-spacing": 46,
     "declaration-no-important": 1
   },
   "web/src/styles/sections.css": {
     "apptown/pixel-spacing": 18
   },
   "web/src/styles/shell.css": {
-    "apptown/pixel-spacing": 45
+    "apptown/pixel-spacing": 30
   },
   "web/src/styles/tables.css": {
     "apptown/pixel-spacing": 19,

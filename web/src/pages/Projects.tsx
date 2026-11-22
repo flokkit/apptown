@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { useNarrow } from '../chrome'
 import { Section, Group, SectionFilter } from '../Section'
 import { RuntimeObservation } from '../runtime'
@@ -93,10 +94,7 @@ export default function Projects() {
     <div>
       {/* The same shape as Home: the page and its main action, then the list
           as a section with its count and its filter, rows on one surface. */}
-      <div className="row mb-1" style={{ gap: 10 }}>
-        <h1 style={{ margin: 0 }} className="grow">Projects</h1>
-        <Link to="/projects/_new"><button className="primary">+ Create project</button></Link>
-      </div>
+      <PageBar title="Projects" actions={<Link to="/projects/_new"><button className="primary">+ Create project</button></Link>} />
       <StaleNote q={pageQ} />
       {removed && <RemovalNotice slug={removed} onDismiss={() => { params.delete('removed'); setParams(params, { replace: true }) }} />}
       <Section title="All projects" label="All projects" count={page?.total}

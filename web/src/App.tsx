@@ -65,8 +65,8 @@ import { useProjectScope } from './projectScope'
 import { EvalScorecardPage, EvalStartPage, EvalsPage } from './pages/Evals'
 import { OperationPage } from './pages/DataProtection'
 import { InstanceGate, useInstancePages, useHolds } from './instancePages'
-import TopBar, { AccountCorner } from './TopBar'
-import { useNarrow } from './chrome'
+import { AccountCorner, PageBar, ParentLink, ShellBar, Wordmark } from './PageBar'
+import { useFolded } from './chrome'
 import { withChunkReload } from './chunkReload'
 import { identityChanged, useAction, useGet, useOnline } from './data'
 import type { AuthMe } from './wire.gen'
@@ -103,6 +103,7 @@ export function SidebarNav() {
     const name = project?.name ?? slug
     return (
       <>
+        <NavLink to="/projects" end className={cls}><FolderKanban aria-hidden size={16} />Projects</NavLink>
         {/* The project, as the app rows show it: its colour and its name. */}
         <div className="sidebar-project" title={name}>
           <ProjectMark name={name} slug={slug} icon={project?.icon} />
@@ -236,11 +237,17 @@ export default function App() {
   if (identity !== null && identity !== who.identity) setWho({ identity, generation: who.identity === null ? 0 : who.generation + 1 })
   useEffect(() => { if (who.generation > 0) identityChanged(client) }, [who.generation, client])
   const online = useOnline()
-  // Under the shell's breakpoint the sidebar is a menu that opens over the
-  // page; going anywhere closes it.
-  const narrow = useNarrow()
+  // At or under the fold the nav is a menu that opens over the page from the
+  // button at the start of the page's bar; going anywhere closes it.
+  const folded = useFolded()
   const [menuOpen, setMenuOpen] = useState(false)
-  useEffect(() => { setMenuOpen(false) }, [routePath, narrow])
+  useEffect(() => { setMenuOpen(false) }, [routePath, folded])
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [menuOpen])
 
   // An invite link is opened by someone with no account yet: its page
   // stands on its own, signed in or not.
@@ -248,20 +255,24 @@ export default function App() {
   const invite = routePath.match(/^\/invite(?:\/([^/]+))?\/?$/)
   if (invite) {
     const page = <InvitePage token={invite[1] ? decodeURIComponent(invite[1]) : ''} />
-    return <><TopBar me={null} standalone narrow={narrow} /><main className="standalone-page"><Routes>
+    return <main className="standalone-page"><ShellBar lead={<Wordmark />} controls={false}><Routes>
       <Route path="/invite" element={<CoreArea area="people">{page}</CoreArea>} />
       <Route path="/invite/:token" element={<CoreArea area="people">{page}</CoreArea>} />
-    </Routes></main></>
+    </Routes></ShellBar></main>
   }
   if (me && me.mode === 'internal' && !me.user) {
-    return <><TopBar me={null} standalone narrow={narrow} /><main className="standalone-page"><Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} external={me.external} /></main></>
+    return <main className="standalone-page"><ShellBar lead={<Wordmark />} controls={false}><Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} external={me.external} /></ShellBar></main>
   }
   return (
     <div className="layout">
-      <TopBar me={me} narrow={narrow} menuOpen={menuOpen} onMenu={() => setMenuOpen((o) => !o)} />
-      {narrow && menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
-      <nav id="sidebar" className={'sidebar' + (narrow ? ' narrow' : '') + (menuOpen ? ' open' : '')}>
+      {folded && menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
+      <nav id="sidebar" aria-label="Menu" className={'sidebar' + (folded ? ' folded' : '') + (menuOpen ? ' open' : '')}>
         <div className="sidebar-inner">
+          <div className="sidebar-head">
+            <Wordmark />
+            {folded && <button className="subtle sidebar-close" aria-label="close the menu" onClick={() => setMenuOpen(false)}>✕</button>}
+          </div>
+          {folded && <ParentLink />}
           <SidebarNav />
           {me && me.mode === 'open' && (
             <div className="user">
@@ -275,6 +286,8 @@ export default function App() {
         </div>
       </nav>
       <main className="main">
+        <ShellBar lead={folded && <button className="subtle page-bar-menu" aria-label="open the menu"
+          aria-expanded={menuOpen} aria-controls="sidebar" onClick={() => setMenuOpen(true)}>☰</button>}>
         {externalSignInFailure(new URLSearchParams(window.location.search).get('signin')) && <p className="error">{externalSignInFailure(new URLSearchParams(window.location.search).get('signin'))}</p>}
         {meQ.err && <div className="error small" style={{ marginBottom: 10 }}>{PRODUCT} could not say who you are: {meQ.err}</div>}
         <UpdateNote />
@@ -387,12 +400,13 @@ export default function App() {
           <Route path="/docs" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
           <Route path="/docs/:section/:slug" element={<CoreArea area="setup"><DocsPage /></CoreArea>} />
           <Route path="/text-roles" element={<CoreArea area="setup"><TextRoles /></CoreArea>} />
-          <Route path="*" element={<CoreArea area="setup"><div><h1>Page not found</h1><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div></CoreArea>} />
+          <Route path="*" element={<CoreArea area="setup"><div><PageBar title="Page not found" /><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div></CoreArea>} />
 
         </Routes>
         </Suspense>
         </StaleScope>
         </ErrorBoundary>
+        </ShellBar>
       </main>
     </div>
   )

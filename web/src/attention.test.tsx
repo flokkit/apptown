@@ -13,7 +13,8 @@ import Dashboard, { homeStatusParts } from './pages/Dashboard'
 import { ProjectListRow } from './ProjectListRow'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ProjectRow, InstanceActivity } from './wire.gen'
-import TopBar from './TopBar'
+import { ShellBar } from './PageBar'
+import { stubViewportWidth } from './viewport.fixture'
 import App, { SidebarNav } from './App'
 import type { AttentionView } from './wire.gen'
 
@@ -56,12 +57,15 @@ const badge = (el: HTMLElement) => el.querySelector('.attention-light:not(.off)'
 const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
 
 describe('Attention surfaces share authorized current evidence', () => {
-  it('shares one answer and request between narrow topbar and actual page, with actionable severity and links', async () => {
+  it('shares one answer and request between the phone bar and actual page, with actionable severity and links', async () => {
     const calls = responses(() => json(warning))
-    const v = mount(<><TopBar me={{ mode: 'internal', user: 'alice' }} narrow /><AttentionPage /></>)
+    stubViewportWidth(390)
+    const v = mount(<ShellBar><AttentionPage /></ShellBar>)
     await settled(v.client)
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
-    expect(v.el.querySelector('.topbar .attention-dot:not(.off)')?.getAttribute('aria-label')).toBe('2 to fix')
+    // The dot is in the page's own bar, beside its title.
+    expect(v.el.querySelector('header.page-bar .page-bar-trail .attention-dot:not(.off)')?.getAttribute('aria-label')).toBe('2 to fix')
+    expect(v.el.querySelector('header.page-bar h1')?.textContent).toBe('Attention')
         expect(v.el.querySelectorAll('[role=listitem]')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
@@ -271,11 +275,12 @@ it('keeps pending attention distinct from a failed read', async () => {
  await act(async () => { release(json({ error: 'unavailable' }, 403)) }); await settled(v.client)
  expect(badge(v.el)).toBeNull()
 })
-it.each([false, true])('search has its own visible control (narrow=%s)', async narrow => {
+it.each([false, true])('search has its own visible control at the end of the page bar (narrow=%s)', async narrow => {
  responses(() => json(known))
- const v = mount(<TopBar me={{ mode: 'internal', user: 'alice' }} narrow={narrow} />)
+ stubViewportWidth(narrow ? 390 : 1440)
+ const v = mount(<ShellBar>{null}</ShellBar>)
  await settled(v.client)
- const search = v.el.querySelector('button[aria-label="Search"]')!
+ const search = v.el.querySelector('header.page-bar .page-bar-trail button[aria-label="Search"]')!
  expect(search).not.toBeNull()
  expect(search.closest('details')).not.toBe(v.el.querySelector('summary[aria-label="Account menu"]')?.closest('details'))
  act(() => search.dispatchEvent(new MouseEvent('click', { bubbles: true })))
@@ -454,10 +459,11 @@ it('shows an unknown source with a reading as last seen, not checked', async () 
 })
 
 // An operator whose Attention read failed is told so, not shown an all-clear.
-it('shows a not-known light when Attention cannot be read', async () => {
+it.each([390, 1440])('shows a not-known light in the page bar when Attention cannot be read (%spx)', async width => {
  responses(() => json({ error: 'down' }, 500))
- const v = mount(<AttentionLights />); await settled(v.client)
- const light = v.el.querySelector('.attention-unread')
+ stubViewportWidth(width)
+ const v = mount(<ShellBar>{null}</ShellBar>); await settled(v.client)
+ const light = v.el.querySelector('header.page-bar .page-bar-trail .attention-unread')
  expect(light?.getAttribute('href')).toBe('/attention')
  expect(light?.textContent).toContain('unknown')
 })
@@ -485,7 +491,7 @@ it('keeps working checks inline with the checks needing attention', async () => 
 it('Find keeps focus while typing, follows the first match on Enter and returns focus to its trigger', async () => {
  responses(() => json(known), { '/projects?limit=6&q=library': { projects: [{ slug: 'library', name: 'Library' }] } })
  function Address() { return <output>{useLocation().pathname}</output> }
- const v = mount(<><TopBar me={{ mode: 'internal', user: 'alice' }} /><Address /></>)
+ const v = mount(<ShellBar><Address /></ShellBar>)
  const trigger = v.el.querySelector<HTMLButtonElement>('[aria-label="Search"]')!
  act(() => trigger.click())
  const input = document.querySelector<HTMLInputElement>('#find-projects')!
@@ -496,7 +502,7 @@ it('Find keeps focus while typing, follows the first match on Enter and returns 
  })
  await settled(v.client)
  expect(document.activeElement).toBe(input)
- expect(document.querySelector('.topbar-find-menu')?.textContent).toContain('Library')
+ expect(document.querySelector('.find-box-menu')?.textContent).toContain('Library')
  const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
  act(() => input.dispatchEvent(enter))
  expect(enter.defaultPrevented).toBe(true)

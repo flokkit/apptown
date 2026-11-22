@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { usePageName } from '../../chrome'
 import { ListTable } from '../../ListTable'
 import { PRODUCT } from '../../brand'
@@ -76,7 +77,7 @@ function ResourcePage({ t, r, reload }: { t: InfrastructureView; r: Resource; re
   const { run, busy, err } = useAction()
   const removable = r.record === 'unrecorded' && ['container', 'volume', 'stack'].includes(r.kind)
   return <div>
-    <div className="row"><h1 className="grow target-resource-reference">{resourceTitle(r)}</h1>{removable && <MoreMenu label={r.name} items={[{ label: 'Remove…', onClick: () => setRemoving(true) }]} />}</div>
+    <PageBar title={resourceTitle(r)} titleClass="target-resource-reference" actions={removable && <MoreMenu label={r.name} items={[{ label: 'Remove…', onClick: () => setRemoving(true) }]} />} />
     <dl className="facts">
       <dt>Kind</dt><dd>{r.kind}</dd><dt>Full reference</dt><dd>{r.name && <code className="tech-line">{r.name}</code>}{r.id && r.id !== r.name && <code className="tech-line">{r.id}</code>}</dd>
       <dt>State</dt><dd><ResourceStatus r={r} confirmed={confirmed(t)} invalidated={t.invalidated} /></dd>

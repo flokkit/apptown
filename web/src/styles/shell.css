@@ -1,6 +1,6 @@
 @layer components {
-.standalone-page { padding-top: var(--topbar-h); }
-.layout { display: flex; min-height: 100vh; padding-top: var(--topbar-h); }
+.standalone-page { padding: 0 var(--space-4) var(--space-6); }
+.layout { display: flex; min-height: 100vh; }
 /* The sidebar's column runs the full height of the page however long it is
    (the nav stretches with the layout); its contents stay in view while the
    page scrolls (the inner part is sticky). */
@@ -8,49 +8,56 @@
   border-right: 1px solid var(--border); width: 210px; background: var(--bg);
 }
 .sidebar-inner {
-  position: sticky; top: var(--topbar-h); max-height: calc(100vh - var(--topbar-h)); min-height: calc(100vh - var(--topbar-h));
+  position: sticky; top: 0; max-height: 100vh; min-height: 100vh;
   overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px; padding: 12px 8px;
 }
-@media not all and (max-width: 800px) {
+@media not all and (max-width: 1100px) {
   .sidebar-inner { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; scrollbar-gutter: stable; }
   .sidebar-inner::-webkit-scrollbar { width: var(--space-2); }
   .sidebar-inner::-webkit-scrollbar-track { background: transparent; }
   .sidebar-inner::-webkit-scrollbar-thumb { background: var(--rule); border-radius: var(--radius-sm); }
 }
-.sidebar-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 4px 0; border-top: 1px solid var(--rule); }
-/* The name gives way before "sign out" does: a long name is cut short, and
-   the line wraps under the theme switch when the menu is narrow. */
-.sidebar-foot .topbar-user { margin-left: auto; min-width: 0; max-width: 100%; }
-.sidebar-foot .topbar-user > button { flex-shrink: 0; }
-.topbar-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.sidebar .topbar-find { margin-bottom: 8px; }
-.sidebar .topbar-find input, .sidebar .topbar-find input:focus { width: 100%; }
 
-/* The top bar links to every ancestor page; the page heading names this page.
-   On a phone it links only to the parent, in the logo's place. */
-.topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); z-index: var(--z-topbar);
-  display: flex; align-items: center; padding: 0 16px 0 14px;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--fs-base); white-space: nowrap; gap: 16px; background: var(--bg);
+/* The one bar (PageBar.tsx): the shell's menu button, the page's own row,
+   then search and the attention lights. It scrolls with the page; the chat
+   pages are bounded to the window, so theirs stays at the top. */
+/* The page's row lays out in the bar's own line (the slot and the row are
+   display: contents), so the title takes the room between the menu and the
+   controls. */
+.page-bar { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2); min-height: 44px; padding: var(--space-2) 0; margin-bottom: var(--space-3); }
+.page-bar-slot { display: contents; }
+.page-bar-lead { order: 0; }
+.page-bar .page-bar-title { order: 1; flex: 1 1 0; min-height: 44px; }
+.page-bar .page-bar-actions { order: 2; }
+.page-bar-trail { order: 3; }
+/* The actions sit on the title's line, centred on it like the controls. On a
+   phone the title's line is the menu, the title and the controls; the
+   page's actions take the line under it, at the right. */
+.page-bar .page-bar-actions { min-height: 44px; }
+@media (max-width: 800px) {
+  .page-bar .page-bar-actions { order: 4; flex-basis: 100%; }
 }
-.topbar-trail { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.topbar-logo { flex-shrink: 0; font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); margin-right: 4px; font-size: var(--fs-logo); letter-spacing: -.04em; }
-.topbar-logo span { color: var(--accent); }
-.topbar-logo:hover { text-decoration: none; }
-.topbar-crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.topbar-crumb a { color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-.topbar-sep { color: var(--faint); }
-/* The back link is a 44px line; a very long parent name is cut as a last resort. */
-.topbar-back { display: block; min-width: 0; height: 44px; align-content: center; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: var(--fw-strong); }
-.topbar-back > span { color: var(--muted); margin-right: var(--space-1); }
-.topbar-back:hover { text-decoration: none; color: var(--accent); }
-.topbar-user { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: var(--fs-sm); margin-left: 6px; }
-.topbar-user button { padding: 3px 8px; font-size: var(--fs-xs); }
-.topbar-find { position: relative; }
-.topbar-find input { width: 220px; padding: 5px 10px; font-size: var(--fs-sm); border-radius: var(--radius-sm); }
-.topbar-find input:focus { width: 320px; }
+/* On a phone the title shares its line with the menu and two controls. */
+@media (max-width: 600px) {
+  .page-bar h1 { font-size: var(--fs-lg); }
+}
+.page-bar-lead, .page-bar-trail { display: flex; align-items: center; flex: none; min-height: 44px; }
+.page-bar-lead { margin-left: calc(var(--space-2) * -1); }
+.page-bar-trail { gap: var(--space-1); margin-right: calc(var(--space-2) * -1); }
+.page-bar-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); }
+.page-bar-icon:hover { color: var(--text); }
+.page-bar-menu { font-size: var(--fs-xl); min-width: 44px; min-height: 44px; padding: 0; line-height: 1; color: var(--text); }
+.standalone-page .page-bar-lead { margin-left: 0; margin-right: var(--space-3); }
+/* The wordmark: Home, at the top of the nav. */
+.wordmark { flex-shrink: 0; display: inline-flex; align-items: center; min-height: 44px; font-family: var(--font-heading); font-weight: var(--fw-strong); color: var(--text); font-size: var(--fs-logo); letter-spacing: -.04em; }
+.wordmark:hover { text-decoration: none; }
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 0 10px 6px; }
+.sidebar-close { min-width: 44px; min-height: 44px; padding: 0; font-size: var(--fs-lg); color: var(--muted); }
+.sidebar :is(a, button).nav.sidebar-parent { color: var(--text); font-weight: var(--fw-strong); border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
+.sidebar-parent > span { color: var(--muted); }
+.sidebar :is(a, button).nav.sidebar-parent[hidden] { display: none; }
+.find-box { position: relative; }
 .theme-switch { display: flex; gap: 2px; }
 .theme-switch button { padding: 3px 8px; font-size: var(--fs-xs); }
 .size-switch button { padding: 3px 5px; }
@@ -69,18 +76,12 @@
 
 /* min-width: 0 lets the page column shrink below its widest child, so a wide
    table or a long line scrolls in its own box instead of the whole page. */
-.main { flex: 1; min-width: 0; max-width: none; padding: 16px 28px 48px; }
-.topbar-menu { font-size: var(--fs-lg); padding: 2px 8px; line-height: 1; color: var(--text); }
-.topbar-chip { margin-left: 6px; }
+.main { flex: 1; min-width: 0; max-width: none; padding: 0 28px 48px; }
 .sidebar-backdrop { display: none; }
-@media (max-width: 800px) {
-  /* One line, the height the page is padded by: the menu, the back link,
-     one status dot and Find. */
-  .topbar { padding: 0 10px 0 6px; gap: 6px; padding-inline: 8px; }
-  .topbar-trail { gap: var(--space-1); flex: 0 1 auto; }
-  .topbar-chip { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; }
+/* At or under the fold the nav is a menu over the page, opened from the bar. */
+@media (max-width: 1100px) {
   .sidebar {
-    position: fixed; top: var(--topbar-h); bottom: 0; left: 0; z-index: var(--z-sidebar); overflow-y: auto;
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: var(--z-sidebar); overflow-y: auto;
     transform: translateX(-100%); visibility: hidden;
     transition: transform .16s ease, visibility 0s linear .16s; width: min(280px, 85vw);
   }
@@ -89,8 +90,11 @@
   /* In the drawer, Docs and you follow the menu: pinned to the foot they
      left a screen of nothing under the last item. */
   .sidebar .spacer { display: none; }
-  .sidebar-backdrop { display: block; position: fixed; inset: var(--topbar-h) 0 0 0; z-index: var(--z-sidebar-backdrop); background: var(--overlay); }
-  .main { width: 100%; padding: 16px 18px 48px; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: var(--z-sidebar-backdrop); background: var(--overlay); }
+  .main { width: 100%; }
+}
+@media (max-width: 800px) {
+  .main { padding: 0 18px 48px; }
 }
 
 /* Sidebar group divider: the loop above, setup below (design/subsystems/ui-coherence.md). */
@@ -99,20 +103,14 @@
   font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--subtle);
 }
 @media (max-width: 800px), (pointer: coarse) {
-  .topbar-menu { min-width: 44px; min-height: 44px; font-size: var(--fs-xl); }
+  .page-bar-icon { min-width: 44px; min-height: 44px; }
   .sidebar :is(a, button).nav { padding: 11px 12px; }
-  .theme-switch button, .topbar-user button { min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: var(--fs-sm); white-space: nowrap; }
-  .sidebar .topbar-find input { min-height: 44px; }
-  .topbar-logo { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; }
-  .topbar-crumb a, .ch-crumb a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .theme-switch button { min-height: 44px; min-width: 44px; padding: 6px 12px; font-size: var(--fs-sm); white-space: nowrap; }
+  .ch-crumb a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
 }
-@media (max-width: 600px) { .topbar-chip { display: none; } }
 .sidebar :is(a, button).nav.muted.active { border-left-color: transparent; font-weight: var(--fw-regular); }
 .sidebar-project { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; padding: 10px 10px 6px; min-width: 0; }
 
-@media (max-width: 800px) {
-  .topbar > a[href="/projects"] { display: none; }
-}
 .attention-lights { gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
 .attention-light { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; color: var(--bad); background: var(--bad-bg, transparent); }
 .attention-light.low { color: var(--warn); background: var(--warn-bg, transparent); }
@@ -126,7 +124,6 @@
 .attention-dot:hover > span { outline: 1px solid currentColor; outline-offset: 2px; }
 @media (max-width: 800px) {
   .attention-lights { gap: 0; }
-  .topbar .topbar-user-name { white-space: normal; overflow-wrap: anywhere; }
 }
 
 .sidebar button.nav { border: 0; background: transparent; text-align: left; font-weight: var(--fw-regular); }
@@ -140,7 +137,7 @@
 .nav-drawer-head > a.nav { flex: 1; min-width: 0; }
 .nav-drawer-toggle { background: none; border: 0; color: var(--muted); padding: 6px; min-height: 0; cursor: pointer; border-radius: var(--radius-control); }
 .nav-drawer-toggle:hover { color: var(--text); background: var(--panel2); }
-@media (max-width: 800px) {
+@media (max-width: 1100px) {
   /* The sidebar's arrows keep their size; a finger gets the whole row height. */
   .nav-drawer-toggle { position: relative; }
   .nav-drawer-toggle::before { content: ""; position: absolute; inset: calc(var(--space-2) * -1) 0; }
@@ -151,12 +148,6 @@
 .nav-bottom { display: flex; flex-direction: column; border-top: 1px solid var(--rule); padding-top: 8px; margin-top: 12px; }
 .sidebar-project strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-project .project-avatar { width: 24px; height: 24px; font-size: var(--fs-xs); flex: 0 0 auto; }
-@media (max-width: 800px) {
-  .topbar > .account-menu { flex-shrink: 0; }
-}
-@media (max-width: 800px) {
-  .topbar > .account-menu:last-child { min-width: 44px; max-width: 76px; flex-shrink: 1; }
-}
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .sidebar.open { transition: none; }
 }

@@ -1,3 +1,4 @@
+import { PageBar } from '../../PageBar'
 import { JanitorAttribution } from '../../janitorAttribution'
 import { GoesTo } from './GoesTo'
 import { ListRow } from '../../ListRow'
@@ -49,12 +50,11 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
   const advice = useFailureAdvice(view)
   return (
     <header className="ch-head">
-      <div className="ch-title-row">
-        <h1><span className="ch-number">Change #{ch.number}:</span> {ch.title}</h1>
- {ch.automatedOrigin && <span className="small muted">Janitor</span>}
+      <PageBar title={<><span className="ch-number">Change #{ch.number}:</span> {ch.title}</>} after={<>
+        {ch.automatedOrigin && <span className="small muted">Janitor</span>}
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
-      </div>
+      </>} />
       {ch.janitor?.ruleId && <div className="ch-byline"><JanitorAttribution rule={ch.janitor.rule!} revision={ch.janitor.ruleRevision} issuer={ch.janitor.issuer.name} /> · {fmtStamp(ch.janitor.grantedAt)}</div>}
       {!compact && <div className="ch-byline">
 

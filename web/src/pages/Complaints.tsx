@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { Tabs } from '../Tabs'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -63,15 +64,14 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
   return (
     <div className="complaints-div">
       <StaleNote q={rowsQ} />
-      <div className="row">
-        <h1 className="grow complaints-h1">Complaints</h1>
+      <PageBar title="Complaints" actions={(unseen > 0 || (canEdit && tab !== 'archived' && older > 0)) && <>
         {unseen > 0 && <button className="subtle" disabled={busy} onClick={markSeen}>Mark {unseen} read</button>}
         {canEdit && tab !== 'archived' && older > 0 && (
           <QuietConfirm label={`Archive older than a day (${older})`} className="subtle"
             ask={`Move ${older} complaint${older === 1 ? '' : 's'} older than a day to the archive? Nothing is deleted.`}
             onYes={() => void run(() => post('/complaints/archive-older', { hours: 24 }))} />
         )}
-      </div>
+      </>} />
       {actErr && <div className="error">{actErr}</div>}
       <Tabs className="tabs">
         <Link to="/complaints" className={`tab${tab === 'new' ? ' active' : ''}`}>New{fresh.length > 0 && <span className="section-count"> {fresh.length}</span>}</Link>

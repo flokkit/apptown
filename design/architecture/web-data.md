@@ -433,6 +433,6 @@ reason and pack identifiers. Pick differently reopens the choice.
 Project scope belongs to the current pathname and identity. Change, work-record,
 change-record, decision and operation pages establish it from their own current
 read. A new address, failed read or identity change cannot display the preceding
-project's menu. Breadcrumbs use that same scope, with Projects, the project and
-Changes before a change page. Workspace headings say All deployments and All
+project's menu. The folded menu's parent link uses that same scope: Changes is the
+parent of a change page. Workspace headings say All deployments and All
 releases; project headings retain Deployments and Releases.

@@ -40,7 +40,7 @@ it.each(['releasing', 'released', 'failed'])('shows automatic and manual release
   expect(el.querySelectorAll('.deployment-deploy-card')).toHaveLength(1)
   expect(css).toMatch(/\.deployment-deploy-card\s*\{[^}]*height: 660px;[^}]*overflow: auto;/)
   expect(el.querySelector('h1')?.textContent).toContain('Lunch Orders')
-  expect(el.querySelector('h1 .chip')?.textContent).toContain('working')
+  expect(el.querySelector('.page-bar-title .chip')?.textContent).toContain('working')
   const history = el.querySelector('section:last-child')!
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/9"]')).toHaveLength(1)
   expect(history.querySelectorAll('a[href="/projects/lunch/releases/8"]')).toHaveLength(1)

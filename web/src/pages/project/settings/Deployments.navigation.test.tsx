@@ -9,7 +9,7 @@ import { expect, it, vi } from 'vitest'
 import appSource from '../../../App.tsx?raw'
 import { getKey, newQueryClient } from '../../../data'
 import { fmtStamp } from '../../../format'
-import TopBar from '../../../TopBar'
+import { ParentLink } from '../../../PageBar'
 import { DeploymentPage, DeploymentsTab, EnvCard } from './Deployments'
 
 // The person may deploy and operate the project's deployments.
@@ -75,19 +75,17 @@ it('omits healthy backups and keeps disk and readiness warnings short', () => {
   expect(list({ readiness: 'uncertain' }).querySelector('.deploy-warning')?.textContent).toBe('uncertain')
 })
 
-it('routes to the full card with footer controls and the TopBar breadcrumb', async () => {
+it('routes to the full card with footer controls and the way back to Deployments', async () => {
   const data = fixtures()
   vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => new Response(JSON.stringify(String(url).includes('/authz/me') ? HOLDS : data[String(url).replace(/^\/api\/v1/, '')] ?? (String(url).endsWith('/deploys') ? [] : {}))))))
   const client = newQueryClient()
   const el = document.createElement('div')
   const root = createRoot(el)
   try {
-    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><TopBar me={null} /><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><ParentLink /><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
     await vi.waitFor(() => expect(el.querySelector('.deploy-entry')).not.toBeNull())
-    await vi.waitFor(() => expect(el.querySelector('.topbar')?.textContent).toContain('AppTown›Projects›Lunch›Deployments'))
-    expect(el.querySelector('.topbar a[href="/projects/lunch/deployments"]')).not.toBeNull()
-    expect(el.querySelector('.topbar a[href="/projects"]')?.textContent).toBe('Projects')
-    expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('Lunch Orders')
+    expect(el.querySelector('a.sidebar-parent')?.getAttribute('href')).toBe('/projects/lunch/deployments')
+    expect(el.querySelector('.page-bar-page')?.textContent).toContain('Lunch Orders')
     expect(el.querySelectorAll('h1')).toHaveLength(1)
     expect(el.querySelector('.deployment-address a')?.getAttribute('href')).toBe('https://lunch.example')
     // Status, History and Settings are tabs of the page; Status shows first.
@@ -188,7 +186,7 @@ it.each(['reconciled', 'uncertain'])('reloads the resulting state after refreshi
     await act(async () => { refresh()!.click() })
     await vi.waitFor(() => {
       expect(readsAfterRefresh).toBeGreaterThan(0)
-      expect(el.querySelector('.deployment-page-heading')?.textContent).toContain('stopped')
+      expect(el.querySelector('.page-bar-page')?.textContent).toContain('stopped')
       expect(el.textContent).not.toContain('nothing about this deployment is in doubt')
     })
     expect(posts).toEqual([`/api/v1${base}/main/check`])

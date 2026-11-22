@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { Link } from 'react-router-dom'
 import { ListTable } from '../ListTable'
 import { ListRow } from '../ListRow'
@@ -11,7 +12,7 @@ import { TEXT_ROLES } from '../textRoles'
 // shows here as well as on the pages it touches.
 export default function TextRoles() {
   return <>
-    <div className="page-head"><div className="page-head-row"><h1>Text roles</h1></div></div>
+    <PageBar title="Text roles" />
     <Section title="Roles" count={TEXT_ROLES.length}>
       <ListTable label="Text roles" rows={TEXT_ROLES} rowKey={r => r.className} columns={[
         { key: 'role', label: 'Role', phone: 'name', render: r => <strong>{r.role}</strong> },

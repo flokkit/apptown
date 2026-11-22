@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { fmtStamp } from '../format'
 import { useEffect, useState } from 'react'
 import { post } from '../api'
@@ -62,10 +63,10 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
     expired: 'This invite has expired. Ask whoever invited you for a new link.',
   }
 
-  return (
-    <div style={{ minHeight: 'calc(100vh - var(--topbar-h))', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
+  return (<>
+    <PageBar title={reset ? 'Reset password' : 'Join ' + PRODUCT} />
+    <div style={{ minHeight: '70vh', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
-        <h1>{reset ? 'Reset password' : 'Join ' + PRODUCT}</h1>
         {!token && <>
           {/* Without the token the page cannot tell an invite from a reset link. */}
           <div>This link is incomplete. Open the link you were sent again, or ask whoever sent it for a new one.</div>
@@ -118,5 +119,5 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
         )}
       </div>
     </div>
-  )
+  </>)
 }

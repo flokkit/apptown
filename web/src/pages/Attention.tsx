@@ -1,3 +1,4 @@
+import { PageBar } from '../PageBar'
 import { ListRow } from '../ListRow'
 import { Status } from '../Status'
 import { Link } from 'react-router-dom'
@@ -98,10 +99,10 @@ export default function AttentionPage({ checks = false }: { checks?: boolean }) 
   useEffect(() => { if (ready && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' }) }, [ready, hash])
   if (q.data && checkKey) {
     const group = bunch(attentionRows(q.data).items).find(items => items.some(item => item.key === checkKey))
-    return <><h1>{group?.[0].title || 'Recorded conditions'}</h1><StaleNote q={q} />{group ? <div role="list"><ItemRow full items={group} /></div> : <p>This condition is no longer recorded.</p>}</>
+    return <><PageBar title={group?.[0].title || 'Recorded conditions'} /><StaleNote q={q} />{group ? <div role="list"><ItemRow full items={group} /></div> : <p>This condition is no longer recorded.</p>}</>
   }
   return <div>
-    <div className="row"><h1 style={{ margin: 0 }} className="grow">{checks ? 'All checks' : 'Attention'}</h1></div>
+    <PageBar title={checks ? 'All checks' : 'Attention'} />
     <ReadStatus q={q} what="conditions that need action" />
     <StaleNote q={q} />
     {q.data && <>
