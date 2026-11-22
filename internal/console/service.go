@@ -412,8 +412,9 @@ func (s *Service) Messages(ctx context.Context, id string, from int) (MessagePag
 
 // Update is what a follower of a chat is sent when it changes: the
 // messages from From on (those below From are what it already holds), the
-// message pi is writing whole, and whose turn it is. Cursor names what the
-// follower holds after it, to resume from.
+// message pi is writing whole (its tool details uncut: ToolDetailMax), and
+// whose turn it is. Cursor names what the follower holds after it, to
+// resume from.
 type Update struct {
 	From     int
 	Messages []Message

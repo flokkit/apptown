@@ -178,14 +178,16 @@ rebuilt while running, until its pi next stops (idle, or ended) and starts
 again with the extension.
 
 Secret values are masked in the stream as in every read. The message the
-helper is still writing is masked as text still being written
-(`secret.Mask.Partial`): its ending is hidden too when it is the first four
-or more characters of a known value, since the rest is about to follow, so
-at most three characters of a value being written show. Ordinary words that
-happen to start a value read `[secret]` while they match; the finished
-message is masked for whole values as before. When a secret store could not
-be read, what to hide is not known, and the message being written is not
-sent until the record holds it.
+helper is still writing (`secret.Mask.Partial`) is sent only up to its last
+whitespace: the unfinished last word, where a value may be part-way
+written, is withheld, and whole values are masked. What is withheld never
+depends on the values; hiding only an ending that starts a value would let a
+reader test guesses by watching which turn into `[secret]`. When a known
+value contains whitespace, a word does not bound it, so the last characters
+of the longest value's length are withheld instead. Tool details in that
+message are withheld the same way. The finished message is masked for whole
+values as before. When a secret store could not be read, what to hide is not
+known, and the message being written is not sent until the record holds it.
 A proxy in front of AppTown must pass the stream on as it arrives
 ([server setup](../../stock/docs/guides/server-setup.md#your-own-proxy)).
 

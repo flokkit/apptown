@@ -3,7 +3,10 @@ package secret
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Mask replaces every stored value eight characters or longer, longest
@@ -63,30 +66,77 @@ func TestAMaskerReadsTheStoresOnce(t *testing.T) {
 	}
 }
 
-// A message still being written hides the start of a value at its end, not
-// only whole values: the rest of the value is about to follow. It decides
-// on the text as written, so a value inside the start of a longer one does
-// not leave the longer one's start in clear.
-func TestPartialHidesTheStartOfAValueAtTheEnd(t *testing.T) {
-	t.Parallel()
+// partialMask is a Mask of the given secrets file.
+func partialMask(t *testing.T, env string) Mask {
+	t.Helper()
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("TOKEN=abcd1234efgh\nLONGER=abcd1234efgh-and-more\nPORT=5432\n"), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
+	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte(env), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m := NewService(nil, Config{DataDir: dir}).Mask(t.Context())
-	for text, want := range map[string]string{
-		"key: abcd1234efg":            "key: [secret]",        // all but the last character
-		"key: abcd":                   "key: [secret]",        // four characters
-		"key: abc":                    "key: abc",             // three are left
-		"value=abcd1234efgh-and-mor":  "value=[secret]",       // a value inside a longer one's start
-		"a=abcd1234efgh then more":    "a=[secret] then more", // a whole value
-		"the port is 5432 and abcd12": "the port is 5432 and [secret]",
-		"nothing secret here":         "nothing secret here",
+	return NewService(nil, Config{DataDir: dir}).Mask(t.Context())
+}
+
+// Stores for the Partial tests: values use only upper-case letters (one
+// of them multibyte), digits and spaces, so any of their characters in
+// what is sent is a leak. One store has a value with spaces in it, which a word does not
+// bound.
+const (
+	wordValues   = "TOKEN=QX7ZK9WV2M\nWIDE=ÉTÉ42XQ7ZZ\nLONGER=QX7ZK9WV2M88AB\nPORT=5432\n"                       // gitleaks:allow (test fixture, not a credential)
+	spacedValues = "TOKEN=QX7ZK9WV2M\nWIDE=ÉTÉ42XQ7ZZ\nLONGER=QX7ZK9WV2M88AB\nPHRASE=CORRECT HORSE 42 BATTERY\n" // gitleaks:allow (test fixture, not a credential)
+)
+
+// What a message still being written withholds does not depend on the
+// values: an ending that is the start of a value and an ordinary ending of
+// the same length are sent alike, so a reader cannot test guesses.
+//
+// Kills: hiding an ending only when it starts a value.
+func TestPartialSendsTheSameWhetherOrNotTheEndingStartsAValue(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct{ env, value, other string }{
+		"word":   {wordValues, "QX7ZK9WV2", "abcdefghi"},
+		"spaced": {spacedValues, "CORRECT HORSE 42 BATTER", "abcdefg hijkl mn opqrst"},
 	} {
-		got, ok := m.Partial(text)
-		if !ok || got != want {
-			t.Errorf("Partial(%q) = %q %v, want %q", text, got, ok, want)
+		m := partialMask(t, c.env)
+		for n := 1; n <= len(c.value); n++ {
+			secretEnd, ok1 := m.Partial("the key is " + c.value[:n])
+			plainEnd, ok2 := m.Partial("the key is " + c.other[:n])
+			if !ok1 || !ok2 || secretEnd != plainEnd {
+				t.Errorf("%s, %d characters: %q against %q", name, n, secretEnd, plainEnd)
+			}
 		}
+	}
+}
+
+// No character of a value is sent at any point while it is being written,
+// whichever store: a value with spaces is withheld across its spaces, and
+// a whole value reads "[secret]".
+//
+// Kills: showing the start of a value; cutting at the end of the text, not
+// its last word; bounding a value with spaces by a word.
+func TestPartialNeverSendsAnyPartOfAValue(t *testing.T) {
+	t.Parallel()
+	words := "first QX7ZK9WV2M then QX7ZK9WV2M88AB, café\u00a0and ünïcode ÉTÉ42XQ7ZZ then\u00a0QX7ZK9WV2M."
+	for name, c := range map[string]struct{ env, passage string }{
+		"word":   {wordValues, words},
+		"spaced": {spacedValues, words + " a phrase CORRECT HORSE 42 BATTERY and CORRECT HORSE 42 BATTERY again"},
+	} {
+		m, passage := partialMask(t, c.env), c.passage
+		for n := 0; n <= len(passage); n++ {
+			got, ok := m.Partial(passage[:n])
+			if !ok {
+				t.Fatalf("%s: undecided", name)
+			}
+			if !utf8.ValidString(got) {
+				t.Errorf("%s, %q: sent a broken character: %q", name, passage[:n], got)
+			}
+			if i := strings.IndexFunc(strings.ReplaceAll(got, "[secret]", ""), func(r rune) bool { return unicode.IsUpper(r) || unicode.IsDigit(r) }); i >= 0 {
+				t.Errorf("%s, %q: sent %q", name, passage[:n], got)
+			}
+		}
+	}
+	// The finished words are all sent, values masked.
+	if got, _ := partialMask(t, wordValues).Partial("a QX7ZK9WV2M88AB and QX7ZK9WV2M then "); got != "a [secret] and [secret] then " {
+		t.Errorf("finished words: %q", got)
 	}
 }
 

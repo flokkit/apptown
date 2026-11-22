@@ -716,8 +716,8 @@ func TestAProjectReaderFollowsAChatAndAnOutsiderGetsNothing(t *testing.T) {
 	if u := vic.update(t); len(u.Messages) != 1 || u.Messages[0].Text != "make it blue" || u.Draft != nil {
 		t.Fatalf("the first update: %+v", u)
 	}
-	w.agent.Drafting(w.chat, "Painting it", consoletest.PiNow())
-	if u := vic.update(t); u.From != 1 || len(u.Messages) != 0 || u.Draft == nil || u.Draft.Text != "Painting it" {
+	w.agent.Drafting(w.chat, "Painting it blue", consoletest.PiNow()) // the unfinished last word is withheld
+	if u := vic.update(t); u.From != 1 || len(u.Messages) != 0 || u.Draft == nil || u.Draft.Text != "Painting it " {
 		t.Fatalf("the words being written: %+v", u)
 	}
 }
