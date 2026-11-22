@@ -252,7 +252,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		}
 	}
 	cmd := exec.CommandContext(ctx, command, args...)
-	configureCancellation(cmd)
+	configureCancellation(ctx, cmd)
 	if backend == Local {
 		cmd.Dir = req.Workspace
 		// Without the GIT_* variables AppTown inherited (gitexec.Environ):
@@ -274,7 +274,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		cleanupCtx, cancelCleanup := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		if out.Termination == Exited {
 			inspect := exec.CommandContext(cleanupCtx, r.dockerBinary(), "inspect", "-f", "{{.State.OOMKilled}}", req.Name)
-			configureCancellation(inspect)
+			configureCancellation(cleanupCtx, inspect)
 			answer, err := inspect.CombinedOutput()
 			switch strings.TrimSpace(string(answer)) {
 			case "true":
@@ -307,7 +307,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		// while the daemon went on to remove the container).
 		removeCtx, cancelRemove := context.WithTimeout(context.WithoutCancel(ctx), removeWait)
 		cleanup := exec.CommandContext(removeCtx, r.dockerBinary(), "rm", "-f", "-v", req.Name)
-		configureCancellation(cleanup)
+		configureCancellation(removeCtx, cleanup)
 		log, cleanupErr := cleanup.CombinedOutput()
 		cancelRemove()
 		if cleanupErr != nil && !strings.Contains(strings.ToLower(string(log)), "no such container") {

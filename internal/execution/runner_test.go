@@ -94,6 +94,43 @@ func TestCancellationStopsLocalChildren(t *testing.T) {
 	}
 }
 
+// Cancellation stops a child that its parent was forking as the group was
+// killed. On macOS such a child can miss the group's signal and stay in the
+// group, holding the run's output (it made git's cancellation hang under
+// load); Linux restarts the fork, so there this passes either way. The shell
+// forks children as fast as it can when the run is canceled; the race is the
+// kernel's, so it is tried 20 times (about one try in four left a child
+// behind with a single kill). Not parallel: it sets the bound, so that a
+// missed child fails the assertion rather than holding the run a minute.
+func TestCancellationReachesAChildForkedAsTheGroupIsKilled(t *testing.T) {
+	bound := pipeWait
+	pipeWait = time.Second
+	t.Cleanup(func() { pipeWait = bound })
+	for try := range 20 {
+		ctx, cancel := context.WithCancel(context.Background())
+		req := shell(`printf '%s\n' $$; i=0; while [ $i -lt 200 ]; do sleep 300 & i=$((i+1)); done; wait`)
+		var group atomic.Int64
+		req.OnLine = func(line string) {
+			if pid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil {
+				group.Store(int64(pid))
+			}
+			cancel()
+		}
+		out := (Runner{}).Run(ctx, Local, req)
+		cancel()
+		pgid := int(group.Load())
+		if pgid <= 0 || out.Termination != Canceled {
+			t.Fatalf("try %d: the shell never said its pid, or the run was not canceled: %d %+v", try, pgid, out)
+		}
+		t.Cleanup(func() { _ = syscall.Kill(-pgid, syscall.SIGKILL) })
+		if !poll.Until(context.Background(), 2*time.Second, 10*time.Millisecond, func() bool {
+			return errors.Is(syscall.Kill(-pgid, 0), syscall.ESRCH)
+		}) {
+			t.Fatalf("try %d: a child of the canceled command outlived it in its group", try)
+		}
+	}
+}
+
 // A canceled run returns within the bound on its output even when a process
 // that left the run's group still holds that output: killing the group does
 // not reach it, and without the bound the run waits until it lets go. Not

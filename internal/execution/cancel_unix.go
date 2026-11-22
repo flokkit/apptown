@@ -3,11 +3,14 @@
 package execution
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/flokkit/apptown/internal/poll"
 )
 
 // The process owns a group: cancellation reaches children as well as their
@@ -23,13 +26,26 @@ import (
 // runs from a successful exit: a 2 s bound turned succeeding commands into
 // failures whenever the copying goroutine or a slow OnLine fell that far
 // behind on a loaded machine.
-func configureCancellation(cmd *exec.Cmd) {
+//
+// One kill of the group is not enough on macOS: a process in the middle of
+// fork when the group is signalled can leave a child that missed the signal
+// but is still in the group (Linux restarts such a fork). The group is killed
+// again until killing it fails (normally because it is empty), so that child
+// is reached too; Wait returns only after that. The repeats are bounded by
+// pipeWait, and os/exec starts WaitDelay only once Cancel returns, so a
+// member that cannot die and still holds the output can hold a canceled run
+// for two bounds, not one.
+func configureCancellation(ctx context.Context, cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error {
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		group := -cmd.Process.Pid
+		err := syscall.Kill(group, syscall.SIGKILL)
 		if errors.Is(err, syscall.ESRCH) {
 			return os.ErrProcessDone
 		}
+		poll.Until(context.WithoutCancel(ctx), pipeWait, 10*time.Millisecond, func() bool {
+			return syscall.Kill(group, syscall.SIGKILL) != nil
+		})
 		return err
 	}
 	cmd.WaitDelay = pipeWait
