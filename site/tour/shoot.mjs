@@ -16,30 +16,42 @@ const shots = JSON.parse(process.env.TOUR_SHOTS);
 // (/api/v1/console/<id>/stream) stays open by design: it counts until its
 // first answer arrives (the server answers with the conversation as read),
 // and not after; Playwright's networkidle would wait on it for ever.
+// Requests are Chromium's own network events. A request the page sent just
+// as it navigated away is never answered and never ends in these events, so
+// when the main frame moves to a new document, the old document's requests
+// stop counting.
 const requests = new WeakMap();
 const isChatStream = url => /\/api\/v1\/console\/[^/]+\/stream/.test(url);
-function watchRequests(page) {
+async function watchRequests(page) {
   if (requests.has(page)) return;
-  const state = { open: new Set(), last: Date.now() };
+  const state = { open: new Map(), last: Date.now(), document: '' };
   requests.set(page, state);
-  const start = r => { state.open.add(r); state.last = Date.now(); };
-  const done = r => { state.open.delete(r); state.last = Date.now(); };
-  page.on('request', start);
-  page.on('requestfinished', done);
-  page.on('requestfailed', done);
-  page.on('response', res => { if (isChatStream(res.url())) done(res.request()); });
+  const cdp = await page.context().newCDPSession(page);
+  const done = id => { state.open.delete(id); state.last = Date.now(); };
+  cdp.on('Network.requestWillBeSent', e => { state.open.set(e.requestId, { url: e.request.url, loader: e.loaderId }); state.last = Date.now(); });
+  cdp.on('Network.responseReceived', e => { if (isChatStream(e.response.url)) done(e.requestId); });
+  cdp.on('Network.loadingFinished', e => done(e.requestId));
+  cdp.on('Network.loadingFailed', e => done(e.requestId));
+  cdp.on('Page.frameNavigated', e => {
+    if (e.frame.parentId) return;
+    for (const [id, r] of state.open) if (r.loader === state.document) state.open.delete(id);
+    state.document = e.frame.loaderId;
+    state.last = Date.now();
+  });
+  await cdp.send('Page.enable');
+  await cdp.send('Network.enable');
 }
 async function idle(page) {
-  watchRequests(page);
+  await watchRequests(page);
   const state = requests.get(page);
   const until = Date.now() + 60_000;
   while (state.open.size > 0 || Date.now() - state.last < 500) {
-    if (Date.now() > until) throw new Error('the page kept reading for a minute: ' + [...state.open].map(r => r.url()).join(' '));
+    if (Date.now() > until) throw new Error('the page kept reading for a minute: ' + [...state.open.values()].map(r => r.url).join(' '));
     await page.waitForTimeout(50);
   }
 }
 async function gotoIdle(page, url) {
-  watchRequests(page);
+  await watchRequests(page);
   await page.goto(url, { waitUntil: 'load' });
   await idle(page);
 }
