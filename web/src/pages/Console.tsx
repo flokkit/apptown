@@ -143,8 +143,8 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
       <div className="chat-bar">
         <div className="chat-bar-title">
           {isWorkshop
-            ? <Link className="chat-title" to={overview} title={change.data?.change.title}>
-              {change.data ? <><span className="num">#{change.data.change.number}</span><span className="name">{change.data.change.title}</span></> : 'This change'}</Link>
+            ? <h1 className="chat-title"><Link to={overview} title={change.data?.change.title}>
+              {change.data ? <><span className="num">#{change.data.change.number}</span><span className="name">{change.data.change.title}</span></> : 'This change'}</Link></h1>
             : <h1 className="chat-title">Project chat</h1>}
           {!isWorkshop && <span className="chat-kind" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
           {/* One status: what the helper is doing, with the change's state as
