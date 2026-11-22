@@ -991,6 +991,9 @@ try {
           if (await page.locator('main details').count()) errors.push(`${screen}: page fold-down remains`);
           const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
             if (el.matches('.record-table td') && getComputedStyle(el).textOverflow === 'ellipsis' && el.querySelector('a[href], [title]')) return false;
+            // Words cut short on purpose (a chat bar's title on a phone) are fine
+            // when the element they sit in carries them whole as its title.
+            if (getComputedStyle(el).textOverflow === 'ellipsis' && el.textContent.trim() && el.closest('[title]')?.getAttribute('title')?.includes(el.textContent.trim())) return false;
             if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
             // These labelled, focusable regions intentionally keep full table columns scrollable.
             if (el.matches('.target-resource-scroll[tabindex="0"], .cap-details[tabindex="0"], .capacity-details[tabindex="0"], .md-doc table[tabindex="0"]')) return false;

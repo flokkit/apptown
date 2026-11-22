@@ -94,7 +94,8 @@ it('names the change once, in the chat bar, with no Goes to line', () => {
  expect(html).toContain('aria-label="your message"')
  expect(html.split('>The title<')).toHaveLength(2)
  expect(html).toContain('href="/changes/X?tab=overview"')
- expect(html).not.toContain('<h1')
+ // The title is the page's one heading: the camera and screen readers find the page by it.
+ expect(html.match(/<h1[^>]*>/g)).toEqual(['<h1 class="chat-title">'])
  expect(html).not.toContain('Goes to:')
  client.clear()
 })
@@ -135,6 +136,8 @@ it('opens the change Conversation with actions and starts the first build once a
   expect(page.el.textContent).toContain('Try it')
   expect(page.el.textContent).toContain('Check and land')
   expect(page.el.textContent).toContain('Recorded words')
+  // The live Conversation tab keeps one page heading: the chat bar's title.
+  await vi.waitFor(() => expect([...page.el.querySelectorAll('h1')].map(h => h.textContent)).toEqual(['#1Build a calendar']))
   page.done()
   page = await mount('/changes/X?tab=conversation&kickoff=1')
   await vi.waitFor(() => expect(page.el.textContent).toContain('Check and land'))

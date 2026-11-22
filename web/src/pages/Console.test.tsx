@@ -58,7 +58,8 @@ describe('a chat says which kind it is from its first paint', () => {
     expect(html).not.toContain('(no deployment follows main)')
     expect(html).not.toContain('connecting…')
     expect(html).toContain('Loading…')
-    expect(html).not.toContain('<h1')
+    // The bar's title is the page's one heading, naming the change.
+    expect(html.match(/<h1/g)).toHaveLength(1)
     expect(html).toContain('Starting your helper…')
     expect(html).toContain('aria-label="your message"')
     // A change chat carries no intro card: its box says what to do.
@@ -113,16 +114,17 @@ describe('a change chat keeps its bar to one line', () => {
     const view = { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
     for (const v of [view, { ...view, detail: { run: { status: 'running' } } }]) {
       const page = parse(firstPaint(ON_CHANGE, v))
-      const title = page.querySelector<HTMLAnchorElement>('.chat-bar a.chat-title')!
+      // The title is the page's heading and the link to the change's Overview.
+      const title = page.querySelector<HTMLAnchorElement>('.chat-bar h1.chat-title > a')!
       expect(title.textContent).toBe('#49Let an admin edit the menu')
       expect(title.getAttribute('href')).toBe(`/changes/${CHANGE}?tab=overview`)
+      expect(page.querySelectorAll('h1')).toHaveLength(1)
       // Before the helper is reached the one status says it is connecting;
       // its dot is hollow until then, and its title has the change's words.
       const status = page.querySelectorAll('.chat-bar .activity')
       expect(status).toHaveLength(1)
       expect(status[0].getAttribute('title')).toContain('the change: waiting for you')
       expect(status[0].querySelector('.dot-unknown')).not.toBeNull()
-      expect(page.querySelector('h1')).toBeNull()
     }
     expect(changeFacts(view as unknown as ChangeView)).toContain('1 commit')
   })
