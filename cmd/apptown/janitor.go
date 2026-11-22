@@ -125,7 +125,7 @@ func janitorMajors(args []string) error {
 	purls := parseArgs(fs, args)
 	id, err := ids.Parse(runFlag)
 	if err != nil || len(purls) == 0 {
-		return usagef("usage: apptown janitor majors [-run RUN] pkg:npm/react@18.3.1 [pkg:pypi/django@4.2.16 …]")
+		return usagef("usage: apptown janitor majors [-run RUN] pkg:npm/react@18.3.1 [pkg:pypi/django@4.2.16 pkg:docker/library/php@8.3.35 …]")
 	}
 	q := url.Values{"purl": purls}
 	var out []verification.MajorMove

@@ -32,19 +32,20 @@ func TestRoutineImageMoveAcceptsRegistryBuildsBeforeNewest(t *testing.T) {
 	for _, next := range []string{"node:24.9-slim" + digest, "node:24.8-slim" + digest, "node:24.9-slim@sha256:" + strings.Repeat("b", 64)} {
 		before := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM node:24.1-slim" + digest))}
 		after := map[string]any{"Dockerfile": dockerBaseInputs([]byte("FROM " + next))}
-		err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: imageline.Minor})
+		err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: imageline.Minor, facts: knownCycles})
 		if (err == nil) != (!strings.Contains(next, strings.Repeat("b", 64))) {
 			t.Fatalf("%s: %v", next, err)
 		}
-		if r.scope != imageline.Minor {
-			t.Fatal(r.scope)
+		// Routine reads the newest build on node's release line, 24.
+		if r.scope != imageline.Line || !strings.HasSuffix(r.ref, "node:24-slim") {
+			t.Fatal(r.scope, r.ref)
 		}
 		if err := CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Security: true}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	r.err = errors.New("registry offline")
-	if err := CompareUpdateInputs(t.Context(), map[string]any{"staticServer": "caddy:2.1-alpine" + digest}, map[string]any{"staticServer": "caddy:2.9-alpine" + digest}, true, ImageUpdates{Resolver: r, Scope: imageline.Minor}); err == nil || !strings.Contains(err.Error(), "unknown") || fault.KindOf(err) != fault.Unavailable {
+	if err := CompareUpdateInputs(t.Context(), map[string]any{"staticServer": "caddy:2.1-alpine" + digest}, map[string]any{"staticServer": "caddy:2.9-alpine" + digest}, true, ImageUpdates{Resolver: r, Scope: imageline.Minor, facts: knownCycles}); err == nil || !strings.Contains(err.Error(), "unknown") || fault.KindOf(err) != fault.Unavailable {
 		t.Fatal(err)
 	}
 }
@@ -134,7 +135,7 @@ func TestDeclaredToolchainsBoundImageMovesThroughUpdateInputs(t *testing.T) {
 			}
 			for _, level := range levels {
 				var readings []imagelines.Reading
-				err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope(level), Readings: &readings})
+				err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope(level), Readings: &readings, facts: knownCycles})
 				if (err == nil) != tc.pass {
 					t.Fatalf("%s pass=%v: %v", level, tc.pass, err)
 				}
@@ -227,7 +228,7 @@ func TestToolchainPatchesMoveADeclaredImageWithinItsMinor(t *testing.T) {
 				t.Fatal(err)
 			}
 			r := &updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: tc.next, Digest: digest}}}
-			err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive"), ToolchainPatches: tc.patches})
+			err = CompareUpdateInputs(t.Context(), before, after, true, ImageUpdates{Resolver: r, Scope: UpdateScope("aggressive"), ToolchainPatches: tc.patches, facts: knownCycles})
 			if (err == nil) != tc.pass || err != nil && !strings.Contains(err.Error(), tc.why) {
 				t.Fatalf("pass=%t: %v", tc.pass, err)
 			}

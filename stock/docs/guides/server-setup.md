@@ -313,6 +313,16 @@ AppTown's own names and 404 for any other, and only to a caller on the same
 machine. Keep `/tls/ask` off the public address, as the compose file's
 Caddy does.
 
+## Where endoflife.date is out of reach
+
+The Janitor reads [endoflife.date](https://endoflife.date) to learn each
+language's and runtime's release line (PHP 8.3, Python 3.12). An install that
+cannot reach it can serve a mirror of endoflife.date's open data with the same
+API and give its address with `-endoflife-url` (`APPTOWN_ENDOFLIFE_URL`).
+Nothing else in AppTown reads it. Without either, the Janitor holds each
+language, runtime and package to its x.y and says the line is unknown
+([Janitor](janitor.md)).
+
 ## Behind a company's TLS-inspecting proxy
 
 Some networks re-sign every outgoing HTTPS connection with a company

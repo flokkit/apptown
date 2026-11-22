@@ -171,12 +171,12 @@ func TestRegistriesSummarizeTheNewestLine(t *testing.T) {
 		{Package{Composer, "laravel/framework"}, "v10.48.4", Lines{Newest: "11", First: Release{"v11.0.0", day("2024-03-12")}, Since: 1}},
 		{Package{Go, "github.com/x/y"}, "v1.2.0", Lines{Newest: "2", First: Release{"v2.0.0", day("2025-01-02")}, Since: 1}},
 	} {
-		got, err := c.Lines(t.Context(), c2.p, c2.current)
+		got, err := c.Lines(t.Context(), c2.p, c2.current, Line)
 		if err != nil || !reflect.DeepEqual(got, c2.want) {
 			t.Errorf("%s: %+v %v, want %+v", c2.p.Name, got, err, c2.want)
 		}
 	}
-	if _, err := c.Lines(t.Context(), Package{NPM, "missing"}, "1.0.0"); err == nil {
+	if _, err := c.Lines(t.Context(), Package{NPM, "missing"}, "1.0.0", Line); err == nil {
 		t.Error("an absent package answered")
 	}
 }
@@ -204,5 +204,69 @@ func TestEndOfLifeMapsPurlsToCycles(t *testing.T) {
 	}
 	if got, err := c.Support(t.Context(), Package{NPM, "@angular/core"}); err == nil || got.Tracked {
 		t.Fatalf("an unreadable product answered: %+v %v", got, err)
+	}
+}
+
+// A version's release cycle is the longest numbered cycle name that is a
+// whole-number prefix of it; an image is looked up by its Docker purl; the
+// narrowest line is x.y; endoflife.date's cycles give no release count.
+func TestReleaseCyclesOfVersionsAndImages(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/identifiers/purl/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":[{"identifier":"pkg:docker/library/python","product":{"name":"python"}}]}`))
+	})
+	mux.HandleFunc("/api/v1/products/python/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":{"releases":[{"name":"3.13","releaseDate":"2024-10-07","isEol":false,"eolFrom":"2029-10-31"},{"name":"3.12","releaseDate":"2023-10-02","isEol":false,"eolFrom":"2028-10-31"},{"name":"3.1","releaseDate":"2009-06-27","isEol":true,"eolFrom":"2012-04-09"}]}}`))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	c := Client{HTTP: server.Client(), EndOfLife: server.URL}
+	p, version, err := ParsePurl("pkg:docker/library/python@3.12.8")
+	if err != nil || p != (Package{Docker, "library/python"}) || version != "3.12.8" {
+		t.Fatalf("%+v %s %v", p, version, err)
+	}
+	s, err := c.Support(t.Context(), p)
+	if err != nil || !s.Tracked || s.Product != "python" {
+		t.Fatalf("%+v %v", s, err)
+	}
+	for v, want := range map[string]string{"3.12.8": "3.12", "3.13.0": "3.13", "3.1.5": "3.1", "3.10.2": "", "3": ""} {
+		got, ok := s.CycleOf(v)
+		if ok != (want != "") || got.Name != want {
+			t.Errorf("%s: %q %t, want %q", v, got.Name, ok, want)
+		}
+	}
+	if c, _ := s.CycleOf("3.12.8"); !c.Released.Equal(time.Date(2023, 10, 2, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("released %v", c.Released)
+	}
+	node := Support{Tracked: true, Product: "nodejs", Cycles: []Cycle{{Name: "24"}, {Name: "2"}}}
+	if got, ok := node.CycleOf("24.22.2"); !ok || got.Name != "24" {
+		t.Errorf("node 24.22.2 on %q", got.Name)
+	}
+	for v, want := range map[string]string{"8.3.35": "8.3", "24": "24", "1.26.1": "1.26", "v2.10.2": "2.10", "nonroot": ""} {
+		if got := Narrow(v); got != want {
+			t.Errorf("Narrow(%s) = %q, want %q", v, got, want)
+		}
+	}
+	lines, err := CycleLines(s)
+	if err != nil || lines.Newest != "3.13" || lines.First.Version != "3.13" || !lines.First.Published.Equal(time.Date(2024, 10, 7, 0, 0, 0, 0, time.UTC)) || lines.Since != -1 {
+		t.Fatalf("%+v %v", lines, err)
+	}
+}
+
+// A registry's releases group by the caller's line: by release cycle,
+// Django 5.1 → 5.2 is a move to another line.
+func TestRegistryLinesGroupByTheGivenLine(t *testing.T) {
+	t.Parallel()
+	day := func(s string) time.Time { d, _ := time.Parse(time.DateOnly, s); return d }
+	releases := []Release{{"5.1.4", day("2024-12-04")}, {"5.2.0", day("2025-04-02")}, {"5.2.1", day("2025-05-07")}, {"5.2.2", day("2025-06-04")}}
+	cycles := Support{Tracked: true, Cycles: []Cycle{{Name: "5.1"}, {Name: "5.2"}}}
+	byCycle := func(v string) string { c, _ := cycles.CycleOf(v); return c.Name }
+	got, err := summarize(PyPI, releases, nil, "5.1.4", byCycle)
+	if err != nil || got.Newest != "5.2" || got.First.Version != "5.2.0" || got.Since != 2 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got, _ := summarize(PyPI, releases, nil, "5.1.4", Line); got.Newest != "5" || got.First.Version != "5.1.4" {
+		t.Fatalf("semver: %+v", got)
 	}
 }

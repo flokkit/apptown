@@ -21,6 +21,7 @@ import (
 // never prepares a workspace or changes source to make it assessable.
 type routineInspector struct {
 	images   imagelines.Resolver
+	majors   Majors
 	db       *database.DB
 	fixes    func(context.Context, workflow.Source) ([]fix.Declaration, []check.Finding, error)
 	dataDir  string
@@ -32,8 +33,10 @@ func NewRoutineInspector(dataDir string, locks *scm.RepositoryLocks, executor Ex
 	return routineInspector{dataDir: dataDir, locks: locks, executor: executor}
 }
 
-func (r routineInspector) WithImages(images imagelines.Resolver) routineInspector {
-	r.images = images
+// WithImages binds image registry readings and the release line facts that
+// bound image moves.
+func (r routineInspector) WithImages(images imagelines.Resolver, majors Majors) routineInspector {
+	r.images, r.majors = images, majors
 	return r
 }
 

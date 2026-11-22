@@ -327,7 +327,7 @@ func TestAppDataStaysInTheTemporaryRoot(t *testing.T) {
 // endoflife.date: every package's newest major, 2, has settled.
 type testPackageFacts struct{}
 
-func (testPackageFacts) Lines(context.Context, packagefacts.Package, string) (packagefacts.Lines, error) {
+func (testPackageFacts) Lines(context.Context, packagefacts.Package, string, func(string) string) (packagefacts.Lines, error) {
 	return packagefacts.Lines{Newest: "2", First: packagefacts.Release{Version: "2.0.0", Published: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)}, Since: 3}, nil
 }
 func (testPackageFacts) Support(context.Context, packagefacts.Package) (packagefacts.Support, error) {

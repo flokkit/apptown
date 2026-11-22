@@ -358,7 +358,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	}
 	a.majors = verification.Majors{Facts: input.PackageFacts, DB: db, Now: cfg.clock.Now}
 	if a.majors.Facts == nil {
-		a.majors.Facts = packagefacts.Client{}
+		a.majors.Facts = packageFacts(input)
 	}
 	a.steering = agentenv.NewInstructions(db, a.Integrations)
 	a.providers = inference.NewCatalog(db, a.Secrets)
@@ -415,7 +415,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Work = workflow.New(a.life, db, a.workDependencies())
 	a.imageRebuilds.work = a.Work
 	a.attachments = workflow.NewAttachments(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, workflow.GitWorkspace{DataDir: cfg.dataDir}, cfg.clock.Now)
-	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Packs: packPublicationReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Portfolio: verification.Portfolio{Releases: a.Deployment}, Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)).WithFixes(db, a.Adoption).WithImages(a.imageLines), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Adoptions: a.Adoption, Laws: workflowLawRules{}}, Now: cfg.clock.Now})
+	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Packs: packPublicationReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Portfolio: verification.Portfolio{Releases: a.Deployment}, Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)).WithFixes(db, a.Adoption).WithImages(a.imageLines, a.majors), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Adoptions: a.Adoption, Laws: workflowLawRules{}}, Now: cfg.clock.Now})
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)
 	a.Fixes = remediation.New(db, a.remediationDependencies())
 	a.Evals = evals.New(db, evalsDependencies(a))
@@ -466,4 +466,10 @@ func taskNamespace(dataDir string) string {
 	}
 	sum := sha256.Sum256([]byte(dataDir))
 	return hex.EncodeToString(sum[:6])
+}
+
+// packageFacts reads the public package registries and endoflife.date, or
+// the endoflife.date address the operator gave.
+func packageFacts(cfg Config) packagefacts.Client {
+	return packagefacts.Client{EndOfLife: cfg.EndOfLifeURL}
 }

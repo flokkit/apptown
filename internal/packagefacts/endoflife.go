@@ -15,13 +15,36 @@ type Support struct {
 	Cycles  []Cycle `json:"cycles,omitempty"`
 }
 
-// Cycle is one release cycle (Django's 4.2, React's 18) and when its
-// support ends. Ends is zero when endoflife.date gives no date; Ended says
-// support has already ended.
+// Cycle is one release cycle (Django's 4.2, React's 18, PHP's 8.3): when it
+// was first released and when its support ends. Ends is zero when
+// endoflife.date gives no date; Ended says support has already ended.
 type Cycle struct {
-	Name  string    `json:"name"`
-	Ends  time.Time `json:"ends,omitzero"`
-	Ended bool      `json:"ended,omitempty"`
+	Name     string    `json:"name"`
+	Released time.Time `json:"released,omitzero"`
+	Ends     time.Time `json:"ends,omitzero"`
+	Ended    bool      `json:"ended,omitempty"`
+}
+
+// CycleOf is the cycle a version is on: the one whose name is the longest
+// whole-number prefix of the version (3.12 for 3.12.8, 24 for 24.22.2).
+func (s Support) CycleOf(version string) (Cycle, bool) {
+	v := numbers(version)
+	var best Cycle
+	found, length := false, 0
+	for _, c := range s.Cycles {
+		n := numbers(c.Name)
+		if len(n) == 0 || len(n) > len(v) || len(n) <= length || strings.Trim(c.Name, "0123456789.") != "" {
+			continue
+		}
+		match := true
+		for i := range n {
+			match = match && n[i] == v[i]
+		}
+		if match {
+			best, found, length = c, true, len(n)
+		}
+	}
+	return best, found
 }
 
 // Support reads endoflife.date's product for the package: the purl
@@ -58,9 +81,10 @@ func (c Client) Support(ctx context.Context, p Package) (Support, error) {
 	var doc struct {
 		Result struct {
 			Releases []struct {
-				Name    string  `json:"name"`
-				IsEol   bool    `json:"isEol"`
-				EolFrom *string `json:"eolFrom"`
+				Name        string  `json:"name"`
+				ReleaseDate string  `json:"releaseDate"`
+				IsEol       bool    `json:"isEol"`
+				EolFrom     *string `json:"eolFrom"`
 			} `json:"releases"`
 		} `json:"result"`
 	}
@@ -70,6 +94,13 @@ func (c Client) Support(ctx context.Context, p Package) (Support, error) {
 	out := Support{Tracked: true, Product: product}
 	for _, r := range doc.Result.Releases {
 		cycle := Cycle{Name: r.Name, Ended: r.IsEol}
+		if r.ReleaseDate != "" {
+			t, err := time.Parse(time.DateOnly, r.ReleaseDate)
+			if err != nil {
+				return Support{}, fmt.Errorf("endoflife.date product %s cycle %s: %w", product, r.Name, err)
+			}
+			cycle.Released = t
+		}
 		if r.EolFrom != nil {
 			t, err := time.Parse(time.DateOnly, *r.EolFrom)
 			if err != nil {

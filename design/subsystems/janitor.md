@@ -276,24 +276,31 @@ The next usable bundle scan bounds that repetition. Omitting the authored
 step from an adopted workflow disables this remedy without an engine switch.
 
 The producer starts the queue attempt and retains its targets before its session.
-Routine runs after the producer and before tests, start-up and scans. Routine
-permits patch and minor releases, keeping 0.x packages within their minor.
-Aggressive permits the same, and a direct dependency's move to its newest major
-(a 0.x package's minor) only when it is due. Before judging, the routine step
-reads the direct dependencies of both trees from npm, uv, Go module, Bundler and
-Composer lockfiles (`internal/packagefacts`), and `verification.Majors` decides
-each major move from the registry's publish dates, endoflife.date's support
-cycles and the project's current source scan findings: the current major ends
-support within three months, a finding is fixed only on a newer major, or the
-newest major is six months old with two releases after its first. The constants
+Routine runs after the producer and before tests, start-up and scans. A version
+is held to its release line: endoflife.date's cycle for a product it tracks
+(images by `pkg:docker/<repository>`), the semver major for a package it does not
+track, and x.y when the line cannot be read (endoflife.date unreachable, or an
+image it does not track), recorded as unknown. Routine permits moves within the
+line. Aggressive permits the same, and a move to the newest line only when it is
+due. Before judging, the routine step reads the direct dependencies of both
+trees from npm, uv, Go module, Bundler and Composer lockfiles
+(`internal/packagefacts`) at every level; `verification.Majors.Check` refuses
+every line move at Routine and decides each at aggressive from the registry's
+publish dates, endoflife.date's cycles and the project's current source scan
+findings: the current line ends support within three months, a finding is fixed
+only on a newer line, or the newest line is six months old with two releases
+after its first (unknown for images: endoflife.date gives no release count).
+`CompareUpdateInputs` holds every moved image to the same release line with the
+same rules, for the routine step and standing inspection. endoflife.date's
+address is `apptownd -endoflife-url`; nothing else reads it. The constants
 are in `verification/major_moves.go`. A move no rule allows fails the step before
 the model is asked; allowed moves and unread facts are in the step's reason and
 its `majorMoves` outcome, and the model is told which moves were allowed. A fact
 AppTown cannot read allows nothing. Indirect packages and other package
 managers are the model's to judge by the rubric. The agent asks the same owner
 through `GET /runs/{id}/major-moves` (`apptown janitor majors`); its answer is
-advice, the routine step's decision is the evidence. Routine reads none of these
-facts. The model judges every version and source change, direct dependencies and
+advice, the routine step's decision is the evidence. A patch move reads none of
+these facts. The model judges every version and source change, direct dependencies and
 the minimum application repairs a moved package needs. AppTown independently witnesses protected inputs and required checks.
 When an update changes nothing, routine is not applicable: there is no diff to
 judge. The empty update closes without approval once tests, start-up and scans

@@ -43,7 +43,7 @@ dependencies = [
 		}
 		return deps
 	}
-	moves := MovesBetween(read("1.7.0", "1.8.0"), read("2.0.1", "1.8.0"))
+	moves := movesBetween(read("1.7.0", "1.8.0"), read("2.0.1", "1.8.0"), semverLine)
 	if len(moves) != 1 {
 		t.Fatalf("want one major move, got %+v", moves)
 	}
@@ -55,7 +55,7 @@ dependencies = [
 	supported := packagefacts.Support{Tracked: true, Product: "example", Cycles: []packagefacts.Cycle{{Name: "1", Ends: majorDay("2028-01-01")}}}
 	findings := []check.Finding{{Identifiers: []string{"CVE-example"}, Package: &check.PackageRef{Name: "example", Ecosystem: "PyPI", Version: "1.8.0", FixedIn: "2.0.1"}}}
 	dep := packagefacts.Dependency{Package: mv.Package, Version: mv.From, Manifest: mv.Manifest}
-	got := decideMajor(majorDay("2026-11-21"), dep, mv.ToLine, young, nil, supported, nil, findings)
+	got := decideMajor(majorDay("2026-11-21"), dep, mv.ToLine, packagefacts.Line, young, nil, supported, nil, findings)
 	if got.Allowed {
 		t.Fatalf("finding on retained 1.8.0 authorized unaffected 1.7.0 branch: %s", got.Text())
 	}

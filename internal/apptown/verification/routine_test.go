@@ -279,7 +279,7 @@ func TestStandingAssessmentAllowsToolchainPatchesByChoice(t *testing.T) {
 			routineWrite(t, filepath.Join(repo, "mise.toml"), []byte("[tools]\ngo='1.27.4'\n"))
 			routineGit(t, repo, "add", ".")
 			routineGit(t, repo, "commit", "-m", "patch")
-			inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "golang:1.27.4", Digest: "sha256:" + strings.Repeat("a", 64)}}})
+			inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{answer: imagelines.Reading{Answer: imageline.Answer{Tag: "golang:1.27.4", Digest: "sha256:" + strings.Repeat("a", 64)}}}, Majors{})
 			declarations := inspector.fixes
 			inspector.fixes = func(ctx context.Context, s workflow.Source) ([]fix.Declaration, []check.Finding, error) {
 				ds, targets, err := declarations(ctx, s)
@@ -313,7 +313,7 @@ func TestRoutineImageLookupFailureRemainsUnknown(t *testing.T) {
 	routineWrite(t, filepath.Join(repo, ".apptown/app.yaml"), []byte("staticServer: caddy:2.9-alpine@sha256:"+strings.Repeat("a", 64)+"\napp:\n  web: {static: ., public: true}\n"))
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "move server")
-	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{err: fmt.Errorf("registry offline")})
+	inspector := testRoutineInspector(t, data, &scm.RepositoryLocks{}, routineExecutor(t, nil)).WithImages(&updateResolver{err: fmt.Errorf("registry offline")}, Majors{Facts: knownCycles})
 	result, err := inspector.InspectRoutine(t.Context(), source, workflow.JanitorChoices{Dependencies: "routine", BaseImages: true})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "registry offline") {
 		t.Fatalf("%+v %v", result, err)

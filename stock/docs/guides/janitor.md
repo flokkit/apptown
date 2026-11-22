@@ -14,6 +14,22 @@ leaves to people, the administrator and providers.
 
 ## What it may change
 
+**Release lines.** A language, runtime or package that
+[endoflife.date](https://endoflife.date) tracks moves by its release line, the
+cycle endoflife.date lists: PHP 8.3, Python 3.12, Node 24, Go 1.26, Postgres
+16, Django 5.2. Patch and minor keeps each on its line (PHP 8.3.35 → 8.3.36,
+never 8.3 → 8.5). Moving to another line is a major move: only at Including
+major, when it is due (below). A package endoflife.date does not track keeps
+its semver major as its line. This applies to Dockerfile base images,
+`staticServer:` and the direct dependencies in the lockfiles AppTown reads.
+When AppTown cannot read the line (endoflife.date is unreachable, or it does
+not track an image, as with `php`), it takes the narrowest line, the version's
+x.y, and the Change says the line is unknown: a patch still moves, nothing
+else does, at either level. Because endoflife.date lists no Docker image for
+PHP, a php image never moves to another line by itself. The administrator can
+point AppTown at a mirror of endoflife.date's data (`-endoflife-url`, see
+[Setting up a server](server-setup.md)); nothing else in AppTown reads it.
+
 **Dependency updates** cover patch and minor updates (**Patch and minor**), or
 those plus major versions when they are due (**Including major**). Security fixes run on their adopted workflow’s schedule within
 the same version limits. An agent updates every ecosystem, workspace and
@@ -26,8 +42,9 @@ and a numeric declaration agree when their shared version components match:
 Toolchain patches off; Python 3.12 stays on 3.12. A vendor version such as `java = "temurin-21.0.5+11.0.LTS"` declares
 its major, so `eclipse-temurin:21-jre` stays on 21. The longest agreeing declaration wins, whatever the level: Including major never
 moves a declared toolchain's image to another major, because that changes the
-toolchain, which needs a person. Images with no agreeing numeric
-declaration keep the selected level’s scope. AppTown
+toolchain, which needs a person. An image with no agreeing numeric
+declaration stays on its release line at Patch and minor; at Including major it
+moves to the newest line only when that is due. AppTown
 checks that each external image keeps its name and tag variant. Stage references,
 `scratch` and variable operands stay unchanged. Toolchains stay unchanged except
 when Toolchain patches is on: then a toolchain may move to a patch release within
@@ -53,24 +70,25 @@ project's direct dependencies, read from the committed lockfile, and fail an
 update that makes one a pre-release. A direct pre-release already on main is
 shown on the step but does not hold the update. For other package managers the
 update's model check judges it.
-**Including major** keeps each direct dependency on its current major and moves it
-to the newest major only when one of these holds:
+**Including major** keeps each direct dependency and base image on its current
+line and moves it to the newest line only when one of these holds:
 
-1. Its current major ends support within 3 months, or has ended: every release
-   cycle endoflife.date lists for that major (Django 5: 5.0, 5.1 and 5.2) ends by
-   then. An older minor that has ended beside a supported one does not count. The
-   registry deprecating the newest release of the major (npm) counts too.
+1. Its current line ends support within 3 months, or has ended, by
+   endoflife.date (Django 5.1 ended while 5.2 is supported: 5.1 is due to move,
+   to the newest line). The registry deprecating the newest release of the
+   line (npm) counts too.
 2. One of AppTown's current source scans has a finding in it that is fixed only
    on a newer major.
-3. The newest major has settled: its first release is at least 6 months old and
-   at least 2 releases have followed it, by the registry's publish dates. This
-   applies to packages endoflife.date does not track.
+3. The newest line has settled: its first release is at least 6 months old and
+   at least 2 releases have followed it, by the registry's publish dates. For a
+   base image this is unknown, since endoflife.date does not count releases, so
+   an image moves line only by rule 1.
 
 Otherwise the package gets patch and minor updates, as at Patch and minor; a
 0.x package's minor counts as its major. The agent asks `apptown janitor majors`
 which moves are due. AppTown decides again from the change's own lockfiles
 (npm `package-lock.json`, `uv.lock`, `go.mod`, Bundler `Gemfile.lock` and
-`composer.lock`) and fails the update when a direct dependency moves to a major
+`composer.lock`) and fails the update when a direct dependency moves to a line
 that is not due, naming why; the repair agent then keeps it on its major. The
 change's routine step lists each major move with the rule that allowed it, for
 example "django 4 → 5 due: 4.2 ends support 2026-04-30 (endoflife.date)". A fact
@@ -78,7 +96,7 @@ AppTown cannot read (a registry or endoflife.date unreachable, a product
 endoflife.date does not track) allows nothing and is listed as unknown. An
 indirect package may change major when a moved direct dependency requires it.
 With any other package manager, direct dependencies stay on their majors.
-Base images follow the image rules above, not these.
+Rule 2 is for packages; base images follow rules 1 and 3.
 
 **Keep packs current** moves projects to newly published pack versions and makes
 any application changes those updates need. Repairs may update declarations in
