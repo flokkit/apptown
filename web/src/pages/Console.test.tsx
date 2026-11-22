@@ -28,7 +28,7 @@ vi.mock('@xterm/xterm', () => ({
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: class { fit() {} } }))
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 import { NARROW_QUERY } from '../chrome'
-import { ChangeFacts } from './console/ChangeBar'
+import { changeFacts } from './console/ChangeBar'
 import type { ChangeView } from '../api'
 
 // Record ids are UUIDv7 strings; a change is named by its number, which the
@@ -92,33 +92,39 @@ describe('a chat says which kind it is from its first paint', () => {
   })
 })
 
-// On a phone, what the chat is about steps aside while you type
-// (styles/console.css hides .console-extra while the message box has focus); the
-// conversation's own controls never do.
-describe('the chat keeps its input when the intro steps aside', () => {
-  it('the intro is in the part that steps aside', () => {
+// What the chat is about is the first thing in the conversation and
+// scrolls away with it: it costs no room above the conversation and can
+// never lie over it.
+describe('the intro scrolls with the conversation', () => {
+  it('the intro is inside the conversation, not above it', () => {
     const el = document.createElement('div')
     el.innerHTML = firstPaint('')
-    const extra = el.querySelector('.console-extra')!
-    expect(extra.textContent).toContain('The helper opens a change for the work.')
-    expect(el.querySelector('.console-head')!.closest('.console-extra')).toBeNull()
+    expect(el.querySelector('.chat-scroll .chat-intro')?.textContent).toContain('The helper opens a change for the work.')
+    expect(el.querySelector('.chat-bar')!.textContent).not.toContain('The helper opens a change')
   })
 })
 
-// The chat's room is the conversation's: a change chat's head is the change
-// (number, title, state, once), one strip carries its facts and actions, and
-// the agent-actions switch sits on the line above the input.
-describe('a change chat keeps its head to two lines', () => {
+// The chat's room is the conversation's: one bar names the change (number
+// and title, linking to its Overview), its status once, and the helper's
+// activity; its facts are in the ⋯ menu.
+describe('a change chat keeps its bar to one line', () => {
   const parse = (html: string) => { const el = document.createElement('div'); el.innerHTML = html; return el }
-  it('keeps the title and status on the change page before and during a workflow', () => {
+  it('names the change and its status once, before and during a workflow', () => {
     const view = { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'waiting for you', tone: 'warn' }, change: { id: CHANGE, number: 49, title: 'Let an admin edit the menu', state: 'in_progress' }, commits: [{}] }
-    const page = parse(firstPaint(ON_CHANGE, view))
-    expect(page.querySelector('.console-head h1')).toBeNull()
-    expect([...page.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
-    const started = parse(firstPaint(ON_CHANGE, { ...view, detail: { run: { status: 'running' } } }))
-    expect([...started.querySelectorAll('.console-head .chip')].filter(c => c.textContent?.includes('waiting for you'))).toHaveLength(0)
-    expect(page.querySelector('section.console-about')).toBeNull()
-    expect(renderToStaticMarkup(<ChangeFacts view={view as unknown as ChangeView} />)).toContain('1 commit')
+    for (const v of [view, { ...view, detail: { run: { status: 'running' } } }]) {
+      const page = parse(firstPaint(ON_CHANGE, v))
+      const title = page.querySelector<HTMLAnchorElement>('.chat-bar a.chat-title')!
+      expect(title.textContent).toBe('#49Let an admin edit the menu')
+      expect(title.getAttribute('href')).toBe(`/changes/${CHANGE}?tab=overview`)
+      // Before the helper is reached the one status says it is connecting;
+      // its dot is hollow until then, and its title has the change's words.
+      const status = page.querySelectorAll('.chat-bar .activity')
+      expect(status).toHaveLength(1)
+      expect(status[0].getAttribute('title')).toContain('the change: waiting for you')
+      expect(status[0].querySelector('.dot-unknown')).not.toBeNull()
+      expect(page.querySelector('h1')).toBeNull()
+    }
+    expect(changeFacts(view as unknown as ChangeView)).toContain('1 commit')
   })
   // A worker that cannot be reached qualifies the conversation itself, for
   // someone who may only look as much as for the chat's owner.
@@ -160,7 +166,7 @@ describe('a change chat keeps its head to two lines', () => {
   it('a project chat with its intro dismissed shows no empty about card', () => {
     localStorage.setItem('chat-intro-seen-p', '1')
     try {
-      expect(parse(firstPaint('')).querySelector('section.console-about')).toBeNull()
+      expect(parse(firstPaint('')).querySelector('.chat-intro')).toBeNull()
     } finally { localStorage.removeItem('chat-intro-seen-p') }
   })
 })
@@ -206,20 +212,18 @@ describe('phone change controls', () => {
         </QueryClientProvider>
       </MemoryRouter>)
     })
-    await vi.waitFor(() => expect(el.textContent).toContain('▶ Open'))
+    await vi.waitFor(() => expect(el.querySelector('.chat-bar')!.textContent).toContain('Open'))
     return { el, client, done: () => { act(() => root.unmount()); el.remove(); client.clear() } }
   }
   function mainActions(el: HTMLElement) {
-    for (const text of ['▶ Open', '✓ Check and land']) {
-      const button = [...el.querySelectorAll('button')].find(b => b.textContent === text)!
-      expect(button).toBeDefined()
-      expect(button.closest('[hidden]')).toBeNull()
+    const bar = el.querySelector('.chat-bar')!
+    for (const button of [[...bar.querySelectorAll('button')].find(b => b.textContent?.includes('Open')), bar.querySelector('button.finish')]) {
+      expect(button).toBeTruthy()
+      expect(button!.closest('[hidden]')).toBeNull()
     }
   }
   function secondary(el: HTMLElement, hidden: boolean) {
-    for (const selector of ['.tryit-restart', '.head-menu', '.console-secondary']) {
-      expect((el.querySelector(selector) as HTMLElement).hidden).toBe(hidden)
-    }
+    expect(el.querySelector<HTMLElement>('.chat-menu')!.hidden).toBe(hidden)
     expect(el.querySelector('.chat-pane [role="switch"]')).toBeNull()
   }
   it('keeps context and actions inline while messages arrive and the composer has focus', async () => {
@@ -249,14 +253,15 @@ describe('phone change controls', () => {
     if (technical) localStorage.setItem(`apptown.technical-detail.ana-${technical}`, '1')
     const { el, done } = await mount()
     try {
-      await act(async () => el.querySelector<HTMLButtonElement>('.head-menu > button')!.click())
-      const menu = () => document.querySelector('.popover')
+      await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="Chat details and actions"]')!.click())
+      const menu = () => document.querySelector('.chat-menu-card')
       await vi.waitFor(() => expect(menu()).not.toBeNull())
       const labels = [...menu()!.querySelectorAll('button')].map(b => b.textContent)
       expect(labels).toEqual(expect.arrayContaining(['Open terminal', '↺ Start fresh', 'End chat']))
       expect(labels).not.toContain('Terminal')
-      if (technical) await vi.waitFor(() => expect(menu()!.textContent).toContain('session s1'))
-      else expect(menu()!.textContent).not.toContain('session')
+      const facts = () => [...menu()!.querySelectorAll('.chat-facts dt')].map(d => `${d.textContent} ${d.nextElementSibling?.textContent}`)
+      if (technical) await vi.waitFor(() => expect(facts()).toContain('session s1'))
+      else expect(facts().join(' ')).not.toContain('session')
     } finally { done() }
   })
   it('keeps desktop controls unfolded after messages', async () => {
@@ -265,8 +270,7 @@ describe('phone change controls', () => {
     const { el, done } = await mount()
     try {
       expect(el.querySelector('.change-controls-toggle')).toBeNull()
-      expect(el.querySelector<HTMLDetailsElement>('.head-menu')!.hidden).toBe(false)
-      expect(el.querySelector('.console-chat-title')).toBeNull()
+      expect(el.querySelector<HTMLElement>('.chat-menu')!.hidden).toBe(false)
       mainActions(el)
     } finally { done() }
   })
@@ -327,10 +331,10 @@ describe('writing while the helper starts', () => {
       expect(el.querySelector('.chat-starting')?.textContent).toContain('Starting your helper…')
       for (const words of ['Make it blue', 'And larger']) {
         await type(el, words)
-        await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+        await act(async () => [...el.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Send')!.click())
       }
       expect(said).toEqual([])
-      expect(el.querySelectorAll('.bubble.you.pending')).toHaveLength(1)
+      expect(el.querySelectorAll('.ask.pending')).toHaveLength(1)
       expect(el.textContent).toContain('will send when your helper is ready')
       await type(el, 'Still writing')
       await open()
@@ -350,25 +354,25 @@ describe('writing while the helper starts', () => {
     const { el, said, open, attach, done } = await mount()
     try {
       await type(el, 'Make it blue')
-      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Send')!.click())
       await type(el, 'Still writing')
       const composer = el.querySelector('textarea')!
       await open()
-      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Terminal ▾')!.click())
-      expect(el.querySelector<HTMLElement>('.chat-pane')!.hidden).toBe(true)
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Terminal')!.click())
+      expect(el.querySelector<HTMLElement>('.chat-body')!.hidden).toBe(true)
       await attach()
       expect(said).toEqual(['Make it blue'])
       await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === '← back to the chat')!.click())
       expect(el.querySelector('textarea')).toBe(composer)
       expect(composer.value).toBe('Still writing')
-      expect(el.querySelector<HTMLElement>('.chat-pane')!.hidden).toBe(false)
+      expect(el.querySelector<HTMLElement>('.chat-body')!.hidden).toBe(false)
     } finally { done() }
   })
   it('restores a refused queued message beside the newer draft without resending it', async () => {
     const { el, said, open, attach, done } = await mount(false, true)
     try {
       await type(el, 'Make it blue')
-      await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Send')!.click())
+      await act(async () => [...el.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Send')!.click())
       await type(el, 'Still writing')
       await open(); await attach()
       await vi.waitFor(() => expect(el.textContent).toContain('Could not send'))
@@ -388,8 +392,10 @@ describe('writing while the helper starts', () => {
   })
 })
 
-describe('the surrounding page owns the change status', () => {
-  it.each([true, false])('keeps the change label outside the chat when helper busy is %s', async busy => {
+// One status in the bar: what the helper is doing, with the change's state
+// as its dot's colour and in its title. It fits a phone's one line.
+describe('the bar says one status', () => {
+  it.each([true, false])('shows the helper\'s activity with the change\'s state when helper busy is %s', async busy => {
     const sockets: { onopen?: () => void }[] = []
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
     vi.stubGlobal('WebSocket', class {
@@ -416,7 +422,12 @@ describe('the surrounding page owns the change status', () => {
       await vi.waitFor(() => expect(sockets.length).toBeGreaterThan(0))
       await act(async () => sockets[sockets.length - 1].onopen!())
       await vi.waitFor(() => expect(el.textContent).toContain('Build it'))
-      expect(el.querySelectorAll('.console-head .chip')).toHaveLength(0)
+      expect(el.querySelectorAll('.chat-bar .chip')).toHaveLength(0)
+      const status = el.querySelectorAll('.chat-bar .activity')
+      expect(status).toHaveLength(1)
+      expect(status[0].textContent).toBe(busy ? 'working' : 'your turn')
+      expect(status[0].getAttribute('title')).toBe(`${busy ? 'working' : 'your turn'} · the change: checking`)
+      expect(status[0].querySelector('.activity-dot')!.classList.contains('dot-running')).toBe(true)
     } finally {
       act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
     }

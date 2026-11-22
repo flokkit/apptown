@@ -43,8 +43,9 @@ async function mount(live = false, viewer = 'sam') {
   if (live) await vi.waitFor(() => expect(el.textContent).toContain('Tests passed.'))
   return el
 }
+const inline = (el: HTMLElement) => [...el.querySelectorAll('.steplist.inline li')].map(li => `${li.querySelector('.verb')!.textContent} ${li.querySelector('code')!.textContent}`)
 for (const live of [false, true]) {
-  it(`${live ? 'live chat' : 'Conversation'} folds actions by default, keeps replies and obeys the action switch`, async () => {
+  it(`${live ? 'live chat' : 'Conversation'} shows each run of steps as one pill by default, keeps replies and obeys the action switch`, async () => {
     const el = await mount(live, `fold-${live}`)
     const toggle = el.querySelector<HTMLButtonElement>('[role="switch"]')!
     expect(toggle).not.toBeNull()
@@ -53,22 +54,18 @@ for (const live of [false, true]) {
     expect(el.textContent).toContain('I will read the page.')
     expect(el.textContent).toContain('The page is blue. Tests passed.')
     expect(el.textContent).toContain('Saved the notes.')
-    const folds = el.querySelectorAll<HTMLDetailsElement>('.tool-fold')
-    expect(folds).toHaveLength(3)
-    expect(folds[1].querySelector('p')?.textContent).toBe('ran 1 command, read 1 file')
-    if (!live) {
-      expect(el.querySelector('details')).toBeNull()
-      expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
-    }
+    const pills = el.querySelectorAll('.steps-pill')
+    expect(pills).toHaveLength(2)
+    expect(pills[0].querySelector('.what')?.textContent).toBe('read 2 files, ran 1 command')
+    expect(pills[0].querySelector('.n')?.textContent).toBe('3 steps')
     expect(el.querySelector('details')).toBeNull()
-    expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
+    expect(inline(el)).toHaveLength(0)
     await act(async () => toggle.click())
     expect(toggle.getAttribute('aria-checked')).toBe('true')
-    // Restores individual entries, in record order, with all command/file details reachable.
-    expect([...el.querySelectorAll('.tool-line')].map(n => n.textContent)).toEqual(['read index.html', 'ran git diff', 'read screen.png', 'wrote notes.md'])
-    expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
+    // Every step, in record order, with its command or file.
+    expect(inline(el)).toEqual(['read index.html', 'ran git diff', 'read screen.png', 'wrote notes.md'])
     await act(async () => toggle.click())
-    expect([...el.querySelectorAll('details')].every(f => !f.open)).toBe(true)
+    expect(inline(el)).toHaveLength(0)
   })
 }
 it('remembers the switch across chat views for each viewer', async () => {
@@ -88,28 +85,28 @@ it('works when localStorage refuses reads and writes', async () => {
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   await act(async () => toggle.click())
   expect(toggle.getAttribute('aria-checked')).toBe('true')
-  expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
+  expect(inline(el)).toHaveLength(4)
 })
 
 it('reads a viewer preference already saved in localStorage', async () => {
   localStorage.setItem('apptown.show-agent-actions.saved-viewer', '1')
   const el = await mount(false, 'saved-viewer')
   expect(el.querySelector<HTMLButtonElement>('[role="switch"]')!.getAttribute('aria-checked')).toBe('true')
-  expect([...el.querySelectorAll('details')].every(f => f.open)).toBe(true)
+  expect(inline(el)).toHaveLength(4)
 })
 
-it('keeps a long agent session reachable in order behind one action run', async () => {
+it('keeps a long agent session reachable in order behind one pill', async () => {
   const original = [...messages]
   const actions = Array.from({ length: 120 }, (_, i) => ({ i: i + 1, role: 'helper', tools: [{ name: i % 2 ? 'read' : 'bash', detail: `action-${i}` }] }))
   messages.splice(0, messages.length, { i: 0, role: 'you', text: 'Make it blue.' }, ...actions, { i: 121, role: 'helper', text: 'Final report: done.' })
   try {
     const el = await mount(false, 'long-session')
-    expect(el.querySelectorAll('.tool-fold')).toHaveLength(1)
-    expect(el.querySelector('.tool-fold p')?.textContent).toBe('ran 60 commands, read 60 files')
-    expect(el.querySelector('details')).toBeNull()
+    expect(el.querySelectorAll('.steps-pill')).toHaveLength(1)
+    expect(el.querySelector('.steps-pill .what')?.textContent).toBe('ran 60 commands, read 60 files')
+    expect(el.querySelector('.steps-pill .n')?.textContent).toBe('120 steps')
     expect(el.textContent).toContain('Final report: done.')
-    expect(el.querySelectorAll('.tool-line')).toHaveLength(0)
+    expect(inline(el)).toHaveLength(0)
     await act(async () => el.querySelector<HTMLButtonElement>('[role="switch"]')!.click())
-    expect([...el.querySelectorAll('.tool-line')].map(n => n.textContent)).toEqual(actions.map((_, i) => `${i % 2 ? 'read' : 'ran'} action-${i}`))
+    expect(inline(el)).toEqual(actions.map((_, i) => `${i % 2 ? 'read' : 'ran'} action-${i}`))
   } finally { messages.splice(0, messages.length, ...original) }
 })

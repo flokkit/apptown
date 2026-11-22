@@ -104,28 +104,36 @@ export default function ChangePage() {
     { key: 'details', label: 'Details' },
   ]
 
+  // On the live Conversation tab the chat's own bar stands for the change:
+  // its title, status and next action, with the other tabs in its ⋯ menu,
+  // so the conversation keeps the screen.
+  const chatTab = tab === 'conversation' && liveChat
+  // The helper's work records, read only where the conversation shows.
+  const rounds = tab === 'conversation' || keepChat ? [...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-')) : []
+  const earlierRuns = (view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)
   return (
-    <InlineHelp.Provider value><div className={`ch-page${tab === 'conversation' && liveChat ? ' ch-page-chat' : ''}`}>
+    <InlineHelp.Provider value><div className={`ch-page${chatTab ? ' ch-page-chat' : ''}`}>
+      {!chatTab && <>
       <StatePanel view={view} reading={read} />
       <RunProgress view={view} reading={read} />
       {tab !== 'overview' && current && viewerTurn(view) && <p>Your decision is waiting · <Link to={href('overview')}>Overview</Link></p>}
-
+      </>}
 
       <section className="ch-tabs-sheet">
-        <Tabs className="tabs ch-tabs" role="navigation" aria-label="more about this change">
+        {!chatTab && <Tabs className="tabs ch-tabs" role="navigation" aria-label="more about this change">
           {TABS.map((t) => (
             <Link key={t.key} to={href(t.key)} className={'tab' + (t.key === tab ? ' active' : '')} aria-current={t.key === tab ? 'page' : undefined}>{t.label}</Link>
           ))}
-        </Tabs>
+        </Tabs>}
         <div className="ch-tab-body">
 
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
           <ChangeOverview progressCurrent={!read.refreshFailed} shown={tab === 'overview'} view={view} current={current} steps={steps} extraErr={workRunId && !work.detail ? work.err : undefined} onChange={reload} workTab={workTab} />
-          {keepChat && <div className="conversation-kept" hidden={tab !== 'conversation'}><Suspense fallback={<p className="muted">Loading the chat…</p>}><ChatPage key={`${view.projectSlug}\n${view.change.id}\n${params.get('session') ?? ''}`} slug={view.projectSlug} changeId={view.change.id!} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} shown={tab === 'conversation'} /></Suspense></div>}
-          {tab === 'conversation' && (
-            <>
-            <ConversationLog live={liveChat} selectedChat={params.get('chat') ?? undefined} earlierRuns={(view.runs ?? []).map(r => r.id!).filter(id => id !== view.detail?.run.id && id !== work.detail?.run.id)} rounds={[...(workRunId && work.detail ? runStory(work.detail) : []), ...(view.detail ? runStory(view.detail) : [])].filter(e => e.step?.type === 'agent/pi' || e.key.startsWith('work-'))} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} />
-            </>
+          {keepChat && <div className="conversation-kept" hidden={tab !== 'conversation'}><Suspense fallback={<p className="muted">Loading the chat…</p>}><ChatPage key={`${view.projectSlug}\n${view.change.id}\n${params.get('session') ?? ''}`} slug={view.projectSlug} changeId={view.change.id!} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} shown={tab === 'conversation'}
+            nav={{ overview: href('overview'), code: href('changes'), details: href('details') }}
+            history={<ConversationLog live earlierRuns={earlierRuns} rounds={rounds} changeId={view.change.id!} />} /></Suspense></div>}
+          {tab === 'conversation' && !liveChat && (
+            <ConversationLog selectedChat={params.get('chat') ?? undefined} earlierRuns={earlierRuns} rounds={rounds} request={view.change.body || view.change.title} report={changeReport(view)} changeId={view.change.id!} />
           )}
           {tab === 'details' && <ChangeDetails key={view.change.id} view={view} current={current} reload={reload} runId={runParam} />}
 

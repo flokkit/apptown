@@ -36,7 +36,7 @@ const fixture = await build({
     import { ListRow } from './ListRow'
     import { ListTable } from './ListTable'
     import { LibraryRow, LibraryRows } from './LibraryRow'
-    import AgentActivity from './AgentActivity'
+    import { Activity } from './pages/console/Activity'
     import { Tabs } from './Tabs'
     import { renderMd } from './md'
     // The change page's tabs, switchable, so the current tab can be followed.
@@ -57,7 +57,7 @@ const fixture = await build({
         <DailyChart days={Array.from({length:90},(_,i)=>new Date(Date.UTC(2026,7,i+1)).toISOString().slice(0,10))} perDay={new Map([['2026-10-29',{step:100,console:50,other:10,cost:0}]])} />
         <SplitButton compact icon="" label="Change" onMain={()=>{document.body.dataset.main='yes'}} items={[{label:'Catalog change',hint:'Choose a prepared change'}]} />
         <div className="ch-page" style={{paddingInline:6}}><QueryClientProvider client={new QueryClient()}>{['running', 'finished', 'failed'].map(state => <div key={state} data-change-progress={state}><ChangeProgressHeader view={{change:{id:"change",number:35,title:"Report test counts to AppTown",body:"Add one line at the end of the application configuration with a greeting for visitors",state:state==='finished'?'shipped':'landing'},waitingOn:{kind:state==='finished'?'closed':'work',run:'run',step:'build',says:state==='finished'?'Landed':state==='failed'?'Build failed':'Building',tone:state==='finished'?'ok':state==='failed'?'bad':'busy'},goesTo:{branch:"main",deployments:[]},checks:{tone:"ok",text:"4 passed, 1 not applicable",started:true},detail:{next:[],artifacts:[],run:{id:"run",status:state==='finished'?'done':'running',currentStage:"ship"},stages:["prepare","gates","ship"],steps:[{id:"prepare",runId:"run",stage:"prepare",type:"script",name:"prepare",status:"pass",progress:"done",evidence:{}},{id:"check",runId:"run",stage:"gates",type:"script",name:"tests",status:"pass",progress:"done",evidence:{}},...['approval','merged','build','required-file','publish','release'].map((name,i)=>({id:name,runId:"run",stage:"ship",type:['approval','scm/merged','build','artifact/require','script','script'][i],name,config:{},status:state==='finished'||i<2?'pass':i===2?(state==='failed'?'fail':'running'):'pending',progress:state==='finished'||i<2?'done':i===2?(state==='failed'?'failed':'running'):'waiting',evidence:{},startedAt:"",finishedAt:""}))]},next:[]}} /></div>)}</QueryClientProvider></div>
-        <div className="row console-head" style={{marginBottom:8}}><h1 style={{margin:0}}>Project chat</h1><span className="badge here">questions &amp; setup</span><span className="console-head-space" style={{flex:1}} /><AgentActivity connected busy={false} /><div className="head-menu"><button aria-label="Chat menu">⋯</button></div></div>
+        <div className="console"><div className="chat-bar"><div className="chat-bar-title"><h1 className="chat-title">Project chat</h1><span className="chat-kind">questions &amp; setup</span><Activity word="your turn" /></div><div className="chat-menu"><button className="bar-icon" aria-label="Chat menu">⋯</button></div></div></div>
         <div className="ch-decision-choices"><button>Accept</button><button>Send back…</button><button>Abandon change</button></div>
         <section><ListRow identity={long} state="Waiting for you" action={<><button>Review change</button><MoreMenu label="Project" items={[{label:'Archive project',hint:'Keep its history'}]} /></>} /></section>
         <section role="list"><div className="int-row"><ListRow className="int-list-row" identity={long} state="Not checked yet" action={<button>Check connection</button>} /></div></section>
@@ -402,18 +402,21 @@ try {
     await page.evaluate(() => { document.documentElement.dataset.size = 'medium' })
     await page.addScriptTag({ content: changeChatFixture.outputFiles[0].text })
     await page.locator('.chat-pane').getByText('Earlier conversation', { exact: true }).waitFor()
-    await page.locator('.workshop-actions .finish').waitFor({ state: 'attached' })
+    await page.locator('.chat-bar .finish').waitFor({ state: 'attached' })
     await fontsReady(page)
     const geometry = await page.evaluate(() => {
       const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON()
-      return { composer: rect('.chat-input'), pane: rect('.chat-pane') }
+      return { composer: rect('.composer'), pane: rect('.chat-pane') }
     })
     const { composer, pane } = geometry
     assert.ok((width === 390 ? composer.height >= 44 : composer.height > 0) && composer.top >= pane.top - 1 && composer.bottom <= pane.bottom + 1,
       `composer fits inside its chat pane at ${width}×${height}: ${JSON.stringify(geometry)}`)
     // Scrolling the surrounding content must expose each control in full.
-    for (const selector of ['.chat-input textarea', '.chat-attach', '.chat-input .primary', '.console-strip .workshop-actions button']) {
+    // Every required control, by name: only Terminal is left out on a phone, by design.
+    for (const selector of ['.composer textarea', '.composer-attach', '.composer-send', '.chat-bar .bar-btn.primary', '.chat-bar .finish', '.chat-bar .bar-icon', ...(width > 800 ? ['.chat-bar .bar-wide'] : [])]) {
+      assert.ok(await page.locator(selector).count() > 0, `chat control present at ${width}×${height}: ${selector}`)
       for (const control of await page.locator(selector).all()) {
+        assert.ok(await control.isVisible(), `chat control visible at ${width}×${height}: ${selector}`)
         await control.scrollIntoViewIfNeeded()
         assert.ok(await control.evaluate((el, width) => {
           const r = el.getBoundingClientRect()
@@ -429,7 +432,7 @@ try {
       }
     }
     await page.locator('.chat-pane').getByText('Earlier conversation', { exact: true }).scrollIntoViewIfNeeded()
-    await page.locator('.chat-input textarea').scrollIntoViewIfNeeded()
+    await page.locator('.composer textarea').scrollIntoViewIfNeeded()
     if (out) await page.screenshot({ path: `${out}/change-chat-${width}-${height}.png` })
   }
   await page.goto('http://layout.test/')
@@ -528,8 +531,8 @@ try {
         await page.locator('.ch-tabs').first().locator('a.tab', { hasText: label }).click()
         assert.ok(await page.locator('.ch-tabs').first().evaluate(strip => { const s = strip.getBoundingClientRect(), t = strip.querySelector('[aria-current="page"]').getBoundingClientRect(); return t.left >= s.left - 0.5 && t.right <= s.right + 0.5 }), `current change tab ${label} wholly in view at ${width}, ${size}`)
       }
-      assert.ok(await page.locator('.console-head .agent-activity .chip').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `chat activity label stays complete at ${width}, ${size}`)
-      assert.ok(await page.locator('.console-head').evaluate(head => [...head.children].every(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth })), `chat header fits at ${width}, ${size}`)
+      assert.ok(await page.locator('.chat-bar .activity').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `chat activity label stays complete at ${width}, ${size}`)
+      assert.ok(await page.locator('.chat-bar').evaluate(head => [...head.children].every(el => { const r = el.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth })), `chat bar fits at ${width}, ${size}`)
       assert.ok(await page.locator('.ch-decision-choices').evaluate(element => { const widths = [...element.children].map(child => child.getBoundingClientRect().width); return Math.max(...widths) - Math.min(...widths) < 1 }), `equal decision choices at ${width}, ${size}`)
       assert.deepEqual(await page.evaluate(wrappedRowActions), [], `one-line action labels at ${width}, ${size}`)
       assert.ok(await page.locator('.int-list-row button').isVisible(), 'integration action remains visible')
@@ -758,7 +761,7 @@ try {
   // keyboard viewport; controls retain touch targets rather than shrinking.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.setContent(`<style>@layer tokens, base, type, components, pages, utilities; ${css}</style>
-    <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console"><div class="console-controls"><div class="console-head"><h1>Change chat</h1><button>Open preview</button><button>Check and land</button><button>Restart preview</button></div></div><div class="chat-pane"><div class="chat-scroll" style="flex:1;min-height:0;overflow:auto">Conversation</div><div class="chat-input row"><textarea aria-label="Message"></textarea><button>Send</button></div></div></div></main></div>`)
+    <div class="layout" style="--viewport-h:450px"><main class="main"><div class="console console-workshop"><div class="chat-bar"><div class="chat-bar-title"><a class="chat-title" href="#change">Change chat</a></div><button class="bar-btn primary">Open</button><button class="bar-btn finish">Land</button><button class="bar-icon" aria-label="Chat details and actions">⋯</button></div><div class="chat-body"><div class="chat-pane"><div class="chat-scroll-wrap"><div class="chat-scroll"><div class="chat-feed">Conversation</div></div></div><div class="chat-dock"><div class="composer-dock"><div class="composer"><button class="composer-attach" aria-label="Attach files">+</button><textarea aria-label="Message" rows="1"></textarea><button class="composer-send primary" aria-label="Send">↑</button></div></div></div></div></div></div></main></div>`)
   await fontsReady(page)
   for (const size of ['small', 'medium', 'large']) {
     await page.evaluate(size => { document.documentElement.dataset.size = size }, size)

@@ -78,7 +78,7 @@ const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 30
 
 // The menu names the chat it shows by its session id, which shows with the
 // technical switch on: these tests read which chat the page took from it.
-const shownSession = () => [...document.querySelectorAll('.popover span')].map((x) => x.textContent ?? '').find((t) => t.startsWith('session '))?.slice('session '.length)
+const shownSession = () => [...document.querySelectorAll('.chat-facts dt')].find((d) => d.textContent === 'session')?.nextElementSibling?.textContent ?? undefined
 
 beforeEach(() => {
   sessionStorage.clear()
@@ -109,7 +109,7 @@ describe('choosing a chat', () => {
   it("takes this change's chat when AppTown has one, opening none", async () => {
     const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
     const { el, done } = await page(`?change=${C1}`)
-    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await act(async () => (el.querySelector('[aria-label="Chat details and actions"]') as HTMLButtonElement).click())
     await vi.waitFor(() => expect(shownSession()).toBe('mine'))
     await settle()
     expect(opens).toEqual([])
@@ -147,7 +147,7 @@ describe('choosing a chat', () => {
     let answer: Reply = { body: { sessions: [chat('one', C1)] } }
     const opens = fakeAppTown(() => answer)
     const { el, done } = await page(`?change=${C1}`)
-    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    await act(async () => (el.querySelector('[aria-label="Chat details and actions"]') as HTMLButtonElement).click())
     await vi.waitFor(() => expect(shownSession()).toBe('one'))
     // The next reading is on its way: the answer held from change 1's
     // reading (no chat for change 2) must not open one.
@@ -158,7 +158,7 @@ describe('choosing a chat', () => {
     expect(opens).toEqual([])
     // It answers with change 2's chat, opened elsewhere meanwhile.
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2)] } }) })
-    if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    if (el.querySelector('[aria-label="Chat details and actions"]')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('[aria-label="Chat details and actions"]') as HTMLButtonElement).click())
     await vi.waitFor(() => expect(shownSession()).toBe('two'))
     // And back to the project's chat, which also waits for its own reading.
     answer = new Promise((r) => { release = r })
@@ -166,7 +166,7 @@ describe('choosing a chat', () => {
     await settle()
     expect(opens).toEqual([])
     await act(async () => { release({ body: { sessions: [chat('one', C1), chat('two', C2), chat('desk', null)] } }) })
-    if (el.querySelector('.head-menu > button')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
+    if (el.querySelector('[aria-label="Chat details and actions"]')?.getAttribute('aria-expanded') === 'false') await act(async () => (el.querySelector('[aria-label="Chat details and actions"]') as HTMLButtonElement).click())
     await vi.waitFor(() => expect(shownSession()).toBe('desk'))
     await settle()
     expect(opens).toEqual([])
@@ -216,8 +216,8 @@ describe('ending a chat', () => {
       return answered(url, init)
     })))
     const { el, done } = await page(`?change=${C1}`)
-    await act(async () => (el.querySelector('.head-menu > button') as HTMLButtonElement).click())
-    const endChat = () => [...document.querySelectorAll<HTMLButtonElement>('.popover button')].find((b) => b.textContent === 'End chat')
+    await act(async () => (el.querySelector('[aria-label="Chat details and actions"]') as HTMLButtonElement).click())
+    const endChat = () => [...document.querySelectorAll<HTMLButtonElement>('.chat-menu-card button')].find((b) => b.textContent === 'End chat')
     await vi.waitFor(() => expect(endChat()).toBeDefined())
     const button = endChat()!
     await act(async () => { button.click() })

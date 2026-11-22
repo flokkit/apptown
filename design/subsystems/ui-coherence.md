@@ -146,9 +146,9 @@ sits at the bottom, including in an empty conversation, and rises with the
 keyboard. On narrow screens `useChatViewport` in `web/src/chrome.ts` sizes
 and positions the chat shell within the visual viewport; without that API,
 CSS uses `100dvh`. The conversation scrolls inside the shell rather than
-scrolling the page. The top bar and chat head stay above it. What the chat
-is about takes at most a third of the visible screen and steps aside while
-you type; the change's About line and agent-actions switch stay visible.
+scrolling the page. The top bar and the chat's one bar stay above it; what
+the chat is about is the first item of the conversation and scrolls away with
+it.
 
 ## The change page
 
@@ -157,7 +157,9 @@ with one primary action for the viewer (`pages/change/next.ts` derives this from
 the page's payload; a failed refresh shows the answer as not current). The four
 tabs are Overview, Code, Conversation and Details. Overview contains the report,
 request's first line, checks and acceptance controls. Code contains the diff.
-Conversation contains messages and the switch for showing agent actions.
+Conversation contains messages and the switch for showing agent actions; while
+the change's chat is live, the chat's own bar stands for the change on that tab
+(design/subsystems/console.md).
 
 Details tells the change's story as one chronological timeline, including earlier
 runs and abandoned landings. Each entry has its time on the right and plain links

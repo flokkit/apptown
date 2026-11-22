@@ -84,11 +84,16 @@ it('offers only live https previews that are reachable away from the host, with 
  localStorage.clear(); client.clear()
 })
 
-it('embeds change chat without repeating the change title, state or Goes to line', () => {
+// On the live Conversation tab the chat's one bar stands for the change:
+// its number and title once, linking to Overview, and no Goes to line.
+it('names the change once, in the chat bar, with no Goes to line', () => {
  const client = newQueryClient()
- client.setQueryData(getKey('/changes/X'), { change: { id: 'X', number: 2, title: 'Title already above' }, goesTo: { branch: 'main', deployments: [] } })
- const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><ChatPage slug="s" changeId="X" forcedSession="" kickoff="" /></MemoryRouter></QueryClientProvider>)
+ client.setQueryData(getKey('/changes/X'), { change: { id: 'X', number: 2, title: 'The title' }, waitingOn: { says: 'building', tone: 'busy' }, goesTo: { branch: 'main', deployments: [] } })
+ const nav = { overview: '/changes/X?tab=overview', code: '/changes/X?tab=changes', details: '/changes/X?tab=details' }
+ const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><ChatPage slug="s" changeId="X" forcedSession="" kickoff="" nav={nav} /></MemoryRouter></QueryClientProvider>)
  expect(html).toContain('aria-label="your message"')
+ expect(html.split('>The title<')).toHaveLength(2)
+ expect(html).toContain('href="/changes/X?tab=overview"')
  expect(html).not.toContain('<h1')
  expect(html).not.toContain('Goes to:')
  client.clear()
@@ -171,7 +176,15 @@ it('keeps a shown live chat mounted across tabs and opens none from another tab'
   await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[address]}><Address /><Routes><Route path="/changes/:id" element={<ChangePage />} /></Routes></MemoryRouter></QueryClientProvider>))
   return { el, done: () => { act(() => root.unmount()); client.clear() } }
  }
- const tab = (el: HTMLElement, name: string) => act(async () => [...el.querySelectorAll<HTMLAnchorElement>('.ch-tabs a')].find(a => a.textContent === name)!.click())
+ // On the chat tab the other tabs are in the chat's ⋯ menu.
+ const tab = async (el: HTMLElement, name: string) => {
+  let link = [...el.querySelectorAll<HTMLAnchorElement>('.ch-tabs a')].find(a => a.textContent === name)
+  if (!link) {
+   await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="Chat details and actions"]')!.click())
+   link = [...document.querySelectorAll<HTMLAnchorElement>('.chat-menu-card a')].find(a => a.textContent === name)
+  }
+  await act(async () => link!.click())
+ }
  try {
   let page = await mount('/changes/X?tab=overview')
   await vi.waitFor(() => expect(page.el.querySelector('.ch-tabs')).not.toBeNull())
@@ -187,10 +200,10 @@ it('keeps a shown live chat mounted across tabs and opens none from another tab'
   expect(page.el.textContent).toContain('Run details')
   expect(page.el.querySelector('.conversation-kept')?.hasAttribute('hidden')).toBe(true)
   // The chat knows it is away, so coming back follows the newest message.
-  expect(page.el.querySelector('.chat-pane')?.hasAttribute('hidden')).toBe(true)
+  expect(page.el.querySelector('.chat-body')?.hasAttribute('hidden')).toBe(true)
   await tab(page.el, 'Conversation')
   expect(page.el.querySelector('textarea')).toBe(shown)
-  expect(page.el.querySelector('.chat-pane')?.hasAttribute('hidden')).toBe(false)
+  expect(page.el.querySelector('.chat-body')?.hasAttribute('hidden')).toBe(false)
   expect(opens).toHaveLength(1)
   page.done(); opens.length = 0
   sessions = [chosen, { ...chosen, id: 'other' }]

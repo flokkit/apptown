@@ -38,6 +38,7 @@ it.each([false, true])('shows failed transcript reads with retained history=%s',
 
 it('follows asynchronous history resizing only while the reader follows the bottom', async () => {
   let resize: ResizeObserverCallback | undefined
+  let height = 1000
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }))
   vi.stubGlobal('ResizeObserver', class {
     constructor(callback: ResizeObserverCallback) { resize = callback }
@@ -48,13 +49,18 @@ it('follows asynchronous history resizing only while the reader follows the bott
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><Bubbles sessionId={null} before={<div>Earlier words</div>} /></QueryClientProvider>))
     const box = el.querySelector<HTMLDivElement>('.chat-scroll')!
-    Object.defineProperties(box, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 200 } })
+    Object.defineProperties(box, { scrollHeight: { configurable: true, get: () => height }, clientHeight: { configurable: true, value: 200 } })
+    Object.defineProperty(el.querySelector('.chat-feed')!, 'offsetHeight', { configurable: true, get: () => height })
     expect(resize).toBeDefined()
     act(() => resize!([], {} as ResizeObserver))
     expect(box.scrollTop).toBe(1000)
     box.scrollTop = 100
     act(() => box.dispatchEvent(new Event('scroll')))
+    height = 1300
     act(() => resize!([], {} as ResizeObserver))
     expect(box.scrollTop).toBe(100)
+    // Earlier history arriving above while the reader is up is not "new
+    // messages below", but growth is offered as the way back down.
+    expect(el.querySelector('.chat-cue')).not.toBeNull()
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

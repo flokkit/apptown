@@ -2,7 +2,10 @@ import { ListRow } from '../../ListRow'
 import './list-records.css'
 import { firstLine } from './Head'
 import './Conversation.css'
-import { AgentActionsSwitch, ToolFold, foldTools, useAgentActions } from '../../AgentActions'
+import { AgentActionsSwitch, useAgentActions } from '../../AgentActions'
+import { useCallback, useMemo, useState } from 'react'
+import { StepsSheet, Thread } from '../console/Thread'
+import { toThread } from '../console/threadModel'
 import { Section } from '../../Section'
 import { fmtWhen } from '../../format'
 import { PRODUCT } from '../../brand'
@@ -44,9 +47,10 @@ export function ConversationLog({ changeId, live = false, selectedChat, request,
       <StaleNote q={q} />
       {data && <UnreadableNote view={data} />}
       {none && (request ? <>
-        <div className="bubble-row you"><div className="bubble you conversation-conversation-log-bubble-you">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
-        {report ? <div className="bubble-row"><div className="bubble"><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div></div>
+        <section className="turn"><div className="ask"><div className="ask-t">{firstLine(request)} <Link to={`/changes/${changeId}/records/request`}>full request →</Link></div></div>
+        {report ? <div className="reply"><div className="final md" dangerouslySetInnerHTML={{ __html: renderMd(report) }} /></div>
           : rounds.length > 0 && <p className="muted">{rounds.length === 1 ? 'The helper left no messages in this round.' : 'The helper left no messages.'}</p>}
+        </section>
       </> : <p className="muted">No chat yet.</p>)}
       {earlierRuns.map(id => <RunRounds key={id} id={id} changeId={changeId} />)}
       {rounds.map((e, i) => <ListRow to={workRecordHref(changeId, e)} className="conversation-record-row" key={e.key} identity={<Link to={workRecordHref(changeId, e)}>Helper round {i + 1} · work record</Link>} />)}
@@ -83,25 +87,22 @@ export function chatOpening(se: ChatHistoryEntry): string {
   return line.length > 90 ? line.slice(0, 89) + '…' : line || '(no words)'
 }
 
-// ChatMessages shows a chat's words and its pasted pictures, read from
-// pictures + the picture's own name; a picture opens full size on its own.
+// ChatMessages shows a recorded chat as the same thread a live chat is
+// drawn as, its pasted pictures read from that chat's own record. A run's
+// steps open as a sheet.
 export function ChatMessages({ chat, pictures, noSwitch = false }: { chat: ChatHistoryEntry; pictures: string; noSwitch?: boolean }) {
   const [showActions, setShowActions] = useAgentActions()
-  const messages = showActions ? chat.messages : foldTools(chat.messages)
+  const turns = useMemo(() => toThread(chat.messages, null, true), [chat.messages])
+  const picture = useCallback((name: string) => pictures + name, [pictures])
+  const [picked, setPicked] = useState('')
+  const turn = picked ? turns.find((t) => t.parts.some((p) => p.key === picked)) : undefined
+  const run = turn?.parts.find((p) => p.key === picked && p.kind === 'run')
+  const close = useCallback(() => setPicked(''), [])
   return (
     <>
       {!noSwitch && <AgentActionsSwitch shown={showActions} onChange={setShowActions} />}
-      {messages.map((m) => !m.text && m.tools?.length ?
-        <ToolFold key={`${m.i}-${showActions}`} tools={m.tools} show={showActions} /> : (
-        <div key={m.i} className={'bubble-row' + (m.role === 'you' ? ' you' : '')}>
-          <div className={'bubble' + (m.role === 'you' ? ' you' : '')}>
-            {!!m.tools?.length && <ToolFold key={String(showActions)} tools={m.tools} show={showActions} />}
-            {m.text && (m.role === 'helper'
-              ? <div className="md" dangerouslySetInnerHTML={{ __html: renderMd(m.text) }} />
-              : <YourWords text={m.text} pictures={pictures} />)}
-          </div>
-        </div>
-      ))}
+      <Thread turns={turns} pictures={picture} showActions={showActions} onPill={(r: { key: string }) => setPicked(r.key)} />
+      {turn && run?.kind === 'run' && <StepsSheet run={run} turn={turn} onClose={close} />}
     </>
   )
 }
@@ -128,22 +129,6 @@ export function PastChatsPage() {
       {sessions.length === 0 && !q.data.unreadable && <p>No ended chats yet. Chats from <Link to={`/projects/${slug}/console`}>Project chat</Link> are kept here when they end.</p>}
     </Section>)}
   </>
-}
-
-function YourWords({ text, pictures }: { text: string; pictures: string }) {
-  const { display, names, files } = pastedPictures(text)
-  return (
-    <div>
-      {display && <div className="conversation-conversation-log-bubble-you">{display}</div>}
-      {files.map((f) => <div key={f.name}><a href={pictures + f.name} download>{f.name}</a> ({f.size} bytes)</div>)}
-      {names.map((n) => (
-        <a key={n} href={pictures + n} target="_blank" rel="noreferrer" title="open the picture full size">
-          <img src={pictures + n} alt="pasted picture" loading="lazy"
-            style={{ marginTop: display ? 6 : 0 }} className="conversation-img" />
-        </a>
-      ))}
-    </div>
-  )
 }
 
 // A chat record on this AppTown that could not be read may belong here: say
