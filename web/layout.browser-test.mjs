@@ -959,20 +959,21 @@ try {
     await round('direct', size)
     if (out) await page.screenshot({ path: `${out}/round-direct-${size}.png` })
     want(await page.locator('.section-body').evaluate(b => { const box = b.getBoundingClientRect(), t = b.querySelector('table').getBoundingClientRect(); return t.left <= box.left + 1.5 && t.right >= box.right - 1.5 }), `a section's own table still reaches the panel's edges at ${where}`)
-    // The help "?" is a 32px circle with a 44px target, and its focus ring clears the title.
+    // On a phone the bar's "?" is a small circle after the title's last word
+    // (bar-title.browser-test.mjs), with a 44px target, and its focus ring
+    // does not reach the word.
     await round('help', size)
     const help = page.getByRole('button', { name: 'About Overview', exact: true })
     await help.focus()
     const look = await help.evaluate(el => {
-      const r = el.getBoundingClientRect(), s = getComputedStyle(el), h1 = document.querySelector('h1').getBoundingClientRect()
-      const grow = s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset)
+      const r = el.getBoundingClientRect(), s = getComputedStyle(el)
+      const ring = r.left - (s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth) + parseFloat(s.outlineOffset))
+      const text = [...document.querySelector('h1').childNodes].filter(n => n.nodeType === 3).at(-1), word = document.createRange()
+      word.setStart(text, text.data.trimEnd().lastIndexOf(' ') + 1); word.setEnd(text, text.data.length)
       const cx = r.left + r.width / 2, cy = r.top + r.height / 2
-      // On phones the ring is drawn round the ::before circle; it keeps 4px from the title.
-      const b = getComputedStyle(el, '::before'), circle = parseFloat(b.width) || 0
-      const ring = b.outlineStyle === 'none' ? r.left - grow : cx - circle / 2 - parseFloat(b.outlineWidth) - parseFloat(b.outlineOffset)
-      return { width: r.width, circle: (b => parseFloat(b.width) + parseFloat(b.borderLeftWidth) + parseFloat(b.borderRightWidth))(getComputedStyle(el, '::before')) || 0, clear: ring >= h1.right + 4, target: [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => el.contains(document.elementFromPoint(x, y))) }
+      return { circle: r.height, clear: ring >= [...word.getClientRects()].at(-1).right, target: [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => el.contains(document.elementFromPoint(x, y))) }
     })
-    want(look.width >= 44 && look.circle >= 32 && look.clear && look.target, `the ? is a 32px circle, a 44px target, and its ring clears the title at ${where}: ${JSON.stringify(look)}`)
+    want(look.circle < 20 && look.clear && look.target, `the ? is a small circle with a 44px target, and its ring clears the title at ${where}: ${JSON.stringify(look)}`)
     // An overview row's title has the row's width; the release goes under it.
     await round('overview', size)
     want(await page.locator('.application-overview-card').evaluate(row => row.querySelector('.application-overview-link').getBoundingClientRect().width >= 0.9 * row.getBoundingClientRect().width), `an overview title has the row's width at ${where}`)

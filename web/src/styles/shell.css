@@ -38,9 +38,10 @@
 @media (max-width: 800px) {
   .page-bar .page-bar-actions { order: 4; flex-basis: 100%; }
 }
-/* On a phone the title shares its line with the menu and two controls. */
+/* On a phone the title shares its line with the menu and two controls: it
+   is the bar-title size, and its prominence comes from its place. */
 @media (max-width: 600px) {
-  .page-bar h1 { font-size: var(--fs-lg); }
+  .page-bar h1 { font-size: var(--fs-bar-title); }
 }
 .page-bar-lead, .page-bar-trail { display: flex; align-items: center; flex: none; min-height: 44px; }
 .page-bar-lead { margin-left: calc(var(--space-2) * -1); }

@@ -198,9 +198,9 @@ export function PageHead({ page, actions, sub, help, line, title }: { page: Help
   // The title row is the page's bar; the one line stays in the page under it.
   return <>
     <PageBar title={title ?? sub ?? h.title}
-      help={<>{help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
+      help={help ? <HelpButton about={sub ?? h.title} guide={help.guide}>{help.body}</HelpButton>
         : <HelpButton about={h.title} guide={h.guide}>{h.line && <p>{h.line}</p>}{h.help}</HelpButton>}
-        {beta && <BetaChip />}</>}
+      after={beta && <BetaChip />}
       actions={actions} />
     {line && <p className="page-head-line">{line}</p>}
   </>

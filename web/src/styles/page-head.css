@@ -43,6 +43,43 @@ button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(
 @media (max-width: 800px) {
   .page-bar-title { gap: var(--space-1); }
 }
+/* The "?" is glued to the title's last word on a phone (below); wider, its
+   wrapper is not a box, so the "?" and the facts after it are the title row's
+   flex items as they always were. */
+.page-bar-help { display: contents; }
+/* On a phone the title is inline text with the "?" glued to its last word: a
+   word joiner and no wrapping inside the "?"'s wrapper keep them on one line
+   in Chromium and WebKit. The "?" is a small circle the size of the text with
+   a 44px tap area around it, so the title's line keeps its own height. The
+   block takes the title's size and line height, so its lines are the
+   title's; the content sits in the middle of the 44px line the bar keeps.
+   A chat's bar lays its title out itself (console.css) and is left alone. */
+@media (max-width: 600px) {
+  .page-bar .page-bar-page:where(:not(.chat-bar)) > .page-bar-title { display: block; align-content: center; font-size: var(--fs-bar-title); line-height: var(--lh-tight); }
+  .page-bar .page-bar-page:where(:not(.chat-bar)) > .page-bar-title > h1 { display: inline; }
+  .page-bar .page-bar-page:where(:not(.chat-bar)) > .page-bar-title > :not(h1, .page-bar-help) { margin-inline-start: var(--space-2); vertical-align: middle; }
+  .page-bar .page-bar-help { display: inline; white-space: nowrap; }
+  .page-bar .page-bar-help::before { content: "\2060"; }
+  .page-bar .page-bar-help .page-help { display: inline; }
+  .page-bar .page-bar-help button.page-help-q {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    width: calc(var(--fs-bar-title) * 0.85); height: calc(var(--fs-bar-title) * 0.85); min-width: 0; min-height: 0; padding: 0; margin-inline-start: 0.3em; vertical-align: middle;
+    font-size: var(--fs-xs); line-height: 1; border: 1px solid var(--border-strong); background: transparent;
+  }
+  /* The circle is the button itself, not the wider screens' drawn one. */
+  .page-bar .page-bar-help button.page-help-q::before { content: none; }
+  .page-bar .page-bar-help button.page-help-q::after { content: ""; position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; translate: -50% -50%; }
+  .page-bar .page-bar-help button.page-help-q:hover, .page-bar .page-bar-help button.page-help-q[aria-expanded="true"] { border-color: var(--text); }
+  .page-bar .page-bar-help button.page-help-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* Past two lines (PageBar measures it) the h1 is cut to two with an
+     ellipsis, the "?" ends the second line beside it, and the facts take the
+     line under them. */
+  .page-bar .page-bar-title[data-clamped] { display: flex; flex-wrap: wrap; align-items: flex-end; }
+  .page-bar .page-bar-title[data-clamped] > h1 { flex: 1 1 0; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  .page-bar .page-bar-title[data-clamped] > .page-bar-help { flex: none; }
+  .page-bar .page-bar-title[data-clamped]::after { content: ""; order: 1; flex-basis: 100%; height: 0; }
+  .page-bar .page-bar-title[data-clamped] > :not(h1, .page-bar-help) { order: 2; margin-inline-start: 0; }
+}
 .page-bar-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); }
 /* The help's text in its phone dialog: the guide link under it. */
 .page-help-text a { display: inline-block; margin-top: var(--space-1); }

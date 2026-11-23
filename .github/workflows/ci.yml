@@ -77,7 +77,8 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
         working-directory: web
-      - run: npx playwright install --with-deps chromium
+      # WebKit for the bar title check: iPhones draw pages with it.
+      - run: npx playwright install --with-deps chromium webkit
         working-directory: web
       - run: make check-web-layout
         env:

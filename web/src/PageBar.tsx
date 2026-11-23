@@ -47,16 +47,22 @@ export function ShellBar({ lead, controls = true, children }: { lead?: ReactNode
 // "?" beside it, facts that sit on the title's line, and the page's actions.
 // Only the page on screen renders it: a part kept mounted while hidden
 // renders its bar only while shown.
+// help is only the "?": on a phone it is glued to the title's last word.
+// Facts (a status, the Beta chip) go in after.
 export function PageBar({ title, titleClass, help, after, actions, className }: {
   title: ReactNode; titleClass?: string; help?: ReactNode; after?: ReactNode; actions?: ReactNode; className?: string
 }) {
   const slot = useContext(Slot)
+  const block = useRef<HTMLDivElement>(null)
+  // The chat's bar sets its own title (console.css) and is not measured.
+  const clamps = !className?.split(' ').includes('chat-bar')
+  useTitleClamp(block, clamps, slot)
   const row = (
     <div className={'page-bar-page' + (className ? ' ' + className : '')}>
       {/* The title and its "?" stay together; the facts follow on its line. */}
-      <div className="page-bar-title">
+      <div className="page-bar-title" ref={block}>
         <h1 className={titleClass}>{title}</h1>
-        {help}
+        {help && <span className="page-bar-help">{help}</span>}
         {after}
       </div>
       {/* The actions keep to the right, on the title's line or, wrapped, on their own. */}
@@ -65,6 +71,36 @@ export function PageBar({ title, titleClass, help, after, actions, className }: 
   )
   if (slot === undefined) return row
   return slot ? createPortal(row, slot) : null
+}
+
+// useTitleClamp holds a phone title to two lines. On a phone the h1 is
+// inline (page-head.css), so its client rects are its lines; the "?" is glued
+// to the last word and adds none, and the facts after it are not counted.
+// Past two lines the block is marked data-clamped: the h1 is cut to two lines
+// with an ellipsis, the "?" ends the second line, and the h1 carries its whole
+// text as its title. The count is taken with the mark removed, so it is the
+// unclamped title's. Wider than a phone the h1 is a block: one rect, never
+// clamped.
+// mounted is the bar's slot: the row (and so the block) arrives with it.
+function useTitleClamp(block: React.RefObject<HTMLDivElement | null>, on: boolean, mounted: unknown) {
+  const check = useCallback(() => {
+    const el = block.current, h1 = el?.querySelector('h1')
+    if (!el || !h1) return
+    el.removeAttribute('data-clamped')
+    if (h1.getClientRects().length > 2) {
+      el.setAttribute('data-clamped', '')
+      h1.title = h1.textContent ?? ''
+    } else h1.removeAttribute('title')
+  }, [block])
+  // Every render: the title's text may have changed.
+  useLayoutEffect(() => { if (on) check() })
+  useLayoutEffect(() => {
+    const el = block.current
+    if (!on || !el) return
+    const watch = new ResizeObserver(check)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [on, check, block, mounted])
 }
 
 // The wordmark: Home, at the top of the nav, or leading the row of a page
