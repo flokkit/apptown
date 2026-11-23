@@ -1,9 +1,12 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 import { getKey, newQueryClient } from '../../data'
-import { DeploymentContainerPage } from './DeploymentContainers'
+import { DeploymentContainerPage, imageRows } from './DeploymentContainers'
 import type { DeploymentDiagnostics, DeploymentResources, DeploymentView, PartMemory } from '../../wire.gen'
 
 const base = '/projects/shop/deployments/main'
@@ -39,7 +42,8 @@ it('shows a container with its image and its use against its limits', () => {
     part('worker', { part: 'worker', usedBytes: 32 << 20, limitBytes: 128 << 20, cpuCores: 0.5, cpuLimit: 0, image: 'sha256:0123456789abcdef0123', known: true }),
   ]
   const web = render(parts, 'web')
-  expect(web).toContain('registry.local/shop:4')
+  expect(web).toContain('>registry.local<')
+  expect(web).toContain('>shop<')
   // A quarter of a core used out of one: the meter reads 0.25 of 1.
   expect(web).toMatch(/<meter[^>]*aria-label="web CPU use"[^>]*max="1"[^>]*value="0.25"/)
   const worker = render(parts, 'worker')
@@ -135,4 +139,56 @@ it('marks a cached container absence stale when diagnostics refresh fails', () =
     diagnosticsError: true,
   })
   expect(html).toContain('stale-note')
+})
+
+const digest = 'sha256:' + 'a'.repeat(64)
+const imagePart = (image: string) => part('web', { part: 'web', usedBytes: 1, limitBytes: 2, cpuCores: 0, cpuLimit: 0, known: true, image })
+it.each([
+  ['registry.example/team/web@' + digest, ['Registry', 'Repository', 'Digest']],
+  [digest, ['Image ID']],
+  ['postgres:16-alpine', ['Repository', 'Tag']],
+  ['ghcr.io/acme/cache:7@' + digest, ['Registry', 'Repository', 'Tag', 'Digest']],
+  ['', ['Image']],
+])('shows the image facts for %s', (image, labels) => {
+  const html = render([imagePart(image)], 'web')
+  for (const label of ['Registry', 'Repository', 'Tag', 'Digest', 'Image ID', 'Image']) {
+    expect(html.includes(`class="muted">${label}</div>`)).toBe(labels.includes(label))
+  }
+  if (image.includes('@')) expect(html).toContain(`title="${digest}"`)
+  if (image === digest) expect(html).toContain(`title="${digest}">aaaaaaaaaaaa</code>`)
+})
+it.each([
+  ['registry.local:5000/shop/web:4', [['Registry', 'registry.local:5000'], ['Repository', 'shop/web'], ['Tag', '4']]],
+  ['docker.io/library/postgres:16', [['Repository', 'postgres'], ['Tag', '16']]],
+  ['bitnami/postgres:16', [['Registry', 'docker.io'], ['Repository', 'bitnami/postgres'], ['Tag', '16']]],
+  ['index.docker.io/library/postgres:16', [['Repository', 'postgres'], ['Tag', '16']]],
+  ['registry-1.docker.io/acme/cache', [['Registry', 'docker.io'], ['Repository', 'acme/cache']]],
+  ['localhost/web:4', [['Registry', 'localhost'], ['Repository', 'web'], ['Tag', '4']]],
+  ['registry.example.test/team/trail-log@' + digest, [['Registry', 'registry.example.test'], ['Repository', 'team/trail-log'], ['Digest', 'sha256:aaaaaaaaaaaa']]],
+  ['versity/versitygw:v1.8.0', [['Registry', 'docker.io'], ['Repository', 'versity/versitygw'], ['Tag', 'v1.8.0']]],
+  ['mariadb:11.4', [['Repository', 'mariadb'], ['Tag', '11.4']]],
+])('splits %s by Docker host and tag rules', (image, expected) => {
+  expect(imageRows(image).map(r => [r.label, r.value])).toEqual(expected)
+})
+it.each([false, true])('copies the whole reference when the digest is tapped (refused: %s)', async refused => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const image = 'ghcr.io/acme/cache:7@' + digest
+  const writeText = vi.fn(async () => { if (refused) throw new Error('denied') })
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  // The page's polls stay in flight, so the seeded reads remain what it shows.
+  vi.stubGlobal('fetch', () => new Promise(() => {}))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey('/projects/shop/deployments'), [env()])
+  client.setQueryData(getKey(`${base}/resources`), { reading: {}, parts: [imagePart(image)], limits: [], limitsKnown: true })
+  client.setQueryData(getKey(`${base}/diagnostics`), { reading: {}, containers: true, parts: [diag('web')] })
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/containers/web`]}><Routes><Route path="/projects/:slug/deployments/:name/containers/:part" element={<DeploymentContainerPage />} /></Routes></MemoryRouter></QueryClientProvider>))
+    const button = el.querySelector<HTMLButtonElement>(`button[title="${digest}"]`)
+    expect(button).not.toBeNull()
+    // The handler awaits the clipboard; a second act lets its refusal settle.
+    await act(async () => button!.click())
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    expect(writeText).toHaveBeenCalledWith(image)
+    expect(el.textContent?.includes('Could not copy the image reference.')).toBe(refused)
+  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

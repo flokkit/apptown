@@ -1414,6 +1414,8 @@ not unknown, and the page leaves them out. Each of its parts is what the
 observer last saw its address answer: `serving` (this release's marker),
 `not serving` (an answer, but not this release) or unknown with the reason.
 
+The container page shows the image's registry, repository, tag and digest when named, or its local Image ID when no registry is recorded; Docker release references appear only when the daemon confirms the running image holds their digest.
+
 A part's recent log (`GET .../logs?part=`) is read only when someone asks, by
 someone holding `deployment:operate` on the project, since a log can hold the
 app's secrets: reading the deployment is not enough. The part must be one of

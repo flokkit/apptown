@@ -213,6 +213,10 @@ type digestHosts struct {
 	told atomic.Pointer[string]
 	// onPull, if set, sees each pull before it is answered.
 	onPull atomic.Pointer[func(host string)]
+	// readsUse, when set, answers a running container's use and names its
+	// image by the ID it runs, as a host does for a release by digest. Off,
+	// the daemon's own configured replies stand.
+	readsUse atomic.Bool
 }
 
 func (h *digestHosts) daemon(target string) *dockerfake.Daemon {
@@ -256,6 +260,30 @@ func (h *digestHosts) Run(ctx context.Context, host string, req docker.Command) 
 			(*hook)(host)
 		}
 		return h.pull(host, config, args[1])
+	case h.readsUse.Load() && len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat && err == nil:
+		var runtime docker.Runtime
+		if err := json.Unmarshal(out, &runtime); err != nil {
+			return nil, err
+		}
+		runtime.ImageName = runtime.Image
+		return json.Marshal(runtime)
+	case h.readsUse.Load() && len(args) > 4 && args[0] == "stats":
+		var rows strings.Builder
+		for _, container := range args[4:] {
+			fmt.Fprintf(&rows, "%s\t1MiB / 128MiB\t0.1%%\n", container)
+		}
+		return []byte(rows.String()), nil
+	case len(args) == 5 && args[0] == "image" && args[1] == "inspect" && args[3] == "{{.Id}} {{json .RepoDigests}}" && args[4] == "sha256:built":
+		h.mu.Lock()
+		var refs []string
+		for ref, held := range h.held[host] {
+			if held {
+				refs = append(refs, ref)
+			}
+		}
+		h.mu.Unlock()
+		raw, err := json.Marshal(refs)
+		return append([]byte("sha256:built "), raw...), err
 	case len(args) >= 3 && args[0] == "image" && args[1] == "inspect" && docker.IsDigestReference(args[len(args)-1]):
 		ref := args[len(args)-1]
 		h.mu.Lock()

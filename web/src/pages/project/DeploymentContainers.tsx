@@ -31,8 +31,31 @@ export type ContainerRow = { part: string; label: string; role?: string; diag?: 
 // the rows label it.
 export const containerPath = (slug: string, name: string, part: string) => `/projects/${slug}/deployments/${name}/containers/${encodeURIComponent(part || 'app')}`
 
-// An image run by its ID reads as Docker's short ID; a named one in full.
-const shortImage = (image: string) => image.startsWith('sha256:') ? image.slice(7, 19) : image
+// imageRows splits Docker references after separating the digest and tag;
+// a colon in the registry's port is not a tag. The registry is the host
+// alone; the namespace is part of the repository, as docker pull names it.
+export function imageRows(image: string): { label: string; value: string; title?: string }[] {
+  if (!image) return [{ label: 'Image', value: '—' }]
+  if (image.startsWith('sha256:')) return [{ label: 'Image ID', value: image.slice(7, 19), title: image }]
+  const [named, digest] = image.split('@')
+  const colon = named.lastIndexOf(':')
+  const tagged = colon > named.lastIndexOf('/')
+  const tag = tagged ? named.slice(colon + 1) : ''
+  const segments = (tagged ? named.slice(0, colon) : named).split('/')
+  let host = 'docker.io'
+  if (segments.length > 1 && /[.:]|^localhost$/.test(segments[0])) host = segments.shift()!
+  if (host === 'index.docker.io' || host === 'registry-1.docker.io') host = 'docker.io'
+  // Docker Hub's official images live in its library namespace, which people
+  // write without a registry or namespace (mariadb:11.4).
+  if (host === 'docker.io' && segments[0] === 'library' && segments.length === 2) segments.shift()
+  const official = host === 'docker.io' && segments.length === 1
+  return [
+    ...official ? [] : [{ label: 'Registry', value: host }],
+    { label: 'Repository', value: segments.join('/') },
+    ...tag ? [{ label: 'Tag', value: tag }] : [],
+    ...digest ? [{ label: 'Digest', value: digest.slice(0, 19), title: digest }] : [],
+  ]
+}
 
 // containerRows joins the two reads into one row per part. stopped: a person
 // stopped the deployment, so its parts being stopped is what was asked.
@@ -107,6 +130,7 @@ export function DeploymentContainerPage() {
   const [log, setLog] = useState<PartLog | null>(null)
   const [reading, setReading] = useState(false)
   const [err, setErr] = useState('')
+  const [copyError, setCopyError] = useState('')
   const [technical] = useTechnicalDetail()
   const env = deployments.data?.find(e => e.name === name)
   const part = asked === 'app' ? '' : asked
@@ -141,7 +165,13 @@ export function DeploymentContainerPage() {
         : <>
           <DeploymentLine label="Memory" trailer={<Link to={`${base}?tab=settings`}>limit →</Link>}>{u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted">{r.use?.reason || 'unknown'}</span>}</DeploymentLine>
           <DeploymentLine label="CPU">{u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={u.cpuKind === 'shared' ? fmtCores : v => `${fmtCores(v)} cores`} what={`${r.label} CPU`} kind={u.cpuKind === 'shared' ? 'shared CPUs' : undefined} /> : <span className="muted">unknown</span>}</DeploymentLine>
-          <DeploymentLine label="Image">{u?.image ? <code title={u.image}>{shortImage(u.image)}</code> : '—'}</DeploymentLine>
+          {imageRows(u?.image || '').map(row => <DeploymentLine key={row.label} label={row.label}>
+            {row.label === 'Digest' ? <><button className="link" title={row.title} aria-label="Copy image reference" onClick={async () => {
+              setCopyError('')
+              try { await navigator.clipboard.writeText(u!.image!) }
+              catch { setCopyError('Could not copy the image reference.') }
+            }}><code>{row.value}</code></button>{copyError && <span className="error small">{copyError}</span>}</> : row.label === 'Image' ? row.value : <code title={row.title}>{row.value}</code>}
+          </DeploymentLine>)}
           <DeploymentLine label="Started">{f?.running && f.startedAt ? fmtWhen(f.startedAt) : f && !f.running && f.finishedAt ? <>stopped {fmtWhen(f.finishedAt)}{f.exitCode != null ? ` · exit ${f.exitCode}` : ''}</> : '—'}{old && <span className="muted"> (last read {r.diag?.observedAt ? fmtWhen(r.diag.observedAt) : 'earlier'})</span>}</DeploymentLine>
           <DeploymentLine label="Restarts">{f ? f.restarts : '—'}</DeploymentLine>
           <DeploymentLine label="Health check">{f?.health || '—'}</DeploymentLine>

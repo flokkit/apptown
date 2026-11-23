@@ -23,21 +23,21 @@ import (
 // of its profile and overrides: what runs now. Nothing settled, or a
 // generation from before the record was kept, is not recorded.
 func (s *Service) SettledApplied(ctx context.Context, d *Deployment) (AppliedProfile, error) {
-	applied, _, err := s.settled(ctx, d)
+	applied, _, _, err := s.settled(ctx, d)
 	return applied, err
 }
 
-// settled is the settled generation's applied record and when the
+// settled is the settled generation's applied record, bundle ID and when the
 // deployment settled on it: when that generation's attempt finished. A
 // zero time is not known (nothing settled, or an attempt that kept no
 // finish time).
-func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, time.Time, error) {
+func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, time.Time, ids.ID, error) {
 	if d.ServingAttemptID.IsZero() {
-		return AppliedProfile{}, time.Time{}, nil
+		return AppliedProfile{}, time.Time{}, ids.ID{}, nil
 	}
 	at, err := deploymentsql.New(s.db.SQL()).AttemptByID(ctx, d.ServingAttemptID)
 	if err != nil {
-		return AppliedProfile{}, time.Time{}, err
+		return AppliedProfile{}, time.Time{}, ids.ID{}, err
 	}
 	var since time.Time
 	if at.FinishedAt.Valid {
@@ -45,16 +45,17 @@ func (s *Service) settled(ctx context.Context, d *Deployment) (AppliedProfile, t
 	}
 	in, err := releasesql.New(s.db.SQL()).DeploymentInputs(ctx, at.ID)
 	if found, err := database.Lookup(err); err != nil || !found {
-		return AppliedProfile{}, since, err
+		return AppliedProfile{}, since, ids.ID{}, err
 	}
 	applied, err := appliedFrom(in.Applied)
-	return applied, since, err
+	return applied, since, in.BundleID, err
 }
 
 // PartMemory is one part's memory and CPU use now, or why it is unknown. A
 // known use is one container's, sampled while that container stayed the
 // same, with the limits that container is held to (LimitBytes, CPULimit; 0
-// is no limit) and the image it was created from.
+// is no limit) and the image it runs: the recorded release reference when
+// Docker confirms its digest, otherwise the daemon's creation name.
 type PartMemory struct {
 	Part       string  `json:"part"`
 	Need       bool    `json:"need,omitempty"` // a need's service, not an app part
@@ -80,7 +81,7 @@ type PartMemory struct {
 // is there and stopped is known to use nothing. The parts are those
 // the settled generation recorded, else the public part alone.
 func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemory, error) {
-	applied, err := s.SettledApplied(ctx, d)
+	applied, _, bundleID, err := s.settled(ctx, d)
 	if err != nil {
 		return nil, err
 	}
@@ -144,17 +145,32 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 	if err != nil {
 		return unknown(err.Error()), nil
 	}
+	var recorded map[string]string
+	if !bundleID.IsZero() {
+		if bundle, err := s.Bundles.Find(ctx, bundleID); err == nil && bundle != nil {
+			recorded = bundle.Parts
+		}
+	}
+	images := dk
+	images.Client = &imageReadings{Client: dk.Client, byID: map[string]imageReading{}}
 	out := make([]PartMemory, 0, len(parts))
 	for _, p := range parts {
 		c := containerOf[p]
 		b, reported := used[c]
 		first, inspected := before[c]
+		image := first.ImageName
+		if ref := recorded[p]; inspected && docker.IsDigestReference(ref) {
+			held, _ := docker.HoldsDigest(ctx, images, first.Image, ref)
+			if held {
+				image = ref
+			}
+		}
 		after, err := docker.Inspect(ctx, dk, c)
 		switch {
 		case inspected && err == nil && first.ID == after.ID && !first.Running && !after.Running:
 			// A container that is there and stopped uses nothing: the
 			// daemon reports no use for it, which is not a failed read.
-			out = append(out, PartMemory{Part: p, LimitBytes: first.MemoryLimit, CPULimit: float64(first.NanoCPUs) / 1e9, Image: first.ImageName, Known: true, Stopped: true})
+			out = append(out, PartMemory{Part: p, LimitBytes: first.MemoryLimit, CPULimit: float64(first.NanoCPUs) / 1e9, Image: image, Known: true, Stopped: true})
 		case !reported:
 			out = append(out, PartMemory{Part: p, Reason: "the daemon did not report its container"})
 		case !inspected || err != nil:
@@ -162,11 +178,33 @@ func (s *Service) observedMemory(ctx context.Context, d *Deployment) ([]PartMemo
 		case first.ID != after.ID:
 			out = append(out, PartMemory{Part: p, Reason: "its container was replaced while it was being observed"})
 		default:
-			out = append(out, PartMemory{Part: p, UsedBytes: b.MemoryBytes, LimitBytes: first.MemoryLimit, CPUCores: b.CPUCores, CPULimit: float64(first.NanoCPUs) / 1e9, Image: first.ImageName, Known: true})
+			out = append(out, PartMemory{Part: p, UsedBytes: b.MemoryBytes, LimitBytes: first.MemoryLimit, CPUCores: b.CPUCores, CPULimit: float64(first.NanoCPUs) / 1e9, Image: image, Known: true})
 		}
 		out[len(out)-1].Need = applied.Parts[p].Need
 	}
 	return out, nil
+}
+
+// imageReadings is the image-inspect scope of one observation. Parts can
+// share an image ID but name different references; each comparison uses the
+// same daemon answer, including a failed read.
+type imageReading struct {
+	out []byte
+	err error
+}
+type imageReadings struct {
+	docker.Client
+	byID map[string]imageReading
+}
+
+func (r *imageReadings) Run(ctx context.Context, host string, command docker.Command) ([]byte, error) {
+	id := command.Args[len(command.Args)-1]
+	reading, ok := r.byID[id]
+	if !ok {
+		reading.out, reading.err = r.Client.Run(ctx, host, command)
+		r.byID[id] = reading
+	}
+	return reading.out, reading.err
 }
 
 // generationMemory is a deployment's memory as its recorded generation runs

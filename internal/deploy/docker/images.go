@@ -243,6 +243,17 @@ func (r *RecordedImages) pull(ctx context.Context, dk Scope, name, ref string) (
 	return id, nil
 }
 
+// HoldsDigest asks whether the running image ID holds the recorded digest.
+// Failure to ask the daemon is an error, not a confirmed mismatch.
+func HoldsDigest(ctx context.Context, dk Scope, imageID, ref string) (bool, error) {
+	out, err := dk.Run(ctx, "image", "inspect", "--format", "{{.Id}} {{json .RepoDigests}}", imageID)
+	if err != nil {
+		return false, fmt.Errorf("asking the daemon for image %s: %w", imageID, err)
+	}
+	id, held := heldDigest(out, ref)
+	return id == imageID && held, nil
+}
+
 func heldDigest(out []byte, ref string) (string, bool) {
 	id, raw, _ := strings.Cut(strings.TrimSpace(string(out)), " ")
 	var held []string
