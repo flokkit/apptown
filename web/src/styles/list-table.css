@@ -44,6 +44,11 @@
 @media (max-width: 800px), (pointer: coarse) {
   .record-table td :is(button, a.btn):not(.setting-switch, .page-help-q, .chip, .record-name, .more-menu-button) { position: relative; }
   .record-table td :is(button, a.btn):not(.setting-switch, .page-help-q, .chip, .record-name, .more-menu-button)::after { content: ""; position: absolute; inset-inline: 0; top: 50%; height: var(--row-action-size); translate: 0 -50%; }
+  /* A status that opens its details is a chip, so it keeps its stamp size and
+     its text sits on the label's line: the 44px tap area reaches past the
+     chip instead of making the chip 44px tall and centring its text. */
+  .record-table td button.chip-button { position: relative; min-height: 0; overflow: visible; }
+  .record-table td button.chip-button::after { content: ""; position: absolute; inset-inline: 0; top: 50%; height: var(--row-action-size); translate: 0 -50%; }
 }
 .record-table .record-action .row { flex-wrap: nowrap; }
 .record-table button.link { padding-inline: 0; }
