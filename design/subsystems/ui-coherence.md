@@ -35,6 +35,13 @@ the shown page fills the bar: a part kept mounted while hidden (the change
 page's chat behind its other tabs) draws no bar. Headings inside reusable
 parts shown in dialogs are section headings, not page titles. The bar scrolls
 with the page; the chat pages are bounded to the window, so theirs stays.
+On a phone the bar's title shares its line with the menu and the controls,
+so it is the bar-title size (`--fs-bar-title`) and takes at most two lines;
+a longer title is cut with an ellipsis and carries its whole text as its
+`title`. The "?" is a small circle kept on the line of the title's last word,
+with a 44px tap area; on a cut title it ends the second line. Facts after the
+title (a status, the Beta chip) follow it. `web/bar-title.browser-test.mjs`
+checks this in Chromium and WebKit, whose line breaking iPhones use.
 
 With the nav shown, the AppTown wordmark tops it and links Home, and Projects
 is in both the instance and project menus; there is no parent trail, as the

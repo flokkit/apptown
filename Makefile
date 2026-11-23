@@ -293,6 +293,7 @@ check-web-layout:       ## content-sized rows and phone fields hold at every tex
 	python3 scripts/web-fold-check.py
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/type-scale.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/layout.browser-test.mjs
+	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/bar-title.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/people-confirm.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" sh scripts/with-deadline.sh 300 node web/dialogs.browser-test.mjs
 	APPTOWN_PLAYWRIGHT_MODULE="$(APPTOWN_PLAYWRIGHT_MODULE)" node web/test/css-cascade.mjs

@@ -86,7 +86,7 @@ class TestCache(unittest.TestCase):
 
     def test_web_layout_runs_with_the_locked_browser(self):
         web = job(text('ci.yml'), 'web')
-        self.assertIn('npx playwright install --with-deps chromium', web)
+        self.assertIn('npx playwright install --with-deps chromium webkit', web)
         self.assertIn('make check-web-layout', web)
         self.assertIn('APPTOWN_PLAYWRIGHT_MODULE: ${{ github.workspace }}/web/node_modules/playwright/index.mjs', web)
 

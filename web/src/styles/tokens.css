@@ -8,7 +8,9 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   /* Type and space use the 14px Small reference. */
   /* One type scale: five text sizes. Field keeps phone fields from zooming;
-     logo and scene are the wordmark's and the garage scene's own. */
+     logo and scene are the wordmark's and the garage scene's own; bar-title
+     is a page title on a phone, where it shares the bar's line with the menu
+     and the controls. */
   --fs-xs: calc(12rem / 14);     /* meta lines, chips, group labels */
   --fs-sm: calc(13rem / 14);     /* dense tables, secondary text */
   --fs-base: 1rem;   /* body */
@@ -16,6 +18,7 @@
   --fs-xl: calc(26rem / 14);     /* page titles */
   --fs-scene: 0.8rem;
   --fs-logo: calc(17rem / 14);
+  --fs-bar-title: 1.125rem;
   --fs-field: max(1rem, 16px); /* iOS focus must not zoom phone fields. */
   --lh-tight: 1.2;
   --lh-body: 1.5;

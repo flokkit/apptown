@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { PAGE_HELP, PageHead, SUB_HELP } from './PageHead'
+import { BetaPage } from './features'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -23,6 +24,16 @@ const down = (target: Element) => act(() => { target.dispatchEvent(new MouseEven
 
 describe('page help', () => {
   afterEach(() => { document.body.innerHTML = '' })
+
+  // On a phone the "?" is glued to the title's last word (page-head.css); the
+  // Beta chip is a fact after the title, not part of the glued "?".
+  it('wraps only the "?" with the title, and puts the Beta chip after it', () => {
+    const el = render(<BetaPage.Provider value={true}><PageHead page="people" /></BetaPage.Provider>)
+    const help = el.querySelector('.page-bar-title > .page-bar-help')!
+    expect(help.querySelectorAll('button.page-help-q')).toHaveLength(1)
+    expect(help.querySelector('.beta-chip')).toBeNull()
+    expect(el.querySelector('.page-bar-title > .beta-chip')).not.toBeNull()
+  })
 
   // Help describes the page it is on: the marks the rows carry, the actions
   // the page has.
