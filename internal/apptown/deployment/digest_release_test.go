@@ -359,3 +359,52 @@ func TestAReleaseToAHostShortOfDiskChangesNothingThere(t *testing.T) {
 		t.Fatalf("the release once space was freed: %+v %v", rel, err)
 	}
 }
+
+// The release name is an observed identity only when the running image holds
+// that digest; changing the daemon's answer alone must remove that name.
+func TestObservedImageNamesOnlyConfirmedReleaseDigests(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorld(t, "", nil)
+	w.hosts.readsUse.Store(true)
+	b := w.publish(t)
+	dep := w.mainOf(t, b)
+	check := func(held bool) {
+		t.Helper()
+		before := len(w.hosts.commands("lab"))
+		parts, err := w.s.observedMemory(t.Context(), dep)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen := 0
+		for _, p := range parts {
+			if ref := b.Parts[p.Part]; docker.IsDigestReference(ref) {
+				seen++
+				want := "sha256:built"
+				if held {
+					want = ref
+				}
+				if !p.Known || p.Image != want {
+					t.Errorf("part %s: %+v, want image %s", p.Part, p, want)
+				}
+			}
+		}
+		if seen == 0 {
+			t.Fatal("no digest-bundle parts observed")
+		}
+		inspections := 0
+		for _, command := range w.hosts.commands("lab")[before:] {
+			if command == "image inspect --format {{.Id}} {{json .RepoDigests}} sha256:built" {
+				inspections++
+			}
+		}
+		if inspections != 1 {
+			t.Errorf("shared image ID inspected %d times, want once", inspections)
+		}
+
+	}
+	check(true)
+	w.hosts.mu.Lock()
+	w.hosts.held[digestHostOf("lab")] = map[string]bool{}
+	w.hosts.mu.Unlock()
+	check(false)
+}

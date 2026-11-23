@@ -10,4 +10,7 @@
 .container-gauge-high .container-gauge-track::-webkit-meter-optimum-value, .container-gauge-high .container-gauge-track::-webkit-meter-suboptimum-value, .container-gauge-high .container-gauge-track::-webkit-meter-even-less-good-value { background: var(--warn); }
 .container-gauge-high .container-gauge-track::-moz-meter-bar { background: var(--warn); }
 .diagnostics-old { opacity: 0.6; }
+/* The digest is a value that copies its reference when tapped: it sits on
+   the row's text line like the other values, not as a boxed button. */
+.deploy-lines button.link { padding: 0; min-height: 0; font: inherit; }
 }

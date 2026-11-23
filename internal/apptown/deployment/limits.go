@@ -174,7 +174,7 @@ func (o containerOwners) of(container string) (partOf, bool) {
 func (s *Service) ownersOn(ctx context.Context, deps []ProjectDeployment) (containerOwners, error) {
 	o := containerOwners{exact: map[string]partOf{}, services: map[string]ids.ID{}, stacks: map[string]ids.ID{}, settled: map[ids.ID]settledAs{}}
 	for _, d := range deps {
-		applied, since, err := s.settled(ctx, &d.Deployment)
+		applied, since, _, err := s.settled(ctx, &d.Deployment)
 		if err != nil {
 			return o, err
 		}
