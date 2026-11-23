@@ -274,7 +274,7 @@ const roundFixture = await build({
     import { Ident } from './Ident'
     import { ChecksRow } from './pages/project/settings/Working'
     import { PolicyNewPage } from './pages/PoliciesPage'
-    const ok = { word: 'working', reason: '' }
+    const ok = { word: 'working', reason: '', checkedAt: '2026-11-08T11:55:00Z' }
     const row = (app, slug, deployment, label) => ({ app, slug, deployment, label, url: 'https://' + deployment + '.example.test', targetName: 'built-in-docker', observation: 'running', status: ok, backups: true })
     const rows = [row('Club Newsletter', 'club-newsletter', 'production', 'Production'), row('Club Newsletter', 'club-newsletter', 'staging', 'staging'), row('Lunch Orders', 'lunch-orders', 'main', 'main')]
     const tenant = (project, deployment) => ({ kind: 'deployment', name: project + '/' + deployment, project, deployment, containers: 1, used: { known: true, value: 62900000 }, cpuUsed: { known: true, value: 0.02 }, promised: { known: true, value: 0 }, unlimited: 0, cpus: 0, cpuUnlimited: 0, cpuUnread: 0 })
@@ -926,6 +926,13 @@ try {
     const after = await shape()
     want(before.every((b, i) => Math.abs(b.height - after[i].height) <= 1 && Math.abs(b.name - after[i].name) <= 1 && Math.abs(b.value - after[i].value) <= 1), `deployment rows keep their shape when late reads arrive at ${where}: ${JSON.stringify({ before, after })}`)
     if (width === 390) {
+      // A tappable status keeps its 44px tap area without moving its text:
+      // the value's text top sits where its label's does, as other values' do.
+      const lineUp = await page.locator('.fleet-table tbody tr').first().evaluate(tr => {
+        const offset = td => { const r = document.createRange(); r.selectNodeContents(td.querySelector('.chip-word') ?? td.querySelector('a')); return r.getClientRects()[0].top - td.getBoundingClientRect().top - parseFloat(getComputedStyle(td).paddingTop) }
+        return { status: offset(tr.querySelector('td[data-label="Status"]')), deployment: offset(tr.querySelector('td[data-label="Deployment"]')), tap: (b => { const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; return parseFloat(getComputedStyle(b, '::after').height) >= 44 && [-21, 21].every(dy => document.elementFromPoint(x, y + dy) === b) ? 44 : 0 })(tr.querySelector('td[data-label="Status"] .chip-button')) }
+      })
+      want(lineUp.tap >= 44 && Math.abs(lineUp.status - lineUp.deployment) <= 2, `a phone record's tappable status lines up with its label and keeps a 44px tap area (a tap just above or below its text still hits it) at ${where}: ${JSON.stringify(lineUp)}`)
       want(await wordLines('Production') === 1, `"Production" is whole at ${where}`)
       want(await page.locator('.fleet-table td[data-label="Deployment"]').first().evaluate(td => { const b = getComputedStyle(td, '::before'); return parseFloat(b.height) < 2 * parseFloat(b.fontSize) }), `the "Deployment" label is one line at ${where}`)
     }
@@ -1085,7 +1092,7 @@ try {
     // A few pixels is the line spacing around the glyphs; the
     // 44px row this guards against stood 13 to 25 pixels taller.
     want(shape.content <= shape.text + 6, `the Edit display name value is as tall as its text at ${where}: ${JSON.stringify(shape)}`)
-    want(shape.tap >= 44, `Edit display name keeps a 44px tap area at ${where}: ${JSON.stringify(shape)}`)
+    want(shape.tap >= 44, `Edit display name keeps a 44px tap area (a tap just above or below its text still hits it) at ${where}: ${JSON.stringify(shape)}`)
     // Edit and Delete stay together.
     await round('kinds', size)
     await page.getByText('Club sign-in', { exact: true }).waitFor()
