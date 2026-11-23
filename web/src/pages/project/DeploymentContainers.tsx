@@ -1,61 +1,48 @@
 import { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { get } from '../../api'
-import { useGet } from '../../data'
+import { useGet, type Read } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Status } from '../../Status'
-import { CapacityStrip } from '../../CapacityStrip'
 import { ListTable, type ListColumn } from '../../ListTable'
-import { MoreMenu } from '../../MoreMenu'
+import { PageBar } from '../../PageBar'
 import { fmtBytes, fmtCores, fmtWhen } from '../../format'
-import { DiagnosticsDetail, HoldLine, LogView, nextStep, trouble } from './settings/Diagnostics'
+import { containerState, DiagnosticsDetail, HoldLine, LogView, NextStep, type ContainerState } from './settings/Diagnostics'
 import { LimitEventLines } from './settings/Deployments'
+import { DeploymentLine } from './settings/DeploymentLine'
 import { TechnicalWords, useTechnicalDetail } from '../change/TechnicalDetail'
-import type { DeploymentDiagnostics, DeploymentResources, PartLog, PartMemory } from '../../wire.gen'
+import { deploymentName } from '../../deploymentName'
+import type { DeploymentDiagnostics, DeploymentResources, DeploymentView, PartLog, PartMemory } from '../../wire.gen'
+import '../../overview-line.css'
+import './settings/deployments.css'
 import './deployment-containers.css'
 
-// DeploymentContainers is what a deployment runs, one row per container:
-// its state as the host reports it, the image it runs and what it uses now
-// against its limits, with the deployment's totals above. A use the host
-// did not report is unknown, never zero; a part with no limit says so. A
-// target that runs no containers (a bucket website, diagnostics'
-// noContainers) has no image, CPU, memory or start time to show: its rows
-// are its parts and whether its address serves this release.
+// A deployment's containers, one row per part: its state as the host
+// reports it (containerState), what it uses now against its limits, and on
+// its own page the image it runs, when it started, its restarts and health,
+// what happened at its limits and its log. A use the host did not report is
+// unknown, never zero; a part with no limit says so. A target that runs no
+// containers (a bucket website, diagnostics' noContainers) has no image,
+// CPU, memory or start time: its parts say whether its address serves.
 
-type Row = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory }
+export type ContainerRow = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory; state: ContainerState }
+
+// containerPath is a part's own page; the app's unnamed part is "app", as
+// the rows label it.
+export const containerPath = (slug: string, name: string, part: string) => `/projects/${slug}/deployments/${name}/containers/${encodeURIComponent(part || 'app')}`
 
 // An image run by its ID reads as Docker's short ID; a named one in full.
 const shortImage = (image: string) => image.startsWith('sha256:') ? image.slice(7, 19) : image
 
-// kind names what the limit counts (Fly's "shared" CPUs), after it.
-function Gauge({ used, limit, format, what, kind }: { used: number; limit: number; format: (n: number) => string; what: string; kind?: string }) {
-  const percent = limit > 0 ? Math.min(100, used / limit * 100) : 0
-  return <span className={`container-gauge${percent > 80 ? ' container-gauge-high' : ''}`}>
-    <span className="container-gauge-words">{format(used)}{limit > 0 ? <span className="muted"> / {format(limit)}{kind && ` ${kind}`}</span> : <span className="muted"> · no limit</span>}</span>
-    {limit > 0 && <meter className="container-gauge-track" aria-label={`${what} use`} min={0} max={limit} value={Math.min(used, limit)} />}
-  </span>
-}
-
-// stopped: a person stopped the deployment, so its parts being stopped is
-// what was asked, not a failure.
-export function DeploymentContainers({ slug, name, stopped = false }: { slug: string; name: string; stopped?: boolean }) {
-  const base = `/projects/${slug}/deployments/${name}`
-  const resources = useGet<DeploymentResources>(`${base}/resources`, { poll: 5000 })
-  const diagnostics = useGet<DeploymentDiagnostics>(`${base}/diagnostics`, { poll: 5000 })
-  // A log is read when asked and kept only here, as Diagnostics keeps it.
-  const [log, setLog] = useState<PartLog | null>(null)
-  // The part whose log is being read; null when none is. The app's own part
-  // is named '', so '' cannot mean idle.
-  const [reading, setReading] = useState<string | null>(null)
-  const [err, setErr] = useState('')
-  const [technical] = useTechnicalDetail()
-  // The table waits for both first answers: a row drawn from one alone would
-  // call the other's columns unknown while they are only loading.
-  if ((!resources.data && !diagnostics.data) || resources.loading || diagnostics.loading) return <ReadStatus q={[resources, diagnostics]} what="its containers" />
+// containerRows joins the two reads into one row per part. stopped: a person
+// stopped the deployment, so its parts being stopped is what was asked.
+export function containerRows(resources: Read<DeploymentResources>, diagnostics: Read<DeploymentDiagnostics>, stopped: boolean) {
   const unknownNow = resources.refreshFailed || !!resources.data?.reading?.unknown || !!resources.data?.reading?.stale
-  const rows: Row[] = []
+  const diagUnknown = diagnostics.refreshFailed || !!diagnostics.data?.reading?.unknown
+  const rows: ContainerRow[] = []
   const add = (part: string) => {
     let r = rows.find(r => r.part === part)
-    if (!r) rows.push(r = { part, label: part || 'app' })
+    if (!r) rows.push(r = { part, label: part || 'app', state: { word: 'unknown', trouble: '' } })
     return r
   }
   for (const p of diagnostics.data?.parts ?? []) {
@@ -64,69 +51,108 @@ export function DeploymentContainers({ slug, name, stopped = false }: { slug: st
     r.role = p.need ? 'service' : p.public && p.part ? 'front door' : undefined
   }
   for (const p of resources.data?.parts ?? []) {
+    if (p.suppliedService) continue
     const r = add(p.part)
     r.use = p.observed
     r.role ??= p.need ? 'service' : p.public && p.part ? 'front door' : undefined
   }
-  const usage = (r: Row) => !unknownNow && r.use?.known ? r.use : undefined
-  const known = rows.map(usage)
-  const all = known.length > 0 && known.every(Boolean)
-  const sum = (f: (u: PartMemory) => number) => all ? known.reduce((n, u) => n + f(u!), 0) : undefined
-  const limited = (f: (u: PartMemory) => number) => all && known.every(u => f(u!) > 0) ? sum(f) : undefined
-  const shared = all && known.every(u => u!.cpuKind === 'shared')
-  const readLog = async (part: string) => {
-    setReading(part); setErr(''); setLog(null)
-    try { setLog(await get<PartLog>(`${base}/logs?part=${encodeURIComponent(part)}`)) }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
-    finally { setReading(null) }
-  }
-  const diagUnknown = diagnostics.refreshFailed || !!diagnostics.data?.reading?.unknown
-  const noContainers = !!diagnostics.data?.noContainers
-  // Use is shown once diagnostics say there are containers to use it: a
-  // bucket website's CPU and memory are not applicable, never unknown.
-  const showUse = !noContainers
-  const served: ListColumn<Row> = { key: 'status', label: 'Status', phone: 'state', render: r => {
-    const p = r.diag
-    if (!p || diagnostics.refreshFailed || p.presence === 'unknown') return <Status observation word="unknown" help={p?.reason} />
-    return p.presence === 'serving' ? <Status observation word="running" /> : <Status observation word="failed" help={p.reason} />
-  } }
-  const columns: ListColumn<Row>[] = noContainers ? [
-    { key: 'name', label: 'Name', phone: 'name', render: r => <><strong>{r.label}</strong>{r.role && <span className="muted small"> {r.role}</span>}</> },
-    served,
-  ] : [
-    { key: 'name', label: 'Name', phone: 'name', render: r => <><strong>{r.label}</strong>{r.role && <span className="muted small"> {r.role}</span>}</> },
-    { key: 'status', label: 'Status', phone: 'state', render: r => {
-      const p = r.diag
-      if (!p || p.presence === 'unknown' || diagUnknown) return <Status observation word="unknown" help={p?.reason} />
-      const t = trouble(p)
-      if (stopped && p.presence !== 'running') return <Status observation word="stopped" />
-      return <><Status observation word={t ? 'failed' : 'running'} />{t && <span className="muted small"> {t}</span>}</>
-    } },
-    { key: 'image', label: 'Image', kind: 'technical', render: r => <span title={usage(r)?.image}>{usage(r)?.image ? shortImage(usage(r)!.image!) : '—'}</span> },
-    { key: 'cpu', label: 'CPU', render: r => { const u = usage(r); return u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={fmtCores} what={`${r.label} CPU`} kind={u.cpuKind} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
-    { key: 'memory', label: 'Memory', render: r => { const u = usage(r); return u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted" title={r.use?.reason}>unknown</span> } },
-    { key: 'started', label: 'Started', kind: 'time', render: r => r.diag?.facts?.running && r.diag.facts.startedAt ? fmtWhen(r.diag.facts.startedAt) : '—' },
-    { key: 'more', label: '', phone: 'action', render: r => diagnostics.data?.containers && r.diag && r.diag.presence !== 'absent'
-      ? reading === r.part ? <span className="muted small">reading…</span>
-      : <MoreMenu label={r.label} items={[{ label: 'Logs', disabled: reading !== null, onClick: () => readLog(r.part) }]} />
-      : null },
+  for (const r of rows) r.state = containerState(r.diag, { stopped, unknown: diagUnknown })
+  const usage = (r: ContainerRow) => !unknownNow && r.use?.known ? r.use : undefined
+  return { rows, usage, noContainers: !!diagnostics.data?.noContainers }
+}
+
+// nearLimit: a running part using more than 80% of its memory limit.
+export const nearLimit = (u?: PartMemory) => !!u && u.limitBytes > 0 && u.usedBytes / u.limitBytes > 0.8
+
+// kind names what the limit counts (Fly's "shared" CPUs), after it.
+export function Gauge({ used, limit, format, what, kind }: { used: number; limit: number; format: (n: number) => string; what: string; kind?: string }) {
+  const percent = limit > 0 ? Math.min(100, used / limit * 100) : 0
+  return <span className={`container-gauge${percent > 80 ? ' container-gauge-high' : ''}`}>
+    <span className="container-gauge-words">{format(used)}{limit > 0 ? <span className="muted"> / {format(limit)}{kind && ` ${kind}`}</span> : <span className="muted"> · no limit</span>}</span>
+    {limit > 0 && <meter className="container-gauge-track" aria-label={`${what} use`} min={0} max={limit} value={Math.min(used, limit)} />}
+  </span>
+}
+
+export function ContainerStatus({ state }: { state: ContainerState }) {
+  return <Status observation word={state.word} reason={state.word === 'failed' && state.trouble ? state.trouble : undefined} help={state.help} />
+}
+
+// ContainersTable is the deployment page's Containers card: each part, its
+// state and its memory. A managed service the provider runs (an App Platform
+// database) says what it is instead of a gauge. Each row opens its page.
+export function ContainersTable({ slug, env, rows, usage, noContainers }: { slug: string; env: DeploymentView } & ReturnType<typeof containerRows>) {
+  const need = (r: ContainerRow) => r.diag?.need || r.use?.need ? env.needs?.find(n => n.need === r.part) : undefined
+  const columns: ListColumn<ContainerRow>[] = [
+    { key: 'name', label: noContainers ? 'Website' : 'Container', phone: 'name', render: r => <Link to={containerPath(slug, env.name, r.part)}><strong>{r.label}</strong></Link> },
+    { key: 'status', label: 'Status', phone: 'state', render: r => <ContainerStatus state={r.state} /> },
+    ...noContainers ? [] : [{ key: 'memory', label: 'Memory', render: (r: ContainerRow) => {
+      const n = need(r)
+      if (n) return <span title={n.id ? `the provider's id: ${n.id}` : undefined}>{[n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size, n.region].filter(Boolean).join(' · ') || n.name}</span>
+      const u = usage(r)
+      return u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted" title={r.use?.reason}>{r.use?.reason ? 'not reported' : 'unknown'}</span>
+    } }],
   ]
-  return <section className="deployment-containers" aria-label={noContainers ? 'Parts' : 'Containers'}>
-    {showUse && <div className="deployment-containers-strip">
-      <CapacityStrip name="CPU" used={sum(u => u.cpuCores)} total={limited(u => u.cpuLimit)} unlimited {...shared ? { format: fmtCores, basis: 'shared CPUs' } : { format: v => `${fmtCores(v)} cores` }} />
-      <CapacityStrip name="MEMORY" used={sum(u => u.usedBytes)} total={limited(u => u.limitBytes)} unlimited />
-    </div>}
-    <ListTable label={noContainers ? 'Parts' : 'Containers'} className="deployment-containers-table" columns={columns} rows={rows} rowKey={r => r.part || 'app'} />
-    {!noContainers && !diagnostics.data?.reading?.waiting && rows.filter(r => !stopped && r.diag && r.diag.presence !== 'unknown' && trouble(r.diag)).map(r =>
-      <p key={r.part} className="small"><strong>{r.label}</strong>: {nextStep(r.diag!)}</p>)}
-    {diagnostics.data && <HoldLine slug={slug} d={diagnostics.data} />}
-    {diagnostics.data?.unsupported && <p className="muted small">{diagnostics.data.unsupported}</p>}
-    {resources.data && !noContainers && <div className="small"><LimitEventLines r={resources.data} /></div>}
-    {technical && diagnostics.data && <DiagnosticsDetail d={diagnostics.data} busy={reading !== null} onLog={readLog} />}
-    {diagnostics.data?.unsettled && <TechnicalWords shown={technical}>{diagnostics.data.unsettled}</TechnicalWords>}
-    {showUse && rows.some(r => !usage(r)) && <p className="muted small">{rows.find(r => !usage(r) && r.use?.reason)?.use?.reason ?? 'Its host did not report what every container uses.'}</p>}
+  return <ListTable label={noContainers ? 'Website' : 'Containers'} className="deployment-containers-table" columns={columns} rows={rows} rowKey={r => r.part || 'app'} rowTo={r => containerPath(slug, env.name, r.part)} />
+}
+
+// DeploymentContainerPage is one part's page: its state and use, the image
+// it runs and when it started, its restarts and health check, what happened
+// at its limits in the last day, and its log, read when asked.
+export function DeploymentContainerPage() {
+  const { slug = '', name = '', part: asked = '' } = useParams()
+  const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
+  const base = `/projects/${slug}/deployments/${name}`
+  const resources = useGet<DeploymentResources>(`${base}/resources`, { poll: 5000 })
+  const diagnostics = useGet<DeploymentDiagnostics>(`${base}/diagnostics`, { poll: 5000 })
+  const [log, setLog] = useState<PartLog | null>(null)
+  const [reading, setReading] = useState(false)
+  const [err, setErr] = useState('')
+  const [technical] = useTechnicalDetail()
+  const env = deployments.data?.find(e => e.name === name)
+  const part = asked === 'app' ? '' : asked
+  if (!env || !resources.data && !diagnostics.data || resources.loading || diagnostics.loading) return <><PageBar title={part || 'app'} /><ReadStatus q={[deployments, resources, diagnostics]} what="this container" /></>
+  const { rows, usage, noContainers } = containerRows(resources, diagnostics, env.runtimeState === 'stopped')
+  const r = rows.find(r => r.part === part)
+  // Absence is said only on both answers: a read that failed cannot show a
+  // part is not there.
+  const partial = <ReadStatus q={[resources, diagnostics]} what="this container" />
+  if (!r) return <><PageBar title={part || 'app'} />{resources.data && diagnostics.data ? <><StaleNote q={[resources, diagnostics]} /><p className="muted">{deploymentName(env)} has no container called {part || 'app'}.</p></> : partial}</>
+  const u = usage(r)
+  const d = diagnostics.data
+  const f = r.diag?.facts
+  const old = !!(r.diag?.stale || d?.reading?.waiting) && !!f
+  const readLog = async () => {
+    setReading(true); setErr(''); setLog(null)
+    try { setLog(await get<PartLog>(`${base}/logs?part=${encodeURIComponent(r.part)}`)) }
+    catch (e) { setErr(e instanceof Error ? e.message : String(e)) }
+    finally { setReading(false) }
+  }
+  const events = resources.data && { ...resources.data, limits: resources.data.limits.filter(l => l.part === r.part) }
+  return <>
+    <PageBar title={<>{r.label} <span className="title-context">{deploymentName(env)}</span></>} after={<ContainerStatus state={r.state} />}
+      actions={d?.containers && r.diag && r.diag.presence !== 'absent' ? <button disabled={reading} onClick={readLog}>{reading ? 'Reading the log…' : 'Log'}</button> : undefined} />
+    {partial}
     <StaleNote q={[resources, diagnostics]} />
+    <div className="card deploy-entry"><div className="deploy-lines">
+      {r.role && <DeploymentLine label="Role">{r.role}</DeploymentLine>}
+      {r.state.word === 'failed' && <DeploymentLine label="Next"><NextStep p={r.diag!} settings={`${base}?tab=settings`} container={containerPath(slug, name, r.part)} /></DeploymentLine>}
+      {noContainers
+        ? <DeploymentLine label="Serves">{r.state.word === 'running' ? 'this release at its address' : r.diag?.reason || 'not known'}</DeploymentLine>
+        : <>
+          <DeploymentLine label="Memory" trailer={<Link to={`${base}?tab=settings`}>limit →</Link>}>{u ? <Gauge used={u.usedBytes} limit={u.limitBytes} format={fmtBytes} what={`${r.label} memory`} /> : <span className="muted">{r.use?.reason || 'unknown'}</span>}</DeploymentLine>
+          <DeploymentLine label="CPU">{u ? <Gauge used={u.cpuCores} limit={u.cpuLimit} format={u.cpuKind === 'shared' ? fmtCores : v => `${fmtCores(v)} cores`} what={`${r.label} CPU`} kind={u.cpuKind === 'shared' ? 'shared CPUs' : undefined} /> : <span className="muted">unknown</span>}</DeploymentLine>
+          <DeploymentLine label="Image">{u?.image ? <code title={u.image}>{shortImage(u.image)}</code> : '—'}</DeploymentLine>
+          <DeploymentLine label="Started">{f?.running && f.startedAt ? fmtWhen(f.startedAt) : f && !f.running && f.finishedAt ? <>stopped {fmtWhen(f.finishedAt)}{f.exitCode != null ? ` · exit ${f.exitCode}` : ''}</> : '—'}{old && <span className="muted"> (last read {r.diag?.observedAt ? fmtWhen(r.diag.observedAt) : 'earlier'})</span>}</DeploymentLine>
+          <DeploymentLine label="Restarts">{f ? f.restarts : '—'}</DeploymentLine>
+          <DeploymentLine label="Health check">{f?.health || '—'}</DeploymentLine>
+          {events && <DeploymentLine label="Last day"><LimitEventLines r={events} /></DeploymentLine>}
+        </>}
+      {d?.hold && <DeploymentLine label="Restarts held"><HoldLine slug={slug} d={d} /></DeploymentLine>}
+      {d?.unsupported && <DeploymentLine label="Not read"><span className="muted">{d.unsupported}</span></DeploymentLine>}
+    </div></div>
+    {technical && d && <DiagnosticsDetail d={d} busy={reading} onLog={() => readLog()} />}
+    {d?.unsettled && <TechnicalWords shown={technical}>{d.unsettled}</TechnicalWords>}
     {err && <p className="error">{err}</p>}
     {log && <LogView log={log} onClose={() => setLog(null)} />}
-  </section>
+  </>
 }

@@ -141,8 +141,8 @@ const targetFixture = await build({
 })
 // The number of lines an element's text runs to, by its line boxes.
 const textLines = el => { const range = document.createRange(); range.selectNodeContents(el); return new Set([...range.getClientRects()].filter(r => r.width > 0).map(r => Math.round(r.bottom))).size }
-// Phone list shapes from real pages: a deployment's parts with their CPU and
-// memory, its technical parts table with a long state, an activity row
+// Phone list shapes from real pages: a deployment's Containers card with each
+// container's memory, its technical parts table with a long state, an activity row
 // styled by its page, a title with its status and button, and a table of
 // row headers inside the change page's wrappers.
 const phoneListsFixture = await build({
@@ -151,7 +151,8 @@ const phoneListsFixture = await build({
     import { createRoot } from 'react-dom/client'
     import { MemoryRouter } from 'react-router-dom'
     import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-    import { DeploymentContainers } from './pages/project/DeploymentContainers'
+    import { ContainersTable, containerRows } from './pages/project/DeploymentContainers'
+    import { useGet } from './data'
     import { DiagnosticsDetail } from './pages/project/settings/Diagnostics'
     import { ListRow } from './ListRow'
     import { ListTable } from './ListTable'
@@ -164,8 +165,13 @@ const phoneListsFixture = await build({
     const used = (part, need, usedBytes) => ({part,public:!need,need,memory:'256 MB',cpu:'',overrideLabel:{},overrideApplied:false,observed:{part,need,usedBytes,limitBytes:268435456,cpuCores:0,cpuLimit:0,image:'sha256:b56a936be1430000',known:true}})
     const resources = {reading,recorded:true,parts:[used('web',false,65956249),used('postgres',true,25375539)],limits:[],limitsKnown:true,limitsSource:'docker'}
     window.fetch = async path => new Response(JSON.stringify(String(path).endsWith('/resources') ? resources : String(path).endsWith('/diagnostics') ? diagnostics : {}), {headers:{'Content-Type':'application/json'}})
+    // The deployment page's Containers card, from the same two reads.
+    function Parts() {
+      const r = useGet('/projects/if-only/deployments/main/resources'), d = useGet('/projects/if-only/deployments/main/diagnostics')
+      return r.data && d.data ? <ContainersTable slug="if-only" env={{ name: 'main' }} {...containerRows(r, d, false)} /> : null
+    }
     createRoot(document.getElementById('root')).render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><main className="main" style={{padding:16}}>
-      <div id="parts"><DeploymentContainers slug="if-only" name="main" /></div>
+      <div id="parts"><Parts /></div>
       <div id="technical-parts"><DiagnosticsDetail d={diagnostics} busy={false} onLog={() => {}} /></div>
       <div id="grid-list" style={{display:'grid'}}><section><ListTable label="Connections" rows={['ChatGPT']} rowKey={r=>r} columns={[{key:'agent',label:'Agent',phone:'name',render:r=>r},{key:'permissions',label:'Permissions',render:()=><button className="link">Can create and edit changes</button>}]} /></section></div>
       <section id="activity"><ListRow to="/changes/14" className="card row application-overview-card" state={<span className="row-status"><Status word="deployed" /></span>} identity={<><strong>#14 Publish the winter ride times</strong><span className="muted small">Release 16 · main</span></>} /></section>
@@ -780,7 +786,7 @@ try {
         } else assert.deepEqual(r.labels, [], 'desktop rows show column headers, not labels')
       }
       if (width === 390) {
-        assert.deepEqual(records[0].labels.filter(l => ['CPU', 'Memory'].includes(l)), ['CPU', 'Memory'], 'each part says which figure is CPU and which is memory')
+        assert.deepEqual(records[0].labels.filter(l => ['Status', 'Memory'].includes(l)), ['Status', 'Memory'], 'each container says which value is its status and which its memory')
         assert.ok(await page.locator('#activity .list-row').evaluate(row => row.querySelector('.list-state').getBoundingClientRect().top >= row.querySelector('.list-identity').getBoundingClientRect().bottom - 1), `an activity row's status sits under its title at 390, ${size}`)
         assert.ok(await page.locator('#activity strong').evaluate(textLines) <= 2, `an activity title is not squeezed at 390, ${size}`)
         assert.equal(await page.locator('#title h1').evaluate(textLines), 1, `a title keeps its words on one line at 390, ${size}`)

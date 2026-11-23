@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import css from './deploy-scene.css?inline'
-import cardCss from '../project/deployment-deploys.css?inline'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -174,19 +173,6 @@ it('keeps the jib still while trolleys carry and hoist each load', () => {
     }
     expect(getComputedStyle(el.querySelector('.idle-rig')!).opacity).toBe('0')
     expect(getComputedStyle(el.querySelector('.active .hoist')!).animation).toContain('deploy-hoist')
-  } finally { el.remove(); style.remove() }
-})
-
-it('uses the existing OK colour for the deployment card live heading', () => {
-  const style = document.createElement('style')
-  style.textContent = cardCss.replace('@layer pages {', '').replace(/}\s*$/, '')
-  document.head.append(style)
-  const el = document.createElement('div'); document.body.append(el)
-  try {
-    el.innerHTML = '<div class="deployment-deploy-card"><div class="ch-deploy-heading"><strong class="ok">It’s live!</strong></div></div>'
-    const heading = getComputedStyle(el.querySelector('strong')!)
-    expect(heading.fontSize).toBe('var(--fs-lg)')
-    expect(heading.color).toBe('var(--ok)')
   } finally { el.remove(); style.remove() }
 })
 

@@ -113,7 +113,12 @@ func (s *Service) displayObservations(ctx context.Context, rows []listingRecord)
 		}
 		release := latest[dep.ID]
 		var releasing *releaseProgress
-		if release.State == "releasing" || release.State == "failed" && (o.AttemptedAt.Before(release.StageFinishedAt.Time) || dep.ObservedGeneration == 0) {
+		// A failed latest release is the answer while the reading predates it,
+		// when nothing was ever applied, and when a reading after it finds
+		// nothing running: a failure that leaves the app down is headed
+		// failed, not stopped. A person's recorded stop is the answer over it
+		// (observations.read reports that stop as stopped, never attempted).
+		if release.State == "releasing" || release.State == "failed" && dep.RuntimeState != "stopped" && (o.AttemptedAt.Before(release.StageFinishedAt.Time) || dep.ObservedGeneration == 0 || o.State == RuntimeStopped) {
 			releasing = &releaseProgress{Number: release.Number, Stage: release.Stage}
 			if release.State == "failed" {
 				releasing.Failure = release.Failure

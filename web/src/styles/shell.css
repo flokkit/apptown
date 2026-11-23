@@ -30,6 +30,9 @@
 .page-bar-lead { order: 0; }
 .page-bar .page-bar-title { order: 1; flex: 1 1 0; min-height: 44px; }
 .page-bar .page-bar-actions { order: 2; }
+/* Context before or after a page's own name in its title ("Change #3:",
+   a deployment's project): the same size, in the muted ink, regular weight. */
+.page-bar-page .title-context { color: var(--muted); font-weight: var(--fw-regular); }
 .page-bar-trail { order: 3; }
 /* The actions sit on the title's line, centred on it like the controls. On a
    phone the title's line is the menu, the title and the controls; the

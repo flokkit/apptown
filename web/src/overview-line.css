@@ -1,6 +1,9 @@
 @layer components {
-/* Overview facts share one label | value | trailer grid. */
-.ch-overview-line, .deploy-entry .deploy-line { display: grid; grid-template-columns: 9rem minmax(0, 1fr) 12rem; align-items: start; gap: 16px; margin: 0; padding: 16px 0; border-top: 1px solid var(--border); }
+/* Overview facts share one label | value | trailer grid. The trailer column
+   is as wide as its content, and an empty trailer is not drawn, so a line
+   with nothing to link keeps no blank column (or, stacked, no blank row). */
+.ch-overview-line, .deploy-entry .deploy-line { display: grid; grid-template-columns: 9rem minmax(0, 1fr) auto; align-items: start; gap: 16px; margin: 0; padding: 16px 0; border-top: 1px solid var(--border); }
+.ch-overview-line > :nth-child(3):empty, .deploy-entry .deploy-line > .deploy-trailer:empty { display: none; }
 @media (max-width: 600px) {
   .ch-overview-line, .deploy-entry .deploy-line { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }

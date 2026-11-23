@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
 import { act } from 'react'
+import { DeploymentStatus } from '../DeploymentStatus'
+import { DeployAction } from './Deployments'
+import { useGet } from '../../../data'
+import type { ReleaseListed } from '../../../wire.gen'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -7,7 +11,7 @@ import { expect, it, vi } from 'vitest'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
-import { DeploymentFacts, EnvCard, DeploymentReleaseCell } from './Deployments'
+import { DeploymentReleaseCell } from './Deployments'
 import { DeploymentTable } from '../../DeploymentTable'
 import { DeploymentTitle } from '../DeploymentDeploys'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -21,7 +25,8 @@ function DeploymentRow({ slug, env }: { slug: string; env: DeploymentView; curre
 
 // The deployment page's head (title, status, facts) above its details card.
 function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
-  return <><div className="deploy-head"><DeploymentTitle name={env.displayLabel || env.name} env={env} /><DeploymentFacts slug={slug} env={env} /></div><EnvCard slug={slug} env={env} onChanged={() => {}} /></>
+  const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`)
+  return <><DeploymentTitle name={env.displayLabel || env.name} env={env} actions={<DeployAction slug={slug} env={env} />} /><DeploymentStatus slug={slug} env={env} refreshFailed={false} releases={releases} current reload={async () => {}} onChoose={() => {}} /></>
 }
 
 
@@ -261,7 +266,7 @@ it.each(['row', 'card'])('does not infer absence from truncated history in the %
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter>{view === 'row' ? <DeploymentRow slug="shop" env={e} /> : <PageCard slug="shop" env={e} />}</MemoryRouter></QueryClientProvider>)
   client.clear()
   expect(html).not.toContain('No serving release recorded')
-  expect(html).toContain('Running release 7')
+  expect(html).toContain(view === 'row' ? 'Running release 7' : 'Release 7')
   expect(html).toContain('/projects/shop/releases/7')
 })
 

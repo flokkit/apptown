@@ -163,7 +163,11 @@ func (s *Service) ControlRuntime(ctx context.Context, projectID ids.ID, name, ac
 		if dep.ObservedGeneration == 0 {
 			return fault.New(fault.Conflict, "deploy a release before using runtime controls")
 		}
-		if action == "start" && dep.RuntimeState != "stopped" && !retry {
+		// Stopped is a person's recorded stop or a current reading that the app
+		// is not running (it exited by itself); the page offers Start for both.
+		observed := s.observations.read(listingRecord{deployment: dep, target: target}, s.now()).Running()
+		stopped := dep.RuntimeState == "stopped" || observed != nil && !*observed
+		if action == "start" && !stopped && !retry {
 			return fault.New(fault.Conflict, "the deployment is already running")
 		}
 		if action != "start" && dep.RuntimeState == "stopped" {

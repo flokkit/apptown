@@ -50,7 +50,7 @@ export function ChangeHeader({ view, compact }: { view: ChangeView; compact?: bo
   const advice = useFailureAdvice(view)
   return (
     <header className="ch-head">
-      <PageBar title={<><span className="ch-number">Change #{ch.number}:</span> {ch.title}</>} after={<>
+      <PageBar title={<><span className="title-context">Change #{ch.number}:</span> {ch.title}</>} after={<>
         {ch.automatedOrigin && <span className="small muted">Janitor</span>}
         {!compact && <><WaitingStatus waiting={view.waitingOn} changeId={view.change.id} />{advice.text && advice.recommend && <span>{recommendationWords(advice.recommend)}</span>}</>}
         {ch.provenance && <span className="badge" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}

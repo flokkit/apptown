@@ -88,12 +88,7 @@ failure reason. Cancel restores the choices. Sending back an approval records th
 Abandon asks inline: “Abandon this change? The branch is kept; the workspace is
 removed.” The acceptance screen labels the request, approval brief when available, checks,
 landing destination and who decides, then keeps the stated meaning beside the
-choices. The deployment page leads with its name and current deploy state. Its
-latest deploy card fills the content width, with the scene beside the text on
-desktop and stacked on phones. The card keeps a fixed height and scene size.
-A compact labelled list shows the reported stages inline. Timing, current detail,
-backup outcome and recovery choices stay in the card. Success names the recorded release, address
-and Open the app link. Full run rows stay in the change's Details.
+choices. Full run rows stay in the change's Details.
 While building, the crane keeps its jib level: its trolley carries each block
 into position, lowers it on a vertical cable, and raises the empty hook before
 returning. Blocks are spaced across 80% of the previous successful landing’s
@@ -296,25 +291,40 @@ The serving release comes from the deployment listing’s own release record,
 independently of bounded project history. Unknown or stale runtime observations
 keep serving status unknown; a stopped deployment retains its recorded release.
 “No serving release recorded” requires a known observation and no release record.
-Deployments keeps configuration. The deployment page leads with the
-latest deploy card, then invocation history with outcome, time, source change,
-backup outcome and links to releases that were created. The deployment owner's
-`deploys` read includes invocations before provider admission; the scene reads
-the release's recorded stage and time in that stage. Recovery stages are last-seen
-history. A stale release read freezes the scene and marks current progress unknown.
+Deployments keeps configuration. The deployment page's bar holds the project's
+name, then the deployment's, its status, and its acts (Start, Stop, Restart,
+Deploy latest or Promote, ⋯). Its Status tab is one column, two equal columns
+above 1100 px. The first holds status rows: what the deployment is doing (the
+serving release as its owner states it, a deploy on its way with its stages, or
+not deployed yet), then one row per problem, worst first, each with the one act
+that fixes it: a host that did not answer, a failed latest release, a release
+waiting for a person, a container that failed or is near its memory limit,
+backups none, overdue or unknown, a host out of disk, low on disk, unread or
+over-committed, paused automatic deploys and uncertain readiness. A failure, a
+silent host or a waiting release leads; what runs then moves to the facts.
+The second column holds the facts card (address, what runs when no row said it,
+host and backups when no row is about them, AI models, restore facts) and, wide,
+the Containers card (state and memory per container). Narrower, the facts card
+lists the containers as links instead. A browser's failed refresh is the page's
+stale note, never a host row. The rows show a deploy's stages, not the time in
+the current stage: the release log and the change's live panel keep that. Each
+container has its own page (`…/containers/:part`, the unnamed part as `app`):
+memory, CPU, image, start, restarts, health, the last day's limit events and its
+log. The deployment's backups (`…/backups`) are the owner's protection account.
+History lists each release with its outcome, time, how long it took, source
+change, assent and backup. Recovery stages are last-seen history. A stale
+release read marks current progress unknown.
 
 Project Deployments lists each deployment with its status, display
 name, address, backup warning when needed, and serving release or preview change.
 Disk warnings and uncertain readiness stay visible in the summary. Rows place
 status first, then name and address, summary facts and the action. Each row opens
-`/projects/:slug/deployments/:name`, which keeps the full deployment card and its
-controls. The page title keeps status beside the deployment name and its address
-below. Overview, the deployment list, the detail heading and the instance fleet
+`/projects/:slug/deployments/:name`. Overview, the deployment list, the detail heading and the instance fleet
 use `deploymentStatus.tsx` for overall status: a running generation with missing,
 stale or unknown diagnostics, or any part not reporting, is unknown. Stopped
-and unreachable runtime observations keep their words. The Backups row states
-missing copies, host-only retention and the declared-needs coverage limit once;
-provider names and assessed-item detail use Techno Goggles.
+and unreachable runtime observations keep their words. The deployment's backups
+page states missing copies, host-only retention and the declared-needs coverage
+limit once; provider names and assessed-item detail use Techno Goggles.
 Creation, release preferences and old resources stay on the list page.
 
 The change page's Conversation tab owns its live chat. An explicit tab wins;

@@ -32,16 +32,38 @@ export function trouble(p: Part): string {
   return [f && f.restarts > 0 ? `restarted ${f.restarts}×` : '', f?.health === 'unhealthy' ? 'unhealthy' : ''].filter(Boolean).join(' · ')
 }
 
-const partName = (p: { part: string }) => p.part || 'app'
+// ContainerState is one part's state, decided once for every place that
+// shows it (the Containers card, the container's page and the deployment's
+// problem rows): unknown when the diagnostics read or its refresh failed or
+// the host did not answer for the part, never failed; stopped when a person
+// stopped the deployment and the part is not running, which is what was
+// asked; failed when trouble says so; running otherwise. trouble stays the
+// words that explain it.
+export type ContainerState = { word: 'unknown' | 'stopped' | 'failed' | 'running'; trouble: string; help?: string }
+export function containerState(p: Part | undefined, { stopped, unknown }: { stopped: boolean; unknown: boolean }): ContainerState {
+  if (!p || unknown || p.presence === 'unknown') return { word: 'unknown', trouble: '', help: p?.reason }
+  if (stopped && p.presence !== 'running' && p.presence !== 'serving') return { word: 'stopped', trouble: '' }
+  if (p.presence === 'not serving') return { word: 'failed', trouble: 'not serving', help: p.reason }
+  if (p.presence === 'serving') return { word: 'running', trouble: '' }
+  // A part killed for memory says that; its exit code and restarts are on
+  // its own page.
+  const t = p.facts?.oomKilled ? 'killed: out of memory' : trouble(p)
+  return t ? { word: 'failed', trouble: t, help: p.reason } : { word: 'running', trouble: '' }
+}
+
+export const partName = (p: { part: string }) => p.part || 'app'
 const at = (iso?: string) => (iso ? fmtWhen(iso) : '')
 
-// nextStep is the one thing to do first about a part's trouble.
-export function nextStep(p: Part): string {
+// nextStep is the one thing to do first about a part's trouble, as a
+// sentence. Where it names something to change, that word opens it: the
+// memory its limit is set in (the deployment's Settings), the log on the
+// container's page.
+export function NextStep({ p, settings, container }: { p: Part; settings: string; container: string }) {
   const f = p.facts
-  if (p.presence === 'unknown') return 'its host did not answer; it is asked again shortly'
-  if (f?.oomKilled) return 'raise its memory (Override memory…) or read its log'
-  if (p.presence === 'absent') return 'deploy again to start it'
-  return 'read its log to see why'
+  if (p.presence === 'unknown') return <>Its host did not answer; it is asked again shortly.</>
+  if (f?.oomKilled) return <>Raise its <Link to={settings}>memory</Link> or read its <Link to={container}>log</Link>.</>
+  if (p.presence === 'absent') return <>Deploy again to start it.</>
+  return <>Read its <Link to={container}>log</Link> to see why.</>
 }
 
 // HoldLine says AppTown stopped a part that kept restarting, or tried to.

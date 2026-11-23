@@ -11,9 +11,29 @@ import { deploymentName } from '../../deploymentName'
 import type { BackupTaken, DeploymentChecked, DeploymentView, OperationAdmitted } from '../../wire.gen'
 
 // DeploymentMenu holds a deployment's less common acts behind ⋯, beside its
-// Start / Stop / Restart. Back up now is the target's own way: a Docker
-// or Portainer backup, or a copy of a cloud deployment's data; such a
-// deployment is restored from one of its copies here too.
+// Start / Stop / Restart. Back up now is the target's own way (useBackUp);
+// a Docker host or Portainer deployment is restored from one of its backups
+// here too.
+// useBackUp is Back up now, the target's own way, for whoever may deploy:
+// the menu's item and the deployment page's backups row are this one act.
+// A Docker host's and a Portainer environment's data is backed up and
+// restored in place; a cloud deployment's managed database is copied, and
+// only ever started from. backUp is undefined where there is no such act.
+export function useBackUp(slug: string, env: DeploymentView) {
+  const nav = useNavigate()
+  const backups = useNotOff('backups')
+  const deploy = useHolds('deployment:deploy', slug)
+  const action = useAction(undefined, { affects: [`/projects/${slug}/deployments`] })
+  const base = `/projects/${slug}/deployments/${env.name}`
+  const inPlace = env.target?.kind === 'docker-host' || env.target?.kind === 'portainer'
+  const backUp = !backups || !deploy ? undefined : inPlace
+    ? async () => { const r = await action.run(() => post<BackupTaken>(`${base}/backups`, {})); if (r?.backup) nav(`/backups#backup-${r.backup.id}`) }
+    : env.target?.kind === 'do-app'
+    ? async () => { const r = await action.run(() => post<OperationAdmitted>(`${base}/copies`, {})); if (r?.operationId) nav(`/operations/${r.operationId}`) }
+    : undefined
+  return { backUp, inPlace, ...action }
+}
+
 export function DeploymentMenu({ slug, env, current, reload, onDeployRelease }: { slug: string; env: DeploymentView; current: boolean; reload: () => Promise<void>; onDeployRelease: () => void }) {
   const nav = useNavigate()
   const backups = useNotOff('backups')
@@ -21,17 +41,8 @@ export function DeploymentMenu({ slug, env, current, reload, onDeployRelease }: 
   const deploy = useHolds('deployment:deploy', slug)
   const [takingDown, setTakingDown] = useState(false)
   const [restoring, setRestoring] = useState(false)
-  const { run, busy, err } = useAction(undefined, { affects: [`/projects/${slug}/deployments`] })
+  const { backUp, inPlace, run, busy, err } = useBackUp(slug, env)
   const base = `/projects/${slug}/deployments/${env.name}`
-  // A Docker host's and a Portainer environment's data is backed up and
-  // restored in place; a cloud deployment's managed database is copied, and
-  // only ever started from.
-  const inPlace = env.target?.kind === 'docker-host' || env.target?.kind === 'portainer'
-  const backUp = !backups || !deploy ? undefined : inPlace
-    ? async () => { const r = await run(() => post<BackupTaken>(`${base}/backups`, {})); if (r?.backup) nav(`/backups#backup-${r.backup.id}`) }
-    : env.target?.kind === 'do-app'
-    ? async () => { const r = await run(() => post<OperationAdmitted>(`${base}/copies`, {})); if (r?.operationId) nav(`/operations/${r.operationId}`) }
-    : undefined
   const items: MoreItem[] = [
     ...(deploy ? [{ label: 'Deploy a release…', onClick: onDeployRelease, disabled: !current }] : []),
     ...(backUp ? [{ label: 'Back up now', onClick: backUp, disabled: busy || !env.generation }] : []),

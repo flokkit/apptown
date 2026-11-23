@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 type runtimeDriver struct {
@@ -421,5 +422,38 @@ func TestFailedReplacementCanBeStoppedButCannotStartMixedReleaseParts(t *testing
 	}
 	if _, err := s.ControlRuntime(t.Context(), dep.ProjectID, dep.Name, "start"); fault.KindOf(err) != fault.Unprocessable {
 		t.Fatal(err)
+	}
+}
+
+// An app that stopped by itself (nobody pressed Stop, a current reading says
+// it is not running) can be started; one a current reading says runs cannot.
+// The page offers Start on the same evidence.
+func TestAnAppThatStoppedByItselfCanBeStarted(t *testing.T) {
+	s, dep, driver, _ := runtimeFixture(t, KindDockerHost)
+	now := time.Now().UTC()
+	s.setClock(func() time.Time { return now })
+	// The fixture's host holds no container for it: the reading says stopped.
+	if err := s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ControlRuntime(t.Context(), dep.ProjectID, dep.Name, "start")
+	if err != nil || got.RuntimeState != "running" || !slices.Equal(driver.actions, []string{"start"}) {
+		t.Fatalf("start of an app that stopped by itself: %+v %v %v", got, err, driver.actions)
+	}
+	// A current reading that it runs, published as the sweep publishes one.
+	now = now.Add(time.Minute)
+	records, err := s.listRecords(t.Context(), []ids.ID{dep.ProjectID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range records {
+		if r.deployment.ID == dep.ID {
+			s.observations.mu.Lock()
+			s.observations.entries[dep.ID] = observationEntry{key: observationKey(r), value: RuntimeObservation{State: RuntimeRunning, AttemptedAt: now, ObservedAt: now}}
+			s.observations.mu.Unlock()
+		}
+	}
+	if _, err := s.ControlRuntime(t.Context(), dep.ProjectID, dep.Name, "start"); fault.KindOf(err) != fault.Conflict {
+		t.Fatalf("start of a running app: %v", err)
 	}
 }

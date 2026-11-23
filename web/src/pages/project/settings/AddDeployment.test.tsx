@@ -49,7 +49,8 @@ it('puts the target first, constrains offer choices, clears fixed fields and kee
     expect(slot.getAttribute('aria-hidden')).toBe('false')
     expect(slot.compareDocumentPosition(create()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await act(async () => create().click())
-    expect(el.textContent).toContain('Offer changed')
+    // The refusal arrives with the request's answer, after the click's act.
+    await vi.waitFor(() => expect(el.textContent).toContain('Offer changed'))
     await change('Target', 'local')
     expect(el.textContent).not.toContain('Offer changed')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }

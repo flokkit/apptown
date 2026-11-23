@@ -301,7 +301,6 @@
 .ch-preview-switches { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
 .ch-preview-switches .ch-technical-switch { margin: 0; }
 .ch-overview [hidden] { display: none; }
-.page-bar-page .ch-number { color: var(--muted); font-weight: inherit; }
 
 /* The change card's first row needs no rule above it. */
 .ch-change-card > .ch-overview-line:first-of-type { border-top: 0; padding-top: 0; }

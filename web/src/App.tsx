@@ -9,6 +9,8 @@ import PoliciesPage, { PolicyNewPage } from './pages/PoliciesPage'
 import { CheckProjects, GuidanceProjects, PolicyProjects, PackProjects, IntegrationProjects } from './pages/DependentProjects'
 
 import { DeploymentPage } from './pages/project/settings/Deployments'
+import { DeploymentContainerPage } from './pages/project/DeploymentContainers'
+import { DeploymentBackupsPage } from './pages/project/DeploymentBackups'
 import WorkRecordPage from './pages/change/WorkRecord'
 import { MEMORY_TABS, SECURITY_TABS, SETTINGS_TABS, SETTINGS_LABEL } from './pages/project/tabs'
 import { ProjectMark } from './ProjectListRow'
@@ -331,6 +333,8 @@ export default function App() {
           <Route path="/projects/_new" element={<CoreArea area="projects"><NewProject /></CoreArea>} />
           <Route path="/projects/:slug/releases/:number/log" element={<CoreArea area="releases"><ReleaseLogPage /></CoreArea>} />
           <Route path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>} />
+          <Route path="/projects/:slug/deployments/:name/containers/:part" element={<CoreArea area="projects"><DeploymentContainerPage /></CoreArea>} />
+          <Route path="/projects/:slug/deployments/:name/backups" element={<CoreArea area="projects"><DeploymentBackupsPage /></CoreArea>} />
           <Route path="/projects/:slug" element={<CoreArea area="projects"><Project /></CoreArea>} />
           <Route path="/operations/:id" element={<CoreArea area="record"><OperationPage /></CoreArea>} />
           <Route path="/projects/:slug/:tab" element={<ProjectFeatureGate><Project /></ProjectFeatureGate>} />
