@@ -298,7 +298,7 @@ try {
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
     glossary: '/docs/guides/glossary', 'setups-guide': '/docs/guides/setups',
     'model-profile': '/integrations/profiles/standard', 'target-new': '/targets/new',
-    services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main', 'deployment-settings': '/projects/club-newsletter/deployments/main?tab=settings',
+    services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main', 'deployment-settings': '/projects/club-newsletter/deployments/main?tab=settings', 'deployment-container': '/projects/club-newsletter/deployments/main/containers/web', 'deployment-backups': '/projects/club-newsletter/deployments/main/backups',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
     overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', 'project-console': '/projects/club-newsletter/console', console: `/changes/${seeded.chat}?tab=conversation`,
@@ -414,11 +414,9 @@ try {
     'past-chats': '/projects/club-newsletter/chats', 'past-chat': `/projects/club-newsletter/chats/${process.env.DESIGN_PROJECT_CHAT}`,
     'release-log': '/projects/club-newsletter/releases/1/log',
   });
-  const deployScenes = {
-    preparing: ['Code', 'getting the code ready'], 'backing-up': ['Backup', 'backing up the data'],
-    building: ['Build', 'building the app'], starting: ['Start', 'starting the app'],
-    checking: ['Check', 'checking the app answers'], live: ['Live', 'live'], failed: ['Start', 'starting the app'],
-  };
+  // Each stage's word on the deployment page (the stage a failed release
+  // stopped at, for failed).
+  const deployScenes = { preparing: 'Code', 'backing-up': 'Backup', building: 'Build', starting: 'Start', checking: 'Check', live: 'Live', failed: 'Start' };
   // The deployments TestWebUICapture holds at each stage (cameraDeployments there).
   // One release is mid-deploy (members-preview's), moved to each stage
   // before its pages are shot (heldStages, final stops); staging's has just
@@ -605,19 +603,21 @@ try {
             if (!aligned) throw new Error('connection column headers and rows are misaligned');
           }
           if (screen.startsWith('deployment-') && screen.slice('deployment-'.length) in deployScenes) {
+            // The deployment page's status rows: a deploy on its way lists
+            // its stages with the current one running; a failed release
+            // names the stage it failed at; a live one leads with its release.
             const stage = screen.slice('deployment-'.length);
-            const [word, description] = deployScenes[stage];
-            const scene = page.locator('.deployment-deploy-card .deploy-scene');
-            const active = scene.locator('li[aria-current="step"]');
-            if (await scene.count() !== 1 || await scene.evaluate(el => el.classList.contains('paused')) ||
-                await active.count() !== 1 || !(await active.innerText()).includes(word)) throw new Error('deployment scene has no active ' + stage + ' stage');
+            const word = deployScenes[stage];
+            const rows = page.locator('.deployment-status-rows');
+            const stages = rows.locator('ol.deploy-stages');
             if (stage === 'failed') {
-              if (await scene.locator('.bad').count() !== 1 || await scene.locator('svg').getAttribute('aria-label') !== 'Stopped while ' + description) throw new Error('deployment failure did not light its failed stage');
-            } else if (stage !== 'live') {
-              // Preparing has no picture: it would draw only the plan's outline.
-              if (await active.locator('.busy').count() !== 1 || (stage === 'preparing' ? await scene.locator('svg').count() !== 0 : await scene.locator('svg').getAttribute('aria-label') !== 'Deploying: ' + description) ||
-                  !(await page.locator('.ch-deploy-progress').innerText()).match(new RegExp(description + ' · \\d'))) throw new Error('deployment scene is not running at ' + stage + ' with time in stage');
-            } else if (await scene.locator('svg').getAttribute('aria-label') !== 'The app is live') throw new Error('released deployment is not live');
+              if (!(await rows.innerText()).includes('failed at ' + word)) throw new Error('deployment failure does not name its failed stage');
+            } else if (stage === 'live') {
+              if (await stages.count() !== 0 || await rows.locator('a.run-link', { hasText: /^Release \d+$/ }).count() !== 1) throw new Error('released deployment does not lead with the release it serves');
+            } else {
+              const active = stages.locator('li[aria-current="step"]');
+              if (await stages.count() !== 1 || await active.count() !== 1 || !(await active.innerText()).includes(word) || await active.locator('.busy').count() !== 1) throw new Error('deployment is not running at its ' + stage + ' stage');
+            }
           }
           if (screen === 'deployment') {
             const waiting = facts.releases.find(r => r.deployment === 'main' && r.state === 'waiting for approval');
@@ -801,11 +801,15 @@ try {
           // with real values, not "unknown".
           if (!process.env.DESIGN_BASELINE) {
             const lines = words.split('\n').map(line => line.trim());
-            const readings = { deployment: ['CPU', 'MEMORY'], target: ['CPU', 'MEMORY', 'DISK'] }[screen] ?? [];
+            // The deployment page shows its containers' memory, not CPU (that is
+            // each container's page): its gauge check is below.
+            const readings = { target: ['CPU', 'MEMORY', 'DISK'] }[screen] ?? [];
             for (const label of readings) {
               if (!lines.includes(label) || lines[lines.indexOf(label) + 1] === 'unknown') throw new Error(`${screen}: ${label} was not read`);
             }
-            if (screen === 'deployment' && (!words.includes('/ 256 MB') || words.includes('did not report what every container uses'))) throw new Error('deployment: its parts do not report their use against their limits');
+            // Screens over 1100 px show the Containers card with each part's
+            // memory against its limit; narrower ones list the containers as links.
+            if (screen === 'deployment' && page.viewportSize().width > 1100 && (!await page.locator('.deployment-containers-table').isVisible() || !words.includes('/ 256 MB'))) throw new Error('deployment: its parts do not report their use against their limits');
             if (screen === 'check-record' && words.includes('is turned off')) throw new Error('check-record: an earlier shot left its feature turned off');
             // A deploy under way names what is served, never the release on its
             // way, and does not offer a second deploy admission would refuse.
