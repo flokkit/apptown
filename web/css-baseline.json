@@ -52,7 +52,7 @@
     "apptown/pixel-spacing": 1
   },
   "web/src/pages/project/settings/deployments.css": {
-    "apptown/pixel-spacing": 8,
+    "apptown/pixel-spacing": 6,
     "declaration-no-important": 1
   },
   "web/src/pages/project/settings/general.css": {

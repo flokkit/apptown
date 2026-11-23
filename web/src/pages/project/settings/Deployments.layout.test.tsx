@@ -1,4 +1,9 @@
 import { enabledFeatures } from '../../../features.fixture'
+import { DeploymentStatus } from '../DeploymentStatus'
+import { ProtectionLines } from '../../DataProtection'
+import { DeployAction } from './Deployments'
+import { useGet } from '../../../data'
+import type { ReleaseListed } from '../../../wire.gen'
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -6,7 +11,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { DeploymentFacts, EnvCard } from './Deployments'
 import { DeploymentTitle } from '../DeploymentDeploys'
 
 // A status's details ride in its title, not in the page text.
@@ -14,9 +18,15 @@ const details = (root: Element) => [...root.querySelectorAll('[data-help], [titl
 
 // The deployment page's head (title, status, facts) above its details card.
 function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
-  return <><div className="deploy-head"><DeploymentTitle name={env.displayLabel || env.name} env={env} /><DeploymentFacts slug={slug} env={env} /></div><EnvCard slug={slug} env={env} onChanged={() => {}} /></>
+  const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`)
+  return <><DeploymentTitle name={env.displayLabel || env.name} env={env} actions={<DeployAction slug={slug} env={env} />} /><DeploymentStatus slug={slug} env={env} refreshFailed={false} releases={releases} current reload={async () => {}} onChoose={() => {}} /></>
 }
 
+
+// The Status tab, and the deployment's backups page one tap from it.
+function BackupsAndCard({ env }: { env: DeploymentView }) {
+  return <><PageCard slug="lunch" env={env} /><div className="card deploy-entry"><div className="deploy-lines"><ProtectionLines slug="lunch" name={env.name} /></div></div></>
+}
 
 // A running deployment observation must not claim working while the host's
 // per-part observation is unknown. Missing backups get one actionable account.
@@ -40,8 +50,8 @@ function card() {
     operations: { copy: { available: false, reason: 'backups-page' }, check: elsewhere, restore: elsewhere, finalCopy: elsewhere, rehearsal: { available: false, reason: 'no-copy', why } },
   })
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="lunch" env={{
-    name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', feed: 'main', audience: 'team', data: 'production',
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><BackupsAndCard env={{
+    name: 'main', displayLabel: 'Lunch Orders', generation: 1, kind: 'standing', backups: true, feed: 'main', audience: 'team', data: 'production',
     status: { word: 'unknown', reason: 'web did not answer in time · old reading', checkedAt: at, stale: true }, observation: 'running', observedAt: at, readiness: 'reconciled', url: 'https://lunch.example', target: { kind: 'docker-host', name: 'local' },
   } as DeploymentView} /></MemoryRouter></QueryClientProvider>)
   client.clear()
@@ -54,6 +64,8 @@ it('shows deployment facts without fold-downs', () => {
   expect(el.querySelector('[aria-hidden="true"]')?.textContent).toBeDefined()
   expect(el.textContent).toContain('Not covered: anything the app stores outside its declared needs')
   expect(el.querySelector('a[href="https://lunch.example"]')).not.toBeNull()
+  // The missing backup is a row on the Status tab that opens the backups page.
+  expect(el.querySelector('a[href="/projects/lunch/deployments/main/backups"]')?.textContent).toBe('Backups')
 })
 
 it('shows one deployment check timestamp', () => {
@@ -73,7 +85,7 @@ it('says the missing backup once, with a disabled restore test and its reason', 
 })
 
 it('shows unknown in the head when the host reports unknown parts', () => {
-  const head = card().querySelector('.deploy-head')!
+  const head = card().querySelector('.page-bar-title')!
   expect(head.textContent).toContain('unknown')
   expect(head.textContent).not.toContain('working')
 })

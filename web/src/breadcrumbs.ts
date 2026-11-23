@@ -38,6 +38,8 @@ export const PAGE_ROUTES = [
   "/projects/_new",
   "/projects/:slug/releases/:number/log",
   "/projects/:slug/deployments/:name",
+  "/projects/:slug/deployments/:name/containers/:part",
+  "/projects/:slug/deployments/:name/backups",
   "/projects/:slug",
   "/operations/:id",
   "/projects/:slug/:tab",

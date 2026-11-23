@@ -4,7 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentResources, ProjectSecrets } from '../../../wire.gen'
-import { ResourceLines, HostLine } from './Deployments'
+import { ResourceLines } from './Deployments'
+import { hostProblems } from '../DeploymentStatus'
+import type { Read } from '../../../data'
+import type { DeploymentView } from '../../../wire.gen'
 
 // A deployment's card says what each part may use as the target holds it,
 // what it uses now, and which profile it runs and will run: no limit only
@@ -17,8 +20,9 @@ const render = (res: Partial<DeploymentResources>, choice?: Partial<ProjectSecre
   return renderToStaticMarkup(
     <QueryClientProvider client={client}><MemoryRouter><ResourceLines slug="game" name="cloud" /></MemoryRouter></QueryClientProvider>)
 }
-// The deployment's Host line: always present, so the page keeps its shape.
-const share = (s?: NonNullable<DeploymentResources['share']>) => renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><HostLine share={s} target="lab" /></MemoryRouter></QueryClientProvider>)
+// What the deployment page says of its host: one row per problem, or
+// nothing when the host is fine (its name is then a fact, not a row).
+const share = (s?: NonNullable<DeploymentResources['share']>) => renderToStaticMarkup(<>{hostProblems({ generation: 1, target: { name: 'lab', kind: 'docker-host' } } as DeploymentView, { data: { share: s, reading: {} }, loading: false } as unknown as Read<DeploymentResources>).map(h => <p key={h.key}>{h.state} {h.sub}</p>)}</>)
 
 describe("a deployment's resources", () => {
   it('shows App Platform declarations with the size they run on, never as no limit', () => {
@@ -47,17 +51,18 @@ describe("a deployment's resources", () => {
     expect(html).toContain('size small')
     expect(html).toContain('256M')
   })
-  it('says whether the host takes new deploys and what its memory limits add up to against its memory', () => {
+  it('says what is wrong with the host, each once, and nothing when it is fine', () => {
     const fig = (value: number) => ({ known: true, value })
     const read = { readAt: '2026-11-09T01:00:00Z', target: 'lab', elastic: false, declared: fig(2 ** 30), used: fig(2 ** 20) }
     const html = share({ ...read, hostMemory: fig(8 * 2 ** 30), limits: fig(10 * 2 ** 30), overcommitted: true, lowDisk: true, diskRefuses: false })
-    expect(html).toContain('href="/targets/lab"')
-    expect(html).toContain('ready for deploys · low on disk')
-    expect(html).toContain('memory limits add up to 10 GB of 8 GB')
+    expect(html).toContain('low on disk')
+    expect(html).toContain('over-committed')
+    expect(html).toContain('Memory limits 10 GB, host 8 GB.')
     const refused = share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: true, diskRefuses: true })
-    expect(refused).toContain('new deploys blocked: low on disk')
-    expect(share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: false, diskRefuses: false })).toContain('lab · ready for deploys')
-    expect(share({ target: 'do-syd', elastic: true, hostMemory: { known: false, value: 0 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false })).toContain('grows on demand')
+    expect(refused).toContain('out of disk')
+    expect(refused).toContain('New deploys are blocked.')
+    expect(share({ ...read, hostMemory: fig(8 * 2 ** 30), overcommitted: false, lowDisk: false, diskRefuses: false })).toBe('')
+    expect(share({ target: 'do-syd', elastic: true, hostMemory: { known: false, value: 0 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false })).toBe('')
   })
   it('shows the recorded default source and explicit unlimited act separately', () => {
     const html = render({ parts: [
@@ -85,9 +90,8 @@ it('names the product that supplied the memory default', () => {
 it('says unknown, not ready and not the host check error, when the host reading is missing, stale or failed', () => {
   const host = { target: 'lab', elastic: false, hostMemory: { known: true, value: 2 ** 30 }, requested: { known: true, value: 2 ** 29 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false }
   for (const html of [share(undefined), share(host), share({ ...host, readAt: '2026-10-10T01:00:00Z', stale: true }), share({ ...host, readAt: '2026-10-10T01:00:00Z', error: 'The host capacity check failed.' })]) {
-    expect(html).toContain('Host')
     expect(html).toContain('unknown')
-    expect(html).not.toContain('ready for deploys')
+    expect(html).toContain('disk and memory could not be read')
     expect(html).not.toContain('capacity check failed')
     expect(html).not.toContain('requested of')
   }

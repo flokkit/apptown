@@ -10,7 +10,7 @@ import appSource from '../../../App.tsx?raw'
 import { getKey, newQueryClient } from '../../../data'
 import { fmtStamp } from '../../../format'
 import { ParentLink } from '../../../PageBar'
-import { DeploymentPage, DeploymentsTab, EnvCard } from './Deployments'
+import { DeployAction, DeploymentPage, DeploymentsTab } from './Deployments'
 
 // The person may deploy and operate the project's deployments.
 const HOLDS = { instance: {}, project: { 'deployment:deploy': true, 'deployment:operate': true } }
@@ -83,15 +83,15 @@ it('routes to the full card with footer controls and the way back to Deployments
   const root = createRoot(el)
   try {
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`${base}/main`]}><ParentLink /><Routes><Route path="/projects/:slug/deployments/:name" element={<DeploymentPage />} /></Routes></MemoryRouter></QueryClientProvider>))
-    await vi.waitFor(() => expect(el.querySelector('.deploy-entry')).not.toBeNull())
+    await vi.waitFor(() => expect(el.querySelector('.deployment-status .deploy-entry')).not.toBeNull())
     expect(el.querySelector('a.sidebar-parent')?.getAttribute('href')).toBe('/projects/lunch/deployments')
     expect(el.querySelector('.page-bar-page')?.textContent).toContain('Lunch Orders')
     expect(el.querySelectorAll('h1')).toHaveLength(1)
-    expect(el.querySelector('.deployment-address a')?.getAttribute('href')).toBe('https://lunch.example')
+    expect(el.querySelector('.deployment-status a.app-address')?.getAttribute('href')).toBe('https://lunch.example')
     // Status, History and Settings are tabs of the page; Status shows first.
     expect([...el.querySelectorAll('.deployment-tabs a')].map(a => [a.textContent, a.getAttribute('href'), a.getAttribute('aria-current')])).toEqual([['Status', '/projects/lunch/deployments/main', 'page'], ['History', '/projects/lunch/deployments/main?tab=history', null], ['Settings', '/projects/lunch/deployments/main?tab=settings', null]])
     expect(el.textContent).not.toContain('Edit display name')
-    expect(el.textContent).toContain('resources →')
+    expect(el.querySelector('.deployment-status a[href="/targets/local"]')).not.toBeNull()
     // The application's route must take precedence over the generic project tab.
     expect(appSource).toContain('path="/projects/:slug/deployments/:name" element={<CoreArea area="projects"><DeploymentPage /></CoreArea>}')
   } finally {
@@ -99,19 +99,15 @@ it('routes to the full card with footer controls and the way back to Deployments
   }
 })
 
-// The card keeps its own acts after the list becomes a summary.
-it.each(['reconciled', 'uncertain'])('keeps %s deployment actions in the card footer', readiness => {
+// A deployment whose feed is not main offers its deploy in the bar, beside
+// ⋯; take down stays in ⋯ and the name in Settings.
+it.each(['reconciled', 'uncertain'])('offers Promote in the bar of a %s promoted deployment', readiness => {
   const client = newQueryClient()
   const el = document.createElement('div')
-  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><EnvCard slug="lunch" env={{ ...env, name: 'staging', generation: 0, feed: 'promotion', readiness, target: { ...env.target!, kind: 's3-bucket' } }} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>)
-  const footer = el.querySelector('.deploy-more')!
-  expect(footer.textContent).not.toContain('Check again')
-  expect(footer.textContent).toContain('Promote')
-  // Take down is in the deployment's ⋯ menu, not the card.
-  expect(footer.textContent).not.toContain('Tear down')
-  // The name and the history are the page's Settings and History tabs.
-  expect(footer.textContent).not.toContain('Edit display name')
-  expect(footer.querySelector('a')).toBeNull()
+  el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><DeployAction slug="lunch" env={{ ...env, name: 'staging', generation: 0, feed: 'promotion', readiness, target: { ...env.target!, kind: 's3-bucket' } }} /></MemoryRouter></QueryClientProvider>)
+  expect(el.textContent).toContain('Promote')
+  expect(el.textContent).not.toContain('Tear down')
+  expect(el.querySelector('a')).toBeNull()
   client.clear()
 })
 

@@ -537,3 +537,62 @@ func TestNeverDeployedIsNotDeployedNotStopped(t *testing.T) {
 		t.Fatalf("applied and stopped: %+v", a)
 	}
 }
+
+// A replacement that fails and leaves the app down is headed failed, with the
+// failure, on the listing's answer: the first reading after the failure must
+// not turn it into "stopped". A failure with the earlier release still running
+// keeps the earlier release's answer.
+func TestAFailedReplacementThatLeavesNothingRunningIsHeadedFailed(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		state RuntimeState
+		want  ProgressLabel
+	}{
+		{"nothing runs", RuntimeStopped, progressLabelFailed},
+		{"the earlier release runs", RuntimeRunning, progressLabelWorking},
+		{"a person stopped it after the failure", RuntimeStopped, progressLabelStopped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, dep, _, _ := runtimeFixture(t, KindDockerHost)
+			now := time.Now().UTC()
+			s.setClock(func() time.Time { return now })
+			rel, err := s.Releases.Start(t.Context(), ReleaseDraft{Source: ReleaseFromBundle, ProjectID: dep.ProjectID, DeploymentID: dep.ID, Deployment: dep.Name, Revision: "two", Actor: "sam"}, "starting")
+			if err != nil {
+				t.Fatal(err)
+			}
+			at, _, err := s.Outcomes.Admit(t.Context(), Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "replacement", Inputs: Inputs{ReleaseID: rel.ID, Revision: "two"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Outcomes.Fail(t.Context(), at, deploy.Terminal(errors.New("the app container exited during startup"))); err != nil {
+				t.Fatal(err)
+			}
+			now = now.Add(time.Minute)
+			// The reading after the failure, published as the sweep publishes
+			// one: this fixture's host cannot be made to report both outcomes.
+			records, err := s.listRecords(t.Context(), []ids.ID{dep.ProjectID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, r := range records {
+				if r.deployment.ID == dep.ID {
+					s.observations.mu.Lock()
+					s.observations.entries[dep.ID] = observationEntry{key: observationKey(r), value: RuntimeObservation{State: tc.state, AttemptedAt: now, ObservedAt: now}}
+					s.observations.mu.Unlock()
+				}
+			}
+			if tc.want == progressLabelStopped {
+				if _, err := s.ControlRuntime(t.Context(), dep.ProjectID, dep.Name, "stop"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			got, err := s.Status(t.Context(), dep.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Word != tc.want || tc.want == progressLabelFailed && !strings.Contains(got.Reason, "exited during startup") {
+				t.Fatalf("answer: %+v", got)
+			}
+		})
+	}
+}

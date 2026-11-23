@@ -84,3 +84,14 @@ it('offers the same action for an unconfirmed stop, keeping its error visible', 
   expect(button(host, '■ Stop').disabled).toBe(false)
   expect(host.querySelectorAll('button')).toHaveLength(1)
 })
+
+// An app that stopped by itself (a current reading says nothing runs, nobody
+// pressed Stop) is started, not stopped again.
+it('offers Start, not Stop or Restart, when a current reading says nothing runs', async () => {
+  const host = await render({ ...env, running: false, observation: 'stopped', status: { word: 'stopped', reason: 'the application is stopped', stale: false } })
+  expect([...host.querySelectorAll('button')].map(b => b.textContent)).toEqual(['▶ Start'])
+})
+it.each([['App Platform', 'App Platform cannot keep an app stopped'], ['Fly', 'This Fly target does not keep an app stopped yet']])('keeps Restart on %s when a reading says nothing runs', async (_, reason) => {
+  const host = await render({ ...env, running: false, runtimeActions: ['restart'], runtimeControls: { deploy: '', start: reason, stop: reason, restart: '' } })
+  expect([...host.querySelectorAll('button')].map(b => b.textContent)).toEqual(['↻ Restart'])
+})

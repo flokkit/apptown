@@ -1,0 +1,17 @@
+@layer pages {
+/* The Status tab: one column, two equal columns from the width where the
+   sidebar unfolds. The Containers card is for the wide layout; below it the
+   facts card carries a line of links to the containers instead. */
+.deployment-status { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.deployment-status .section-body { margin-top: 0; }
+.deployment-status-rows .list-detail .deploy-stages { margin: var(--space-2) 0 0; }
+.deployment-status-rows .list-detail p { margin: var(--space-1) 0 0; }
+.deployment-status-rows .list-identity > .muted.small { overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .deployment-wide-only { display: none; } }
+@media not all and (max-width: 1100px) {
+  .deployment-status { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .deployment-narrow-only { display: none; }
+}
+/* The facts card's first line carries no rule above it, whichever line it is. */
+.deployment-status-facts .deploy-lines > :first-child, .deployment-status-facts .deploy-lines > .deployment-narrow-only:first-child .deploy-line { border-top: 0; padding-top: 0; }
+}

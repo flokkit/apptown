@@ -1,7 +1,4 @@
 @layer components {
-.deployment-containers { display: grid; gap: var(--space-2); margin-block: var(--space-3); }
-.deployment-containers p { margin: 0; }
-.deployment-containers-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--space-4); }
 .container-gauge { display: grid; min-width: 7rem; gap: calc(var(--space-1) * 0.75); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
 .container-gauge-words { overflow: hidden; text-overflow: ellipsis; }
 /* A native meter, styled like the shared progress bar: the browser draws the

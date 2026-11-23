@@ -8,7 +8,6 @@ import { DeploymentClassification, PROTECTED_WORDS } from './DeploymentClassific
 import '../../../overview-line.css'
 import { DeploymentDeploys, type DeploymentTab } from '../DeploymentDeploys'
 import { Tabs } from '../../../Tabs'
-import { DeploymentContainers } from '../DeploymentContainers'
 import { DeploymentTable } from '../../DeploymentTable'
 import { setPageContext } from '../../../chrome'
 import { TechnicalWords, useTechnicalDetail } from '../../change/TechnicalDetail'
@@ -18,18 +17,17 @@ import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
-import { AppAddress, failedRuntimeRefresh } from '../../../runtime'
+import { failedRuntimeRefresh } from '../../../runtime'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { del, post, put, type ChangeView } from '../../../api'
-import { useAction, useGet, useRefresh } from '../../../data'
+import { useAction, useGet, useRefresh, type Read } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { fmtBytes, fmtWhen, fmtStamp } from '../../../format'
 import { AUDIENCES, DATA_CLASSES, AUDIENCE_WORDS, DATA_WORDS, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
-import { ProtectionLines } from '../../DataProtection'
 import { Section } from '../../../Section'
 import { ListTable, type ListColumn } from '../../../ListTable'
-import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, DeploymentDiagnostics, OverrideResult, ProjectSecrets, DeploymentView, FinalCopies, ProjectTargets, ReleaseListed, ReleaseRequested, RetainedList } from '../../../wire.gen'
+import type { ProjectDetail, AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, OverrideResult, ProjectSecrets, DeploymentView, FinalCopies, ProjectTargets, ReleaseListed, ReleaseRequested, RetainedList } from '../../../wire.gen'
 
 // Project deployments (design/subsystems/deployment.md §2.3, §2.7, §15.7): the
 // deployments of this project, each bound to a target the
@@ -85,7 +83,10 @@ function FeedPause({ env: e }: { env: DeploymentView }) {
     : null
 }
 
-function ServingRelease({ slug, env: e }: { slug: string; env: DeploymentView }) {
+// ServingRelease is the release a deployment serves as its owner states it:
+// running, recorded (a stopped deployment's), unknown or none recorded, with
+// its link and time when the owner names a number.
+export function ServingRelease({ slug, env: e }: { slug: string; env: DeploymentView }) {
   const number = e.status.servingReleaseNumber
   const release = e.servingRelease
   return <>{number ? <Link to={`/projects/${slug}/releases/${number}`}>{e.status.servingRelease}</Link> : e.status.servingRelease}{release && release.number === number && e.status.word !== 'deploying' && <> · {fmtStamp(release.releasedAt || release.createdAt)}</>}</>
@@ -99,6 +100,21 @@ function promotionHelp(e: DeploymentView) {
 
 function deployLabel(e: DeploymentView) {
   return e.feed === 'promotion' ? e.promotionRelease ? `Promote release ${e.promotionRelease}` : 'Promote' : 'Deploy latest'
+}
+
+// backupProblem is what is wrong with a deployment's backups, from the
+// owner's protection answer, for every place that warns of it: none (an item
+// has no copy yet), overdue, unknown (the read or its refresh failed, or the
+// owner could not tell), or '' when nothing is wrong or the read is refused.
+export type BackupProblem = '' | 'none' | 'overdue' | 'unknown'
+export function backupProblem(q: Read<DeploymentProtection>): BackupProblem {
+  const p = q.data
+  if (q.denied) return ''
+  if (!p || q.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale) return 'unknown'
+  if (p.items.some(i => i.copy === 'none')) return 'none'
+  if (p.items.some(i => i.copyLabel === 'overdue')) return 'overdue'
+  if (p.items.some(i => i.copyLabel === 'unknown')) return 'unknown'
+  return ''
 }
 
 // DeploymentReleaseCell is a deployment's release facts for the project's
@@ -116,12 +132,8 @@ export function DeploymentReleaseCell({ slug, env: e }: { slug: string; env: Dep
   const change = useGet<ChangeView>(e.kind === 'preview' && e.changeId ? `/changes/${e.changeId}` : null)
   const releases = useGet<ReleaseListed[]>(e.kind !== 'preview' ? `/projects/${slug}/releases` : null)
   const waitingRelease = releases.data?.find(r => r.deployment === e.name && r.state === 'waiting for approval')
-  const p = protection.data
-  const backup = !hasProtection || protection.denied ? ''
-    : !p || protection.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale ? 'backup unknown'
-    : p.items.some(i => i.copy === 'none') ? 'no backup yet'
-    : p.items.some(i => i.copyLabel === 'overdue') ? 'backup overdue'
-    : p.items.some(i => i.copyLabel === 'unknown') ? 'backup unknown' : ''
+  const problem = hasProtection ? backupProblem(protection) : ''
+  const backup = problem === 'none' ? 'no backup yet' : problem ? `backup ${problem}` : ''
   const share = resources.data?.share
   const warning = e.readiness === 'uncertain' ? 'uncertain'
     : share?.diskRefuses ? 'disk full' : share?.lowDisk ? 'low disk'
@@ -141,18 +153,30 @@ export function DeploymentReleaseCell({ slug, env: e }: { slug: string; env: Dep
 const DEPLOYMENT_TABS: { key: DeploymentTab; label: string }[] = [{ key: 'status', label: 'Status' }, { key: 'history', label: 'History' }, { key: 'settings', label: 'Settings' }]
 
 // DeploymentSettings is what a person sets on a deployment: where its
-// releases come from and who approves them, its limits, and its name.
+// releases come from and who approves them, its limits, and its name; and
+// where it runs, with the way to that host's resources.
 export function DeploymentSettings({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
   return <>
     <RoutineUpdates key={`${slug}/${e.name}/routine-updates`} slug={slug} name={e.name} />
     <DeploymentFeed key={`${slug}/${e.name}/feed`} slug={slug} name={e.name} />
     {e.kind === 'standing' && <DeploymentClassification key={`${slug}/${e.name}/classification`} slug={slug} name={e.name} onChanged={onChanged} />}
     <div className="card deploy-entry"><div className="deploy-lines">
+      <RunsOnLine slug={slug} env={e} />
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.target?.kind === 'portainer' && e.id && <DeploymentLine label="Address"><DeploymentAddressEdit slug={slug} id={e.id} /></DeploymentLine>}
       <DeploymentLine label="Name"><div className="deployment-name-line"><strong>{e.displayLabel || e.name}</strong><DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} /></div></DeploymentLine>
     </div></div>
   </>
+}
+
+// RunsOnLine is where the deployment runs: the kind of place, its host, and
+// (in technical detail) the generation it runs, with the host's resources.
+function RunsOnLine({ slug, env: e }: { slug: string; env: DeploymentView }) {
+  const [technical] = useTechnicalDetail()
+  const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
+  return <DeploymentLine label="Runs on" trailer={e.target && <Link to={`/targets/${encodeURIComponent(e.target.name)}/resources?deployment=${encodeURIComponent(`${slug}/${e.name}`)}`}>resources →</Link>}>
+    {place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}{' '}<TechnicalWords shown={technical}>{e.generation ? `generation ${e.generation}` : ''}</TechnicalWords>
+  </DeploymentLine>
 }
 
 export function DeploymentPage() {
@@ -162,6 +186,7 @@ export function DeploymentPage() {
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
   // Read beside the deployment: the deploy history needs only the project.
   const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`, { poll: 3000 })
+  const project = useGet<ProjectDetail>(`/projects/${slug}`)
   const e = q.data?.find(e => e.name === name)
   const label = e ? deploymentName(e) : 'Deployment'
   useLayoutEffect(() => {
@@ -169,112 +194,50 @@ export function DeploymentPage() {
     return () => setPageContext({})
   }, [slug, name, label])
   return <><ReadStatus q={q} what="the deployment" /><StaleNote q={q} />
-    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} releases={releases} current={q.current} reload={q.reload}
-      facts={<DeploymentFacts slug={slug!} env={e} />}
+    {e && <DeploymentDeploys key={`${slug}/${name}`} slug={slug!} name={name!} project={project.data?.name ?? slug!} displayLabel={e ? deploymentName(e) : undefined} url={e?.url} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} refreshFailed={q.refreshFailed} releases={releases} current={q.current} reload={q.reload}
       tab={tab} tabs={<Tabs className="tabs deployment-tabs" role="navigation" aria-label="about this deployment">
         {DEPLOYMENT_TABS.map(t => <Link key={t.key} to={t.key === 'status' ? '?' : `?tab=${t.key}`} className={'tab' + (t.key === tab ? ' active' : '')} aria-current={t.key === tab ? 'page' : undefined}>{t.label}</Link>)}
       </Tabs>}
-      body={e.generation ? <DeploymentContainers slug={slug!} name={name!} stopped={e.runtimeState === 'stopped'} /> : undefined}
-      below={<EnvCard slug={slug!} env={q.refreshFailed ? failedRuntimeRefresh(e, q.reason) : e} onChanged={q.reload} />}
       settings={<DeploymentSettings slug={slug!} env={e} onChanged={q.reload} />} />}
   </>
 }
 
-// DeploymentFacts is the line under a deployment's name: where it answers,
-// the release it runs, and whether it is protected or its automatic deploys
-// are paused.
-export function DeploymentFacts({ slug, env: e }: { slug: string; env: DeploymentView }) {
-  return <div className="deployment-page-facts muted">
-    <span className="deployment-address"><DeploymentFact env={e} /></span>{e.kind === 'standing' && <> · <ServingRelease slug={slug} env={e} /></>}
-    {e.protected && <> <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release permission">protected</span></>}
-    <FeedPause env={e} />
-  </div>
-}
-
-export function EnvCard({ slug, env: e }: { slug: string; env: DeploymentView; onChanged?: () => void }) {
-  const [technical] = useTechnicalDetail()
+// DeployAction is the deploy a deployment whose feed is not main offers in
+// its bar: Deploy latest, or Promote release N from its source; with why
+// it cannot now, and what went wrong. Follows main deploys on landing.
+export function DeployAction({ slug, env: e }: { slug: string; env: DeploymentView }) {
   const nav = useNavigate()
   const { run, busy, err } = useAction()
+  if (e.feed === 'main' || !e.target) return null
   const deploy = async () => {
     const r = await run(() => post<ReleaseRequested>(`/projects/${slug}/deployments/${e.name}/deploy`, e.feed === 'promotion' ? { expectedSourceBundleId: e.promotionBundleId } : {}))
     if (r) nav(`/projects/${slug}/releases/${r.number}`)
   }
-  const base = `/projects/${slug}/deployments/${e.name}`
-  const resources = useGet<DeploymentResources>(e.generation ? `${base}/resources` : null, { poll: 5000 })
-  const diagnostics = useGet<DeploymentDiagnostics>(e.generation ? `${base}/diagnostics` : null, { poll: 5000 })
-  const protection = useGet<DeploymentProtection>(e.backups ? `${base}/protection` : null, { poll: 5000 })
-  const models = useGet<DeploymentAIModels>(e.aiModels?.length ? `${base}/ai-models` : null, { poll: 5000 })
-  const waiting = [resources.data?.reading, diagnostics.data?.reading, protection.data?.reading, ...(models.data?.keys.map(k => k.reading) ?? [])].some(r => r?.waiting)
-  const place = e.target ? placeWords(e.target.title, e.target.vendor, e.target.region) : 'not bound'
-  const meta = [
-    `${place}${e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}`,
-    feedWords(e),
-    e.audience === 'team' ? 'team only' : e.audience,
-    e.data && DATA_WORDS[e.data],
-  ].filter(Boolean).join(' · ')
-  // Follows main deploys on landing; other feeds can release here.
-  const action = e.feed === 'main'
-    ? null
-    : e.target
-    ? <div className="stack stack-1"><button title={promotionHelp(e)} disabled={busy || !!e.runtimeControls?.deploy} onClick={deploy}>{deployLabel(e)}</button>{e.runtimeControls?.deploy && <span className="muted small">{e.runtimeControls.deploy}</span>}</div>
-    : null
-
-  return (
-    <div className="card deploy-entry">
-      <div className="deploy-lines">
-        <DeploymentLine label="Runs on" trailer={e.target && <Link to={`/targets/${encodeURIComponent(e.target.name)}/resources?deployment=${encodeURIComponent(`${slug}/${e.name}`)}`}>resources →</Link>}>
-          {meta}{' '}<TechnicalWords shown={technical}>{e.generation ? `generation ${e.generation}` : ''}</TechnicalWords>
-        {waiting && e.lastApplied && <div className="muted">Checking after the release (since {fmtWhen(e.lastApplied.at)})</div>}
-        {e.needs && e.needs.length > 0 && (
-          <div>
-            <span className="muted">backed by</span>{' '}
-            {e.needs.map((n) => (
-              <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} className="deployments-span">
-                {n.need} <b>{n.name}</b>
-                <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
-                {n.status !== 'ready' && <Status word={n.statusLabel} help={`Service: ${n.status}.`} />}
-              </span>
-            ))}
-            <Link to="/targets">see the infrastructure</Link>
-          </div>
-        )}
-        </DeploymentLine>
-        {e.generation && e.target && <HostLine share={resources.data?.share} target={e.target.name} old={resources.data?.reading?.waiting} />}
-        {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
-        {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host' || e.target?.kind === 'fly-machines' || e.target?.kind === 'aws-ecs') && <ProtectionLines slug={slug} name={e.name} />}
-        {e.restoreCheck && <DeploymentLine label="After restore"><Status word={e.restoreLabel} /> {restoreCheckWords(e.restoreCheck)}</DeploymentLine>}
-        {e.dataAfterRestore && (
-          <DeploymentLine label="Data after restore">
-            {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
-            {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
-            {e.dataAfterRestore.state === 'failed' && (
-              <span className="error">
-                Its data did not come back from {PRODUCT}'s backup: {e.dataAfterRestore.detail}.
-                {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
-              </span>
-            )}
-          </DeploymentLine>
-        )}
-        {e.readiness && e.readiness !== 'reconciled' && e.readiness !== 'uncertain' && <DeploymentLine label="Readiness"><Status word={e.readinessLabel} /><TechnicalWords shown={technical}>Deployment: {e.readiness}.</TechnicalWords></DeploymentLine>}
-        {e.readiness === 'uncertain' && (
-          <DeploymentLine label="Readiness">
-            <Status word={e.readinessLabel} />{' '}
-            {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
-            records disagree. Refresh status asks its host and settles what it finds; it deploys nothing.
-          </DeploymentLine>
-        )}
-        {(action || err) && <div className="row deploy-more">
-          {action}
-          {err && <span className="error small">{err}</span>}
-        </div>}
-      </div>
-    </div>
-  )
+  return <div className="stack stack-1">
+    <button title={promotionHelp(e)} disabled={busy || !!e.runtimeControls?.deploy} onClick={deploy}>{deployLabel(e)}</button>
+    {e.runtimeControls?.deploy && <span className="muted small">{e.runtimeControls.deploy}</span>}
+    {err && <span className="error small" role="alert">{err}</span>}
+  </div>
 }
 
-// The address stays available when resource warnings need attention.
-function DeploymentFact({ env }: { env: DeploymentView }) {
-  return <span className="muted">{env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly} /> : 'no address yet'}</span>
+// RestoreLines are the facts about a deployment after AppTown itself was
+// restored from a backup: what holds it, and whether its data came back.
+export function RestoreLines({ env: e }: { env: DeploymentView }) {
+  return <>
+    {e.restoreCheck && <DeploymentLine label="After restore"><Status word={e.restoreLabel} /> {restoreCheckWords(e.restoreCheck)}</DeploymentLine>}
+    {e.dataAfterRestore && (
+      <DeploymentLine label="Data after restore">
+        {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
+        {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
+        {e.dataAfterRestore.state === 'failed' && (
+          <span className="error">
+            Its data did not come back from {PRODUCT}'s backup: {e.dataAfterRestore.detail}.
+            {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
+          </span>
+        )}
+      </DeploymentLine>
+    )}
+  </>
 }
 
 export function AddDeployment({ slug, choices, existing, onDone }: { slug: string; choices: OfferedTarget[]; existing: DeploymentView[]; onDone: (added: boolean) => void }) {
@@ -424,7 +387,7 @@ export function allowanceWords(k: AIModelsKey): string {
 
 // AIModelsLine is what OpenRouter says now of the deployment's AI models
 // keys, read when the card shows. Unknown is said, never shown as zero.
-function AIModelsLine({ slug, name }: { slug: string; name: string }) {
+export function AIModelsLine({ slug, name }: { slug: string; name: string }) {
   const q = useGet<DeploymentAIModels>(`/projects/${slug}/deployments/${name}/ai-models`)
   if (q.denied) return null
   return (
@@ -561,28 +524,6 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
       ))}
     </div>
   )
-}
-
-// HostLine is always present, so the page keeps its shape: whether the host
-// takes new deploys, and what its containers' memory limits add up to against its memory. A host
-// check that failed is the host's own problem, shown on its page; here the
-// facts it could not read are unknown.
-export function HostLine({ share, target, old }: { share?: DeploymentResources['share']; target: string; old?: boolean }) {
-  const [technical] = useTechnicalDetail()
-  const link = <Link to={`/targets/${encodeURIComponent(target)}`}>host →</Link>
-  if (share?.elastic) return <DeploymentLine label="Host" trailer={link}>{target} · grows on demand</DeploymentLine>
-  const current = !!share?.readAt && !share.error && !share.stale && !old
-  const deploys = !current ? <span className="muted">unknown</span>
-    : share!.diskRefuses ? <span className="error">new deploys blocked: low on disk</span>
-    : share!.lowDisk ? <span className="deploy-warning">ready for deploys · low on disk</span>
-    : <>ready for deploys</>
-  const memory = current && share!.limits?.known && share!.hostMemory.known
-    ? <span className={share!.overcommitted ? 'deploy-warning' : undefined}>memory limits add up to {fmtBytes(share!.limits.value)} of {fmtBytes(share!.hostMemory.value)}</span>
-    : null
-  return <DeploymentLine label="Host" trailer={link}>
-    {target} · {deploys}{memory && <> · {memory}</>}{' '}
-    {share?.readAt && <TechnicalWords shown={technical}>read {fmtStamp(share.readAt)}</TechnicalWords>}
-  </DeploymentLine>
 }
 
 // What holds a deployment after AppTown was restored, as a chip and as a

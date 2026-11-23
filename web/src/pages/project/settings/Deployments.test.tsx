@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { DeploymentStatus } from '../DeploymentStatus'
+import { DeployAction } from './Deployments'
+import { useGet } from '../../../data'
+import type { ReleaseListed } from '../../../wire.gen'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
 import type { DeploymentView } from '../../../wire.gen'
-import { DeploymentFacts, DeploymentSettings, DeploymentsTab, EnvCard, RetainedTable, allowanceWords, DeploymentReleaseCell } from './Deployments'
+import { DeploymentSettings, DeploymentsTab, RetainedTable, allowanceWords, DeploymentReleaseCell } from './Deployments'
 import { DeploymentTable } from '../../DeploymentTable'
 import { DeploymentTitle } from '../DeploymentDeploys'
 import { tearDownWords } from '../TakeDown'
@@ -23,7 +27,8 @@ const details = (html: string) => [...html.matchAll(/(?:title|data-help)="([^"]*
 // The deployment page's head (title, status, facts), its details card and
 // its Settings tab, which the page shows one at a time.
 function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
-  return <><div className="deploy-head"><DeploymentTitle name={env.displayLabel || env.name} env={env} /><DeploymentFacts slug={slug} env={env} /></div><EnvCard slug={slug} env={env} onChanged={() => {}} /><DeploymentSettings slug={slug} env={env} onChanged={() => {}} /></>
+  const releases = useGet<ReleaseListed[]>(`/projects/${slug}/releases`)
+  return <><DeploymentTitle name={env.displayLabel || env.name} env={env} actions={<DeployAction slug={slug} env={env} />} /><DeploymentStatus slug={slug} env={env} refreshFailed={false} releases={releases} current reload={async () => {}} onChoose={() => {}} /><DeploymentSettings slug={slug} env={env} onChanged={() => {}} /></>
 }
 
 
@@ -168,7 +173,9 @@ it.each(['main', 'staging'])('explains paused automatic deploys for %s by feed',
   const client = newQueryClient()
   const html = renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="game" env={{ status: { word: 'unknown', reason: '', stale: false }, name, kind: 'standing', feed: 'main', feedConfirmed: false, feedRevision: 1, readiness: 'reconciled' } as DeploymentView} /></MemoryRouter></QueryClientProvider>)
   expect(html).not.toContain('Confirm follows main')
-  expect(html).toContain('Automatic deploys are paused until a person saves the Release feed setting.')
+  expect(html).toContain('Automatic deploys')
+  expect(html).toContain('until a person saves the Release feed setting')
+  expect(html).toMatch(/>paused</)
   expect(html).not.toContain('Deploy latest')
   client.clear()
 })
@@ -198,7 +205,7 @@ it.each(['row', 'card'].flatMap(view => ['release 18: starting the app', 'releas
  expect(details(html)).toContain(reason)
  if (word === 'waiting') expect(text).not.toContain('deploying')
  expect(text).toContain(reason)
- expect(text).toContain('Serving release 18')
+ expect(text).toContain(view === 'row' ? 'Serving release 18' : 'Release 18')
  expect(text.split(reason)).toHaveLength(2)
  expect(text).not.toMatch(/unknown|not checked yet|Not checked yet|old reading/)
  expect(html).toContain('/projects/game/releases/18')
