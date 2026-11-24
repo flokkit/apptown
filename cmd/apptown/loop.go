@@ -595,9 +595,7 @@ func handleApproval(d *loopRunDetail, changeID, stepID ids.ID, stepName string, 
 			shown[changeID] = true
 		}
 	}
-	// The BRIEF is the gate's front page: what this is, what machines
-	// verified, what your approval decides ("I don't really understand
-	// what I'm meant to be approving" was the complaint). Raw reports remain
+	// The brief describes what the change does. Raw reports remain
 	// available via apptown show.
 	// Records' ids never collide, so the change's summary, the step's brief
 	// and each artifact are marked shown in one map.

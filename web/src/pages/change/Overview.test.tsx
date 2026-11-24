@@ -1089,10 +1089,21 @@ it('shows who decides with no decision buttons for a viewer who cannot approve',
 })
 
 it('renders non-gating findings as a neutral note linking Security', () => {
- const s = step('scan', 'fail', { findings: { total: 3, actionable: 3 } }, { isCheck: true, observation: true, checkAttention: false, config: { on: 'bundle' } })
+ const s = step('scan', 'fail', { observations: [{ findings: [{ fingerprint: 'a', severity: 'high' }, ...['b', 'c', 'd'].map(fingerprint => ({ fingerprint, severity: 'medium' }))] }, { findings: [{ fingerprint: 'a', severity: 'high' }] }] }, { isCheck: true, observation: true, checkAttention: false, config: { on: 'bundle' } })
  const el = document.createElement('div'); el.innerHTML = renderToStaticMarkup(<MemoryRouter><CheckSummary project="notes" checks={{tone:'ok', text:'All checks passed · 1 note', started:true}} steps={[s]} /></MemoryRouter>)
- expect(el.textContent).toContain('Security scan of the released image found 3 findings')
+ expect(el.textContent).toContain('Security scan of the released image found 1 high, 3 medium')
  expect(el.textContent).not.toContain('failed')
  expect(el.querySelector('.ch-bad-text')).toBeNull()
  expect(el.querySelector('a')?.getAttribute('href')).toBe('/projects/notes/security')
+})
+
+it.each([
+ ['error', { observations: [{ findings: [{ fingerprint: 'a', severity: 'high' }] }, { verdict: 'error', findings: [] }] }, 'could not run; found 1 high'],
+ ['error', { observations: [{ verdict: 'error', findings: [] }] }, 'could not run'],
+ ['fail', { observations: [{ verdict: 'fail' }] }, 'found findings'],
+] as const)('preserves scan %s with recorded evidence %j', (status, evidence, words) => {
+ const s = step('scan', status, evidence, { isCheck: true, observation: true, config: { on: 'bundle' } })
+ const html = renderToStaticMarkup(<MemoryRouter><CheckSummary checks={{ tone: 'ok', text: 'All checks passed · 1 note', started: true }} steps={[s]} /></MemoryRouter>)
+ expect(html).toContain(`Security scan of the released image ${words}`)
+ expect(html).not.toContain('finished with a note')
 })

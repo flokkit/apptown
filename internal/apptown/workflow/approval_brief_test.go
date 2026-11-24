@@ -32,7 +32,7 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := workflowsql.New(q.db.SQL()).InsertTextArtifact(ctx, workflowsql.InsertTextArtifactParams{ID: ids.New(created), RunID: run.ID, Kind: "approval-brief", Name: fmt.Sprintf("step-%d-v3", approval), Body: "cached", CreatedAt: created}); err != nil {
+	if _, err := workflowsql.New(q.db.SQL()).InsertTextArtifact(ctx, workflowsql.InsertTextArtifactParams{ID: ids.New(created), RunID: run.ID, Kind: "approval-brief", Name: fmt.Sprintf("step-%d-v4", approval), Body: "cached", CreatedAt: created}); err != nil {
 		t.Fatal(err)
 	}
 	// A newer artifact from the old writer may contain its mechanical input.
@@ -87,8 +87,9 @@ func finishedStoredStep(t *testing.T, db *database.DB, in workflowsql.InsertStag
 	return id
 }
 
-// An approval's brief stands on what its earlier stages passed, not only
-// its own stage's steps, and shows nothing of a stage not reached. Its
+// The brief's inputs hold the steps its earlier stages finished, not only
+// its own stage's (failure advice reads them), and nothing of a stage not
+// reached. Its
 // implementer's report is the one a review step of the change declares it
 // audits, from any run of the change, never the newest artifact whose kind
 // happens to end in "report" (a scanner's).
@@ -124,7 +125,7 @@ func TestApprovalBriefDoesNotReadOldPromptCache(t *testing.T) {
 	t.Parallel()
 	q, run, approval := activityFixture(t)
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
-	if err := s.SaveBrief(t.Context(), run.ID, "approval-brief", fmt.Sprintf("step-%d", approval), "WHAT THIS IS — old brief"); err != nil {
+	if err := s.SaveBrief(t.Context(), run.ID, "approval-brief", fmt.Sprintf("step-%d-v3", approval), "WHAT THIS IS — old brief"); err != nil {
 		t.Fatal(err)
 	}
 	in, err := s.ApprovalBrief(t.Context(), approval)
@@ -137,5 +138,51 @@ func TestApprovalBriefDoesNotReadOldPromptCache(t *testing.T) {
 	in, err = s.ApprovalBrief(t.Context(), approval)
 	if err != nil || in.Cached != "Adds touch ripples." {
 		t.Fatalf("current cache not reused: %q: %v", in.Cached, err)
+	}
+}
+
+func TestAClosedChangesBriefIsNotRewritten(t *testing.T) {
+	t.Parallel()
+	for _, state := range []ChangeState{ChangeShipped, ChangeAbandoned} {
+		t.Run(state.String(), func(t *testing.T) {
+			t.Parallel()
+			q, run, approval := activityFixture(t)
+			ctx := t.Context()
+			s := newService(q.db, allowProject(run.ProjectID), Runtime{})
+			if err := s.SaveBrief(ctx, run.ID, "approval-brief", fmt.Sprintf("step-%d-v4", approval), "Updates the development dependency."); err != nil {
+				t.Fatal(err)
+			}
+			later := finishedStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "ship", Name: "scan-bundle", Type: "scan"}, StatusFail)
+			open, err := s.ApprovalBrief(ctx, approval)
+			if err != nil || open.Cached != "" {
+				t.Fatalf("open change must refresh: %+v %v", open, err)
+			}
+			current, err := workflowsql.New(q.db.SQL()).ChangeByID(ctx, workflowsql.ChangeByIDParams{ID: run.ChangeID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := requireRunWrite(workflowsql.New(q.db.SQL()).TransitionChange(ctx, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, ProjectID: current.ProjectID, OldState: current.State, OldRunID: current.RunID, State: state.String(), RunID: current.RunID, Branch: current.Branch})); err != nil {
+				t.Fatal(err)
+			}
+			closed, err := s.ApprovalBrief(ctx, approval)
+			if err != nil || closed.Cached != "Updates the development dependency." {
+				t.Fatalf("closed change lost cached brief after step %s finished: %+v %v", later, closed, err)
+			}
+		})
+	}
+}
+
+func TestApprovalWithoutAChangeKeepsItsCache(t *testing.T) {
+	t.Parallel()
+	q, run, approval := activityFixture(t)
+	// sql-guarantee: This fixture removes the change link; the run creation owner requires a change.
+	completionExec(t, q.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
+	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
+	if err := s.SaveBrief(t.Context(), run.ID, "approval-brief", fmt.Sprintf("step-%d-v4", approval), "cached"); err != nil {
+		t.Fatal(err)
+	}
+	in, err := s.ApprovalBrief(t.Context(), approval)
+	if err != nil || in.Cached != "cached" || in.Change != nil {
+		t.Fatalf("no-change cache: %+v %v", in, err)
 	}
 }
