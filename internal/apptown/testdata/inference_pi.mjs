@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 
 const root=process.env.APPTOWN_PI_MODULE;
 const pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'));
-assert.equal(pkg.version,'1.5.0','test the pinned worker Pi version');
+assert.equal(pkg.version,process.env.APPTOWN_PI_VERSION,'test the pinned worker Pi version');
 const {ModelRuntime}=await import(pathToFileURL(path.join(root,'dist/core/model-runtime.js')));
 const runtime=await ModelRuntime.create({modelsPath:process.env.APPTOWN_PI_CONFIG,authPath:path.join(process.env.HOME,'auth.json'),modelsStorePath:path.join(process.env.HOME,'model-cache'),allowModelNetwork:false});
 assert.equal(runtime.getError(),undefined);

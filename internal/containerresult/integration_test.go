@@ -16,7 +16,7 @@ import (
 )
 
 // busybox is the tool versions' df image, which the heavy tiers pull.
-const busybox = "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+const busybox = "busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4"
 
 func cli(ctx context.Context, env []string, args ...string) ([]byte, error) {
 	return docker.CLI{}.Run(ctx, "", docker.Command{Args: args, Env: env})

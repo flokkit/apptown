@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -32,8 +33,18 @@ import (
 func TestInferencePinnedPi(t *testing.T) {
 	module := os.Getenv("APPTOWN_PI_MODULE")
 	if module == "" {
-		t.Skip("set APPTOWN_PI_MODULE to Pi 1.5.0's package directory")
+		t.Skip("set APPTOWN_PI_MODULE to the pinned Pi's package directory")
 	}
+	// The worker's pin is the version under test: the module must be it.
+	agent, err := os.ReadFile(filepath.Join("..", "..", "deploy", "apptown-agent", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := regexp.MustCompile(`(?m)^ARG PI_VERSION=(\S+)`).FindSubmatch(agent)
+	if len(pin) != 2 {
+		t.Fatal("no ARG PI_VERSION in the agent Dockerfile")
+	}
+	piVersion := string(pin[1])
 	var token string
 	var reached atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +114,7 @@ func TestInferencePinnedPi(t *testing.T) {
 	}
 	testinputs.Files(t, "testdata/inference_pi.mjs")
 	cmd := exec.Command(strings.TrimSpace(string(found.Output)), "testdata/inference_pi.mjs")
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "APPTOWN_PI_MODULE=" + module, "APPTOWN_PI_CONFIG=" + config, "APPTOWN_PI_PROXY=" + proxy.URL, "APPTOWN_SESSION_TOKEN=" + token}
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "APPTOWN_PI_MODULE=" + module, "APPTOWN_PI_VERSION=" + piVersion, "APPTOWN_PI_CONFIG=" + config, "APPTOWN_PI_PROXY=" + proxy.URL, "APPTOWN_SESSION_TOKEN=" + token}
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("pinned Pi: %v\n%s", err, out)
 	} else {
@@ -147,7 +158,7 @@ func TestInferencePinnedPi(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Logf("Pi 1.5.0 openai/gpt-6.1-terra transcript cost.total=%g", stream.Reports[0].Usage.Cost.Total)
+	t.Logf("Pi %s openai/gpt-6.1-terra transcript cost.total=%g", piVersion, stream.Reports[0].Usage.Cost.Total)
 	// Every SDK's request crossed the proxy to the provider (an SDK may
 	// retry the provider's refusal, so at least one each).
 	if seen := int(reached.Load()); seen < len(configs) {

@@ -30,7 +30,21 @@ func TestIntegrationThePruneRemovesOnlyImagesAppTownBuilt(t *testing.T) {
 	}
 	pulledID := dk.imageID(ctx, stock.Images().DF)
 	// The bug needs the pulled image dangling: a tag naming it would keep it
-	// from any prune, and the test would prove nothing.
+	// from any prune, and the test would prove nothing. A current pin is
+	// often also the registry's latest tag, which a CI host may hold; drop
+	// such tags and pull by digest again, so the image is dangling here.
+	if tags := dk.Text(ctx, "image", "inspect", "--format", "{{range .RepoTags}}{{.}} {{end}}", pulledID); tags != "" {
+		for _, tag := range strings.Fields(tags) {
+			// --force removes only the tag while a container uses the image.
+			if out, err := dk.Run(ctx, "image", "rm", "--force", tag); err != nil {
+				t.Fatalf("untagging %s: %v %s", tag, err, out)
+			}
+		}
+		if out, err := dk.Run(ctx, "pull", stock.Images().DF); err != nil {
+			t.Fatalf("pulling %s again: %v %s", stock.Images().DF, err, out)
+		}
+		pulledID = dk.imageID(ctx, stock.Images().DF)
+	}
 	if tags := dk.Text(ctx, "image", "inspect", "--format", "{{len .RepoTags}}", pulledID); tags != "0" {
 		t.Fatalf("a tag names %s on this daemon (%s tags), so it is not dangling here and the test cannot show the prune leaves it", stock.Images().DF, tags)
 	}
