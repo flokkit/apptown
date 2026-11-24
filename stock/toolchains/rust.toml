@@ -3,4 +3,4 @@
 # CARGO_HOME config); the rustup toolchain itself through the rust-dist
 # mirror (RUSTUP_DIST_SERVER/RUSTUP_UPDATE_ROOT ambient env).
 [tools]
-rust = "1.84.0"
+rust = "1.84.1"

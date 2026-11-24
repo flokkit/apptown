@@ -249,8 +249,10 @@ describe('useGet', () => {
       await advance(0)
       expect(el.textContent).toBe('n=1')
       // The page pace is one second: two more reads in two seconds.
-      await advance(2000)
-      expect(el.textContent).toBe('n=3')
+      await advance(1000)
+      await advance(1000)
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+      await vi.waitFor(() => expect(el.textContent).toBe('n=3'))
       focusManager.setFocused(false)
       const seen = fetchMock.mock.calls.length
       await advance(2500)

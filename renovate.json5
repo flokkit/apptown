@@ -3,12 +3,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "timezone": "Australia/Melbourne",
-  "dependencyDashboard": true,
-  "dependencyDashboardApproval": true,
-  "prConcurrentLimit": 1,
-  "branchConcurrentLimit": 1,
+  "dependencyDashboard": {"enabled": true},
+  "dependencyDashboardApproval": false,
+  "prConcurrentLimit": 3,
   "prHourlyLimit": 1,
-  "automerge": false,
+  "automerge": true,
+  "platformAutomerge": true,
+  "automergeType": "pr",
   "lockFileMaintenance": {
     "enabled": true
   },
@@ -18,6 +19,17 @@
   "enabledManagers": ["gomod", "npm", "github-actions", "dockerfile", "composer", "custom.regex", "mise", "docker-compose"],
   "ignorePaths": ["**/node_modules/**", "**/testdata/**", "eval/**"],
   "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yml$/"
+      ],
+      "matchStrings": [
+        "image: (?<depName>mcr\\.microsoft\\.com/playwright):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
     {
       "customType": "regex",
       "managerFilePatterns": ["/^deploy/tool-pins\\.txt$/"],
@@ -208,11 +220,28 @@
   ],
   "packageRules": [
     {
+      "description": "The needs-update design owns stock dependency images and the PostgreSQL/MariaDB catalog and pack lines.",
+      "matchFileNames": [
+        "stock/dependencies/**",
+        "stock/tool-versions.yaml",
+        "stock/packs.yaml"
+      ],
+      "matchJsonata": [
+        "$contains(packageFile, 'stock/dependencies/') or packageName in ['postgres', 'mariadb']"
+      ],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "automerge": false
+    },
+    {
       "description": "Keep the harness catalog current through reviewed proposals.",
       "matchDatasources": ["npm"],
       "matchPackageNames": ["@earendil-works/pi-coding-agent"],
       "groupName": "project pi harness",
-      "dependencyDashboardApproval": false,
       "automerge": false
     },
     {
@@ -316,7 +345,8 @@
     {
       "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
       "matchPackageNames": ["pi-subagents", "@narumitw/pi-lsp"],
-      "groupName": "project pi tools"
+      "groupName": "project pi tools",
+      "automerge": false
     },
     {
       "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
@@ -349,7 +379,7 @@
       "groupName": "project scanner hadolint"
     },
     {
-      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go", "stock/tool-versions.yaml"],
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go", "stock/tool-versions.yaml", "stock/seeds/**"],
       "matchPackageNames": ["barichello/godot-ci"],
       "groupName": "project scanner godot-ci",
       "allowedVersions": "/^4\\.4(?:\\.|-|$)/"
@@ -374,57 +404,64 @@
       "extractVersion": "^(?<version>v?[0-9.]+)-alpine$"
     },
     {
-      "matchFileNames": ["stock/**"],
-      "matchManagers": ["mise", "custom.regex"],
-      "matchPackageNames": ["golang/go", "go"],
-      "allowedVersions": "/^1\\.27(?:\\.|$)/",
+      "description": "The Java starter keeps both Maven 3.9 and Temurin 21 in its build image.",
+      "matchFileNames": ["stock/seeds/**"],
+      "matchPackageNames": ["maven"],
+      "allowedVersions": "/^3\\.9(?:\\.[0-9]+)*-eclipse-temurin-21$/",
+      "groupName": "stock Maven 3.9"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**"],
+      "matchManagers": ["mise", "custom.regex", "dockerfile"],
+      "matchPackageNames": ["golang/go", "go", "golang"],
+      "allowedVersions": "/^1\\.27(?:\\.|-|$)/",
       "groupName": "stock Go 1.27"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**"],
       "matchPackageNames": ["node"],
-      "allowedVersions": "/^24(?:\\.|$)/",
+      "allowedVersions": "/^24(?:\\.|-|$)/",
       "groupName": "stock Node 24"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
       "matchPackageNames": ["python/cpython", "python"],
       "allowedVersions": "/^3\\.12(?:\\.|\\+|-|$)/",
       "groupName": "stock Python 3.12"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
-      "matchPackageNames": ["java-jdk"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
+      "matchPackageNames": ["java-jdk", "eclipse-temurin"],
       "allowedVersions": "/^21(?:\\.|\\+|-|$)/",
       "groupName": "stock Java 21"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
       "matchPackageNames": ["apache/maven"],
       "extractVersion": "^maven-(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)$",
       "allowedVersions": "/^3\\.9(?:\\.|\\+|-|$)/",
       "groupName": "stock Maven 3.9"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
-      "matchPackageNames": ["dotnet-sdk", "dotnet-runtime"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
+      "matchPackageNames": ["dotnet-sdk", "dotnet-runtime", "mcr.microsoft.com/dotnet/sdk", "mcr.microsoft.com/dotnet/aspnet"],
       "allowedVersions": "/^10(?:\\.|\\+|-|$)/",
       "groupName": "stock dotnet 10"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
       "matchPackageNames": ["ruby-version", "ruby"],
       "allowedVersions": "/^3\\.4(?:\\.|\\+|-|$)/",
       "groupName": "stock Ruby 3.4"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
       "matchPackageNames": ["rust"],
       "allowedVersions": "/^1\\.84(?:\\.|\\+|-|$)/",
       "groupName": "stock Rust 1.84"
     },
     {
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/seeds/**", "stock/dependencies/**"],
       "matchPackageNames": ["php"],
       "allowedVersions": "/^8\\.3(?:\\.|\\+|-|$)/",
       "groupName": "stock PHP 8.3"
@@ -468,6 +505,7 @@
       "matchPackageNames": ["docker"],
       "allowedVersions": "/^27(?:\\.|$)/",
       "groupName": "runtime private Docker 27",
+      "automerge": false,
       "prBodyNotes": ["Docker CLI archive checksums require manual verification for both architectures. A changed private daemon is accepted only after the external-worker private Docker tests (internal/worker, TestIntegrationExternalWorker) pass against it."]
     },
     {
@@ -475,24 +513,13 @@
       "matchPackageNames": ["docker"],
       "allowedVersions": "/^29(?:\\.|$)/",
       "groupName": "deployment Docker 29",
+      "automerge": false,
       "prBodyNotes": ["These CLI and daemon bases are separate from the private Docker runtime. Runtime and deployment acceptance remain manual."]
     },
     {
       "matchManagers": ["gomod"],
       "matchDepTypes": ["indirect"],
       "enabled": true
-    },
-    {
-      "description": "App runtime, scanner execution and starter base changes need qualification before landing; dashboard approval only opens a proposal.",
-      "matchDatasources": ["docker"],
-      "automerge": false,
-      "addLabels": ["qualification-required"]
-    },
-    {
-      "description": "Stock language versions change the environment apps build and run in; qualify even patch releases.",
-      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
-      "automerge": false,
-      "addLabels": ["qualification-required"]
     },
     {
       "matchFileNames": ["deploy/ci-heavy/Dockerfile"],
@@ -518,6 +545,7 @@
       "matchPackageNames": ["php"],
       "allowedVersions": "/^8\\.3(?:\\.|-|$)/",
       "groupName": "WordPress PHP runtime",
+      "automerge": false,
       // A regex manager does not regenerate composer.lock, whose content hash includes config.platform.
       "prBodyNotes": ["Before landing, run `composer update --lock` in stock/seeds/wordpress so composer.lock matches the new platform PHP version."]
     },
@@ -527,6 +555,12 @@
       "matchPackageNames": ["python"],
       "allowedVersions": "/^3\\.13(?:\\.|-|$)/",
       "groupName": "S3 Python client"
+    },
+    {
+      "description": "Held: pgx after v5.11.0 drops the network error a cancelled write reports, and go-jose after v4.1.6 no longer reports the RSA modulus size error; a deliberate change restores both guarded behaviours and removes this hold.",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/jackc/pgx/v5", "github.com/go-jose/go-jose/v4"],
+      "enabled": false
     }
   ],
   "vulnerabilityAlerts": {

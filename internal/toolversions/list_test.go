@@ -92,16 +92,19 @@ func TestASnapshotKeepsItsListWhenANewerOneIsInstalled(t *testing.T) {
 	}
 	v := New(first)
 	held := v.Current()
-	newer := strings.Replace(string(raw), "alpine/git:v2.47.2@", "alpine/git:v2.47.3@", 1)
+	// Derive the changed reference from the stock list so a pin refresh does
+	// not silently leave this second document identical to the first.
+	newImage := "alpine/git:snapshot-two@" + strings.SplitN(first.Images.Sh, "@", 2)[1]
+	newer := strings.Replace(string(raw), first.Images.Sh, newImage, 1)
 	second, err := NewSnapshot("two", []byte(newer))
 	if err != nil {
 		t.Fatal(err)
 	}
 	v.Install(second)
-	if held.Name != "one" || strings.Contains(held.Images.Sh, "v2.47.3") {
+	if held.Name != "one" || held.Images.Sh != first.Images.Sh || held.Digest != first.Digest {
 		t.Fatalf("the held snapshot changed: %+v", held)
 	}
-	if now := v.Current(); now.Name != "two" || !strings.Contains(now.Images.Sh, "v2.47.3") || now.Digest == held.Digest {
+	if now := v.Current(); now.Name != "two" || now.Images.Sh != newImage || now.Digest == held.Digest {
 		t.Fatalf("the installed list is not current: %+v", now)
 	}
 }

@@ -18,7 +18,7 @@ export type DeployOutcome = 'running' | 'passed' | 'failed' | 'paused'
 export function DeployScene({ stage, failedStage, outcome, showStages = true, compactStages = false, expectedBuildMs, buildElapsedMs }: {
   stage?: DeployStage; failedStage?: DeployStage; outcome: DeployOutcome; showStages?: boolean; compactStages?: boolean; expectedBuildMs?: number; buildElapsedMs?: number
 }) {
-  const lastStage = useRef<DeployStage>()
+  const lastStage = useRef<DeployStage>(undefined)
   if (stage) lastStage.current = stage
   const sawRunning = useRef(false)
   const [celebrated, setCelebrated] = useState(false)
@@ -31,7 +31,7 @@ export function DeployScene({ stage, failedStage, outcome, showStages = true, co
   // Re-anchor only on a new server reading. The local clock fills the gaps
   // between reads; a paused or failed feed keeps its last witnessed frame.
   const build = useRef({ reading: buildElapsedMs, at: Date.now(), elapsed: buildElapsedMs ?? 0, frame: buildElapsedMs ?? 0, seen: false })
-  const finish = useRef<{ at: number; placed: number; frame: number; paused: boolean }>()
+  const finish = useRef<{ at: number; placed: number; frame: number; paused: boolean }>(undefined)
   const [, tick] = useState(0)
   const now = Date.now()
   const placedDuringBuild = (elapsed: number) => Math.min(5, Math.max(0, Math.floor((elapsed - 600) / interval) + 1))

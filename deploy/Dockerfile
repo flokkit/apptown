@@ -86,10 +86,10 @@ COPY web/package.json web/
 RUN GOOS='' GOARCH='' python3 scripts/third-party-notices.py > /out/THIRD_PARTY_NOTICES
 
 # The Docker CLI with Compose and Buildx, for the target platform.
-FROM docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb AS docker
+FROM docker:29.10.0-cli@sha256:34507eb5069d8be82c95dd3b6987d4250fd5fee49b82e2509b7d7a7030740d6d AS docker
 
 # The Docker daemon and Docker's dind wrapper, for the desktop trial.
-FROM docker:29.9.2-dind@sha256:9e79b879b177fbd72c34376a3dd3d91747da5db49e1f560f76aea59561471977 AS dockerd
+FROM docker:29.10.0-dind@sha256:4bbc7223f81db790097c6dea42fb93e05b8fead4f0431fbe6ccaba6e8473201c AS dockerd
 
 FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \

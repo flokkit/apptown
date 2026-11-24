@@ -44,13 +44,13 @@ jobs:
   # Go embeds this artifact; frontend validation runs independently below.
   web-build:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.2'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
@@ -67,14 +67,14 @@ jobs:
   # In the Playwright image of the lockfile's version: Chromium, WebKit (the
   # bar title check: iPhones draw pages with it) and their libraries come
   # with it, so no step installs packages from an Ubuntu mirror. The image
-  # has no make; the runner's (Ubuntu 24.04, as the image, linking only
+  # has no make; the runner's (Ubuntu 26.04; Make 4.4.1 also runs in Noble, linking only
   # libc) is mounted in, so every check stays a make target.
   web:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     container:
-      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      image: mcr.microsoft.com/playwright:v1.65.1-noble@sha256:1507cbfc550a63a6b7396791ca4f00df17beb56342d2447b3f106c306f525579
       volumes:
         - /usr/bin/make:/usr/bin/make:ro
     steps:
@@ -84,7 +84,7 @@ jobs:
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.2'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
@@ -114,7 +114,7 @@ jobs:
   checks:
     if: github.event_name != 'pull_request'
     needs: web-build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -129,7 +129,7 @@ jobs:
     name: checks (${{ matrix.group }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -195,7 +195,7 @@ jobs:
   test:
     if: github.event_name != 'pull_request'
     needs: web-build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -203,7 +203,7 @@ jobs:
         part: [root-a, root-b, subsystems, rest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -247,7 +247,7 @@ jobs:
   # gitleaks (pinned by version and SHA-256) finds nothing.
   public:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
       # gitleaks is built from the Go module proxy, which Go's checksum
@@ -257,7 +257,7 @@ jobs:
       GITLEAKS_VERSION: v8.30.1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -269,7 +269,7 @@ jobs:
   # The silent-DB-write rule (semgrep), as make precheck runs it.
   sql-writes:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -282,7 +282,7 @@ jobs:
   ci-ok:
     if: always()
     needs: [web-build, web, checks, test, public, sql-writes]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - env:

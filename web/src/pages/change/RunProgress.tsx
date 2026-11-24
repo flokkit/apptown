@@ -32,7 +32,7 @@ export function RunProgress({ view, reading }: { view: ChangeView; reading?: Gat
   }, [hasRun])
   const id = useId()
   const [open, setOpen] = useState<false | 'hover' | 'focus'>(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const restoring = useRef(false)
   const close = useCallback(() => {
     clearTimeout(timer.current)

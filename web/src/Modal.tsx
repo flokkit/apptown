@@ -70,7 +70,7 @@ export function Modal({ title, head, onClose, children, maxWidth, fit = false, a
 // Escape and a click outside `ref` call onClose. Shared with the split
 // button's menu, which is a popover rather than a dialog but wants the
 // same two exits.
-export function useDismiss(ref: RefObject<HTMLElement>, onClose: () => void, active = true) {
+export function useDismiss(ref: RefObject<HTMLElement | null>, onClose: () => void, active = true) {
   useEffect(() => {
     if (!active) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }

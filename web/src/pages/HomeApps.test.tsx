@@ -130,7 +130,7 @@ it('keeps phone actions and purpose visible in compact rows with tap-sized actio
     }
   }
   const phone = rules.flatMap(r => [...r.cssRules]).filter((r): r is CSSStyleRule => r instanceof CSSStyleRule)
-  expect(phone.find(r => r.selectorText === '.list-row')?.style.getPropertyValue('grid-template-columns')).toBe('minmax(0, 1fr)')
+  expect(phone.find(r => r.selectorText === '.list-row')?.style.getPropertyValue('grid-template-columns')).toBe('minmax(0px, 1fr)')
   expect(css).toContain('min-height: 44px')
   style.remove()
 })
