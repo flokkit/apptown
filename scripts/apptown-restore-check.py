@@ -89,22 +89,29 @@ def recorded_change(base, cid):
     # steps and check results, which are compared: rc.16 reads a change's
     # progress as two bars without one label, counts results into the
     # sentence, and names what a step waits on from current state.
+    # Their tone and a step's progress are the same kind of reading: rc.17
+    # reads a passed step with a check it could not assess as unknown.
     out.pop("statusLabel", None)
     for section in (out, out.get("detail") or {}):
-        (section.get("checks") or {}).pop("text", None)
+        for words in ("text", "tone"):
+            (section.get("checks") or {}).pop(words, None)
     for step in (out.get("detail") or {}).get("steps") or []:
-        step.pop("statusLabel", None)
+        for words in ("statusLabel", "progress"):
+            step.pop(words, None)
     # Whether the work met the request is the model's narrative, not a
     # person's act; an upgrade may withdraw a shortfall it cannot attribute
     # to the person's words (migration 209 reset them to unknown).
     for narrative in ("requestMet", "requestGap", "requestGapQuote"):
         (out.get("change") or {}).pop(narrative, None)
     # Both release lists carry the same read-time fields: the current
-    # observation of the deployment, and a stage's elapsed time, which for a
-    # stage still running is counted to the moment of the read.
+    # observation of the deployment, a stage's elapsed time, which for a
+    # stage still running is counted to the moment of the read, and where the
+    # deployment is reached now (url, hostOnly), named from the reading
+    # AppTown's own address settings, which a rehearsal's restored copy does
+    # not share with its source.
     evidence = out.get("evidence") or {}
     for r in (evidence.get("releases") or []) + (evidence.get("landingReleases") or []):
-        for live in ("observed", "observedAt", "observationStale", "serving", "reason", "stageElapsedMs"):  # the reason explains the observation
+        for live in ("observed", "observedAt", "observationStale", "serving", "reason", "stageElapsedMs", "url", "hostOnly"):  # the reason explains the observation
             r.pop(live, None)
     return out
 
