@@ -4,6 +4,7 @@ The heavy matrix covers every release execution job, and the checks jobs run
 every checker stage once.
 """
 from pathlib import Path
+import json
 import re
 import subprocess
 import unittest
@@ -86,7 +87,13 @@ class TestCache(unittest.TestCase):
 
     def test_web_layout_runs_with_the_locked_browser(self):
         web = job(text('ci.yml'), 'web')
-        self.assertIn('npx playwright install --with-deps chromium webkit', web)
+        # The browsers and their libraries come in the image of the
+        # lockfile's Playwright version, never from a package mirror.
+        lock = json.loads((ROOT / 'web/package-lock.json').read_text())
+        version = lock['packages']['node_modules/playwright']['version']
+        self.assertRegex(web, rf'(?m)^    container:\n      image: mcr\.microsoft\.com/playwright:v{re.escape(version)}-noble@sha256:[0-9a-f]{{64}}$',
+                         f'the web job runs in the Playwright {version} image (web/package-lock.json), pinned by digest')
+        self.assertNotIn('playwright install', web)
         self.assertIn('make check-web-layout', web)
         self.assertIn('APPTOWN_PLAYWRIGHT_MODULE: ${{ github.workspace }}/web/node_modules/playwright/index.mjs', web)
 

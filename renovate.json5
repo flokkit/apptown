@@ -241,6 +241,11 @@
       "groupName": "Dockerfile bases"
     },
     {
+      "description": "CI's web job runs in the Playwright image of web/'s Playwright version (scripts/ci_workflows_test.py): bump both together.",
+      "matchPackageNames": ["playwright", "mcr.microsoft.com/playwright"],
+      "groupName": "Playwright"
+    },
+    {
       "matchManagers": ["gomod", "dockerfile"],
       "matchDepNames": ["go", "golang"],
       "matchUpdateTypes": ["minor"],
