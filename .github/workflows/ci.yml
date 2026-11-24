@@ -64,21 +64,30 @@ jobs:
           retention-days: 1
           include-hidden-files: true
 
+  # In the Playwright image of the lockfile's version: Chromium, WebKit (the
+  # bar title check: iPhones draw pages with it) and their libraries come
+  # with it, so no step installs packages from an Ubuntu mirror. The image
+  # has no make; the runner's (Ubuntu 24.04, as the image, linking only
+  # libc) is mounted in, so every check stays a make target.
   web:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      volumes:
+        - /usr/bin/make:/usr/bin/make:ro
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The job runs as the image's root; the checkout belongs to the
+      # runner's user, and docs-current.py lists files with git.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.22.2'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
-        working-directory: web
-      # WebKit for the bar title check: iPhones draw pages with it.
-      - run: npx playwright install --with-deps chromium webkit
         working-directory: web
       - run: make check-web-layout
         env:
