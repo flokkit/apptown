@@ -71,7 +71,7 @@ function DeploymentHistory({ slug, name, project, displayLabel, env, refreshFail
         {r.state === 'waiting for approval' ? <p><ReleaseWaitingReason release={r} decision={r.decision} /></p> : <ReleaseAssent approval={r.approval} />}
         {r.state === 'failed' && r.bundleId && <button disabled={!current || !releases.current} onClick={() => setChoice({ release: r })}>Try again</button>}
         {r.state === 'released' && r.number !== history.find(h => h.state === 'released')?.number && r.bundleId && <button disabled={!releases.current} onClick={() => setChoice({ release: r })}>Deploy this again</button>}
-        {r.backupId && <><Link to={`/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} requested={search.get('rollbackBefore') === String(r.number)} onChoose={() => {
+        {r.backupId && <><Link to={`/projects/${slug}/deployments/${encodeURIComponent(name)}/backups#backup-${r.backupId}`}>Backup →</Link> <RollbackBefore slug={slug} name={name} release={r} current={current && releases.current} requested={search.get('rollbackBefore') === String(r.number)} onChoose={() => {
           setChoice({ before: r })
           if (search.has('rollbackBefore')) setSearch(params => { const next = new URLSearchParams(params); next.delete('rollbackBefore'); return next }, { replace: true })
         }} /></>}

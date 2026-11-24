@@ -1,6 +1,6 @@
 import { enabledFeatures } from '../../../features.fixture'
 import { DeploymentStatus } from '../DeploymentStatus'
-import { ProtectionLines } from '../../DataProtection'
+import { ProtectionCard } from '../DeploymentBackups'
 import { DeployAction } from './Deployments'
 import { useGet } from '../../../data'
 import type { ReleaseListed } from '../../../wire.gen'
@@ -25,7 +25,7 @@ function PageCard({ slug, env }: { slug: string; env: DeploymentView }) {
 
 // The Status tab, and the deployment's backups page one tap from it.
 function BackupsAndCard({ env }: { env: DeploymentView }) {
-  return <><PageCard slug="lunch" env={env} /><div className="card deploy-entry"><div className="deploy-lines"><ProtectionLines slug="lunch" name={env.name} /></div></div></>
+  return <><PageCard slug="lunch" env={env} /><div className="card deploy-entry"><div className="deploy-lines"><ProtectionCard slug="lunch" name={env.name} /></div></div></>
 }
 
 // A running deployment observation must not claim working while the host's
@@ -62,7 +62,7 @@ it('shows deployment facts without fold-downs', () => {
   const el = card()
   expect(el.querySelector('details')).toBeNull()
   expect(el.querySelector('[aria-hidden="true"]')?.textContent).toBeDefined()
-  expect(el.textContent).toContain('Not covered: anything the app stores outside its declared needs')
+  expect(el.textContent).toContain('what the app declares')
   expect(el.querySelector('a[href="https://lunch.example"]')).not.toBeNull()
   // The missing backup is a row on the Status tab that opens the backups page.
   expect(el.querySelector('a[href="/projects/lunch/deployments/main/backups"]')?.textContent).toBe('Backups')
@@ -77,7 +77,7 @@ it('shows one deployment check timestamp', () => {
 it('says the missing backup once, with a disabled restore test and its reason', () => {
   const el = card()
   expect(el.textContent?.match(/No backup yet|no copy|There is no good backup/g)).toHaveLength(1)
-  expect(el.querySelector('.error')?.textContent).toBe('✗ No backup yet: postgres database')
+  expect(el.querySelector('.error')?.textContent).toBe('✗ No backup yet')
   const button = [...el.querySelectorAll('button')].find(b => b.textContent === 'Test a restore')!
   expect(button.disabled).toBe(true)
   expect(button.title).toBe('There is no good backup of its data yet.')
@@ -92,8 +92,8 @@ it('shows unknown in the head when the host reports unknown parts', () => {
 
 it('states backup limits once and keeps provider and coverage facts behind Techno Goggles', () => {
   const el = card()
-  expect(el.textContent?.match(/Kept on this host only; it does not outlive its disk/g)).toHaveLength(1)
-  expect(el.textContent?.match(/Not covered:/g)).toHaveLength(1)
+  expect(el.textContent?.match(/AppTown's disk/g)).toHaveLength(1)
+  expect(el.textContent).not.toContain('this host')
   for (const text of ['on built-in-docker', 'covers: database']) {
     const fact = [...el.querySelectorAll('.ch-technical')].find(e => e.textContent === text)
     expect(fact?.getAttribute('aria-hidden')).toBe('true')

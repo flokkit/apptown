@@ -88,6 +88,10 @@ INSERT INTO backups (running_release_id, id, project_id, deployment, taken_at, t
 -- name: NoteBackupError :execrows
 UPDATE backups SET error=btrim(error || ' ' || sqlc.arg(note)::text) WHERE id=sqlc.arg(id);
 
+-- The bytes kept in the backup store: every set there that holds data.
+-- name: StoreKeptBytes :one
+SELECT COALESCE(SUM(bytes),0)::bigint FROM backups WHERE store=sqlc.arg(store) AND status IN (sqlc.arg(ok_state),sqlc.arg(partial_state));
+
 -- name: StoreSetsElsewhere :one
 SELECT count(*) FROM backups WHERE store=sqlc.arg(store) AND status IN (sqlc.arg(ok_state),sqlc.arg(partial_state))
   AND NOT (store_endpoint=sqlc.arg(endpoint) AND store_bucket=sqlc.arg(bucket));

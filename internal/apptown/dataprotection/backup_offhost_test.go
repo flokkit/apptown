@@ -374,7 +374,7 @@ func TestDiskSetsMoveToTheStore(t *testing.T) {
 	// A store attached is not a copy moved: the deployment is off-host
 	// only once its newest backup is in the store.
 	collectProtectionForTest(t, w.s, w.pid, "main")
-	if p, err := w.s.DeploymentProtection(ctx, w.pid, "main"); err != nil || p.OffHost || !strings.Contains(p.Note, "still on this host") {
+	if p, err := w.s.DeploymentProtection(ctx, w.pid, "main"); err != nil || p.OffHost || !strings.Contains(p.Note, "still on AppTown's disk") {
 		t.Fatalf("before the move: %+v %v", p, err)
 	}
 

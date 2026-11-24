@@ -3,18 +3,17 @@ import { FeatureOnly } from '../features'
 import './DataProtection.css'
 import { TechnicalWords, useTechnicalDetail } from './change/TechnicalDetail'
 import { DeploymentLine } from './project/settings/DeploymentLine'
-import { Section } from '../Section'
 import { BackgroundReading } from '../BackgroundReading'
 import { ListTable } from '../ListTable'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, fmtWhen, readingAge } from '../format'
-import type { BackupStoreState, Coverage, DeploymentProtection, ItemProtection, Operation, OperationAdmitted, OperationView, RehearsalRef, RestoredCopy } from '../wire.gen'
+import type { AllBackups, BackupStoreState, Coverage, ItemProtection, Operation, OperationView, RehearsalRef, RestoredCopy } from '../wire.gen'
 import { useNow } from '../hooks'
 import { useHolds } from '../instancePages'
 import { useSetProjectScope } from '../projectScope'
@@ -63,7 +62,7 @@ export const writesStopped = (op: Operation) => live(op) && op.result.writesStop
 // deploymentOf is the deployment an operation was asked on.
 export const deploymentOf = (op: Operation) => (typeof op.input.deployment === 'string' ? op.input.deployment : op.subject ?? '')
 
-const kindWords: Record<string, string> = {
+export const kindWords: Record<string, string> = {
   'deployment.copy': 'Copy', 'deployment.drill': 'Check', 'deployment.take-down': 'Take-down', 'deployment.rehearsal': 'Restore rehearsal',
   'deployment.restored-copy': 'Restored copy', 'deployment.restored-copy-end': 'Restored copy take-down', 'deployment.restore': 'Restore',
 }
@@ -198,114 +197,14 @@ export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }
   )
 }
 
-const rehearseTitle = "boot the release it serves on its newest backup, on the host kept for rehearsals or, with none kept, on the app's own host beside it; ask the app its readiness, front page and data checks, then take it all down"
+export const rehearseTitle = "boot the release it serves on its newest backup, on the host kept for rehearsals or, with none kept, on the app's own host beside it; ask the app its readiness, front page and data checks, then take it all down"
 
-// ProtectionLines is a cloud deployment's protection on its card: each
-// item, the running operation, and the doors to copy and check now.
-function EnabledProtectionLines({ slug, name }: { slug: string; name: string }) {
-  const [technical] = useTechnicalDetail()
-  const q = useGet<DeploymentProtection>(`/projects/${slug}/deployments/${name}/protection`, { poll: 5000 })
-  const { run, busy, err } = useAction()
-  useNow(1000, !!q.data?.running)
-  // The way to the target's settings is offered only to those who can edit
-  // them; AppTown refuses the edit to anyone else.
-  const canEditTargets = useHolds('platform:manage-deploy-targets')
-  const line = (children: ReactNode) => <DeploymentLine label="Backups" trailer={<Link to="/docs/guides/deployment-backups">how backups work →</Link>}>{children}</DeploymentLine>
-  if (q.denied) return null
-  if (!q.data) return line(<ReadStatus q={q} what="how its data is protected" />)
-  const p = q.data
-  // A failed refresh keeps the last answer, said as such: no state is
-  // claimed as it is now.
-  const old = q.refreshFailed || p.reading?.unknown
-  const asRead = old ? ` as read ${elapsed(new Date(q.answeredAt).toISOString())} ago` : ''
-  const start = (what: 'copies' | 'drills' | 'rehearsals') => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/${what}`, {}))
-  const last = p.recent.find((o) => !live(o))
-  // Whether each door can start is AppTown's answer, from that door's
-  // own check: shown greyed with its sentence when it cannot.
-  // A door that does not apply on the deployment's platform (a check or a
-  // restore test of a Docker host's deployment, a copy it takes as its
-  // backups) is not shown at all; one that applies but cannot start now is
-  // greyed with its reason.
-  const applies = (o: { reason?: string }) => o.reason !== 'not-on-this-platform' && o.reason !== 'backups-page'
-  const ops = p.operations
-  // Each greyed button's reason, said once under the buttons: several share
-  // one (no copy runner), each from its own door's answer.
-  const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
-  const missingBackup = p.items.some(it => it.copy === 'none')
-  const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why && (!missingBackup || o.reason !== 'no-copy')).map((o) => o.why!)))
-  const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown && !p.reading?.waiting) return line(<div className="small"><Status word={"unknown"} help={p.unknown} /> couldn't read what this deployment holds. {p.reading?.failure && <span className="muted">{p.reading.failure}</span>}<CoverageLines c={p.coverage} unknown /></div>)
-  // A deployment that holds no data AppTown knows of says only what is
-  // not assessed; one whose take-down would still act on data, or with an
-  // operation or copy standing, shows the whole card.
-  if (p.items.length === 0 && !p.takeDown && !p.running && !p.restoredCopies.some((c) => !c.endedAt)) return line(<div className="small"><StaleNote q={q} />{p.reading?.failure && <span className="muted">{p.reading.failure}</span>}<CoverageLines c={p.coverage} /></div>)
-  // A Docker host's backups on AppTown's own disk are a choice, said
-  // plainly; App Platform data with no copy at all is a warning.
-  const onHost = ops?.copy.reason === 'backups-page'
-  return line(
-    <div>
-      <StaleNote q={q} />{p.reading?.failure && <span className="muted">{p.reading.failure}</span>}
-      {p.startFrom && !p.startFrom.filled && <div className="muted">starts from a backup set: its first release fills its data before the app starts</div>}
-      {p.items.map((it) => (
-        <div key={`${it.need}:${it.volume ?? ''}`}>
-          {it.copy === 'none' ? <div id={`backup-${name}-${it.need}-${it.volume || 'data'}`} className={old ? 'muted' : 'error'}>✗ No backup yet: {itemLabel(it, p.items)}{/postgres|maria/.test(it.need) ? ' database' : ''}{asRead}</div>
-            : <div><Status observation word={old ? 'unknown' : it.copyLabel} help={old ? `Last answer shown${asRead}.` : undefined} /> {itemLabel(it, p.items)}: {copyLine(it)}</div>}
-          <TechnicalWords shown={technical}>{it.where}</TechnicalWords>
-          {it.copy === 'none' && it.copyNote && !onHost && <div className="muted">{it.copyNote}</div>}
-          {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
-          {(!ops || applies(ops.check)) && <div className={!old && it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
-        </div>
-      ))}
-      {onHost && p.keptOn === 'host' ? <div className="muted">Kept on this host only; it does not outlive its disk</div>
-        : onHost && p.keptOn === 'store' ? <div className="muted">Backups kept in the backup store</div>
-        : p.note && <div className={!old && p.dataClass === 'production' && !p.offHost ? 'error' : 'muted'}>{p.note}</div>}
-      <CoverageLines c={p.coverage} />
-      {(p.rehearsal || !ops || ops.rehearsal.available || p.rehearsalNote === 'never rehearsed: no rehearsal place') && <div className={!old && p.rehearsal && !p.rehearsal.passed ? 'error' : 'muted'}>{rehearsalLine(p.rehearsal, p.rehearsalNote)}{p.rehearsal && asRead}</div>}
-      {p.rehearsal && <div className="muted">{heldBack(p.rehearsal)}</div>}
-      {p.rehearsal?.previous && <div className="muted">before that: {rehearsalLine(p.rehearsal.previous).replace('last restore rehearsal ', '')}</div>}
-      {(p.restoreTest || !ops || applies(ops.restore)) && <div className={!old && p.restoreTest && !(p.restoreTest.outcome ?? '').startsWith('passed') ? 'error' : 'muted'}>{restoreTestLine(p.restoreTest, p.restoreTestNote)}{p.restoreTest && asRead}</div>}
-      {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
-      {p.running && (
-        <div className="mt-1">
-          <Status word={old ? 'unknown' : p.running.statusLabel} help={old ? stateWords(p.running) + asRead : statusDetail(p.running)} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
-          {writesStopped(p.running) && <span className="muted data-protection-protection-lines-span">writes stopped{asRead}</span>}
-        </div>
-      )}
-      {!p.running && last && (
-        <div className="muted mt-1" >
-          last: <Link to={`/operations/${last.id}`}>{kindWords[last.kind] ?? last.kind} {stateWords(last)}</Link>{last.finishedAt ? ` ${fmtWhen(last.finishedAt)}` : ''}
-        </div>
-      )}
-      {ops && !p.running && (
-        <div className="row mt-1 data-protection-protection-lines-div">
-          {applies(ops.copy) && <button className="subtle" disabled={busy || !ops.copy.available} onClick={() => start('copies')} title={ops.copy.why || 'copy its data to the backup store now'}>Copy now</button>}
-          {applies(ops.check) && <button className="subtle" disabled={busy || !ops.check.available} onClick={() => start('drills')} title={ops.check.why || 'fill the newest copy into a new database, check it, and remove it'}>Check it comes back</button>}
-          {(p.rehearsalNote !== 'never rehearsed: no rehearsal place' || missingBackup) && (
-            <FeatureOnly area="restore-rehearsals"><button className="subtle" disabled={busy || !ops.rehearsal.available} aria-describedby={missingBackup ? p.items.filter(it => it.copy === 'none').map(it => `backup-${name}-${it.need}-${it.volume || 'data'}`).join(' ') : undefined} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button></FeatureOnly>
-          )}
-          {p.dataClass === 'production' && applies(ops.restore) && (
-            <FeatureOnly area="restore-rehearsals"><button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button></FeatureOnly>
-          )}
-          {err && <span className="error small">{err}</span>}
-        </div>
-      )}
-      {!p.running && whyNot.length > 0 && (
-        <div className="muted mt-1" role="note" >
-          {whyNot.map((w) => <div key={w}>{w}</div>)}
-          {runnerMissing && canEditTargets && <Link to={`/targets/${p.target}`}>Open {p.target}'s settings</Link>}
-        </div>
-      )}
-      {p.takeDown && !ops?.finalCopy.available && <div className="error mt-1" >{p.takeDown}</div>}
-    </div>
-  )
-}
-
-const restoreTestTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, check it through the gate, record the answer and take it down: about 10 to 20 minutes and a few cents on DigitalOcean`
+export const restoreTestTitle = `start its release from its newest copy on its own platform, behind ${PRODUCT}'s gate, check it through the gate, record the answer and take it down: about 10 to 20 minutes and a few cents on DigitalOcean`
 
 // RestoredCopyLines is one standing restored copy on its source's card:
 // what it is, what it can still do outside and who else can read it, and
 // the door to take it down.
-function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; source: string; copy: RestoredCopy; asRead: string }) {
+export function RestoredCopyLines({ slug, source, copy: c, asRead }: { slug: string; source: string; copy: RestoredCopy; asRead: string }) {
   const { run, busy, err } = useAction()
   return (
     <div className="mt-1 data-protection-restored-copy-lines-div">
@@ -376,17 +275,17 @@ export function OperationPage() {
   )
 }
 
-// StoreSection is the backup store on the Backups page: where AppTown
-// keeps copies off a deployment's host, or that it has none, and the form
-// an administrator attaches one with.
-export function StoreSection({ canAttach }: { canAttach: boolean }) {
+// StoreSettings is the Backups page's Settings: the backup store where
+// AppTown keeps copies off AppTown's disk, or that it has none, the form an
+// administrator attaches one with, and how long copies are kept.
+export function StoreSettings() {
+  const retention = useGet<AllBackups>('/backups')
   const q = useGet<BackupStoreState>('/backup-store')
+  const canAttach = useHolds('platform:manage-deploy-targets')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ endpoint: '', region: '', bucket: '', accessKeyFrom: '', secretKeyFrom: '' })
   const { run, busy, err } = useAction(undefined, { affects: ['/backup-store'] })
-  if (q.denied) return null
-  if (!q.data) return <ReadStatus q={q} what="whether a backup store is attached" className="small" />
-  const st = q.data.store
+  const st = q.data?.store
   const attach = async () => {
     const r = await run(() => put<BackupStoreState>('/backup-store', form))
     if (r) { setOpen(false); q.reload() }
@@ -397,44 +296,39 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
       <input aria-label={label} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value.trim() })} placeholder={hint} className="data-protection-field-input" />
     </>
   )
-  const action = canAttach && !open ? <button onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach backup store'}</button> : undefined
-  return (
-    <Section title="Backup store" action={action}>
-      <StaleNote q={q} />
-      {st
-        ? <dl className="facts small">
-            <dt>Bucket</dt><dd>Backups go to <b>{st.bucket}</b></dd>
-            <dt>Endpoint</dt><dd>{st.endpoint}</dd>
-            <dt>Attached</dt><dd>by {st.attachedBy} {fmtWhen(st.attachedAt)}</dd>
-            <dt>Checked</dt><dd><BackgroundReading reading={st.reading} /> <span className="muted">by writing, reading back and deleting a test file</span></dd>
-            <dt>Keys</dt><dd>{st.accessKeyFrom} and {st.secretKeyFrom}</dd>
-          </dl>
-        : !open && <p className="muted small">No backup store attached. Copies stay on each app's host.</p>}
-      {open && (
-        <div className="data-protection-store-section-div">
-          <div className="form-grid">
-            {field('endpoint', 'Endpoint', 'https://syd1.digitaloceanspaces.com')}
-            {field('region', 'Region', 'syd1')}
-            {field('bucket', 'Bucket', 'an existing private bucket')}
-            {field('accessKeyFrom', 'Access key secret', 'the secret holding the access key')}
-            {field('secretKeyFrom', 'Secret key secret', 'the secret holding the secret key')}
-          </div>
-          <div className="row mt-2" >
-            <button className="primary" disabled={busy} onClick={attach}>{busy ? 'checking…' : 'Check and attach'}</button>
-            <button className="subtle" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
-            {err && <span className="error small">{err}</span>}
-          </div>
+  const attachButton = canAttach && !open && q.data ? <button onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach backup store'}</button> : undefined
+  return <div className="stack stack-3">
+    <StaleNote q={[q, retention]} />
+    <div className="section-body deployment-status-facts"><div className="card deploy-entry"><div className="deploy-lines">
+      {!q.denied && (q.data ? st ? <>
+        <DeploymentLine label="Store" trailer={attachButton}><b>{st.bucket}</b> <span className="muted">· {st.endpoint}</span></DeploymentLine>
+        <DeploymentLine label="Checked"><BackgroundReading reading={st.reading} /><div className="muted small">a test file written and read back</div></DeploymentLine>
+        <DeploymentLine label="Attached">by {st.attachedBy} {fmtWhen(st.attachedAt)}</DeploymentLine>
+        <DeploymentLine label="Keys">{st.accessKeyFrom} and {st.secretKeyFrom}</DeploymentLine>
+      </> : <DeploymentLine label="Store" trailer={attachButton}>none <span className="muted">· copies stay on {PRODUCT}'s disk and go if it does</span></DeploymentLine>
+        : <DeploymentLine label="Store"><ReadStatus q={q} what="whether a backup store is attached" /></DeploymentLine>)}
+      <DeploymentLine label="Keeps" trailer={<Link to="/docs/guides/deployment-backups">how backups work →</Link>}>{retention.data ? `${retention.data.retention}. A final copy stays with its project.` : <ReadStatus q={retention} what="how long copies are kept" />}</DeploymentLine>
+    </div></div></div>
+    {open && (
+      <div className="section-body data-protection-store-section-div">
+        <div className="form-grid">
+          {field('endpoint', 'Endpoint', 'https://syd1.digitaloceanspaces.com')}
+          {field('region', 'Region', 'syd1')}
+          {field('bucket', 'Bucket', 'an existing private bucket')}
+          {field('accessKeyFrom', 'Access key secret', 'the secret holding the access key')}
+          {field('secretKeyFrom', 'Secret key secret', 'the secret holding the secret key')}
         </div>
-      )}
-    </Section>
-  )
+        <div className="row mt-2" >
+          <button className="primary" disabled={busy} onClick={attach}>{busy ? 'checking…' : 'Check and attach'}</button>
+          <button className="subtle" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+          {err && <span className="error small">{err}</span>}
+        </div>
+      </div>
+    )}
+  </div>
 }
 
 // endedWords is an ended operation in the waiting-on-you list.
 export function endedWords(op: Operation): string {
   return `${kindWords[op.kind] ?? op.kind} of ${deploymentOf(op)}: ${stateWords(op)}`
-}
-
-export function ProtectionLines(props: Parameters<typeof EnabledProtectionLines>[0]) {
- return <FeatureOnly area="backups"><EnabledProtectionLines {...props} /></FeatureOnly>
 }

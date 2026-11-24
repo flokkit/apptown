@@ -108,9 +108,14 @@ function deployLabel(e: DeploymentView) {
 // owner could not tell), or '' when nothing is wrong or the read is refused.
 export type BackupProblem = '' | 'none' | 'overdue' | 'unknown'
 export function backupProblem(q: Read<DeploymentProtection>): BackupProblem {
-  const p = q.data
   if (q.denied) return ''
-  if (!p || q.refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale) return 'unknown'
+  return protectionProblem(q.data, q.refreshFailed)
+}
+
+// protectionProblem is the same verdict on an answer already in hand (the
+// Backups page's rows), with whether the browser's refresh of it failed.
+export function protectionProblem(p: DeploymentProtection | null | undefined, refreshFailed: boolean): BackupProblem {
+  if (!p || refreshFailed || p.unknown || p.reading?.unknown || p.reading?.stale) return 'unknown'
   if (p.items.some(i => i.copy === 'none')) return 'none'
   if (p.items.some(i => i.copyLabel === 'overdue')) return 'overdue'
   if (p.items.some(i => i.copyLabel === 'unknown')) return 'unknown'

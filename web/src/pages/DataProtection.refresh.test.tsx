@@ -7,7 +7,8 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../data'
-import { OperationPage, ProtectionLines } from './DataProtection'
+import { OperationPage } from './DataProtection'
+import { ProtectionCard } from './project/DeploymentBackups'
 
 // Record ids are UUIDv7 strings.
 const SET = '00000000-0003-7000-8000-000000000000'
@@ -48,7 +49,7 @@ describe('a protection reading whose refresh failed', () => {
     return { el, done: () => { act(() => root.unmount()); client.clear() } }
   }
   it('says the copies were fresh when last read, not that they are', async () => {
-    const { el, done } = await mount('/projects/ledger/deployments/prod/protection', <ProtectionLines slug="ledger" name="prod" />, protection)
+    const { el, done } = await mount('/projects/ledger/deployments/prod/protection', <ProtectionCard slug="ledger" name="prod" />, protection)
     await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
     // How old the answer is rides in the unknown status's details.
     expect(details(el)).toContain('as read')

@@ -62,7 +62,7 @@ var (
 	errStoreInput = fault.New(fault.Invalid, "a backup store needs an endpoint URL, a region, a bucket and the names of the secrets holding its key pair")
 	// errNoStore: production data is not protected off its host until a
 	// store is attached.
-	errNoStore error = &deployment.Unavailable{Reason: "no-store", Why: "Backups and restore tests need a backup store, and none is attached. An administrator attaches one under Deployments → Backups."}
+	errNoStore error = &deployment.Unavailable{Reason: "no-store", Why: "Backups and restore tests need a backup store, and none is attached. An administrator attaches one under Deployments → Backups → Settings."}
 	// errStoreCheck: the store did not take a write, give it back and
 	// delete it; nothing was attached.
 	errStoreCheck = fault.New(fault.Unprocessable, "the backup store did not pass its check; nothing was attached")

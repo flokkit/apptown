@@ -1,119 +1,182 @@
 // @vitest-environment jsdom
-import { expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { newQueryClient, getKey } from '../data'
-import { BackupsView } from './Backups'
-
-// Record ids are UUIDv7 strings.
-const SET = '00000000-0012-7000-8000-000000000000'
-const PROJECT = '00000000-0001-7000-8000-000000000000'
-const DOCKER_SET = '00000000-0020-7000-8000-000000000000'
-const CLOUD_SET = '00000000-0021-7000-8000-000000000000'
+import { newQueryClient } from '../data'
+import { withFeatures } from '../features.fixture'
+import { BackupsView, takenDownWords } from './Backups'
+import type { ProjectBackup } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-const set = {
-  id: SET, projectId: PROJECT, project: 'shop', deployment: 'main', takenAt: '2026-10-08T01:00:00Z', trigger: 'manual', actor: 'bls', path: '/p', bytes: 10, status: 'ok',
-  items: [{ kind: 'need', name: 'redis', file: 'redis.rdb', bytes: 5, sha256: 'a', how: 'save', copy: 'declared' }, { kind: 'need', name: 's3', file: 's3.tar.gz', bytes: 5, sha256: 'b', how: 'tar of /data', copy: 'live-files', caveat: 'object metadata is not in the copy' }],
+const at = new Date(Date.now() - 6 * 3600e3).toISOString()
+const reading = { observedAt: at, attemptedAt: at, waiting: false, stale: false, unknown: false }
+const item = (more = {}) => ({ need: 'postgres', where: 'on docker-1', copy: 'fresh', copyLabel: 'fresh', lastCopy: { backup: 'b', takenAt: at, bytes: 18 * 2 ** 20, sha256: '' }, ...more })
+const protection = (more = {}) => ({ reading, deployment: 'main', dataClass: 'non-production', offHost: true, keptOn: 'store', target: 'docker-1', items: [item()], recent: [], restoredCopies: [], coverage: { assessed: [], notAssessed: [] }, ...more })
+const row = (app: string, more = {}, prot = {}) => ({ project: app.toLowerCase(), projectName: app, deployment: 'main', deploymentLabel: 'main', targetKind: 'docker-host', protection: protection(prot), newest: { backup: 'b', takenAt: at, bytes: 18 * 2 ** 20, sha256: '' }, ...more })
+const op = (kind: string, state: string, more = {}) => ({ id: `op-${kind}-${state}`, number: 4, kind, statusLabel: state === 'succeeded' ? 'finished' : state === 'running' ? 'working' : state, state, askedBy: 'sam', input: {}, holds: [], steps: [], result: {}, cancellable: false, createdAt: at, touchedAt: at, startedAt: at, finishedAt: state === 'running' ? undefined : at, ...more })
+const store = { bucket: 'acme-backups', endpoint: 'https://s.example', attachedBy: 'sam', attachedAt: at, accessKeyFrom: 'K', secretKeyFrom: 'S', reading }
+
+function Where() { return <output>{useLocation().pathname}{useLocation().search}</output> }
+
+let done = () => {}
+afterEach(() => { done(); done = () => {}; vi.unstubAllGlobals() })
+
+// mount draws the Backups page with AppTown answering each read from
+// answers, and the viewer holding what holds says.
+async function mount(answers: Record<string, unknown>, holds: Record<string, boolean> = { 'deployment:deploy': true, 'platform:manage-deploy-targets': true }, path = '/backups') {
+  vi.stubGlobal('fetch', vi.fn(withFeatures(async (url: string) => {
+    const u = String(url).replace(/^.*\/api\/v1/, '')
+    if (u.startsWith('/authz/me')) return new Response(JSON.stringify({ user: 'sam', instance: holds, project: holds }))
+    const key = Object.keys(answers).find(k => u === k)
+    return new Response(JSON.stringify(key ? answers[key] : { error: 'AppTown could not read it' }), { status: key ? 200 : 422 })
+  })))
+  const client = newQueryClient()
+  const el = document.createElement('div'), root = createRoot(el)
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes><Route path="*" element={<><BackupsView /><Where /></>} /></Routes></MemoryRouter></QueryClientProvider>))
+  done = () => { act(() => root.unmount()); client.clear() }
+  return { el, client }
 }
+const rowsOf = (el: Element) => [...el.querySelectorAll('.deployment-status-rows > .list-row')]
+const factsOf = (el: Element) => Object.fromEntries([...el.querySelectorAll('.deployment-status-facts .deploy-line')].map(l => [l.children[0].textContent, l.children[1].textContent]))
+const fleet = (rows: unknown[], lastNight = { copied: rows.length, of: rows.length, at }) => ({ deployments: rows, lastNight })
 
-// The Backups page lists copies; acts belong to the deployment (its ⋯
-// menu: Back up now, Restore from a backup). A row opens the deployment,
-// or the project's deployments when that deployment was taken down.
-it('lists copies without acts, and a row opens its deployment', async () => {
-  const client = newQueryClient()
-  const store = { ...set, id: DOCKER_SET, deploymentLabel: 'Production', store: 'store', path: 'shop/main/x' }
-  const final = { ...set, id: CLOUD_SET, deployment: 'old', trigger: 'take-down' }
-  const body = { keep: 7, where: '/b', backups: [store, final] }
-  client.setQueryData(getKey('/backups'), body)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
-    for (const label of ['Back up now', 'Restore main from this copy', 'Start a new deployment from this'])
-      expect([...el.querySelectorAll('button, a')].some(b => b.textContent === label)).toBe(false)
-    expect(el.querySelector('input[placeholder="a deployment"]')).toBeNull()
-    expect([...el.querySelectorAll('th')].map(th => th.textContent)).toContain('Details')
-    // Where each set is kept, by its recorded place and path: a folder a
-    // stopped move left behind is matched against it (OHB-02).
-    const all = el.querySelectorAll('table')[1].querySelectorAll('tbody tr')
-    expect(all[0].textContent).toContain('backup store')
-    // The cleanup guide requires the exact folder identity to be readable.
-    // A display label does not supply the path's deployment segment, and
-    // a native title tooltip is unavailable to a person using a phone.
-    expect(all[0].textContent).toContain('shop/main/x')
-    expect(el.textContent).toContain('object metadata is not in the copy')
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+// One row per deployment that holds data, trouble first, each with the
+// owner's reason in plain words; Back up now only where it fixes something,
+// and only for someone who may deploy there.
+it('lists each deployment trouble first, with its reason and Back up now on trouble only', async () => {
+  const answers = {
+    '/backups/deployments': fleet([
+      row('Van'),
+      row('Trail', {}, { items: [item({ copy: 'stale', copyLabel: 'overdue', copyNote: 'the last backup did not copy it: docker-1 refused' })] }),
+      row('Wish', { newest: null }, { items: [item({ copy: 'none', copyLabel: 'missing', lastCopy: null })] }),
+    ]),
+    '/backups': { backups: [], keep: 7, where: '/b', retention: 'Keeps the last 7' }, '/backup-store': { store, keptBytes: 4.2 * 2 ** 30 },
+  }
+  const { el } = await mount(answers)
+  await vi.waitFor(() => expect(rowsOf(el)).toHaveLength(3))
+  const rows = rowsOf(el)
+  expect(rows.map(r => r.querySelector('strong')?.textContent)).toEqual(['Wish main', 'Trail main', 'Van main'])
+  expect(rows[0].querySelector('.chip')?.textContent).toContain('no copy yet')
+  expect(rows[1].querySelector('.chip')?.textContent).toContain('overdue')
+  expect(rows[1].textContent).toContain('docker-1 refused')
+  expect(rows[2].querySelector('.chip')?.textContent).toContain('backed up')
+  expect(rows[2].textContent).toContain('18 MB')
+  await vi.waitFor(() => expect(rows.map(r => !!r.querySelector('button'))).toEqual([true, true, false]))
+  // A list, not a log: no limits prose, no store facts, no restore here.
+  expect(el.textContent).not.toContain('Limits')
+  expect(el.textContent).not.toContain('Endpoint')
+  expect([...el.querySelectorAll('button')].some(b => b.textContent?.startsWith('Restore'))).toBe(false)
+  const facts = factsOf(el)
+  expect(facts.Store).toBe('acme-backups · 4.2 GB')
+  expect(facts['Last night']).toMatch(/^3 of 3 copied · \d\d:\d\d$/)
+  expect(facts['Last restore']).toBe('never')
 })
 
-it('labels only an explicitly associated set before its numbered release', async () => {
-  const client = newQueryClient()
-  const body = { keep: 7, where: '/b', backups: [{ ...set, trigger: 'pre-release', beforeRelease: 3 }] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/backups#backup-${SET}`]}><BackupsView /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(() => expect(el.textContent).toContain('before release 3'))
-    expect(el.querySelector(`a[href="/projects/shop/releases/3"]`)).not.toBeNull()
-    expect(el.querySelector(`[id="backup-${SET}"]`)).not.toBeNull()
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+it('offers no Back up now to someone who may not deploy', async () => {
+  const { el, client } = await mount({ '/backups/deployments': fleet([row('Trail', {}, { items: [item({ copy: 'none', copyLabel: 'missing', lastCopy: null })] })]), '/backups': { backups: [] }, '/backup-store': { store } }, {})
+  await vi.waitFor(() => expect(rowsOf(el)).toHaveLength(1))
+  await vi.waitFor(() => expect(client.isFetching()).toBe(0))
+  expect(el.querySelector('button')).toBeNull()
 })
 
-// On a phone the details cell already names the deployment and shares its
-// place, so the Deployment column is a desktop column only; on a phone the
-// two would paint over each other.
-it('shows the Deployment column on wide screens only', async () => {
-  const client = newQueryClient()
-  const body = { keep: 7, where: '/b', backups: [set] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(() => expect(el.querySelectorAll('table').length).toBe(2))
-    for (const table of el.querySelectorAll('table')) {
-      const heads = [...table.querySelectorAll('th')]
-      const deployment = heads.findIndex(th => th.textContent === 'Deployment')
-      expect(heads[deployment].classList.contains('record-wide')).toBe(true)
-      for (const row of table.querySelectorAll('tbody tr')) expect(row.children[deployment].classList.contains('record-wide')).toBe(true)
-    }
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+// A failed refresh of the list, or an owner reading that is old, is
+// unknown: never a green row under a stale note.
+it('says unknown, not backed up, when the reading is old or could not be refreshed', async () => {
+  const { el } = await mount({ '/backups/deployments': fleet([row('Old', {}, { reading: { ...reading, stale: true } })]), '/backups': { backups: [] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(rowsOf(el)).toHaveLength(1))
+  expect(rowsOf(el)[0].querySelector('.chip')?.textContent).toContain('unknown')
+  expect(el.querySelector('.chip.pass')).toBeNull()
 })
 
-// The heading counts copies kept; sets the keep policy removed are listed for
-// their record and counted apart, so the count matches the policy.
-it('counts kept copies in the heading and removed sets apart', async () => {
-  const client = newQueryClient()
-  const kept = { ...set, statusLabel: 'finished' }
-  const removed = { ...set, id: DOCKER_SET, status: 'pruned', statusLabel: 'removed' }
-  const body = { keep: 7, where: '/b', backups: [kept, removed, { ...removed, id: CLOUD_SET }] }
-  client.setQueryData(getKey('/backups'), body)
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
-    const all = [...el.querySelectorAll('section')].find(s => s.querySelector('h2')?.textContent?.startsWith('All backups'))!
-    expect(all.querySelector('.section-count')?.textContent).toBe('1')
-    expect(all.textContent).toContain('2 removed by the keep policy')
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+// The work under way, and a last operation that failed or ended unknown,
+// is said beside the backups' own state, never hidden by it.
+it('keeps operations beside the backup state', async () => {
+  const none = { items: [item({ copy: 'none', copyLabel: 'missing', lastCopy: null })] }
+  const overdue = { items: [item({ copy: 'stale', copyLabel: 'overdue', copyNote: 'too old' })] }
+  const { el } = await mount({ '/backups/deployments': fleet([
+    row('Copying', {}, { ...none, running: op('deployment.copy', 'running', { steps: [{ name: 'copying postgres', started: at }] }), recent: [op('deployment.copy', 'running')] }),
+    row('Restoring', {}, { ...overdue, running: op('deployment.restore', 'running'), recent: [op('deployment.restore', 'running')] }),
+    row('Failed', {}, { recent: [op('deployment.restore', 'failed')] }),
+    row('Unknown', {}, { recent: [op('deployment.restore', 'unknown')] }),
+  ]), '/backups': { backups: [] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(rowsOf(el)).toHaveLength(4))
+  const by = (name: string) => rowsOf(el).find(r => r.querySelector('strong')?.textContent?.startsWith(name))!
+  expect(by('Copying').querySelector('.chip')?.textContent).toContain('no copy yet')
+  expect(by('Copying').querySelector('a[href="/operations/op-deployment.copy-running"]')?.textContent).toContain('Copy running')
+  expect(by('Restoring').querySelector('.chip')?.textContent).toContain('overdue')
+  expect(by('Restoring').querySelector('a[href="/operations/op-deployment.restore-running"]')).not.toBeNull()
+  expect(by('Failed').querySelector('.chip')?.textContent).toContain('restore failed')
+  expect(by('Failed').querySelector('a[href="/operations/op-deployment.restore-failed"]')).not.toBeNull()
+  expect(by('Unknown').querySelector('.chip')?.textContent).toContain('restore unknown')
+  expect(by('Unknown').querySelector('.chip.pass')).toBeNull()
 })
 
-// A copy of a running app's files may hold a file caught half-written. The
-// set still finished, so its status stays; the item says why in words.
-it('says why a file copy of a running app may be inconsistent', async () => {
-  const client = newQueryClient()
-  const volume = { ...set, items: [{ kind: 'volume', name: 'shop_data', file: 'shop_data.tar.gz', bytes: 5, sha256: 'c', how: 'tar of the volume shop_data', copy: 'live-files' }] }
-  const body = { keep: 7, where: '/b', backups: [volume] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/backups') ? body : {}))))
-  const el = document.createElement('div'), root = createRoot(el)
-  try {
-    await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(() => expect(el.querySelectorAll('table').length).toBe(2))
-    const latest = el.querySelector('table')!.textContent ?? ''
-    expect(latest).toContain('file copy, app running')
-    expect(latest).toContain('Copied while the app was running: a file it was writing at that moment may be incomplete in this copy.')
-    expect(latest).not.toContain('may be inconsistent')
-  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+// Without a store, the page says where copies are and offers Attach… to
+// an administrator only; the store's facts and the keep rule are on Settings.
+it('warns of no store, with Attach… for administrators, and keeps the store on Settings', async () => {
+  const answers = { '/backups/deployments': fleet([row('Van', {}, { keptOn: 'host', offHost: false })]), '/backups': { backups: [], retention: 'Keeps the last 7 copies' }, '/backup-store': { store: null } }
+  const { el } = await mount(answers)
+  await vi.waitFor(() => expect(rowsOf(el)[0]?.textContent).toContain('No backup store'))
+  expect(rowsOf(el)[0].textContent).toContain("Copies stay on AppTown's disk and go if it does.")
+  await vi.waitFor(() => expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('Attach…'))
+  done()
+  const viewer = await mount(answers, {})
+  await vi.waitFor(() => expect(rowsOf(viewer.el)[0]?.textContent).toContain('No backup store'))
+  await vi.waitFor(() => expect(viewer.client.isFetching()).toBe(0))
+  expect([...viewer.el.querySelectorAll('button')].map(b => b.textContent)).not.toContain('Attach…')
+  done()
+  const settings = await mount({ ...answers, '/backup-store': { store, keptBytes: 10 } }, undefined, '/backups?tab=settings')
+  await vi.waitFor(() => expect(settings.el.textContent).toContain('acme-backups'))
+  expect(settings.el.textContent).toContain('https://s.example')
+  expect(settings.el.textContent).toContain('K and S')
+  await vi.waitFor(() => expect(settings.el.textContent).toContain('Keeps the last 7 copies. A final copy stays with its project.'))
+  expect(settings.el.querySelector('a[href="/docs/guides/deployment-backups"]')).not.toBeNull()
+})
+
+// The store's kept total is said when known and left out when not, never 0.
+it('leaves the kept total out when it is not known', async () => {
+  const { el } = await mount({ '/backups/deployments': fleet([row('Van')]), '/backups': { backups: [] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(factsOf(el).Store).toBe('acme-backups'))
+})
+
+// A deployment taken down keeps a row that opens its history, and says what
+// its newest retained set is, by its trigger and outcome.
+it('lists a taken-down deployment that opens its own backups page', async () => {
+  const set = { id: 'f', projectId: 'p', project: 'trail', deployment: 'test', deploymentLabel: 'test', deploymentRemoved: true, takenAt: at, trigger: 'take-down', actor: 'sam', path: '', bytes: 10, items: [], status: 'ok', statusLabel: 'finished', store: 'store' }
+  const { el } = await mount({ '/backups/deployments': fleet([]), '/backups': { backups: [set] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(rowsOf(el)).toHaveLength(1))
+  expect(rowsOf(el)[0].textContent).toContain('final copy')
+  expect(rowsOf(el)[0].textContent).toContain('kept with the project')
+  await act(async () => (rowsOf(el)[0].querySelector('.list-state') as HTMLElement).click())
+  expect(el.querySelector('output')?.textContent).toBe('/projects/trail/deployments/test/backups')
+})
+
+it('calls only a take-down set that holds data a final copy', () => {
+  const set = (trigger: string, status: string) => ({ trigger, status, takenAt: at, error: 'disk full' }) as ProjectBackup
+  expect(takenDownWords(set('take-down', 'ok'))).toMatch(/^final copy .* · kept with the project$/)
+  expect(takenDownWords(set('take-down', 'partial'))).toMatch(/^final copy .*, partial · kept with the project$/)
+  expect(takenDownWords(set('manual', 'ok'))).toMatch(/^newest copy /)
+  expect(takenDownWords(set('manual', 'ok'))).not.toContain('final')
+  expect(takenDownWords(set('take-down', 'failed'))).toMatch(/^last copy failed .*: disk full$/)
+})
+
+it('says nothing to back up when nothing holds data, and unknown when the list cannot be read', async () => {
+  const { el } = await mount({ '/backups/deployments': fleet([]), '/backups': { backups: [] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(el.textContent).toContain('Nothing to back up yet'))
+  done()
+  const failed = await mount({ '/backups': { backups: [] }, '/backup-store': { store } })
+  await vi.waitFor(() => expect(failed.el.textContent).toContain('unknown'))
+  expect(failed.el.textContent).not.toContain('Nothing to back up yet')
+})
+
+// An unread history of taken-down deployments is not an empty list.
+it('says unknown, not nothing to back up, when the taken-down history cannot be read', async () => {
+  const { el, client } = await mount({ '/backups/deployments': fleet([]), '/backup-store': { store } })
+  await vi.waitFor(() => expect(factsOf(el)['Last restore']).toBe('never'))
+  await vi.waitFor(() => expect(client.isFetching()).toBe(0))
+  expect(el.textContent).not.toContain('Nothing to back up yet')
+  expect(el.textContent).toContain('unknown')
 })
