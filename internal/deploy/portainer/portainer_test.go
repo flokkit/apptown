@@ -173,9 +173,9 @@ func TestOnlyAStackAppTownCreatedIsRecorded(t *testing.T) {
 				case r.Method == "GET" && r.URL.Path == "/api/stacks/7/file":
 					_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}")})
 				case r.Method == "PUT" && r.URL.Path == "/api/stacks/7":
-					fmt.Fprint(w, `{"Id":7}`)
+					fmt.Fprint(w, `{"Id":7,"Status":1}`)
 				case r.Method == "POST" && r.URL.Path == "/api/stacks/create/standalone/string":
-					fmt.Fprint(w, `{"Id":12}`)
+					fmt.Fprint(w, `{"Id":12,"Status":1}`)
 				default:
 					t.Errorf("unexpected %s %s", r.Method, r.URL)
 					http.Error(w, "unexpected", 500)

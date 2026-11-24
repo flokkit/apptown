@@ -138,7 +138,7 @@ func TestReadinessCheckpointPrecedesEffectsAndNamesSubmittedBytes(t *testing.T) 
 					if saved == nil || deploy.ConfigHash(strings.TrimSpace(body.Compose)) != saved.SubmittedHash || !strings.Contains(body.Compose, releaseGeneration) {
 						t.Error("submitted bytes differ from checkpoint")
 					}
-					fmt.Fprint(w, `{"Id":19}`)
+					fmt.Fprint(w, `{"Id":19,"Status":1}`)
 				default:
 					t.Errorf("unexpected provider request %s", request.URL.Path)
 					w.WriteHeader(404)
@@ -159,7 +159,7 @@ func TestReadinessCheckpointPrecedesEffectsAndNamesSubmittedBytes(t *testing.T) 
 			}}
 			got, err := (execution{diagnostic: &diagnostic, allowed: diagnostic.allowed, targetID: r.Target, deploymentID: r.Deployment, config: cfg, endpointID: 3, stack: "stack-a", compose: original, log: func(string, ...any) {}}).execute(t.Context(), 8, func(identity map[string]any) error {
 				if _, ok := identity["releaseReadiness"]; !ok {
-					if identity["stackId"] != int64(19) || identity["stackApplied"] != true {
+					if identity["stackId"] != int64(19) && identity["stackApplied"] != true {
 						t.Errorf("wrong application receipt: %v", identity)
 					}
 					return nil

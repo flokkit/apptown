@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
@@ -27,7 +28,14 @@ type environment struct {
 	volumes map[string]bool
 	deleted []string
 	// onDeploy runs when the stack is created: the volumes compose makes.
-	onDeploy func()
+	onDeploy     func()
+	background   bool
+	status       int
+	update       bool
+	reject       string
+	rejectCode   int
+	reads        int
+	checkpointID int64
 }
 
 func (e *environment) handler(t *testing.T) http.Handler {
@@ -39,12 +47,34 @@ func (e *environment) handler(t *testing.T) http.Handler {
 		case r.URL.Path == "/api/endpoints":
 			fmt.Fprint(w, `[{"Id":3,"Name":"lan","Type":2}]`)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks":
-			fmt.Fprint(w, `[]`)
-		case r.Method == "POST" && r.URL.Path == "/api/stacks/create/standalone/string":
+			if e.update {
+				fmt.Fprint(w, `[{"Id":12,"Name":"forge-shop","EndpointId":3}]`)
+			} else {
+				fmt.Fprint(w, `[]`)
+			}
+		case r.Method == "GET" && r.URL.Path == "/api/stacks/12":
+			e.reads++
+			if e.checkpointID != 12 {
+				t.Error("status read before stack ID checkpoint")
+			}
 			if e.onDeploy != nil {
 				e.onDeploy()
 			}
-			fmt.Fprint(w, `{"Id":12}`)
+			fmt.Fprintf(w, `{"Id":12,"Status":%d,"DeploymentStatus":[{"Status":3,"Message":"starting"},{"Status":%d,"Message":"manifest unknown"}]}`, e.status, e.status)
+		case r.Method == "PUT" && r.URL.Path == "/api/stacks/12", r.Method == "POST" && r.URL.Path == "/api/stacks/create/standalone/string":
+			if e.rejectCode > 0 {
+				w.WriteHeader(e.rejectCode)
+				fmt.Fprint(w, e.reject)
+				return
+			}
+			if e.background {
+				fmt.Fprint(w, `{"Id":12,"Status":3}`)
+				return
+			}
+			if e.onDeploy != nil {
+				e.onDeploy()
+			}
+			fmt.Fprint(w, `{"Id":12,"Status":1}`)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
 			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}\nvolumes:\n  forge-data-shop: {}\n  forge-need-shop-postgres: {}\n")})
 		case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
@@ -328,4 +358,117 @@ func TestTheLayoutFindsADataFolderAtThePathTheAppWasGiven(t *testing.T) {
 			t.Errorf("%s is mounted at %+v (found: %v); want %+v\n%s", volume, got, ok, want, compose)
 		}
 	}
+}
+
+// Compose makes volumes only when the background operation completes.
+func TestABackgroundStackCreateRecordsTheVolumesComposeMade(t *testing.T) {
+	t.Parallel()
+	e := &environment{background: true, status: 1, volumes: map[string]bool{}}
+	e.onDeploy = func() { e.volumes["forge-shop_forge-need-shop-postgres"] = true }
+	book, _, err := runBackgroundStack(t, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(book.made, func(v deploy.Owned) bool { return v.Kind == "volume" && v.Need == "postgres" }) {
+		t.Fatalf("compose volume missing: %+v", book.made)
+	}
+}
+
+func TestAStackThatSettlesFailedFailsTheRelease(t *testing.T) {
+	t.Parallel()
+	assertFailedStack(t, false)
+}
+func TestAnUpdateThatSettlesFailedFailsTheRelease(t *testing.T) {
+	t.Parallel()
+	assertFailedStack(t, true)
+}
+func assertFailedStack(t *testing.T, update bool) {
+	t.Helper()
+	e := &environment{background: true, status: 4, update: update, volumes: map[string]bool{}}
+	e.onDeploy = func() { e.volumes["forge-shop_forge-need-shop-postgres"] = true }
+	book, noted, err := runBackgroundStack(t, e)
+	if err == nil || !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "manifest unknown") || noted["stackApplied"] == true {
+		t.Fatalf("failed compose: %v noted%v", err, noted)
+	}
+	if !update && !slices.ContainsFunc(book.made, func(v deploy.Owned) bool { return v.Kind == "stack" && v.ID == "12" }) {
+		t.Fatalf("failed create lost ownership: %+v", book.made)
+	}
+	if !slices.ContainsFunc(book.made, func(v deploy.Owned) bool { return v.Need == "postgres" }) {
+		t.Fatalf("partial compose volume lost ownership: %+v", book.made)
+	}
+}
+
+func TestAStackStillDeployingAtTheDeadlineIsUnknown(t *testing.T) {
+	t.Parallel()
+	_, noted, err := runBackgroundStack(t, &environment{background: true, status: 3, volumes: map[string]bool{}})
+	if err == nil || deploy.IsTerminal(err) || noted["stackApplied"] == true || noted["stackId"] != int64(12) {
+		t.Fatalf("unconfirmed apply: %v noted%v", err, noted)
+	}
+}
+
+func TestASynchronousComposeFailureIsTerminal(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		for _, confirmed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("update=%v/confirmed=%v", update, confirmed), func(t *testing.T) {
+				t.Parallel()
+				message := "upstream unavailable"
+				if confirmed {
+					message = "failed to deploy a stack: compose up operation failed: manifest unknown"
+				}
+				raw, _ := json.Marshal(map[string]string{"message": message})
+				_, _, err := runBackgroundStack(t, &environment{update: update, rejectCode: 500, reject: string(raw), volumes: map[string]bool{}})
+				if err == nil || deploy.IsTerminal(err) != confirmed || !strings.Contains(err.Error(), message) {
+					t.Fatalf("synchronous failure: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestTakeDownAfterABackgroundCreateDeletesTheNeedVolumes(t *testing.T) {
+	t.Parallel()
+	e := &environment{background: true, status: 1, volumes: map[string]bool{}}
+	e.onDeploy = func() { e.volumes["forge-shop_forge-need-shop-postgres"] = true }
+	book, _, err := runBackgroundStack(t, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(e.handler(t))
+	t.Cleanup(server.Close)
+	d := Driver{Config: func(context.Context, ids.ID) (*Target, error) {
+		return &Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL}, nil
+	}}
+	if _, err := d.Teardown(t.Context(), deploy.Placement{ID: idstest.N(7), Generation: 1}, 1, deploy.TakeDown{Owned: book.made, BackedUp: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(e.deleted, []string{"forge-shop_forge-need-shop-postgres"}) {
+		t.Fatalf("need volume retained: %v", e.deleted)
+	}
+}
+
+func runBackgroundStack(t *testing.T, e *environment) (*stackBook, map[string]any, error) {
+	t.Helper()
+	server := httptest.NewServer(e.handler(t))
+	t.Cleanup(server.Close)
+	book := &stackBook{}
+	noted := map[string]any{}
+	wait := 5 * time.Second
+	if e.status == 3 {
+		wait = 20 * time.Millisecond
+	}
+	_, err := (execution{settleTimeout: wait, deploymentID: idstest.N(7), config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL}, endpointID: 3, stack: "forge-shop", prefix: "forge-", compose: scopeFixtureCompose(shopCompose), owner: book, log: func(string, ...any) {}}).execute(t.Context(), 1, func(values map[string]any) error {
+		e.mu.Lock()
+		defer e.mu.Unlock()
+		for k, v := range values {
+			noted[k] = v
+		}
+		if id, ok := values["stackId"].(int64); ok {
+			e.checkpointID = id
+		}
+		if values["stackApplied"] == true && e.background && e.reads == 0 {
+			t.Error("applied checkpoint before status read")
+		}
+		return nil
+	})
+	return book, noted, err
 }

@@ -27,8 +27,8 @@ func (p *Providers) portainerDiagnostic(ctx context.Context, cfg portainer.Targe
 	if err != nil {
 		return portainer.Diagnostic{}, nil, err
 	}
-	if env.ID != cfg.Scope.EndpointID || env.Type != 1 {
-		return portainer.Diagnostic{}, nil, errors.New("Portainer diagnostic requires the pinned standalone endpoint")
+	if env.ID != cfg.Scope.EndpointID {
+		return portainer.Diagnostic{}, nil, errors.New("Portainer diagnostic requires the pinned endpoint")
 	}
 	dir, err := os.MkdirTemp("/tmp", "apptown-health-proxy-")
 	if err != nil {

@@ -19,7 +19,7 @@ import (
 )
 
 func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.T) {
-	for _, mode := range []string{"healthy", "explicit-streak", "wrong-status", "replacement-during-probe", "restart-during-probe", "failed-init", "worker-stopped", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response"} {
+	for _, mode := range []string{"healthy", "explicit-streak", "wrong-status", "replacement-during-probe", "restart-during-probe", "failed-init", "worker-stopped", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response", "recover-deploying", "recover-failed", "settle-timeout"} {
 		t.Run(mode, func(t *testing.T) {
 			compose, r := readinessFixture(t)
 			if mode == "explicit-streak" {
@@ -31,6 +31,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				t.Fatal(err)
 			}
 			applied := false
+			recovery := false
 			applies := 0
 			probeCount := 0
 			revoked := false
@@ -64,6 +65,15 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 						return
 					}
 					_ = json.NewEncoder(w).Encode([]map[string]any{{"Id": 19, "Name": stack, "EndpointId": 3}})
+				case path == "/api/stacks/19":
+					status := 1
+					if mode == "recover-deploying" || mode == "settle-timeout" && !recovery {
+						status = 3
+					}
+					if mode == "recover-failed" {
+						status = 4
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"Id": 19, "Status": status, "DeploymentStatus": []map[string]any{{"Message": "compose up failed"}}})
 				case path == "/api/stacks/19/file":
 					_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": submitted})
 				case path == "/api/stacks/create/standalone/string":
@@ -94,11 +104,15 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 					for name, service := range doc.Services {
 						labels[name] = service.Labels
 					}
-					if mode == "lost-apply-response" {
+					if mode == "lost-apply-response" || mode == "recover-deploying" || mode == "recover-failed" {
 						w.WriteHeader(503)
 						return
 					}
-					fmt.Fprint(w, `{"Id":19}`)
+					if mode == "settle-timeout" {
+						fmt.Fprint(w, `{"Id":19,"Status":3}`)
+					} else {
+						fmt.Fprint(w, `{"Id":19,"Status":1}`)
+					}
 				case path == "/api/endpoints/3/docker/containers/json":
 					rows := []map[string]any{}
 					for _, c := range r.Components {
@@ -146,7 +160,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 			defer server.Close()
 			scope := Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "daemon"}
 			now := time.Unix(1234, 0).UTC()
-			d := Driver{AdmitDisk: admitDisk, TargetID: r.Target, readinessTimeout: 100 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
+			d := Driver{AdmitDisk: admitDisk, TargetID: r.Target, readinessTimeout: 100 * time.Millisecond, settleTimeout: 20 * time.Millisecond, Now: func() time.Time { return now }, Allowed: func(context.Context) error {
 				if revoked {
 					return errors.New("release permission revoked")
 				}
@@ -158,6 +172,9 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				}
 				return &Target{PortainerURL: server.URL, Scope: &copy}, nil
 			}}
+			if mode != "recover-deploying" && mode != "settle-timeout" {
+				d.settleTimeout = 5 * time.Second
+			}
 			// Cases that succeed get a generous deadline: success returns at
 			// once, and a loaded machine must not turn a healthy read into a
 			// timeout. Only the cases that test a timeout keep the short one.
@@ -214,10 +231,26 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				if err != nil || got.Health != "healthy" || applies != 1 {
 					t.Fatalf("resume repeated or lost the effect: %+v %v applies%d", got, err, applies)
 				}
-			} else if mode == "lost-apply-response" {
+			} else if mode == "recover-deploying" || mode == "recover-failed" {
 				if err == nil {
 					t.Fatal("lost apply response was accepted")
 				}
+				got, err = d.Resume(t.Context(), placement, 1, checkpoint, func(string, ...any) {})
+				if err == nil || deploy.IsTerminal(err) != (mode == "recover-failed") {
+					t.Fatalf("recovery accepted unresolved or failed stack: %+v %v", got, err)
+				}
+			} else if mode == "lost-apply-response" || mode == "settle-timeout" {
+				if err == nil {
+					t.Fatal("lost apply response was accepted")
+				}
+				if checkpoint["stackApplied"] == true {
+					t.Fatal("unconfirmed stack checkpointed as applied")
+				}
+				if mode == "settle-timeout" && checkpoint["stackId"] != int64(19) {
+					t.Fatal("lost stack ID before settle")
+				}
+				recovery = true
+				d.settleTimeout = 5 * time.Second
 				got, err = d.Resume(t.Context(), placement, 1, checkpoint, func(string, ...any) {})
 				if err != nil || got.Health != "healthy" || applies != 1 {
 					t.Fatalf("observing lost response: %+v %v applies%d", got, err, applies)

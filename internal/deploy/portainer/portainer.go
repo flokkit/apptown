@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -199,14 +200,27 @@ func ListStacks(ctx context.Context, cfg *Target) ([]Stack, error) {
 // stackApplied says what DeployStack did: the stack's ID (0 when Portainer
 // did not say it), and Created when this call made the stack.
 type stackApplied struct {
-	Created bool
-	ID      int64
+	Created          bool
+	ID               int64 `json:"Id"`
+	Status           int
+	DeploymentStatus []struct {
+		Status  int
+		Message string
+	}
 }
 
 // applyStack updates the endpoint's stack of that name, or creates it.
-func applyStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation) (stackApplied, error) {
+func applyStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation, timeout time.Duration, checkpoint deploy.Checkpoint) (stackApplied, error) {
 	var applied stackApplied
 	err := deployStack(ctx, cfg, endpointID, name, compose, deploymentID, associations, &applied)
+	if applied.ID > 0 && checkpoint != nil {
+		if saveErr := checkpoint(map[string]any{"stackId": applied.ID}); saveErr != nil {
+			return applied, errors.Join(err, fmt.Errorf("recording Portainer stack ID: %w", saveErr))
+		}
+	}
+	if err == nil {
+		err = settleStack(ctx, cfg, name, applied, timeout)
+	}
 	return applied, err
 }
 
@@ -254,32 +268,34 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 				return fmt.Errorf("updating stack %s: %w", name, err)
 			}
 			if code >= 300 {
-				return fmt.Errorf("updating stack %s: HTTP %d %s", name, code, strs.Truncate(string(raw), 300))
+				return stackHTTPError(name, code, raw)
 			}
 			applied.ID = st.ID
+			var answer stackApplied
+			if err := json.Unmarshal(raw, &answer); err != nil {
+				return fmt.Errorf("decoding updated Portainer stack: %w", err)
+			}
+			if answer.ID != st.ID {
+				return errors.New("Portainer update answered with a different stack ID")
+			}
+			applied.Status, applied.DeploymentStatus = answer.Status, answer.DeploymentStatus
 			return nil
 		}
 	}
 	code, raw, err = JSON(ctx, cfg, "POST",
 		fmt.Sprintf("/api/stacks/create/standalone/string?endpointId=%d", endpointID),
 		map[string]any{"name": name, "stackFileContent": compose, "env": cfg.stackEnv()})
-	if err == nil && (code == 404 || code == 405) {
-		// Older Portainer route shape.
-		code, raw, err = JSON(ctx, cfg, "POST",
-			fmt.Sprintf("/api/stacks?type=2&method=string&endpointId=%d", endpointID),
-			map[string]any{"name": name, "stackFileContent": compose, "env": cfg.stackEnv()})
-	}
+
 	if err != nil {
 		return fmt.Errorf("creating stack %s: %w", name, err)
 	}
 	if code >= 300 {
-		return fmt.Errorf("creating stack %s: HTTP %d %s", name, code, strs.Truncate(string(raw), 300))
+		return stackHTTPError(name, code, raw)
 	}
-	var made struct {
-		ID int64 `json:"Id"`
+	if err := json.Unmarshal(raw, applied); err != nil {
+		return fmt.Errorf("decoding created Portainer stack: %w", err)
 	}
-	_ = json.Unmarshal(raw, &made)
-	applied.Created, applied.ID = true, made.ID
+	applied.Created = true
 	return nil
 }
 
@@ -305,6 +321,7 @@ type Driver struct {
 	Allowed          func(context.Context) error
 	Now              func() time.Time
 	readinessTimeout time.Duration
+	settleTimeout    time.Duration
 	ExpectedArtifact string
 }
 
@@ -326,6 +343,27 @@ func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return out, err
 	}
+	p.Handle, p.Generation, p.URL = noted, generation, expected.Readiness.URL
+	id, idErr := runtimeStackID(noted)
+	if idErr != nil {
+		stacks, err := ListStacks(ctx, cfg)
+		if err != nil {
+			return out, err
+		}
+		id, err = associatedStack(ctx, cfg, p, stacks)
+		if err != nil {
+			return out, err
+		}
+		if id == 0 {
+			return out, errors.New("Portainer readiness stack is absent")
+		}
+	}
+	name, _ := noted["stack"].(string)
+	if err := settleStack(ctx, cfg, name, stackApplied{ID: id, Status: 3}, d.settleTimeout); err != nil {
+		return out, err
+	}
+	noted = maps.Clone(noted)
+	noted["stackId"], noted["stackApplied"] = id, true
 	if expected.Stopped {
 		p.Handle, p.Generation, p.URL = noted, generation, expected.Readiness.URL
 		return observeStopped(ctx, cfg, p, expected)
@@ -407,7 +445,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := deploy.ReportStage(ctx, deploy.Starting); err != nil {
 		return out, deploy.Terminal(err)
 	}
-	out, err = (execution{stopped: p.Stopped, config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
+	out, err = (execution{settleTimeout: d.settleTimeout, stopped: p.Stopped, config: *cfg, targetID: d.TargetID, deploymentID: p.ID, endpointID: endpointID, stack: stack, prefix: prefix, compose: string(art.Body), url: p.URL, handle: p.Handle, log: logf, owner: d.Owner, diagnostic: diagnostic, allowed: d.Allowed}).execute(ctx, generation, checkpoint)
 	if err != nil || ready == nil {
 		return out, err
 	}
@@ -510,7 +548,7 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 			return nil, err
 		}
 		if expected != nil {
-			if !found {
+			if found == 0 {
 				return nil, errors.New("Portainer release has no associated stack record")
 			}
 			out[i], err = observeRelease(ctx, cfg, p, stack, expected)
@@ -520,7 +558,7 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 			continue
 		}
 		app := apps[strings.ToLower(stack)]
-		if !found && app.running {
+		if found == 0 && app.running {
 			return nil, errors.New("Portainer app runs without an associated stack record")
 		}
 		if app.running {
@@ -739,6 +777,7 @@ func (d *Driver) Controls() deploy.Controls {
 // Both bundle and intranet releases execute this prepared request. Config is
 // execution-only; checkpoints contain provider identity, never credentials.
 type execution struct {
+	settleTimeout       time.Duration
 	stopped             bool
 	diagnostic          *Diagnostic
 	allowed             func(context.Context) error
@@ -833,27 +872,26 @@ func (p execution) execute(ctx context.Context, generation int64, checkpoint dep
 		}
 	}
 	p.log("asking Portainer to run generation %d (stack %s on %s)", generation, p.stack, p.config.EnvName)
-	applied, err := applyStack(ctx, &p.config, p.endpointID, p.stack, p.compose, p.deploymentID, associations)
-	if err != nil {
+	applied, err := applyStack(ctx, &p.config, p.endpointID, p.stack, p.compose, p.deploymentID, associations, p.settleTimeout, checkpoint)
+	if err != nil && applied.ID <= 0 {
 		return deploy.Observation{}, err
 	}
-	if expected != nil && applied.ID > 0 {
-		if err := checkpoint(map[string]any{"stackId": applied.ID, "stackApplied": true}); err != nil {
-			return deploy.Observation{}, fmt.Errorf("recording applied Portainer stack: %w", err)
+	applyErr := err
+	if applied.Created && applied.ID > 0 && p.owner != nil {
+		if err := p.owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.stack}); err != nil {
+			return deploy.Observation{}, errors.Join(applyErr, fmt.Errorf("recording the stack %s AppTown created: %w", p.stack, err))
 		}
 	}
-	if applied.Created && p.owner != nil {
-		if applied.ID <= 0 {
-			// Not recorded, so never deleted by AppTown: a safe miss.
-			p.log("Portainer created the stack %s without saying its ID; it is not recorded as AppTown's, so taking it down is done in Portainer", p.stack)
-		} else if err := p.owner.Created(ctx, deploy.Owned{Kind: "stack", ID: strconv.FormatInt(applied.ID, 10), Name: p.stack}); err != nil {
-			return deploy.Observation{}, fmt.Errorf("recording the stack %s AppTown created: %w", p.stack, err)
-		}
-	}
-	if p.owner != nil && verr == nil {
+	if applied.ID > 0 && p.owner != nil && verr == nil {
 		if err := recordMadeVolumes(ctx, &p.config, p.endpointID, before, vols, p.owner, p.log); err != nil {
-			return deploy.Observation{}, err
+			return deploy.Observation{}, errors.Join(applyErr, err)
 		}
+	}
+	if applyErr != nil {
+		return deploy.Observation{}, applyErr
+	}
+	if err := checkpoint(map[string]any{"stackApplied": true}); err != nil {
+		return deploy.Observation{}, fmt.Errorf("recording applied Portainer stack: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
@@ -960,24 +998,24 @@ func (d *Driver) AdoptRunning(string) map[string]any { return nil }
 
 var _ deploy.RunningRecord = (*Driver)(nil)
 
-func associatedStack(ctx context.Context, cfg *Target, p deploy.Placement, stacks []Stack) (bool, error) {
+func associatedStack(ctx context.Context, cfg *Target, p deploy.Placement, stacks []Stack) (int64, error) {
 	stack, _ := p.Handle["stack"].(string)
 	if cfg.Scope == nil || stack == "" {
-		return false, errors.New("Portainer observation has no scoped stack")
+		return 0, errors.New("Portainer observation has no scoped stack")
 	}
 	associations, err := SavedAssociations(p.Handle)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	found := false
+	var found int64
 	for _, remote := range stacks {
 		if remote.Name != stack || remote.EndpointID != cfg.Scope.EndpointID {
 			continue
 		}
-		if found {
-			return false, errors.New("Portainer stack identity is ambiguous")
+		if found > 0 {
+			return 0, errors.New("Portainer stack identity is ambiguous")
 		}
-		found = true
+		found = remote.ID
 		var legacy *StackAssociation
 		for j := range associations {
 			if associations[j].StackID == remote.ID {
@@ -986,7 +1024,7 @@ func associatedStack(ctx context.Context, cfg *Target, p deploy.Placement, stack
 			}
 		}
 		if err := VerifyStackAssociation(ctx, *cfg, remote, p.ID, legacy); err != nil {
-			return false, err
+			return 0, err
 		}
 	}
 	return found, nil
