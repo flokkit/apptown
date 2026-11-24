@@ -4,13 +4,15 @@ import { EarlierChats } from './change/Conversation'
 import { useAgentActions } from '../AgentActions'
 import { Switch } from '../Switch'
 import './Console.css'
+import { AbandonConfirm } from '../DecisionChoices'
+import { offered } from './change/next'
 import { FormMenu } from '../MoreMenu'
 import { PRODUCT } from '../brand'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
 import { useChatViewport, useNarrow } from '../chrome'
-import { useGet } from '../data'
+import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { ChangeStatus } from '../Status'
 import { TryItButton, usePreview, usePreviewBoot } from '../TryIt'
@@ -60,7 +62,7 @@ export type ChangeNav = { overview: string; code: string; details: string }
 // mounted, and coming back follows the newest message like a fresh view.
 // history is the change's earlier work records, shown above its earlier chats.
 export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true, nav, history }: { slug: string; changeId: string; forcedSession: string; kickoff: string; shown?: boolean; nav?: ChangeNav; history?: ReactNode }) {
-  const { session, list, openErr, appTownInstead, open, startFresh, end } = useConsoleSession({ slug, changeId, forcedSession })
+  const { session, list, openErr, appTownInstead, open, startFresh } = useConsoleSession({ slug, changeId, forcedSession })
   // The layering principle: the conversation is the story, the terminal is
   // under the hood. Same pi, same conversation, two zooms — remembered per person.
   const [zoom, setZoom] = useState<'chat' | 'terminal'>(
@@ -92,6 +94,10 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
   const started = useStartedChanges(session?.id ?? null)
   const shopName = change.data ? `change ${change.data.change.number}` : 'this change'
   const overview = nav?.overview ?? (shopId ? `/changes/${shopId}?tab=overview` : '')
+
+  const navigate = useNavigate()
+  const [confirmAbandon, setConfirmAbandon] = useState(false)
+  const abandon = useAction(() => navigate(overview))
 
   // A chat that cannot open says why in one line and goes back where the
   // person came from: the change, or the project for its own chat.
@@ -163,7 +169,7 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
         <button type="button" disabled={!session} className={'bar-btn' + (zoom === 'chat' ? ' bar-wide' : '')} onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal' : '← back to the chat'}
         </button>
-        <FormMenu className="chat-menu" title={isWorkshop && change.data ? `Change ${change.data.change.number}` : 'This chat'}
+        <FormMenu closeOnAction={false} className="chat-menu" title={isWorkshop && change.data ? `Change ${change.data.change.number}` : 'This chat'}
           trigger={<button type="button" className="bar-icon" aria-label="Chat details and actions">⋯</button>}>
           <div className="chat-menu-card">
             <dl className="chat-facts">
@@ -184,10 +190,11 @@ export function ChatPage({ slug, changeId, forcedSession, kickoff, shown = true,
             {zoom === 'chat' && previewToggle && <div className="chat-menu-switch">Preview beside chat{previewToggle}</div>}
             <button type="button" className="subtle" disabled={!session} onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>{zoom === 'chat' ? 'Open terminal' : '← back to the chat'}</button>
             {mayAct && isWorkshop && <RestartPreview changeId={shopId} />}
-            {mayAct && <>
-              <button type="button" className="subtle" onClick={startFresh}>↺ Start fresh</button>
-              <button type="button" className="subtle danger" onClick={() => void end()}>End chat</button>
-            </>}
+            {mayAct && <button type="button" className="subtle" onClick={startFresh}>↺ Start fresh</button>}
+            {offered(change.data?.next, 'abandon') && (confirmAbandon ? <>
+              <AbandonConfirm busy={abandon.busy} onYes={() => abandon.run(() => post(`/changes/${shopId}/abandon`, {}))} onNo={() => setConfirmAbandon(false)} />
+              {abandon.err && <p className="error">{abandon.err}</p>}
+            </> : <button type="button" className="subtle danger" onClick={() => setConfirmAbandon(true)}>Abandon change…</button>)}
           </div>
         </FormMenu>
         </>} />}

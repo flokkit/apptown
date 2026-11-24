@@ -7,7 +7,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import { chatStreamOf } from './console/chatStream.fixture'
 import { ChatPage, kickoffText } from './Console'
@@ -15,6 +15,11 @@ import { ChatPage, kickoffText } from './Console'
 function Console() {
  const [params] = useSearchParams()
  return <ChatPage slug="p" changeId={params.get('change') ?? ''} forcedSession={params.get('session') ?? ''} kickoff={params.get('kickoff') ?? ''} />
+}
+
+function Address() {
+ const location = useLocation()
+ return <span data-address={location.pathname + location.search} />
 }
 
 // The terminal stands still: no canvas, no socket.
@@ -152,7 +157,7 @@ describe('a change chat keeps its bar to one line', () => {
     await act(async () => {
       root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}>
         <QueryClientProvider client={client}>
-          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+          <Address /><Routes><Route path="/projects/:slug/console" element={<Console />} /><Route path="/changes/:id" element={<p>Change overview</p>} /></Routes>
         </QueryClientProvider>
       </MemoryRouter>)
     })
@@ -177,8 +182,12 @@ describe('a change chat keeps its bar to one line', () => {
 // preview or landing actions. The choice belongs to this page view only.
 describe('phone change controls', () => {
   let messageCount = 1
+  let offersAbandon = true
+  let mayAct = true
   let messagesReady = Promise.resolve()
   beforeEach(() => {
+    offersAbandon = true
+    mayAct = true
     messagesReady = Promise.resolve()
     localStorage.clear()
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q === NARROW_QUERY, media: q, addEventListener() {}, removeEventListener() {} }))
@@ -191,9 +200,9 @@ describe('phone change controls', () => {
         return chatStreamOf(Array.from({ length: messageCount }, (_, i) => ({ i, role: 'you', text: 'Hello' })), 'handed-back')
       }
       const data = u.endsWith('/projects/p/console')
-        ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct: true }] }
+        ? { sessions: [{ id: 's1', projectSlug: 'p', state: 'detached', changeId: CHANGE, openedBy: 'ana', mayAct }] }
         : u.endsWith(`/changes/${CHANGE}`)
-          ? { goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
+          ? { next: offersAbandon ? [{ act: 'abandon' }] : [], goesTo: { branch: 'main', deployments: [] }, waitingOn: { says: 'building', tone: 'busy' }, change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }
           : u.endsWith('/preview') ? { state: 'live', url: 'https://preview.example' }
             : { changes: [] }
       return new Response(JSON.stringify(data))
@@ -210,11 +219,11 @@ describe('phone change controls', () => {
     await act(async () => {
       root.render(<MemoryRouter initialEntries={[`/projects/p/console${ON_CHANGE}`]}>
         <QueryClientProvider client={client}>
-          <Routes><Route path="/projects/:slug/console" element={<Console />} /></Routes>
+          <Address /><Routes><Route path="/projects/:slug/console" element={<Console />} /><Route path="/changes/:id" element={<p>Change overview</p>} /></Routes>
         </QueryClientProvider>
       </MemoryRouter>)
     })
-    await vi.waitFor(() => expect(el.querySelector('.chat-bar')!.textContent).toContain('Open'))
+    await vi.waitFor(() => expect(el.querySelector('.chat-bar')!.textContent).toContain(mayAct ? 'Open' : '#49'))
     return { el, client, done: () => { act(() => root.unmount()); el.remove(); client.clear() } }
   }
   function mainActions(el: HTMLElement) {
@@ -259,11 +268,52 @@ describe('phone change controls', () => {
       const menu = () => document.querySelector('.chat-menu-card')
       await vi.waitFor(() => expect(menu()).not.toBeNull())
       const labels = [...menu()!.querySelectorAll('button')].map(b => b.textContent)
-      expect(labels).toEqual(expect.arrayContaining(['Open terminal', '↺ Start fresh', 'End chat']))
+      expect(labels).toEqual(expect.arrayContaining(['Open terminal', '↺ Start fresh', 'Abandon change…']))
       expect(labels).not.toContain('Terminal')
+      expect(labels).not.toContain('End chat')
       const facts = () => [...menu()!.querySelectorAll('.chat-facts dt')].map(d => `${d.textContent} ${d.nextElementSibling?.textContent}`)
       if (technical) await vi.waitFor(() => expect(facts()).toContain('session s1'))
       else expect(facts().join(' ')).not.toContain('session')
+    } finally { done() }
+  })
+  it.each([false, true])('keeps the abandon confirm visible through rejection, then navigates only on success (mayAct %s)', async acting => {
+    mayAct = acting
+    const answered = globalThis.fetch
+    let succeeds = false
+    const posts: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url) === `/api/v1/changes/${CHANGE}/abandon`) {
+        posts.push([String(url), init?.method, JSON.parse(String(init?.body))])
+        return new Response(JSON.stringify(succeeds ? {} : { error: 'Could not abandon the change' }), { status: succeeds ? 200 : 500 })
+      }
+      return answered(url, init)
+    }))
+    const { el, done } = await mount()
+    const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.chat-menu-card button')].find(b => b.textContent === label)!
+    const confirm = () => document.querySelector('.chat-menu-card .ch-inline-confirm')
+    try {
+      await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="Chat details and actions"]')!.click())
+      await act(async () => button('Abandon change…').click())
+      expect(confirm()?.textContent).toContain('Abandon this change? The branch is kept; the workspace is removed.')
+      expect(confirm()?.closest('[hidden]')).toBeNull()
+      await act(async () => button('Abandon').click())
+      await vi.waitFor(() => expect(document.querySelector('.chat-menu-card .error')?.textContent).toContain('Could not abandon'))
+      expect(confirm()).not.toBeNull()
+      expect(confirm()?.closest('[hidden]')).toBeNull()
+      expect(el.querySelector('[data-address]')?.getAttribute('data-address')).toBe(`/projects/p/console${ON_CHANGE}`)
+      succeeds = true
+      await act(async () => button('Abandon').click())
+      await vi.waitFor(() => expect(el.textContent).toBe('Change overview'))
+      expect(el.querySelector('[data-address]')?.getAttribute('data-address')).toBe(`/changes/${CHANGE}?tab=overview`)
+      expect(posts).toEqual(Array(2).fill([`/api/v1/changes/${CHANGE}/abandon`, 'POST', {}]))
+    } finally { done() }
+  })
+  it('has no abandon item when the server does not offer it', async () => {
+    offersAbandon = false
+    const { el, done } = await mount()
+    try {
+      await act(async () => el.querySelector<HTMLButtonElement>('[aria-label="Chat details and actions"]')!.click())
+      expect(document.querySelector('.chat-menu-card')?.textContent).not.toMatch(/Abandon|End chat/)
     } finally { done() }
   })
   it('keeps desktop controls unfolded after messages', async () => {

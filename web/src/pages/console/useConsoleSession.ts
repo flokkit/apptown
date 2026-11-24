@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { del, HttpError, post } from '../../api'
+import { HttpError, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import type { ConsoleOpened, ConsoleSessionList, ConsoleSessionView } from '../../wire.gen'
 
@@ -12,7 +12,7 @@ import type { ConsoleOpened, ConsoleSessionList, ConsoleSessionView } from '../.
 // chat never counts as this one's.
 //
 // The choice is made once per address. After that, chats change only by an
-// explicit act: start fresh, end chat, open it on AppTown. A refused open
+// explicit act: start fresh, open it on AppTown. A refused open
 // is shown and not tried again.
 
 // CHAT_ON_APPTOWN is conversation.CodeChatOnAppTown: the worker refused a
@@ -59,25 +59,8 @@ export function useConsoleSession({ slug, changeId, forcedSession }: ConsoleAddr
     void open()
   }, [storageKey, open])
 
-  // Ending starts a fresh chat only once the chat is ended, or AppTown says
-  // it no longer exists (404); any other failure is shown and the chat stays.
-  const end = useCallback(async () => {
-    if (session) {
-      const ended = await run(async () => {
-        try {
-          await del(`/console/${session.id}`)
-        } catch (e) {
-          if (!(e instanceof HttpError && e.status === 404)) throw e
-        }
-        return true
-      })
-      if (!ended) return
-    }
-    startFresh()
-  }, [session, startFresh, run])
-
   // AppTown's own classification says when a change's chat the worker
   // refused can open on AppTown instead; its sentence is never read.
   const appTownInstead = changeId !== '' && failure instanceof HttpError && failure.code === CHAT_ON_APPTOWN
-  return { session, list, openErr: err, appTownInstead, open, startFresh, end }
+  return { session, list, openErr: err, appTownInstead, open, startFresh }
 }

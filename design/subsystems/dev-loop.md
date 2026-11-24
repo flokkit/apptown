@@ -64,8 +64,9 @@ of the same live preview query used by Try it.
 
 One shared `briefs.Service` builds approval briefs and failure advice. Workflow
 supplies scoped evidence and persists the resulting artifacts; HTTP parses IDs,
-maps faults and shapes responses. Approval briefs retain their freshness check
-against later completed checks. Each in-process flight includes the cache read,
+maps faults and shapes responses. An approval brief describes what the change
+does; it is written again when a step finishes after it, except once the change
+is closed, when the brief it has stands. Each in-process flight includes the cache read,
 model work and completed artifact write.
 
 For `WaitingOn.kind = check`, `GET /api/v1/steps/{id}/advice` returns `text` and

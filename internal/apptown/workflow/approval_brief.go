@@ -70,16 +70,18 @@ func readBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id ids.ID, fa
 		if step.Type != "approval" && step.FinishedAt.Valid && (!latest.Valid || step.FinishedAt.After(latest)) {
 			latest = step.FinishedAt
 		}
-		// The current stage's steps, and every step that finished in an
-		// earlier one: a landing's approval stands on the gates its earlier
-		// stages passed, and without them the brief would say "no machine
-		// checks passed".
-		// A later stage's steps have not run and are not shown.
+		// Failure advice reads the current stage and completed earlier steps.
 		if step.Stage == observed.Run.CurrentStage || step.FinishedAt.Valid {
 			out.Steps = append(out.Steps, step)
 		}
 	}
-	kind, name := "approval-brief", fmt.Sprintf("step-%d-v3", id)
+	if !observed.Run.ChangeID.IsZero() {
+		out.Change, err = readChangeInProject(ctx, tx, observed.Run.ChangeID, ref.ProjectID)
+		if err != nil {
+			return ApprovalBriefInputs{}, err
+		}
+	}
+	kind, name := "approval-brief", fmt.Sprintf("step-%d-v4", id)
 	if failure {
 		kind, name = "failure-advice", failureAdviceName(observed.Step)
 	}
@@ -88,16 +90,10 @@ func readBriefIn(ctx context.Context, tx *database.Tx, ref RunRef, id ids.ID, fa
 	if err != nil {
 		return ApprovalBriefInputs{}, err
 	}
-	if len(cache) > 0 && cache[0].Body != "" && (failure || !latest.Valid || stamp.Parse(cache[0].CreatedAt).After(latest)) {
+	if len(cache) > 0 && cache[0].Body != "" && (failure || (out.Change != nil && out.Change.State.Closed()) || !latest.Valid || stamp.Parse(cache[0].CreatedAt).After(latest)) {
 		out.Cached = cache[0].Body
 		if !failure {
 			return out, nil
-		}
-	}
-	if !observed.Run.ChangeID.IsZero() {
-		out.Change, err = readChangeInProject(ctx, tx, observed.Run.ChangeID, ref.ProjectID)
-		if err != nil {
-			return ApprovalBriefInputs{}, err
 		}
 	}
 	claim, err := ReadClaimIn(ctx, tx, ref, observed.Run.ChangeID)

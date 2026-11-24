@@ -22,10 +22,10 @@ cool that attempt for ten minutes in the briefs process before another call. `br
 orchestration; `SaveBrief` owns its artifact write. `BriefDiff` reads the committed
 comparison's file list and patch, capped at 16,000 bytes with an explicit
 truncation note, and reports an unavailable diff explicitly. Approval prose uses
-main-strong to describe the app's behavior and consequential choices in at most
-two short plain-text paragraphs under 120 words. It receives the implementer's
+main-strong to describe the app's behavior in one short plain-text paragraph under 80 words. It receives the implementer's
 report or, when absent, the latest two assistant messages through Console's
-Transcript operation. Passed checks are omitted from the prose. Approval cache
+Transcript operation. Checks and approval instructions are excluded from the description. A closed
+change keeps its cached brief even when a step finishes later. Approval cache
 names include the brief version so older content is not reused. The mechanical
 skeleton is model input only. Without a model there is no brief. Failed model
 calls and empty answers return an error and save nothing; the next read retries.

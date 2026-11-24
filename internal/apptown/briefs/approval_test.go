@@ -39,7 +39,7 @@ func TestApprovalModelReceivesEvidence(t *testing.T) {
 		Steps: []*workflow.Step{
 			{ID: idstest.N(1), Name: "build", Type: "build", Status: workflow.StatusPass},
 			{ID: idstest.N(2), Name: "review", Type: "agent/review", Status: workflow.StatusPass, Evidence: json.RawMessage(`{"summary":"reads cleanly, no concerns"}`)},
-			{ID: idstest.N(3), Name: "scan", Type: "scan", Status: workflow.StatusPass, OverrideBy: "bls", OverrideReason: "known false positive"},
+			{ID: idstest.N(3), Name: "scan", Type: "scan", Status: workflow.StatusFail, Evidence: json.RawMessage(`{"reason":"scan-failure"}`)},
 			{ID: idstest.N(5), Name: "second-review", Type: "agent/review", Status: workflow.StatusPass, OverrideBy: "ana", OverrideReason: "the reviewer misread the spec", Evidence: json.RawMessage(`{"verdict":"fail","summary":"the toggle is missing"}`)},
 			approval,
 		},
@@ -59,24 +59,18 @@ func TestApprovalModelReceivesEvidence(t *testing.T) {
 		"WHAT WAS ASKED SINCE (a person sent the work back; this is part of the ask):\nmake the toggle remember the choice (— ana)",
 		"STORY SO FAR:",
 		"Implemented the toggle and wired the theme.",
-		"MACHINES ALREADY VERIFIED:",
-		"reads cleanly, no concerns",                             // the review summary
-		"- scan (scan): OVERRIDDEN by bls: known false positive", // the overridden scan
-		// An overridden review is an override first, never a pass with a summary.
-		"- second-review (agent/review): OVERRIDDEN by ana: the reviewer misread the spec (the check itself did not pass) — the toggle is missing",
 		"THE DIFF (the change's whole branch against its base):\nsettings.tsx | 12 ++++++++----", // what is accepted
 		"IMPLEMENTER'S REPORT",
 		"I added the toggle and tested both themes.",
-		"WHAT YOUR OK MEANS HERE: you are accepting the visual design",
-		"GATE INSTRUCTIONS: look at the screenshots",
 	} {
 		if !strings.Contains(material, want) {
 			t.Fatalf("brief missing %q:\n%s", want, brief)
 		}
 	}
-	// The approval step itself must not be listed among the machine checks.
-	if strings.Contains(material, "- accept (approval)") {
-		t.Fatalf("the gate step should not list itself:\n%s", brief)
+	for _, excluded := range []string{"MACHINES ALREADY VERIFIED", "reads cleanly", "known false positive", "the reviewer misread", "scan (scan)", "scan-failure", "you are accepting the visual design", "look at the screenshots", "GATE INSTRUCTIONS", "WHAT YOUR OK MEANS HERE"} {
+		if strings.Contains(material, excluded) {
+			t.Errorf("brief material contains %q: %s", excluded, material)
+		}
 	}
 }
 
@@ -97,15 +91,6 @@ func TestApprovalBriefRefusesAnUnreadModelSelection(t *testing.T) {
 	}
 }
 
-func TestApprovalBriefDoesNotHideUnreadableEvidence(t *testing.T) {
-	t.Parallel()
-	h := Service{selection: noBriefModel{}}
-	_, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{StepContext: workflow.StepContext{Step: &workflow.Step{ID: idstest.N(1)}, Run: &workflow.Run{}}, Steps: []*workflow.Step{{ID: idstest.N(2), Name: "tests", Evidence: json.RawMessage(`{broken`)}}}, "", "")
-	if err == nil {
-		t.Fatal("unreadable evidence became an empty machine result")
-	}
-}
-
 // The writer must get the implementation, not infer it from file counts.
 func TestApprovalWriterUsesStrongModelAndPatch(t *testing.T) {
 	t.Parallel()
@@ -119,7 +104,7 @@ func TestApprovalWriterUsesStrongModelAndPatch(t *testing.T) {
 				t.Errorf("writer missing %q", want)
 			}
 		}
-		for _, want := range []string{"under 120 words", "at most two short paragraphs", "Never list checks that passed", "Do not raise missing tests unless"} {
+		for _, want := range []string{"under 80 words", "one short paragraph", "Never address the reader", "or mention checks"} {
 			if !strings.Contains(call.System, want) {
 				t.Errorf("prompt missing %q", want)
 			}

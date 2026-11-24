@@ -65,7 +65,7 @@ export function CheckSummary({ steps, checks: verdict, contractNeedsAttention = 
         <TechnicalWords shown={technical}>{(s.type === 'script' || s.type === 'tests') && s.evidence.command}</TechnicalWords>
       </p>
     })}
-    {steps.filter(s => s.isCheck && s.observation && ['fail', 'error', 'needs_human'].includes(s.status)).map(s => <p key={s.id}>{stepTitle(s)}{s.type === 'scan' && s.config.on === 'bundle' && ' of the released image'}{s.type === 'scan' && s.evidence.findings ? ` found ${s.evidence.findings.total} findings` : s.status === 'error' ? ' could not run' : ' finished with a note'}{project && <> · <Link to={`/projects/${project}/security`}>Security →</Link></>}</p>)}
+    {steps.filter(s => s.isCheck && s.observation && ['fail', 'error', 'needs_human'].includes(s.status)).map(s => <p key={s.id}>{stepTitle(s)}{s.type === 'scan' && s.config.on === 'bundle' && ' of the released image'}{imageScanResult(s)}{project && <> · <Link to={`/projects/${project}/security`}>Security →</Link></>}</p>)}
     {notes.map((c, i) => <p key={`note-${i}`}>Note: {c.detail || c.note || 'An advisory check needs review.'}</p>)}
     {contractNeedsAttention && <p className="ch-check-exception">Changes to the app contract need checking.</p>}
   </div>
@@ -231,4 +231,18 @@ function ChildOverview({ step, onChange, project }: { project: string; step: Ste
 export function approvalBrief(text?: string): string[] | undefined {
   const paragraphs = text?.trim().split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
   return paragraphs?.length ? paragraphs : undefined
+}
+
+function imageScanResult(step: Step): string {
+  const findings = new Map<string, string>()
+  if (step.type === 'scan') for (const observation of step.evidence.observations ?? []) {
+    for (const finding of observation.findings ?? []) findings.set(finding.fingerprint, finding.severity)
+  }
+  const counts = new Map<string, number>()
+  for (const severity of findings.values()) counts.set(severity, (counts.get(severity) ?? 0) + 1)
+  const order = ['critical', 'high', 'medium', 'low']
+  const severities = [...order, ...[...counts.keys()].filter(s => !order.includes(s)).sort()]
+  const words = severities.filter(s => counts.has(s)).map(s => `${counts.get(s)} ${s}`).join(', ')
+  if (step.status === 'error') return ' could not run' + (words ? `; found ${words}` : '')
+  return ` found ${words || 'findings'}`
 }

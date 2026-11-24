@@ -85,6 +85,13 @@ func TestFailureAdviceReadsOnlyTheHeldCheckAndCurrentTargetActs(t *testing.T) {
 	if err != nil || in.Step.ID != check || in.Change == nil {
 		t.Fatalf("inputs %+v: %v", in, err)
 	}
+	if err := s.SaveBrief(ctx, run.ID, "failure-advice", in.CacheName, "Inspect the failed check."); err != nil {
+		t.Fatal(err)
+	}
+	cached, err := s.FailureAdvice(ctx, check)
+	if err != nil || cached.Cached != "Inspect the failed check." || cached.Change == nil || cached.Change.ID != run.ChangeID || len(cached.Acts) != len(in.Acts) {
+		t.Fatalf("cached advice lost its change or acts: %+v %v", cached, err)
+	}
 	for _, a := range in.Acts {
 		if (a.Act == nextOverride || a.Act == nextRetry) && a.StepID != check {
 			t.Fatalf("offered another target: %+v", a)

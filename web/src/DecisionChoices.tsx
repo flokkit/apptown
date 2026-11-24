@@ -33,13 +33,7 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
         <button className="primary" disabled={busy || !note.trim()} onClick={rework?.run}>Send back</button>
         <button disabled={busy} onClick={() => setMode('choices')}>Cancel</button>
       </div>
-    </div> : mode === 'abandon' ? <div className="ch-inline-confirm">
-      <p>Abandon this change? The branch is kept; the workspace is removed.</p>
-      <div className="row">
-        <button className="danger" disabled={busy} onClick={() => { abandon?.run(); setMode('choices') }}>Abandon</button>
-        <button disabled={busy} onClick={() => setMode('choices')}>Keep it</button>
-      </div>
-    </div> : mode === 'reason' ? layout(<>
+    </div> : mode === 'abandon' ? <AbandonConfirm busy={busy} onYes={() => { abandon?.run(); setMode('choices') }} onNo={() => setMode('choices')} /> : mode === 'reason' ? layout(<>
       <p>{accept?.prompt?.ask}</p>
       <input autoFocus aria-label="Why (required)" placeholder="Why (required)" value={reason} onChange={e => setReason(e.target.value)} />
     </>, <div className="row">
@@ -63,4 +57,14 @@ export function DecisionChoices({ note, setNote, accept, chat, rework, abandon, 
       if (conversation.run) { e.preventDefault(); conversation.run() }
     }}>Open the conversation →</a></p>}
   </>
+}
+
+export function AbandonConfirm({ busy, onYes, onNo }: { busy: boolean; onYes: () => unknown; onNo: () => unknown }) {
+  return <div className="ch-inline-confirm">
+    <p>Abandon this change? The branch is kept; the workspace is removed.</p>
+    <div className="row">
+      <button className="danger" disabled={busy} onClick={onYes}>Abandon</button>
+      <button disabled={busy} onClick={onNo}>Keep it</button>
+    </div>
+  </div>
 }
