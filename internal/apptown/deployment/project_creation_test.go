@@ -213,7 +213,7 @@ func TestCreationClassificationControlsOffersAndMain(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps, err := s.Deployments.ForProject(ctx, in.ProjectID)
-	if err != nil || len(deps) != 1 || deps[0].Audience != "public" || deps[0].DataClass != "synthetic" || deps[0].Name != "main" || !deps[0].Protected() {
+	if err != nil || len(deps) != 1 || deps[0].Audience != "public" || deps[0].DataClass != "synthetic" || deps[0].Name != "main" || !deps[0].Protected {
 		t.Fatalf("chosen main: %+v %v", deps, err)
 	}
 	// A classification mismatch must not mask a retired target's own reason.

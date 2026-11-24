@@ -1714,16 +1714,16 @@ resources are resolved. Historical release records remain readable.
 ### Audience and data
 
 A standing deployment's audience and data class are settings. Every rule that
-reads them reads the current record at its own act: release permission at
-request and execution, Fly and AWS audience refusals, data protection's
+reads them reads the current record at its own act: Fly and AWS audience
+refusals, data protection's
 retention, copies and checks, and a Docker host's replacement of a changed
 service's synthetic data. Audience reaches no target: no proxy or gate puts a
 sign-in in front of an app by audience. `Service.SetClassification` is the only
 change. It takes Configure's lock order (project, target row for update so an
 offer edit waits, deployment), compares against the values the person edited
 from, and refuses what the target, its offer or a production starting copy
-forbids. It needs `deployment:bind-target`, plus `release:promote` when the
-deployment was protected. A change that lowers either value also needs a
+forbids. It needs `deployment:bind-target`. Changing audience or data leaves
+the stored protection setting unchanged. A change that lowers either value also needs a
 verified person and the exact meaning `Classification` showed ("I state that
 <deployment> serves … and holds …"); it is recorded as
 `deployment.classification-lowered` with that meaning, a raise as
@@ -1734,12 +1734,33 @@ its target: its handle and data are there.
 
 ### Release permission
 
-Named releases and redeploy overrides require deployment permission. A
-protected deployment (production data, or a partners or public audience)
-additionally requires promotion permission. Admission records whether the
-locked deployment needed promotion permission, and queued execution requires it
-when either that record or the deployment's current classification does, so a
-later reclassification cannot erase the gate of an already admitted request.
+Protection is a stored yes/no setting. A new deployment starts protected for a
+partners or public audience or production data; its starting reason appears in
+Settings until someone changes protection. Previews start unprotected; restored
+copies start from a team audience and their source data class.
+
+A protected deployment requires every release to have a person's own assent
+with release rights. A verified person with `release:promote` on
+`release-target/<name>` may request a release directly. Automatic releases,
+including landings and Janitor updates, wait for that person to approve.
+Protection takes precedence over Needs approval and Routine updates.
+Unprotected releases follow those settings.
+
+`Service.SetProtected` requires `deployment:deploy` and target-specific
+`release:promote`, compares the stored value against the value edited from,
+and records the change atomically. Turning it off also requires a verified
+person's own assent to "I state releases to <display label> need no sign-off".
+The audit records that exact meaning; changing the setting clears its starting
+reason. Production data imposes no floor on this setting.
+
+Named releases and redeploy overrides require deployment permission and, when
+protected, promotion permission. Admission records that requirement; execution
+requires promotion when either admission or current protection requires it.
+Execution also rechecks the effective approval role, which is empty while
+protected. A changed rule refuses execution and requires a new release.
+Turning protection on does not recall queued releases. Approval does not
+replace a follows-main feed setter's authority: if that setter lacks release
+rights, a person with those rights saves the feed again before releases run.
 
 The tier map is a runtime view of current deployment placements, not the release
 ledger. Main and each customer standing deployment use their own target's runtime

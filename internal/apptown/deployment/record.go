@@ -35,6 +35,8 @@ type AppliedAttempt struct {
 
 // Deployment includes its serving attempt's finish time.
 type Deployment struct {
+	Protected              bool             `json:"protected"`
+	ProtectedReason        string           `json:"protectedReason"`
 	RoutineUpdates         RoutineUpdates   `json:"routineUpdates"`
 	RoutineUpdatesRevision int64            `json:"routineUpdatesRevision"`
 	RuntimeState           string           `json:"runtimeState"`
@@ -128,10 +130,18 @@ func (e *Deployment) Placement() deploy.Placement {
 	return p
 }
 
-// Protected is derived, never typed (§2.3a): a deployment is protected when
-// its audience is outside the project or its data is production.
-func (e *Deployment) Protected() bool {
-	return e.Audience == "partners" || e.Audience == "public" || e.DataClass == "production"
+// startingProtection initializes the stored release setting from setup attributes.
+func startingProtection(at Attributes) (bool, string) {
+	if at.Audience == "public" {
+		return true, "public audience"
+	}
+	if at.Audience == "partners" {
+		return true, "partners audience"
+	}
+	if at.DataClass == "production" {
+		return true, "production data"
+	}
+	return false, ""
 }
 
 // Attributes are the deployment attributes of §2.3a.
@@ -221,21 +231,22 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		ApprovalRole:       r.ApprovalRole,
 		FeedConfirmed:      r.FeedAuthorityJson != nil,
 		feedAuthority:      feedAuthority(r.FeedAuthorityJson),
-		Audience:           r.Audience,
-		DataClass:          r.DataClass,
-		URL:                r.Url,
-		HostPort:           int(r.HostPort),
-		Container:          r.Container,
-		HostLabel:          r.HostLabel,
-		ReleaseRun:         r.ReleaseRun,
-		ReleaseSHA:         r.ReleaseSha,
-		ImageDigest:        r.ImageDigest,
-		UpdatedAt:          r.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		StartFrom:          r.StartFromBackup,
-		StartedFrom:        stamp.Time{NullTime: r.StartedFromAt},
-		RestoreCheck:       RestoreCheck(r.RestoreCheck),
-		ServingReleaseID:   r.ServingReleaseID,
-		ServingAttemptID:   r.ServingAttemptID,
+		Protected:          r.Protected, ProtectedReason: r.ProtectedReason,
+		Audience:         r.Audience,
+		DataClass:        r.DataClass,
+		URL:              r.Url,
+		HostPort:         int(r.HostPort),
+		Container:        r.Container,
+		HostLabel:        r.HostLabel,
+		ReleaseRun:       r.ReleaseRun,
+		ReleaseSHA:       r.ReleaseSha,
+		ImageDigest:      r.ImageDigest,
+		UpdatedAt:        r.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		StartFrom:        r.StartFromBackup,
+		StartedFrom:      stamp.Time{NullTime: r.StartedFromAt},
+		RestoreCheck:     RestoreCheck(r.RestoreCheck),
+		ServingReleaseID: r.ServingReleaseID,
+		ServingAttemptID: r.ServingAttemptID,
 	}
 	if err := json.Unmarshal(r.RoutineUpdates, &e.RoutineUpdates); err != nil {
 		return nil, err
@@ -391,7 +402,9 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 		if err := nameFreeOfDataIn(ctx, tx, projectID, name, targetID); err != nil {
 			return nil, err
 		}
+		protected, reason := startingProtection(at)
 		e, err := deploymentRecord(deploymentsql.New(tx.SQL()).EnsureStanding(ctx, deploymentsql.EnsureStandingParams{ID: ids.New(now.UTC()),
+			Protected: protected, ProtectedReason: reason,
 			ProjectID: projectID,
 			Name:      name,
 			Kind:      Standing.String(),
@@ -428,7 +441,9 @@ func (s *Deployments) RecordPreview(ctx context.Context, projectID, changeID, ta
 	handle, _ := json.Marshal(map[string]any{"container": container, "hostPort": hostPort})
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := deploymentsql.New(tx.SQL())
+		protected, reason := startingProtection(Attributes{Audience: "team", DataClass: "synthetic"})
 		row, err := q.RecordPreview(ctx, deploymentsql.RecordPreviewParams{ID: ids.New(now),
+			Protected: protected, ProtectedReason: reason,
 			ProjectID:  projectID,
 			Name:       PreviewName(changeID),
 			Kind:       preview.String(),

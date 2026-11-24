@@ -135,12 +135,14 @@ type Summary struct {
 	ReleaseRun        ids.ID
 	UpdatedAt         string
 	Attributes
-	Protected  bool
-	Generation int64
-	Readiness  Readiness
-	ChangeID   ids.ID
-	Target     *targetSummary
-	Needs      []NeedSummary
+	ProtectedReason  string
+	UnprotectMeaning string
+	Protected        bool
+	Generation       int64
+	Readiness        Readiness
+	ChangeID         ids.ID
+	Target           *targetSummary
+	Needs            []NeedSummary
 	// AIModelsKeys names the AI models keys the deployment owns; what
 	// OpenRouter says of them is read on its own (Service.AIModels).
 	AIModelsKeys []string
@@ -323,7 +325,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		}
 		out[i] = listingRecord{project: row.Slug, purpose: project.Purpose(row.Purpose), servingLabel: row.ServingLabel, deployment: e, target: byTarget[e.TargetID], summary: Summary{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: runtimeControls(byTarget[e.TargetID], e), RuntimeActions: runtimeActions(byTarget[e.TargetID]), ApprovalRole: e.ApprovalRole, FeedRevision: e.FeedRevision, FeedConfirmed: e.FeedConfirmed, LastApplied: e.LastApplied, DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
-			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
+			ProtectedReason: e.ProtectedReason, UnprotectMeaning: unprotectMeaning(e.DisplayLabel), Attributes: e.releaseAttributes(), Protected: e.Protected, Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,
 		}}
 	}

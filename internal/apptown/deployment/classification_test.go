@@ -38,12 +38,12 @@ func TestRaisingADeploymentThatHasRunToPublicIsRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Audience != "public" || !got.Protected() {
+	if got.Audience != "public" || got.Protected {
 		t.Fatalf("not raised: %+v", got)
 	}
 	r := receipts(t, s.db, "deployment.classified")
 	wantN(t, "classified receipts", r, 1)
-	if r[0].Actor != "alice" || !strings.Contains(string(r[0].Payload), `"protectedAfter": true`) && !strings.Contains(string(r[0].Payload), `"protectedAfter":true`) {
+	if r[0].Actor != "alice" || strings.Contains(string(r[0].Payload), "protectedAfter") {
 		t.Fatalf("receipt: %+v %s", r[0], r[0].Payload)
 	}
 	wantN(t, "lowered receipts", receipts(t, s.db, "deployment.classification-lowered"), 0)
@@ -57,7 +57,7 @@ func TestLoweringNeedsTheStatedMeaningAndIsItsOwnAct(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := view.Proposed
-	if p == nil || !p.Lowers || p.Meaning == "" || len(p.Removes) != 3 || len(p.Adds) != 0 {
+	if p == nil || !p.Lowers || p.Meaning == "" || len(p.Removes) != 2 || len(p.Adds) != 0 {
 		t.Fatalf("proposal: %+v", p)
 	}
 	for _, meaning := range []string{"", "I agree"} {
@@ -80,22 +80,19 @@ func TestLoweringNeedsTheStatedMeaningAndIsItsOwnAct(t *testing.T) {
 	}
 }
 
-func TestLoweringAProtectedDeploymentNeedsTheReleaseGrantAndAPerson(t *testing.T) {
+func TestClassificationKeepsProtectionAndLoweringNeedsAPerson(t *testing.T) {
 	t.Parallel()
 	s, w, dep := classified(t, "public", "non-production")
 	meaning := classificationMeaning(dep.DisplayLabel, Attributes{Audience: "team", DataClass: "non-production"})
-	w.deny = access.CapReleasePromote
-	if _, err := s.SetClassification(t.Context(), dep.ProjectID, dep.Name, edit(dep, "team", "non-production", meaning)); fault.KindOf(err) != fault.Forbidden {
-		t.Fatalf("lowered without the release grant: %v", err)
-	}
-	w.deny, w.agent = "", true
+	w.agent = true
 	if _, err := s.SetClassification(t.Context(), dep.ProjectID, dep.Name, edit(dep, "team", "non-production", meaning)); !errors.Is(err, errLoweringByAgent) {
-		t.Fatalf("an agent lowered: %v", err)
+		t.Fatalf("agent lowered: %v", err)
 	}
-	if got, _ := s.Deployments.ByID(t.Context(), dep.ID); got.Audience != "public" {
-		t.Fatalf("refusals changed it: %+v", got)
+	w.agent, w.deny = false, access.CapReleasePromote
+	got, err := s.SetClassification(t.Context(), dep.ProjectID, dep.Name, edit(dep, "team", "non-production", meaning))
+	if err != nil || got.Audience != "team" || !got.Protected {
+		t.Fatalf("classification changed protection: %+v %v", got, err)
 	}
-	wantN(t, "receipts", receipts(t, s.db, "deployment.classif"), 0)
 }
 
 func TestConfigureNoLongerChangesAnExistingDeploymentsClassification(t *testing.T) {
@@ -222,11 +219,11 @@ func TestClassificationSaysWhatItsTargetDoes(t *testing.T) {
 		return strings.Join(view.Proposed.Adds, "\n")
 	}
 	got := adds(cloud, "production")
-	if !strings.Contains(got, "newest 14 backup sets instead of 7") || !strings.Contains(got, "takes a copy each day") || !strings.Contains(got, "release permission") || strings.Contains(got, "discarding") {
+	if !strings.Contains(got, "newest 14 backup sets instead of 7") || !strings.Contains(got, "takes a copy each day") || strings.Contains(got, "release permission") || strings.Contains(got, "discarding") {
 		t.Fatalf("App Platform: %s", got)
 	}
 	got = adds(shed, "production")
-	if strings.Contains(got, "each day") || !strings.Contains(got, "release permission") || !strings.Contains(got, "discarding") || !strings.Contains(got, "newest 14") {
+	if strings.Contains(got, "each day") || strings.Contains(got, "release permission") || !strings.Contains(got, "discarding") || !strings.Contains(got, "newest 14") {
 		t.Fatalf("Docker host: %s", got)
 	}
 	if got = adds(shed, "non-production"); got != "A release keeps a service's data when the service's settings change, instead of discarding it" {

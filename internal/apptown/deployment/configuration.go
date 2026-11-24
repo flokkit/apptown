@@ -165,7 +165,7 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 			return configurationResult{}, err
 		}
 		if attrs.Feed == "promotion" && creating {
-			if _, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed"); err != nil {
+			if _, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected, "deployment.configure-feed"); err != nil {
 				return configurationResult{}, err
 			}
 			source, err := deploymentByNameRecord(q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: in.ProjectID, Name: in.From}))
@@ -189,7 +189,7 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 		}
 
 		if attrs.Feed == "main" && creating {
-			setter, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected(), "deployment.configure-feed")
+			setter, err := s.requireDeploy(ctx, in.ProjectID, dep.Name, dep.Protected, "deployment.configure-feed")
 			if err != nil {
 				return configurationResult{}, err
 			}
@@ -218,7 +218,7 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (config
 		if !dep.StartFrom.IsZero() && !dep.StartedFrom.Valid && dep.Feed == "main" {
 			return configurationResult{}, fmt.Errorf("%w: %s starts from a copy, so it is fed by a person's deploy, not by every landing", ErrStartFrom, dep.Name)
 		}
-		if err := audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "deployment.bound", in.Name, map[string]any{"target": target.Name, "kind": target.Kind, "feed": dep.Feed, "audience": dep.Audience, "data": dep.DataClass, "protected": dep.Protected(), "startFrom": dep.StartFrom}); err != nil {
+		if err := audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "deployment.bound", in.Name, map[string]any{"target": target.Name, "kind": target.Kind, "feed": dep.Feed, "audience": dep.Audience, "data": dep.DataClass, "protected": dep.Protected, "startFrom": dep.StartFrom}); err != nil {
 			return configurationResult{}, err
 		}
 		result := configurationResult{Deployment: dep}

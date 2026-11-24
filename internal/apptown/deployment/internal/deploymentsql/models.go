@@ -53,6 +53,8 @@ type Deployment struct {
 	RoutineUpdatesRevision int64
 	ChecksOwedAt           sql.NullTime
 	Hold                   *json.RawMessage
+	Protected              bool
+	ProtectedReason        string
 }
 
 type DeploymentAddressSetting struct {

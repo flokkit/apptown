@@ -23,7 +23,7 @@ import (
 // the target when it changes.
 //
 // Raising a guard needs the configure capability. Lowering one also needs
-// the release grant when the deployment was protected, a verified person,
+// a verified person,
 // and the stated meaning that person accepted; it is recorded as its own act.
 
 // audienceRanks and dataRanks order the values from least to most guarded.
@@ -36,10 +36,6 @@ var (
 func lowers(was, to Attributes) bool {
 	return slices.Index(audienceRanks, to.Audience) < slices.Index(audienceRanks, was.Audience) ||
 		slices.Index(dataRanks, to.DataClass) < slices.Index(dataRanks, was.DataClass)
-}
-
-func protectedAttributes(at Attributes) bool {
-	return at.Audience == "partners" || at.Audience == "public" || at.DataClass == "production"
 }
 
 var audienceWords = map[string]string{
@@ -74,7 +70,6 @@ type classificationGuard struct {
 func classificationGuards(t *Target) []classificationGuard {
 	production := func(at Attributes) bool { return at.DataClass == "production" }
 	guards := []classificationGuard{
-		{protectedAttributes, "Only people with release permission can deploy here; queued and automatic deploys are checked again"},
 		{production, "AppTown keeps the newest 14 backup sets instead of 7, and Attention warns when backups are late or missing"},
 	}
 	kind := describeKind(t.Kind)
@@ -137,7 +132,7 @@ var (
 )
 
 func classificationEffect(t *Target) string {
-	return fmt.Sprintf("Who may deploy changes at once; backups follow from the next backup or check, and the app's data from its next release. A deploy already waiting is refused; ask for it again. Nothing is changed on %s: the audience is AppTown's rule, not a sign-in in front of the app.", t.Name)
+	return fmt.Sprintf("Backups follow from the next backup or check, and the app's data from its next release. A deploy already waiting is refused; ask for it again. Nothing is changed on %s: the audience is AppTown's rule, not a sign-in in front of the app.", t.Name)
 }
 
 // classificationRefusal is why the target, its offer or the deployment's
@@ -260,7 +255,7 @@ func (s *Service) Classification(ctx context.Context, projectID ids.ID, name str
 // starting copy forbids the change, or when lowering lacks its authority or
 // meaning.
 func (s *Service) SetClassification(ctx context.Context, projectID ids.ID, name string, in ClassificationSettings) (*Deployment, error) {
-	if s.configuration.Authority == nil || s.release.Authority == nil {
+	if s.configuration.Authority == nil {
 		return nil, access.ErrAuthorityUnavailable
 	}
 	was := Attributes{Feed: "manual", Audience: in.Was.Audience, DataClass: in.Was.Data}
@@ -282,14 +277,9 @@ func (s *Service) SetClassification(ctx context.Context, projectID ids.ID, name 
 	if err != nil {
 		return nil, err
 	}
-	if protectedAttributes(was) {
-		if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: name, ProjectID: projectID}, Context: access.Context{Route: "deployment.classify", Consequential: true}}); err != nil {
-			return nil, err
-		}
-	}
 	lowering := lowers(was, to)
 	if lowering {
-		if !actor.Verified {
+		if !actor.Verified || !actor.Principal.Actor().Assents() {
 			return nil, errLoweringByAgent
 		}
 		if want := classificationMeaning(dep.DisplayLabel, to); in.Meaning != want {
@@ -334,8 +324,7 @@ func (s *Service) SetClassification(ctx context.Context, projectID ids.ID, name 
 		if n != 1 {
 			return errClassificationMoved
 		}
-		payload := map[string]any{"from": map[string]string{"audience": was.Audience, "data": was.DataClass}, "to": map[string]string{"audience": to.Audience, "data": to.DataClass},
-			"protectedBefore": protectedAttributes(was), "protectedAfter": protectedAttributes(to)}
+		payload := map[string]any{"from": map[string]string{"audience": was.Audience, "data": was.DataClass}, "to": map[string]string{"audience": to.Audience, "data": to.DataClass}}
 		kind := "deployment.classified"
 		if lowering {
 			kind = "deployment.classification-lowered"

@@ -1513,6 +1513,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   routine_updates_revision BIGINT NOT NULL DEFAULT 1,
   checks_owed_at TIMESTAMPTZ,
   hold JSONB,
+  protected BOOLEAN NOT NULL,
+  protected_reason TEXT NOT NULL DEFAULT '',
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));

@@ -31,7 +31,7 @@ export function notDeployedWords(env: DeploymentView): string {
 // protected, and the page's actions.
 export function DeploymentTitle({ project, name, env, actions }: { project?: string; name: string; env: DeploymentView; actions?: ReactNode }) {
   return <PageBar title={project ? <>{project} <span className="title-context">{name}</span></> : name}
-    after={<><Status observation {...deploymentStatus(env)} />{env.protected && <span className="badge" title="reaches partners or the public, or holds production data · deploys need the release permission">protected</span>}</>} actions={actions} />
+    after={<><Status observation {...deploymentStatus(env)} />{env.protected && <span className="badge" title="every release waits for a person with release rights">protected</span>}</>} actions={actions} />
 }
 
 // Every deploy is a release request, including requests from a landing.

@@ -1,10 +1,9 @@
-import { RoutineUpdates } from './RoutineUpdates'
 import { useHolds } from '../../../instancePages'
 import { useNotOff } from '../../../features'
 import './deployments.css'
 import { deploymentName } from '../../../deploymentName'
 import { DeploymentFeed, feedWords } from './DeploymentFeed'
-import { DeploymentClassification, PROTECTED_WORDS } from './DeploymentClassification'
+import { DeploymentClassification } from './DeploymentClassification'
 import '../../../overview-line.css'
 import { DeploymentDeploys, type DeploymentTab } from '../DeploymentDeploys'
 import { Tabs } from '../../../Tabs'
@@ -162,7 +161,6 @@ const DEPLOYMENT_TABS: { key: DeploymentTab; label: string }[] = [{ key: 'status
 // where it runs, with the way to that host's resources.
 export function DeploymentSettings({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
   return <>
-    <RoutineUpdates key={`${slug}/${e.name}/routine-updates`} slug={slug} name={e.name} />
     <DeploymentFeed key={`${slug}/${e.name}/feed`} slug={slug} name={e.name} />
     {e.kind === 'standing' && <DeploymentClassification key={`${slug}/${e.name}/classification`} slug={slug} name={e.name} onChanged={onChanged} />}
     <div className="card deploy-entry"><div className="deploy-lines">
@@ -315,7 +313,7 @@ export function AddDeployment({ slug, choices, existing, onDone }: { slug: strin
           {allowedData.map((x) => <option key={x} value={x}>{DATA_WORDS[x]}</option>)}
         </select>
         <div className="deployment-protected-slot muted small" aria-hidden={!protectedPick}>
-          <div className={protectedPick ? '' : 'deployment-protected-hidden'}>This deployment will be protected. {PROTECTED_WORDS}</div>
+          <div className={protectedPick ? '' : 'deployment-protected-hidden'}>This deployment will be protected. Every release waits for a person with release rights; you can turn this off in Settings.</div>
         </div>
         {picked?.kind === 'do-app' && (finalsQ.data?.copies.length ?? 0) > 0 && <>
           <label title="its first release fills its database from this copy, and checks it, before the app starts">Start from</label>

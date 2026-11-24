@@ -128,12 +128,14 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if _, err := s.RequestRelease(owner, in); !errors.Is(err, errNoBundle) {
 		t.Fatalf("permitted caller: %v", err)
 	}
-	reclassifyForTest(t, s.db, pid, "cloud", "public", "non-production")
+	grantReal(t, a, "owner", access.RoleReleaseManager, "", access.ScopeProject, pid.String())
+	if _, err := s.SetProtected(owner, pid, "cloud", ProtectedSettings{Protected: true, Was: false}); err != nil {
+		t.Fatal(err)
+	}
 	dep, err = s.Deployments.ByName(owner, pid, "cloud")
 	if err != nil {
 		t.Fatal(err)
 	}
-	grantReal(t, a, "owner", access.RoleReleaseManager, "", access.ScopeProject, pid.String())
 	revoked := 0
 	for _, sc := range []struct {
 		kind access.ScopeKind

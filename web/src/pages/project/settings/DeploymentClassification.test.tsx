@@ -27,7 +27,7 @@ it('shows refused values at the field, what lowering removes, and saves only wit
       sent.push(JSON.parse(String(init.body)))
       return new Response('{}')
     }
-    if (url.includes('?')) return new Response(JSON.stringify(view({ audience: 'team', data: 'synthetic', lowers: true, adds: [], removes: ['Only people with release permission can deploy here'], meaning })))
+    if (url.includes('?')) return new Response(JSON.stringify(view({ audience: 'team', data: 'synthetic', lowers: true, adds: [], removes: ['AppTown keeps the newest 14 backup sets instead of 7'], meaning })))
     return new Response(JSON.stringify(view()))
   }))
   const el = document.createElement('div')
@@ -46,7 +46,7 @@ it('shows refused values at the field, what lowering removes, and saves only wit
     const organisation = el.querySelector<HTMLOptionElement>('select[aria-label="Audience"] option[value="organisation"]')!
     expect(organisation.disabled).toBe(true)
     expect(el.textContent).toContain('Not here: ' + flyRefusal)
-    expect(el.textContent).toContain('This deployment is protected. Protected means')
+    expect(el.textContent).not.toContain('This deployment is protected')
     await change('Audience', 'team')
     await change('Data', 'synthetic')
     await vi.waitFor(() => expect(el.textContent).toContain(meaning))

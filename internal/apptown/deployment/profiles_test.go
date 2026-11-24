@@ -714,8 +714,10 @@ func TestAProtectedOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	reclassifyForTest(t, p.s.db, p.project, configured.Name, configured.Audience, "production")
-	if configured, err = p.s.Deployments.ByID(t.Context(), configured.ID); err != nil || !configured.Protected() {
+	if _, err := p.s.SetProtected(t.Context(), p.project, configured.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+		t.Fatal(err)
+	}
+	if configured, err = p.s.Deployments.ByID(t.Context(), configured.ID); err != nil || !configured.Protected {
 		t.Fatalf("protect the deployment: %+v %v", configured, err)
 	}
 	if rel := p.releaseDefault(t); rel.State != Released {
