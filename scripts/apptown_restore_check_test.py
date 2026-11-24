@@ -68,6 +68,27 @@ class RecordedChange(unittest.TestCase):
         self.assertEqual(check.differences(before["detail"], lost["detail"], "detail"), [
             "detail.checks.passed: 6 -> 5", 'detail.steps[0].status: "done" -> "failed"'])
 
+    def test_checks_tone_and_step_progress_are_read_time(self):
+        def shown(tone, progress, step_status="pass", passed=4):
+            checks = {"tone": tone, "passed": passed}
+            return page(checks=dict(checks),
+                        detail={"checks": dict(checks), "steps": [{"name": "standards", "status": step_status, "progress": progress}]})
+        before = recorded(shown("bad", "done"))
+        after = recorded(shown("unknown", "unknown"))
+        self.assertTrue(all(check.kept(before[k], after.get(k)) for k in before), (before, after))
+        lost = recorded(shown("unknown", "unknown", step_status="fail"))
+        self.assertEqual(check.differences(before["detail"], lost["detail"], "detail"), [
+            'detail.steps[0].status: "pass" -> "fail"'])
+
+    def test_where_a_release_is_reached_is_read_time(self):
+        def landing(url, host_only, number=7):
+            return {"approvals": [], "landingReleases": [{"number": number, "url": url, "hostOnly": host_only}]}
+        before = recorded(page(evidence=landing("https://snake.main.example", False)))
+        after = recorded(page(evidence=landing("http://restored.example:39041", True)))
+        self.assertTrue(check.kept(before["evidence"], after["evidence"]), (before, after))
+        lost = recorded(page(evidence=landing("http://restored.example:39041", True, number=8)))
+        self.assertFalse(check.kept(before["evidence"], lost["evidence"]))
+
     def test_a_recorded_approval_sentence_is_still_compared(self):
         before = recorded(page())
         after = recorded(page(evidence={"approvals": [{"by": "rae", "means": "it merges on my say-so."}]}))
