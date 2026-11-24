@@ -135,6 +135,12 @@ endpoint. Configure the final Portainer URL; even a redirect within the same
 origin is refused. This rule applies to API requests, not response forwarding
 through the Portainer Docker proxy.
 
+AppTown waits for Portainer's deployment status before recording an applied
+stack and the volumes Compose made. An active status confirms application;
+a failed status is a failed release. A stack still deploying at the deadline,
+or whose status cannot be read, has an unknown outcome. Recovery checks the
+same status without sending Compose again.
+
 ## Driver differences
 
 Docker runs the prepared application and local needs. Portainer applies the
@@ -182,7 +188,7 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Container logs | every container AppTown starts from this release on logs through `json-file`, rotated at 10 MiB, three files kept; one started earlier keeps its own until it is made again | the endpoint daemon's default; not set by AppTown in 1.0 | the platform's | the platform's | none: a site has no runtime | CloudWatch log group per deployment, retained 14 days |
 | Limit events | out-of-memory kills and exits of every standing deployment's parts and needs, from the daemon's events | not read | not reported to AppTown | out-of-memory kills and exits nobody asked for, from the newest few events Fly keeps of each Machine; one can be missed when a Machine restarts often or a failed release's Machines are removed before AppTown looks | none: a site has no runtime | stopped task reason, including out of memory |
 | Releases after a landing | each follows-main deployment requests the landing’s bundle | follows-main or manual release of a digest bundle | as App Platform | as App Platform | as App Platform | as App Platform |
-| Readiness witnessed | the container AppTown started; a static site's release identity | the stack was accepted; health unknown | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity | every running task is on the recorded revision and the target is healthy; the declared front-door path or static identity answers |
+| Readiness witnessed | the container AppTown started; a static site's release identity | Portainer confirms the stack is active, then AppTown checks this release's generation, images and declared readiness through the Docker proxy | the platform's deployment is active (its own probe); AppTown asks the front door only for a declared HTTP readiness path or a static site's release identity | each new Machine is started and passes its checks; AppTown asks the front door for a declared HTTP readiness path and a static site's release identity | the published files answer this release's identity | every running task is on the recorded revision and the target is healthy; the declared front-door path or static identity answers |
 | An earlier release again | yes, its bundle by digest; data is not rolled back | yes; data is not rolled back | yes; data is not rolled back | yes, its images copied again by digest; data is not rolled back | yes | yes, its images copied by digest; data is not rolled back |
 | Take-down | what AppTown recorded creating; its data volumes are deleted after a complete final backup, refused without one; what it did not create is named and kept | the stack AppTown recorded, then the volumes its deploys made after a complete final backup, refused without one unless a person chooses to keep the data; a volume it did not make is named and kept | the app and managed resources AppTown recorded; a need's bucket is deleted with its objects after a checked final copy or when its data is synthetic, otherwise kept and named, and its key deleted | the recorded Fly app and volumes after a complete final set; without a store, refused unless a person chooses to keep the app and volumes with all Machines stopped | the bucket AppTown recorded | the recorded service and resources; dedicated RDS and its network kept without a final checked set |
 | Volume backups, restored in place | yes, each data volume and need | yes, each data volume and need, through Portainer's Docker proxy (an edge environment in async mode is refused) | no volumes | yes, in the backup store: declared need exports and stop-copy-start volume tars; database restore in place and files into a new volume | no data | no volumes |
@@ -204,7 +210,9 @@ witnessed outcomes):
 - Readiness: each driver's observation tests; App Platform asks the front
   door only when the contract says what to ask:
   `TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat`. Portainer's
-  "health unknown" is the driver's stated limit, not a witness.
+  `TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity` checks the
+  exact release and readiness; `TestAStackThatSettlesFailedFailsTheRelease`
+  checks the stack deployment result.
 - Take-down on a Docker host: final backup, then deletion:
   `TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt`.
 
@@ -447,13 +455,13 @@ What each target's readiness witnesses:
 | --- | --- |
 | `docker-host` | the container AppTown started, by its labels and port. For a static site served from a revision (a landing, a promotion, a recovery), that `/_apptown/release` answers this release's identity, as on App Platform. For a preview of a worktree (no revision), and for a restore rehearsal, that `/_apptown/env.js` answers (only AppTown's file server configuration serves it) |
 | `do-app` | the platform's deployment for this generation is active (the platform's own probe); AppTown asks the front door only when the contract declares an HTTP readiness path, and, when the public part is a static site, that `/_apptown/release` answers this release's identity. Otherwise the release log says which release answers is not witnessed |
-| `portainer` | the stack was accepted; health is unknown. `/_apptown/release` answers, but nothing asks it |
+| `portainer` | Portainer confirms the stack is active; AppTown then checks the exact release generation and images, init results, running app parts, and the declared HTTP path or static release identity through the Docker proxy |
 | `fly-machines` | each new Machine is started and passes its checks (Fly's own); AppTown asks the front door for a declared HTTP readiness path and, when the public part is a static site, that `/_apptown/release` answers this release's identity. Neither declared leaves health unknown, and the release log says so |
 
 A bundle cut before 3 October 2026 holds only the site's files, without
 that configuration. Released again, it fails its readiness check on a Docker
-host and on App Platform, because the file server's stock page does not
-answer `/_apptown/release`; on Portainer nothing checks it.
+host, on App Platform and on Portainer, because the file server's stock page
+does not answer `/_apptown/release`.
 
 ## Where a release comes from
 

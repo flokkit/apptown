@@ -47,4 +47,4 @@ gcr.io/distroless/static-debian12:nonroot
 registry:2.8.3
 curlimages/curl:8.22.0
 eclipse-temurin:21.0.12.1_1-jdk
-portainer/portainer-ce:2.27.9
+portainer/portainer-ce:2.45.4

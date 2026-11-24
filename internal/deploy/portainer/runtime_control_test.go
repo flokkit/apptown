@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
@@ -161,6 +162,8 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 		t.Fatal(err)
 	}
 	saved := ""
+	status := 3
+	applies := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -172,7 +175,10 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 				t.Error(err)
 			}
 			saved = body.StackFileContent
-			_, _ = w.Write([]byte(`{"Id":19}`))
+			applies++
+			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status)
+		case r.Method == "GET" && r.URL.Path == "/api/stacks/19":
+			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/19/file":
 			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": saved})
 		case r.Method == "GET" && r.URL.Path == "/api/endpoints/9/docker/containers/json":
@@ -184,7 +190,7 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 	}))
 	defer server.Close()
 	cfg := &Target{Scope: &Scope{Version: 1, APIBase: server.URL, EndpointID: 9, DaemonID: "daemon"}, PortainerURL: server.URL}
-	d := &Driver{AdmitDisk: admitDisk, TargetID: ready.Target, Config: func(context.Context, ids.ID) (*Target, error) { return cfg, nil }, Allowed: func(context.Context) error { return nil }, Diagnostics: func(context.Context, Target) (Diagnostic, func() error, error) {
+	d := &Driver{settleTimeout: 20 * time.Millisecond, AdmitDisk: admitDisk, TargetID: ready.Target, Config: func(context.Context, ids.ID) (*Target, error) { return cfg, nil }, Allowed: func(context.Context) error { return nil }, Diagnostics: func(context.Context, Target) (Diagnostic, func() error, error) {
 		t.Fatal("a stopped release must not probe the app")
 		return Diagnostic{}, nil, nil
 	}}
@@ -196,9 +202,14 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 		}
 		return nil
 	})
-	if err != nil || o.Rollout != "stopped" || o.Generation != 2 || saved == "" {
-		t.Fatalf("stopped release: %+v %v", o, err)
+	if err == nil || deploy.IsTerminal(err) || o.Rollout == "stopped" || noted["stackApplied"] == true || noted["stackId"] != int64(19) {
+		t.Fatalf("unconfirmed stopped apply: %+v %v noted%v", o, err, noted)
 	}
+	if _, err := d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {}); err == nil {
+		t.Fatal("recovery invented an applied stopped release")
+	}
+	status = 1
+	d.settleTimeout = 5 * time.Second
 	var file struct {
 		Services map[string]struct{ Deploy struct{ Replicas *int } }
 	}
@@ -212,11 +223,19 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 		}
 	}
 	d.ExpectedArtifact = art.Hash
-	if _, err := d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {}); err != nil {
-		t.Fatalf("stopped release recovery: %v", err)
+	o, err = d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {})
+	if err != nil || o.Rollout != "stopped" || o.Generation != 2 || o.Handle.(map[string]any)["stackApplied"] != true {
+		t.Fatalf("stopped release recovery: %+v %v", o, err)
 	}
 	delete(noted, "stackApplied")
+	if _, err := d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {}); err != nil {
+		t.Fatalf("fresh active status did not confirm stopped release: %v", err)
+	}
+	if applies != 1 {
+		t.Fatalf("recovery repeated compose: %d", applies)
+	}
+	saved = "services: {}"
 	if _, err := d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {}); err == nil {
-		t.Fatal("recovery invented an applied stopped release")
+		t.Fatal("active stack accepted a different stopped release file")
 	}
 }

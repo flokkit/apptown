@@ -28,14 +28,14 @@ import (
 )
 
 // portainerCE is the Portainer the test runs, on the local Docker.
-const portainerCE = "portainer/portainer-ce:2.27.9"
+const portainerCE = "portainer/portainer-ce:2.45.4"
 
 // localPortainer starts a Portainer CE on this Docker with one environment
 // (the Docker socket) and an administrator's API key: what an operator
 // attaches. It answers the URL and the key.
 func localPortainer(t *testing.T, name string) (string, string) {
 	t.Helper()
-	if out, err := dockertest.CombinedOutput("run", "-d", "--name", name, "-p", "127.0.0.1::9000", "-v", "/var/run/docker.sock:/var/run/docker.sock", portainerCE); err != nil {
+	if out, err := dockertest.CombinedOutput("run", "-d", "--name", name, "-p", "127.0.0.1::9000", "-v", "/var/run/docker.sock:/var/run/docker.sock", portainerCE, "--no-setup-token"); err != nil {
 		t.Fatalf("starting Portainer: %v %s", err, out)
 	}
 	var dataVolume string

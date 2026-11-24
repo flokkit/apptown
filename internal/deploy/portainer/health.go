@@ -130,7 +130,7 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 	if err != nil {
 		return out, err
 	}
-	if !found {
+	if found == 0 {
 		return out, errors.New("Portainer readiness stack is absent")
 	}
 	stack, _ := p.Handle["stack"].(string)

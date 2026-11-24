@@ -66,6 +66,7 @@ type promotionStack struct {
 	Name       string `json:"Name"`
 	EndpointID int64  `json:"EndpointId"`
 	Compose    string `json:"-"`
+	Status     int
 }
 
 func asJSON(v any) string {
@@ -131,12 +132,12 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 			p.mu.Lock()
 			p.stacks = append(p.stacks, compose)
 			id := int64(len(p.stackRecords) + 1)
-			p.stackRecords[id] = promotionStack{ID: id, Name: name, EndpointID: 3, Compose: compose}
+			p.stackRecords[id] = promotionStack{ID: id, Name: name, EndpointID: 3, Compose: compose, Status: 1}
 			for _, v := range vols {
 				p.volumes[v.Name] = true
 			}
 			p.mu.Unlock()
-			fmt.Fprintf(w, `{"Id":%d}`, id)
+			fmt.Fprintf(w, `{"Id":%d,"Status":1}`, id)
 		default:
 			if raw, ok := strings.CutPrefix(r.URL.Path, "/api/stacks/"); ok {
 				idText, isFile := strings.CutSuffix(raw, "/file")
@@ -150,6 +151,10 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 				}
 				if isFile && r.Method == http.MethodGet {
 					fmt.Fprint(w, asJSON(map[string]string{"StackFileContent": st.Compose}))
+					return
+				}
+				if r.Method == http.MethodGet && !isFile {
+					fmt.Fprint(w, asJSON(st))
 					return
 				}
 				if r.Method == http.MethodPut {

@@ -156,7 +156,7 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 			}
 			id := int64(len(stacks) + 1)
 			stacks[id] = stack{ID: id, Name: body.Name, Endpoint: 3, Compose: body.Compose}
-			fmt.Fprintf(out, `{"Id":%d}`, id)
+			fmt.Fprintf(out, `{"Id":%d,"Status":1}`, id)
 		default:
 			raw, ok := strings.CutPrefix(r.URL.Path, "/api/stacks/")
 			if !ok {

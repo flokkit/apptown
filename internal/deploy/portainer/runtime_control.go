@@ -193,7 +193,7 @@ func (d *Driver) Runtime(ctx context.Context, p deploy.Placement, action string)
 			if err != nil {
 				return err
 			}
-			if _, err := applyStack(ctx, cfg, cfg.Scope.EndpointID, stack, content, p.ID, associations); err != nil {
+			if _, err := applyStack(ctx, cfg, cfg.Scope.EndpointID, stack, content, p.ID, associations, d.settleTimeout, nil); err != nil {
 				return err
 			}
 		} else if err := run("start"); err != nil {

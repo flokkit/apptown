@@ -1503,7 +1503,7 @@ func newPromotionTargets(t *testing.T, configure func(*Config)) *promotionTarget
 			p.mu.Lock()
 			p.stacks = append(p.stacks, compose)
 			p.mu.Unlock()
-			fmt.Fprint(w, `{"Id":1}`)
+			fmt.Fprint(w, `{"Id":1,"Status":1}`)
 		default:
 			http.Error(w, "not faked", http.StatusNotFound)
 		}

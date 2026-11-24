@@ -69,7 +69,11 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 						if !reflect.DeepEqual(body["env"], []any{map[string]any{"name": InstanceEnv, "value": "inst-a"}}) {
 							t.Errorf("stack applied without the installation's mark: %v", body["env"])
 						}
-						fmt.Fprint(w, `{}`)
+						if existing {
+							fmt.Fprint(w, `{"Id":4,"Status":1}`)
+						} else {
+							fmt.Fprint(w, `{"Id":12,"Status":1}`)
+						}
 					}
 				}))
 				defer server.Close()

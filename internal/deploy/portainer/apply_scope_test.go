@@ -31,7 +31,7 @@ func TestScopeChangeAfterPreflightPreventsApply(t *testing.T) {
 			fmt.Fprint(w, "[]")
 		case r.Method == "POST" && r.URL.Path == "/api/stacks/create/standalone/string":
 			applies.Add(1)
-			fmt.Fprint(w, `{"Id":19}`)
+			fmt.Fprint(w, `{"Id":19,"Status":1}`)
 		default:
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(500)
