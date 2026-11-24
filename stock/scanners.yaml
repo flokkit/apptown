@@ -169,7 +169,7 @@ scanners:
   # fails with words.
   - name: go-mod-tidy
     description: Checks that go.mod and go.sum match what the code imports (go mod tidy -diff; lang/selection/go-for-services)
-    image: golang:1.27.3-alpine
+    image: golang:1.27.4-alpine
     # GOTOOLCHAIN=auto: the module's own go directive picks the toolchain
     # (downloaded into the shared module cache), so a module on a newer Go
     # than the image is judged, not refused (N37; four projects read
@@ -350,7 +350,7 @@ scanners:
     appliesTo: ["tool:python"]
   - name: go-direct-prereleases
     description: Lists the direct requirements that are pre-releases, as go reads them from go.mod (go mod edit -json), so Janitor updates keep direct dependencies stable
-    image: golang:1.27.3-alpine
+    image: golang:1.27.4-alpine
     # A requirement without "// indirect" whose version has a semver
     # pre-release part. A pseudo-version (a commit pin,
     # ...-yyyymmddhhmmss-abcdefabcdef) is not a release and is not listed.
@@ -451,14 +451,14 @@ scanners:
   # go.mod, in the part's folder among them); the output is the words.
   - name: gofmt
     description: Checks that every committed Go file is formatted with gofmt (lang/go/formatting)
-    image: golang:1.27.3-alpine
+    image: golang:1.27.4-alpine
     command: ["sh", "-c", "cd \"${PART_FOLDER}\" || exit 2; export GOTOOLCHAIN=auto; [ -n \"$(find . \\( -name vendor -o -name .git \\) -prune -o -name '*.go' -type f -print | head -1)\" ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with go (tools: in .apptown/app.yaml) and there is no .go file in $d or below it: add the part's Go code, or correct the part's tools\"; exit 1; }; out=$(gofmt -l . 2>&1); if [ -n \"$out\" ]; then echo 'not gofmt-clean — run gofmt -w on:'; echo \"$out\"; exit 1; fi"]
     network: false
     target: source
     manual: true
   - name: go-vet
     description: Runs go vet over the committed Go code to find likely mistakes (lang/go/formatting)
-    image: golang:1.27.3-alpine
+    image: golang:1.27.4-alpine
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd \"${PART_FOLDER}\" || exit 2; [ -f go.mod ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with go (tools: in .apptown/app.yaml) and there is no go.mod in $d: add it (go mod init), or correct the part's tools\"; exit 1; }; out=$(GOTOOLCHAIN=auto GOFLAGS=-mod=mod go vet ./... 2>&1) || { echo \"$out\" | tail -40; exit 1; }"]
     network: true   # module downloads
     target: source
