@@ -1,4 +1,4 @@
-import { cloneElement, useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode, type RefObject } from 'react'
+import { cloneElement, useCallback, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type RefAttributes, type CSSProperties, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useNarrow } from './chrome'
 import { Modal } from './Modal'
@@ -13,7 +13,7 @@ const focusable = 'a[href], button:not(:disabled), input:not(:disabled), select:
 // into a field elsewhere keeps the field's focus. Scrolling the trigger out of
 // sight closes the panel.
 export function Popover({ anchor, onClose, children, id, placement = 'below', align = 'end', className = '', style, onPointerEnter, onPointerLeave, takeFocus = true }: {
-  style?: CSSProperties; anchor: RefObject<HTMLElement>; onClose: () => void; children: ReactNode; id: string
+  style?: CSSProperties; anchor: RefObject<HTMLElement | null>; onClose: () => void; children: ReactNode; id: string
   placement?: 'above' | 'below'; align?: 'start' | 'end'; className?: string; takeFocus?: boolean
   onPointerEnter?: (event: React.PointerEvent) => void; onPointerLeave?: (event: React.PointerEvent) => void
 }) {
@@ -86,13 +86,13 @@ export const hoverDelay = 1000
 // dialog sized to its content, titled by what it acts on, as DetailsPopover
 // does; elsewhere it is the same panel beside its control.
 export function Disclosure({ trigger, children, className, placement, hidden, closeOnAction = true, hover = false, title }: {
-  trigger: ReactElement; children: ReactNode | ((close: () => void) => ReactNode); className?: string
+  trigger: ReactElement<ButtonHTMLAttributes<HTMLButtonElement> & RefAttributes<HTMLButtonElement>>; children: ReactNode | ((close: () => void) => ReactNode); className?: string
   placement?: 'above' | 'below'; hidden?: boolean; closeOnAction?: boolean; hover?: boolean; title?: ReactNode
 }) {
   const narrow = useNarrow()
   const [open, setOpen] = useState<false | 'hover' | 'click'>(false)
   const anchor = useRef<HTMLButtonElement>(null)
-  const leaving = useRef<ReturnType<typeof setTimeout>>()
+  const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
   const id = useId()
   const close = useCallback(() => setOpen(false), [])
   // A mouse must rest a second before the panel opens, so one passing over
@@ -131,7 +131,7 @@ export function Disclosure({ trigger, children, className, placement, hidden, cl
 // panel beside the status would lie over the buttons next to it, so there a
 // tap opens the details as a dialog sized to its text, titled by the status.
 export function DetailsPopover({ trigger, children, className, closeOnAction, title }: {
-  trigger: ReactElement; children: ReactNode; className?: string; closeOnAction?: boolean; title: ReactNode
+  trigger: ReactElement<ButtonHTMLAttributes<HTMLButtonElement> & RefAttributes<HTMLButtonElement>>; children: ReactNode; className?: string; closeOnAction?: boolean; title: ReactNode
 }) {
   const narrow = useNarrow()
   const [open, setOpen] = useState(false)

@@ -179,8 +179,9 @@ describe('instance secrets', () => {
     await act(async () => { button(el, 'Add a credential').click() })
     unreadable.on = true
     await act(async () => { void client.invalidateQueries() })
+    await advance(0)
     await advance(retries)
-    expect(el.textContent).toContain('Unknown')
+    await vi.waitFor(() => expect(el.textContent).toContain('Unknown'))
     expect(el.textContent).not.toContain('EXISTING')
     expect(el.querySelector('input')).toBeNull()
     expect(button(el, 'Add a credential')).toBeUndefined()

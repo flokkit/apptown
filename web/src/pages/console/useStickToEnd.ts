@@ -11,7 +11,7 @@ export type Cue = '' | 'new' | 'newest'
 const NEAR = 60
 const FAR = 500
 
-export function useStickToEnd(scroller: RefObject<HTMLElement>, content: RefObject<HTMLElement>, shown: boolean): { cue: Cue; toEnd: () => void } {
+export function useStickToEnd(scroller: RefObject<HTMLElement | null>, content: RefObject<HTMLElement | null>, shown: boolean): { cue: Cue; toEnd: () => void } {
   const stuck = useRef(true)
   const touching = useRef(false)
   const height = useRef(0)

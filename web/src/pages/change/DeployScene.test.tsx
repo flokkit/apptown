@@ -113,7 +113,7 @@ it('keeps the door shut for checking and opens it only for live', () => {
     expect(getComputedStyle(el.querySelector('.door')!).transform).not.toContain('scaleX')
     expect(el.querySelector('.door')?.getAttribute('data-door')).toBe('closed')
     el.innerHTML = renderToStaticMarkup(<DeployScene outcome="passed" />)
-    expect(getComputedStyle(el.querySelector('.door')!).transform).toBe('scaleX(.25)')
+    expect(getComputedStyle(el.querySelector('.door')!).transform).toBe('scaleX(0.25)')
   } finally { el.remove(); style.remove() }
 })
 

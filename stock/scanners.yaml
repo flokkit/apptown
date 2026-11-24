@@ -19,7 +19,7 @@
 scanners:
   - name: osv
     description: Finds known vulnerabilities in the app's dependencies (Google osv-scanner)
-    image: ghcr.io/google/osv-scanner:v2.2.4
+    image: ghcr.io/google/osv-scanner:v2.7.1
     # The extra certificates first (internal/trust), then the image's own
     # program, which is its entrypoint, so that is cleared.
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "/osv-scanner", "scan", "--format", "json", "--output", "/work/.apptown/osv-report.json", "-r", "/work"]
@@ -36,7 +36,7 @@ scanners:
     emptyExit: 128
   - name: gitleaks
     description: Finds keys, passwords and tokens committed to the repository (gitleaks)
-    image: zricethezav/gitleaks:v8.30.0
+    image: zricethezav/gitleaks:v8.30.1
     command: ["detect", "--source", "/work", "--no-git", "--redact",
               "--report-format", "sarif", "--report-path", "/work/.apptown/gitleaks-report.sarif", "--exit-code", "1"]
     # At a landing: every commit the landing adds, so a secret committed
@@ -52,7 +52,7 @@ scanners:
     appliesTo: [repository]
   - name: sbom
     description: Lists every package in the app as a CycloneDX 1.6 SBOM (Anchore syft)
-    image: anchore/syft:v1.29.1
+    image: anchore/syft:v1.57.2
     command: ["scan", "dir:/work", "-o", "cyclonedx-json=/work/.apptown/sbom.cdx.json", "-q"]
     report: .apptown/sbom.cdx.json
     network: false
@@ -72,7 +72,7 @@ scanners:
   # execution.MaxReport is set above that.
   - name: trivy
     description: Finds known vulnerabilities in the built container image, which is what runs (Aqua trivy)
-    image: aquasec/trivy:0.66.0
+    image: aquasec/trivy:0.76.2
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "trivy", "image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.apptown/trivy.sarif",
               "--exit-code", "1", "--ignore-unfixed", "--severity", "CRITICAL,HIGH,MEDIUM,LOW", "--scanners", "vuln", "--quiet",
               "--cache-backend", "memory"]
@@ -96,7 +96,7 @@ scanners:
   # says what shipped.
   - name: trivy-license
     description: Checks the licences of the app's installed packages (trivy). AGPL, SSPL and non-commercial licences are findings; other copyleft licences are allowed because the app is run, not distributed
-    image: aquasec/trivy:0.66.0
+    image: aquasec/trivy:0.76.2
     command: ["image", "--input", "${IMAGE_TAR}", "--scanners", "license", "--pkg-types", "library", "--format", "sarif", "--output", "/work/.apptown/trivy-license.sarif",
               "--exit-code", "1", "--severity", "CRITICAL", "--quiet", "--cache-backend", "memory"]
     report: .apptown/trivy-license.sarif
@@ -112,7 +112,7 @@ scanners:
   # run everywhere — only a project that ADOPTS the way of working runs them.
   - name: semgrep-django
     description: Finds security problems in Django and Python code (semgrep, community Django and Python rules)
-    image: semgrep/semgrep:1.99.0
+    image: semgrep/semgrep:1.186.0
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; [ -n \"$(find \"${PART_FOLDER}\" \\( -name node_modules -o -name vendor -o -name .git \\) -prune -o -name '*.py' -type f -print | head -1)\" ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with python (tools: in .apptown/app.yaml) and there is no .py file in $d or below it: add the app's code, or correct the part's tools\"; exit 3; }; exec \"$@\"", "sh", "semgrep", "--config", "p/django", "--config", "p/python", "--sarif", "--output", "/work/.apptown/semgrep.sarif", "--quiet", "--metrics=off", "--disable-version-check", "${PART_FOLDER}"]
     report: .apptown/semgrep.sarif
     network: true   # pulls the rulesets from the semgrep registry
@@ -152,7 +152,7 @@ scanners:
   # convention AppTown holds anyone to; base-image tags are.
   - name: hadolint
     description: "Checks the Dockerfile with hadolint: pinned base tag, COPY not ADD, absolute WORKDIR, JSON CMD, no package cache left behind (build/container-image)"
-    image: hadolint/hadolint:v2.12.0-alpine
+    image: hadolint/hadolint:v2.15.1-alpine
     # A Dockerfile hadolint cannot parse (heredoc COPY <<EOF, waypoint) is
     # not a finding against the project: exit 2 → an error verdict, "AppTown
     # could not judge", never a fail the agent is told to fix. No Dockerfile
@@ -169,7 +169,7 @@ scanners:
   # fails with words.
   - name: go-mod-tidy
     description: Checks that go.mod and go.sum match what the code imports (go mod tidy -diff; lang/selection/go-for-services)
-    image: golang:1.27.0-alpine
+    image: golang:1.27.3-alpine
     # GOTOOLCHAIN=auto: the module's own go directive picks the toolchain
     # (downloaded into the shared module cache), so a module on a newer Go
     # than the image is judged, not refused (N37; four projects read
@@ -208,7 +208,7 @@ scanners:
     manual: true
   - name: uv-lock-check
     description: Checks that pyproject.toml and uv.lock agree (uv lock --check; lang/selection/django-fullstack)
-    image: ghcr.io/astral-sh/uv:0.13.0-python3.12-alpine
+    image: ghcr.io/astral-sh/uv:0.13.9-python3.12-alpine
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd \"${PART_FOLDER}\" || exit 2; [ -f pyproject.toml ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with python (tools: in .apptown/app.yaml) and there is no pyproject.toml in $d: add it (uv init), or correct the part's tools\"; exit 1; }; if [ -f poetry.lock ]; then echo 'poetry.lock is committed: this check judges uv projects (uv.lock); move the project to uv (uv lock), or adopt a way of working that uses poetry'; exit 1; fi; [ -f uv.lock ] || { echo 'pyproject.toml has no uv.lock — commit the lockfile (uv lock)'; exit 1; }; out=$(uv lock --check 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'pyproject.toml and uv.lock disagree — run uv lock and commit the result'; echo \"$out\" | tail -3; exit 1"]
     network: true   # resolution needs the index when the lock is stale
     target: source
@@ -221,7 +221,7 @@ scanners:
   # Gemfile in the part's folder fails with words.
   - name: bundle-lock-check
     description: Checks that Gemfile and Gemfile.lock agree (Bundler's frozen check; lang/selection/rails)
-    image: ruby:3.4.11-slim
+    image: ruby:3.4.12-slim
     command: ["sh", "-c", "cd \"${PART_FOLDER}\" || exit 2; [ -f Gemfile ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with ruby (tools: in .apptown/app.yaml) and there is no Gemfile in $d: add it, or correct the part's tools\"; exit 1; }; [ -f Gemfile.lock ] || { echo 'Gemfile has no Gemfile.lock — commit the lockfile (bundle install, then git add Gemfile.lock)'; exit 1; }; out=$(BUNDLE_GEMFILE=\"${PART_FOLDER}/Gemfile\" ruby -e 'require \"bundler\"; begin; Bundler.settings.temporary(frozen: true) { Bundler.definition.ensure_equivalent_gemfile_and_lockfile }; rescue Bundler::ProductionError => e; puts e.message; exit 1; rescue StandardError, ScriptError => e; puts e.message; exit 2; end' 2>&1); e=$?; [ $e -eq 0 ] && exit 0; if [ $e -eq 1 ]; then echo 'Gemfile and Gemfile.lock disagree — run bundle install and commit Gemfile.lock'; echo \"$out\" | sed -n -e '1s/, but the lockfile can.t be updated because frozen mode is set//p' -e '/^You have/p' -e '/^\\* /p'; exit 1; fi; echo 'could not read the Gemfile, so the lockfile was not judged:'; echo \"$out\" | head -5; exit 2"]
     network: false
     target: source
@@ -295,7 +295,7 @@ scanners:
     appliesTo: ["tool:node"]
   - name: uv-direct-prereleases
     description: Lists the direct dependencies that are pre-releases, as uv reads them from uv.lock (uv tree), so Janitor updates keep direct dependencies stable
-    image: ghcr.io/astral-sh/uv:0.13.0-python3.12-alpine
+    image: ghcr.io/astral-sh/uv:0.13.9-python3.12-alpine
     # --universal: a direct dependency behind a platform or Python-version
     # marker is listed too. A pre-release is PEP 440's: a, b or rc, or a
     # .dev release, in the normalized version uv prints (after any epoch, N!).
@@ -350,7 +350,7 @@ scanners:
     appliesTo: ["tool:python"]
   - name: go-direct-prereleases
     description: Lists the direct requirements that are pre-releases, as go reads them from go.mod (go mod edit -json), so Janitor updates keep direct dependencies stable
-    image: golang:1.27.0-alpine
+    image: golang:1.27.3-alpine
     # A requirement without "// indirect" whose version has a semver
     # pre-release part. A pseudo-version (a commit pin,
     # ...-yyyymmddhhmmss-abcdefabcdef) is not a release and is not listed.
@@ -400,7 +400,7 @@ scanners:
     appliesTo: ["tool:go"]
   - name: bundle-direct-prereleases
     description: Lists the direct dependencies that are pre-releases, as Bundler reads them from Gemfile.lock, so Janitor updates keep direct dependencies stable
-    image: ruby:3.4.11-slim
+    image: ruby:3.4.12-slim
     # Bundler's own lockfile reader: its DEPENDENCIES are the Gemfile's
     # gems, and RubyGems decides what a pre-release is.
     command:
@@ -451,14 +451,14 @@ scanners:
   # go.mod, in the part's folder among them); the output is the words.
   - name: gofmt
     description: Checks that every committed Go file is formatted with gofmt (lang/go/formatting)
-    image: golang:1.27.0-alpine
+    image: golang:1.27.3-alpine
     command: ["sh", "-c", "cd \"${PART_FOLDER}\" || exit 2; export GOTOOLCHAIN=auto; [ -n \"$(find . \\( -name vendor -o -name .git \\) -prune -o -name '*.go' -type f -print | head -1)\" ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with go (tools: in .apptown/app.yaml) and there is no .go file in $d or below it: add the part's Go code, or correct the part's tools\"; exit 1; }; out=$(gofmt -l . 2>&1); if [ -n \"$out\" ]; then echo 'not gofmt-clean — run gofmt -w on:'; echo \"$out\"; exit 1; fi"]
     network: false
     target: source
     manual: true
   - name: go-vet
     description: Runs go vet over the committed Go code to find likely mistakes (lang/go/formatting)
-    image: golang:1.27.0-alpine
+    image: golang:1.27.3-alpine
     command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd \"${PART_FOLDER}\" || exit 2; [ -f go.mod ] || { w=\"part $APPTOWN_PARTS_HERE is\"; case \"$APPTOWN_PARTS_HERE\" in *\" \"*) w=\"parts $APPTOWN_PARTS_HERE are\";; esac; d=$APPTOWN_FOLDER; [ \"$d\" = . ] && d=\"the repository root\"; echo \"$w built with go (tools: in .apptown/app.yaml) and there is no go.mod in $d: add it (go mod init), or correct the part's tools\"; exit 1; }; out=$(GOTOOLCHAIN=auto GOFLAGS=-mod=mod go vet ./... 2>&1) || { echo \"$out\" | tail -40; exit 1; }"]
     network: true   # module downloads
     target: source

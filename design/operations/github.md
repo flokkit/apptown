@@ -33,7 +33,9 @@ that shares the tool. AppTown's build and CI tools have separate groups. Stock
 toolchains and catalog entries stay within their declared version line; partial
 selectors such as Node `24` and Python `3.12` are held because they already
 select that line. Exact versions in the catalog can still receive patch
-updates. A new stock line is added deliberately rather than changing the meaning of an existing line.
+updates. Starter base images follow these same stock lines, including both Maven
+and Java in the Java build image. A new stock line is added deliberately rather
+than changing the meaning of an existing line.
 
 GitHub archive downloads use `github-release-attachments` to update both
 architecture checksums with their version. Each checksum has its own release-tag
@@ -66,12 +68,26 @@ tests ([workers](workers.md), "Private Docker on the worker") to pass against
 the changed daemon before that update is accepted or included in a release.
 A proposal supplies no release authority. Other native Dockerfile bases retain their existing coverage.
 
-Every Docker image proposal, including starter bases, scanner execution
-images and AppTown's own build images, carries `qualification-required` and explicitly disables automerge.
-Stock language and dependency data has the same rule: a patch can change what
-an app builds or runs on. Dashboard approval opens a proposal; maintainers
-still qualify it before landing. Lockfile maintenance proposes transitive npm
-and Composer updates within the manifest constraints.
+Non-major updates open without dashboard approval and automerge through the
+merge queue. Majors wait on the dashboard for a lane and never automerge.
+The Pi harness, project pi tools, WordPress PHP runtime, private Docker 27 and
+deployment Docker 29 groups open without approval but wait for a person: they
+need a generated catalog, a port of the agent's pi-subagents model-fallback patch, Composer lock
+regeneration or manual archive checksums.
+Stock dependency images and the PostgreSQL/MariaDB catalog and pack lines need
+dashboard approval and never automerge because the needs-update design owns
+them. AppTown's test database images keep the routine update policy.
+Two Go modules are held at their current versions and get no proposals:
+`github.com/jackc/pgx/v5` (newer releases drop the network error a cancelled
+write reports) and `github.com/go-jose/go-jose/v4` (newer releases no longer
+report the RSA modulus size error). The tests that guard those behaviours
+fail on the newer versions; a deliberate change restores the behaviour and
+removes the hold.
+
+The queue tests the combined commit. Heavy-main runs after landing and cannot
+prevent it; a failure is fixed forward promptly and blocks the next release
+candidate. These gates qualify the cases they test; they do not prove every
+scanner, starter or downstream application was exercised.
 
 ### Workflow action pins
 
@@ -130,6 +146,9 @@ version value. Removing a pin also requires removing its exception.
 | `stock/dependencies/postgres.yaml` | `version` | Default major 16 is fixed for AppTown 1.x; exact catalogue versions receive updates. |
 | `stock/dependencies/redis.yaml` | `version` | Default major 7 is fixed for AppTown 1.x. |
 | `stock/dependencies/mariadb.yaml` | `version` | Exact default is fixed for AppTown 1.x by the compatibility contract and its test; changing it would upgrade existing apps’ database servers implicitly. |
+| `internal/deploy/awsecs/rds.go` | `return d.runJob(ctx, p, "postgres:16-alpine",` | Fixed PostgreSQL need image; changes belong to the needs-update design. |
+| `go.mod` | `github.com/jackc/pgx/v5` | Held at v5.11.0: newer releases drop the network error a cancelled write reports (internal/database cancellation test). |
+| `go.mod` | `github.com/go-jose/go-jose/v4` | Held at v4.1.6: newer releases no longer report the RSA modulus size error (internal/oidclogin JWK test). |
 <!-- renovate-exceptions:end -->
 
 Test fixtures (`testdata`, test files, fakes and `workertest`), `eval/`, examples in prose,
@@ -140,45 +159,36 @@ contract. The maintainers' separate repository is not visible to Renovate in
 The pinned Renovate command below and the test's matching implementation
 assertion are updated together manually so config validation remains reproducible.
 
-Nothing opens by itself. Renovate keeps one issue, the **Dependency
-Dashboard**, listing the available updates, grouped so that one pull request
-is one thing to verify: Go modules, `web/` npm, each
-starter (its packages and its Dockerfile's bases together), Actions,
-AppTown's own Dockerfile bases, each project tool and its central pin, build
-and CI tools, stock tool lines, and a new AppTown build Go line (`go.mod`
-and its build images). Project Go tools stay separate from AppTown's build/CI
-compiler. Major updates stay separate from minor and patch updates; coupled
-pins and packages released together (React with React DOM) move together.
+Renovate keeps the **Dependency Dashboard** and groups related updates: Go
+modules, web npm, each starter, Actions, build images, project tools, build
+and CI tools, and stock tool lines. Major updates stay separate; coupled
+packages such as React and React DOM move together.
+
+Updates wait at least three days. An update with no release date stays under
+"Pending Status Checks" until a person checks it. Dashboard approval for a
+major opens its proposal; a lane checks and lands it. Actions retain their
+commit SHA and version comment, and images retain their digest pins.
+
+Renovate opens at most three pull requests, at most one per hour, with no
+branch-creation schedule. The branch cap inherits the pull request cap. Three
+open manual or failed proposals stop new routine proposals too. Reviewers are
+requested from bls for proposals that do not automerge; automerging proposals
+skip the reviewer request.
+
+GitHub's "Allow auto-merge" setting must be enabled for Renovate to enqueue
+routine updates. Without it, Renovate leaves proposals open for a person.
+A failed queue run dequeues the pull request and disables its auto-merge; the
+proposal stays open on the dashboard for a person or lane to finish or close.
+This rule removes routine approval and enqueue work; failed runs still need
+attention. Renovate rebases only conflicting branches. The pull request's
+rebase checkbox requests an update; GitHub's "Update branch" button adds a
+merge commit and stops Renovate updating that branch.
 
 When changing `PI_VERSION` in the agent Dockerfile, run `make generate-model-catalog`
-and commit the generated inference catalog in the same change. The catalog version
-test requires the artifact and worker pin to agree. Generation installs the exact
-pinned package in a temporary directory with install scripts disabled.
+and commit the generated inference catalog in the same change. Generation
+installs the exact pinned package in a temporary directory with scripts disabled.
+For the WordPress PHP runtime, run `composer update --lock` in its seed directory.
 
-Pi harness updates (`@earendil-works/pi-coding-agent`) open proposals without
-dashboard approval after the three-day minimum release age. They keep the
-normal reviewer and never automerge. Pi extensions remain in their own group
-and require dashboard approval. This keeps the harness model catalog and
-prices current through reviewed updates.
-
-Other updates whose release is at least three days old wait under "Pending
-Approval". One less than three days old, or one whose registry gives no
-release date, is listed under "Pending Status Checks". Ticking a box there
-opens the pull request at once, skipping the three-day wait. Leave a dated
-release until it is three days old, when it moves to "Pending Approval". An
-undated one stays pending, so tick it there once you have checked it. Actions stay pinned by commit SHA with the version in a comment, and a
-base image pinned by digest keeps its digest.
-
-To take an update, bls ticks its box on the dashboard and Renovate opens its
-pull request, with bls as reviewer. Tick one at a time: a ticked box overrides
-Renovate's limit of one open pull request, so the limit holds only for what
-Renovate opens unasked. Bump pull requests land like any other change, as in
-the section above: bls reviews the change and its notes, `ci-ok` passes on a
-branch up to date with `main`, and it is squash-merged; nothing merges
-automatically. Renovate rebases a branch only when it conflicts; to bring one
-up to date, tick the rebase box in the pull request. GitHub's "Update branch"
-button adds a merge commit, after which Renovate stops updating that branch.
-A bump that fails a check stays open for a person to finish or close.
 `make check-pins` requires the agent Go image, Go scanner images and central
 pin to agree; Renovate updates them in one group. Each image variant retains
 its registry availability and release-age check. If their eligible versions
@@ -191,15 +201,14 @@ Security fixes are the exception. Renovate reads GitHub's Dependabot alerts,
 which are on in the repository's security settings (`renovate.json5` does not
 turn them on). When an alert names a dependency it reads, Renovate opens the
 fix without approval or the three-day wait,
-assigned to bls, one at a time. So at most two Renovate pull requests are open:
-one ticked update and one security fix. Land the fix first.
+assigned to bls, one at a time. Land the fix first.
 
 To check the file after editing it (pinned, and with npm's install scripts
 off, as for every npm command here; a warning that RE2 is not usable is
 expected):
 
 ```sh
-npm_config_ignore_scripts=true npx --yes --package renovate@44.149.0 -- \
+npm_config_ignore_scripts=true npx --yes --package renovate@44.260.1 -- \
   renovate-config-validator --strict
 ```
 
@@ -207,12 +216,12 @@ To exercise extraction and real replacement with the same pinned Renovate
 implementation (temporary files only):
 
 ```sh
-npm_config_ignore_scripts=true npm exec --yes --package renovate@44.149.0 -- \
+npm_config_ignore_scripts=true npm exec --yes --package renovate@44.260.1 -- \
   sh -c 'node scripts/renovate-test.mjs "$(dirname "$(command -v renovate)")/../renovate"'
 ```
 
 This checks the independent pin inventory, documented exceptions, enabled
-manager matches, qualification labels, native manifests and mise files, owner groups,
+manager matches, approval and automerge rules, native manifests and mise files, owner groups,
 paired architecture checksum edits, CI pins, stock and runtime versions, digest refreshes
 and the pin gate on the resulting temporary tree. It supplies fixture update
 values without fetching releases; registry availability and the three-day age

@@ -40,7 +40,7 @@ jobs:
         run: echo "short=${SHA:0:12}" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.2'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund

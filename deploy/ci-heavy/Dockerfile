@@ -17,12 +17,12 @@ ENV PATH=/usr/local/go/bin:/root/go/bin:$PATH
 
 # The Docker CLI with its buildx and compose plugins, pinned by version and
 # digest (x86_64 static builds); the daemon is the host's, through its socket.
-ARG DOCKER_CLI_VERSION=29.9.1
-ARG DOCKER_CLI_SHA256=c158ecc55adb3afb01bbd3539ed3b997d20c26dbdc418080506cc1bf5243ff57
-ARG DOCKER_BUILDX_VERSION=v0.37.1
-ARG DOCKER_BUILDX_SHA256=9447199cdb435f25880548343c128a4b6650e8891ee598905d8d29d39a8e359b
-ARG DOCKER_COMPOSE_VERSION=v5.5.1
-ARG DOCKER_COMPOSE_SHA256=db1889184726840f75c4f9c001048430d4f25b3be3cb084d3ddd762bc0aed576
+ARG DOCKER_CLI_VERSION=29.10.0
+ARG DOCKER_CLI_SHA256=7c1ebadc65c716cdc6d35fc78759ed0e4317debf43c21dd12f066f2006999def
+ARG DOCKER_BUILDX_VERSION=v0.39.1
+ARG DOCKER_BUILDX_SHA256=903090816da68f8bc1a2ff5346dd163a5adacfce4548d003c75df42cd47a9bf4
+ARG DOCKER_COMPOSE_VERSION=v5.8.0
+ARG DOCKER_COMPOSE_SHA256=b8840f5008c447f41fce0a57ae3adeab42c89b1eb6e6012524bcabbfb4ffbaf6
 RUN set -e; plugins=/usr/local/lib/docker/cli-plugins; mkdir -p "$plugins" \
     && curl -fsSL -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" \
     && echo "${DOCKER_CLI_SHA256}  /tmp/docker.tgz" | sha256sum -c - \
@@ -50,7 +50,7 @@ RUN set -e; dir="oxipng-${OXIPNG_VERSION}-x86_64-unknown-linux-musl" \
 # nightly's prepare installs the same Playwright version, read from here.
 # No package's install script runs (--ignore-scripts): Chromium comes from
 # the explicit playwright install, and Pi needs none.
-ARG PLAYWRIGHT_VERSION=1.60.0
+ARG PLAYWRIGHT_VERSION=1.65.1
 ARG PI_VERSION
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 RUN set -e; test -n "${PI_VERSION}" \

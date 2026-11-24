@@ -18,38 +18,38 @@ tools:
   # The shell every guidance check, and AppTown's cache sweep, runs in.
   # renovate: datasource=docker depName=alpine/git versioning=docker
   apptown-sh:
-    "1": {version: v2.47.2, images: {run: "alpine/git:v2.47.2@sha256:062a01ad7a0eb17cff382bc5e26086b4d710e56dfdfdf001109a49b6d9bd378c"}}
+    "1": {version: v2.54.0, images: {run: "alpine/git:v2.54.0@sha256:6a1fdb962814ca11508ca8d1bab94375b5b7ac4e4a9a40981c29fc32c02f095d"}}
   # The df behind disk-space reads through Docker.
   apptown-df:
-    "1": {version: 1.37.0, images: {run: "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"}}
+    "1": {version: 1.38.0, images: {run: "busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4"}}
   # The private Docker daemon of a chat or task.
   # renovate: datasource=docker depName=docker versioning=docker extractVersion=^(?<version>[0-9.]+)-dind$
   private-docker:
     "27": {version: 27.5.1, images: {run: "docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"}}
   # renovate: datasource=golang-version depName=go versioning=semver
   go:
-    "1.27": {version: 1.27.0}
+    "1.27": {version: 1.27.4}
   # renovate: datasource=node-version depName=node versioning=node
   node:
     "24": {version: 24.22.1}
   # renovate: datasource=python-version depName=python versioning=pep440
   python:
-    "3.12": {version: 3.12.15}
+    "3.12": {version: 3.12.16}
   # renovate: datasource=java-version depName=java-jdk versioning=semver extractVersion=^(?<version>\d+\.\d+\.\d+\+\d+)\.0\.LTS$
   java:
-    "21": {version: 21.0.5+11, label: "Java 21 (Temurin)"}
+    "21": {version: 21.0.13+100000002, label: "Java 21 (Temurin)"}
   # renovate: datasource=github-releases depName=apache/maven versioning=semver
   maven:
-    "3.9": {version: 3.9.9}
+    "3.9": {version: 3.9.16}
   # renovate: datasource=dotnet-version depName=dotnet-runtime versioning=semver
   dotnet:
-    "10": {version: 10.0.13, label: ".NET 10 (LTS)"}
+    "10": {version: 10.0.15, label: ".NET 10 (LTS)"}
   # renovate: datasource=ruby-version depName=ruby versioning=ruby
   ruby:
-    "3.4": {version: 3.4.12}
+    "3.4": {version: 3.4.13}
   # renovate: datasource=rust-version depName=rust versioning=semver
   rust:
-    "1.84": {version: 1.84.0}
+    "1.84": {version: 1.84.1}
   # The Godot engine the godot-web-export check's image pins.
   # renovate: datasource=docker depName=barichello/godot-ci versioning=docker
   godot:
@@ -57,7 +57,7 @@ tools:
   # The PHP the WordPress starter's runtime image runs.
   # renovate: datasource=docker depName=php versioning=docker
   php:
-    "8.3": {version: 8.3.35}
+    "8.3": {version: 8.3.36}
   postgres:
     "16": {version: "16.15", images: {run: "postgres:16.15-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36"}}
   mariadb:

@@ -38,7 +38,7 @@ jobs:
   # (scripts/heavy-evidence.py: a first-attempt full execution on main or
   # its merge queue) and the release notes (scripts/release-notes-check.sh).
   identity:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -87,15 +87,15 @@ jobs:
           - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker, binary: /opt/apptown-worker/bin/apptown-worker }
           - { name: apptown-agent, context: deploy/apptown-agent, file: deploy/apptown-agent/Dockerfile, target: "", binary: "" }
         platform:
-          - { platform: linux/amd64, slug: amd64, runner: ubuntu-24.04 }
-          - { platform: linux/arm64, slug: arm64, runner: ubuntu-24.04-arm }
+          - { platform: linux/amd64, slug: amd64, runner: ubuntu-26.04 }
+          - { platform: linux/arm64, slug: arm64, runner: ubuntu-26.04-arm }
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}
       TAG: ${{ needs.identity.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -151,7 +151,7 @@ jobs:
   merge:
     name: index ${{ matrix.name }}
     needs: [identity, build]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write
@@ -171,7 +171,7 @@ jobs:
           path: digests
           merge-multiple: true
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -196,19 +196,19 @@ jobs:
   # contents) and SHA256SUMS over them, beside the image builds.
   archives:
     needs: identity
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.2'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund && npm run build
         working-directory: web
       # No Go cache: a cache saved on a tag's ref is that tag's alone.
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -255,13 +255,13 @@ jobs:
   # the notes: everything publication uploads, as the artifact release.
   manifest:
     needs: [identity, merge, archives]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
       TAG: ${{ needs.identity.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -292,7 +292,7 @@ jobs:
   # into internal/apptown/testdata/upgrade (scripts/release-prepare.sh).
   fixture:
     needs: identity
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     env:
       VERSION: ${{ needs.identity.outputs.version }}
@@ -300,12 +300,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '24.22.2'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund && npm run build
         working-directory: web
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
           cache: false
@@ -325,7 +325,7 @@ jobs:
   # (scripts/stranger-install.sh), in a disposable Docker daemon of its own.
   stranger:
     needs: [identity, archives]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -341,7 +341,7 @@ jobs:
   # publication's site job publishes. make tour ends by checking every shot.
   tour:
     needs: identity
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     env:
       CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-tour

@@ -8,13 +8,15 @@ import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 const renovate = path.resolve(process.argv[2]);
 const require = createRequire(path.join(renovate, 'package.json'));
-assert.equal(require('./package.json').version, '44.149.0');
+assert.equal(require('./package.json').version, '44.260.1');
 const JSON5 = require('json5');
 const { GlobalConfig } = await import(path.join(renovate, 'dist/config/global.js'));
 const { extractPackageFile, get: getManager } = await import(path.join(renovate, 'dist/modules/manager/index.js'));
 const { extractPackageFile: extractNpm } = await import(path.join(renovate, 'dist/modules/manager/npm/extract/index.js'));
 const { doAutoReplace } = await import(path.join(renovate, 'dist/workers/repository/update/branch/auto-replace.js'));
 const { applyPackageRules } = await import(path.join(renovate, 'dist/util/package-rules/index.js'));
+const { filterVersions } = await import(path.join(renovate, 'dist/workers/repository/process/lookup/filter.js'));
+const { get: getVersioning } = await import(path.join(renovate, 'dist/modules/versioning/index.js'));
 const root = process.cwd();
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'apptown-renovate-'));
 GlobalConfig.set({ localDir: temp, cacheDir: path.join(temp, 'cache') });
@@ -183,7 +185,7 @@ try {
   function uncovered(file, text, inventory = records, useExceptions = true) {
     return pins(file, text).filter(pin => {
       const exception = useExceptions && exceptions.find(e => e.file === file &&
-        (pin.key === e.selector || ((e.selector.startsWith('ARG ') || e.selector.startsWith('FROM ')) && pin.key.startsWith(e.selector))));
+        pin.key.startsWith(e.selector));
       if (exception) { exception.used = true; return false; }
       return !inventory.some(d => d.packageFile === file && covers(pin, d, text));
     });
@@ -222,16 +224,61 @@ try {
     ['scripts/install.sh', 'curl https://example.com/tool/v1.2.3/tool.tar.gz\n'],
     ['internal/new.go', 'const image = "new/runtime:1.2.3"\n'],
   ]) assert(uncovered(file, text, records, false).length, `new pin escaped: ${file}`);
-  // Every active runtime proposal keeps human qualification, even a digest bump.
-  for (const dep of live.filter(d => d.enabled !== false && (d.datasource === 'docker' || /^stock\/(toolchains\/|tool-versions.yaml|dependencies\/)/.test(d.packageFile)))) {
+  // Starter base proposals stay inside the declared stock language/tool lines.
+  // Use Renovate's release filter so approval alone cannot satisfy this guarantee.
+  for (const [starter, name, current, next, outside] of [
+    ['node', 'node', '24.0.0-slim', '24.0.1-slim', ['26-slim']],
+    ['frontend-only', 'node', '24.0.0-alpine', '24.0.1-alpine', ['26-alpine']],
+    ['video-game', 'node', '24.0.0-slim', '24.0.1-slim', ['26-slim']],
+    ['django', 'python', '3.12.0-slim', '3.12.1-slim', ['3.15-slim']],
+    ['java', 'eclipse-temurin', '21.0.0-jre-noble', '21.0.1-jre-noble', ['25-jre-noble']],
+    ['java', 'maven', '3.9.0-eclipse-temurin-21', '3.9.1-eclipse-temurin-21', ['3.10-eclipse-temurin-21', '3.9.1-eclipse-temurin-25']],
+    ['rails', 'ruby', '3.4.0-slim', '3.4.1-slim', ['4-slim']],
+    ['dotnet', 'mcr.microsoft.com/dotnet/sdk', '10.0.0', '10.0.1', ['11.0']],
+    ['dotnet', 'mcr.microsoft.com/dotnet/aspnet', '10.0.0', '10.0.1', ['11.0']],
+    ['rust', 'rust', '1.84.0', '1.84.1', ['1.99']],
+    ['wordpress', 'php', '8.3.36-apache-bookworm', '8.3.37-apache-bookworm', ['8.4-apache-bookworm']],
+    ['godot-3d', 'barichello/godot-ci', '4.4.0', '4.4.1', ['4.7']],
+    ['go', 'golang', '1.27.0', '1.27.1', ['1.28']],
+  ]) {
+    const bases = deps(`stock/seeds/${starter}/Dockerfile`, name);
+    assert(bases.length, `starter base extracted: ${starter} ${name}`);
+    for (const base of bases) {
+      const releases = [next, ...outside].map(version => ({version}));
+      const proposed = filterVersions(base, current, undefined, releases, getVersioning('docker'));
+      assert.deepEqual(proposed.map(r => r.version), [next], `starter stock line: ${starter} ${name}`);
+    }
+  }
+  // Exercise the effective rule for every extracted dependency and update kind.
+  const manualGroups = new Set(['project pi harness', 'project pi tools', 'WordPress PHP runtime',
+    'runtime private Docker 27', 'deployment Docker 29']);
+  const needsApproval = dep => dep.packageFile.startsWith('stock/dependencies/') ||
+    (['stock/tool-versions.yaml', 'stock/packs.yaml'].includes(dep.packageFile) &&
+      ['postgres', 'mariadb'].includes(dep.depName));
+  for (const group of ['stock Postgres 16', 'stock MariaDB 11.4', 'S3 Python client'])
+    assert(live.some(d => d.groupName === group && needsApproval(d)), `need group: ${group}`);
+  assert(deps('stock/dependencies/s3.yaml', 'versity/versitygw').length);
+  for (const file of ['internal/dbtest/suite.go', 'internal/apptown/dbboot.go']) {
+    assert(deps(file, 'postgres').length, `test database: ${file}`);
+    assert(deps(file, 'postgres').every(d => !needsApproval(d)), `test database policy: ${file}`);
+  }
+  for (const dep of live.filter(d => d.enabled !== false)) {
     for (const updateType of ['major', 'minor', 'patch', 'digest', 'pin', 'pinDigest']) {
       const proposal = await applyPackageRules({...dep, updateType}, 'test');
-      assert.equal(proposal.automerge, false, `automerge: ${dep.packageFile} ${dep.depName} ${updateType}`);
-      assert(proposal.addLabels?.includes('qualification-required'), `qualification: ${dep.packageFile} ${dep.depName} ${updateType}`);
+      const key = `${dep.packageFile} ${dep.depName} ${updateType}`;
+      assert.equal(proposal.dependencyDashboardApproval, updateType === 'major' || needsApproval(dep), `approval: ${key}`);
+      assert.equal(proposal.automerge, updateType !== 'major' && !needsApproval(dep) && !manualGroups.has(dep.groupName), `automerge: ${key}`);
+      assert(!proposal.addLabels?.includes('qualification-required'), `obsolete qualification: ${key}`);
     }
     if (dep.allowedVersions?.startsWith('/'))
       assert(new RegExp(dep.allowedVersions.slice(1, -1)).test(dep.currentValue), `current line: ${dep.packageFile} ${dep.depName}`);
   }
+  for (const group of manualGroups) assert(live.some(d => d.groupName === group), `manual group: ${group}`);
+  for (const name of ['github.com/jackc/pgx/v5', 'github.com/go-jose/go-jose/v4']) {
+    const held = deps('go.mod', name);
+    assert(held.length && held.every(d => d.enabled === false), `held Go module: ${name}`);
+  }
+  assert(deps('go.mod', 'golang.org/x/net').every(d => d.enabled !== false), 'routine Go module stays enabled');
   const agent = 'deploy/apptown-agent/Dockerfile';
   for (const [, name, version] of content.get(agent).matchAll(/^ARG (\w+)_VERSION=(\S+)/gm)) {
     if (name !== 'GLAB') found(agent, version);
@@ -253,7 +300,7 @@ try {
   }
   for (const d of deps('stock/tool-versions.yaml')) assert(/^(stock |runtime )/.test(d.groupName) || d.groupName === 'project scanner godot-ci', `stock owner ${d.depName}`);
   assert.equal(deps(agent).filter(d => d.datasource === 'github-release-attachments').length, 10);
-  assert.equal(deps('.github/workflows/ci.yml', 'gitleaks/gitleaks').length, 2);
+  assert.equal(deps('.github/workflows/ci.yml', 'github.com/zricethezav/gitleaks/v8').length, 1);
   const catalog = 'stock/tool-versions.yaml';
   assert.equal(deps(catalog, 'caddy').length, 0);
   const dockerHashes = content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm);
@@ -277,8 +324,15 @@ try {
   }
   assert(!records.some(d => d.packageFile.startsWith('private/')));
   assert.equal(config.minimumReleaseAge, '3 days');
-  assert.equal(config.dependencyDashboardApproval, true);
-  assert.equal(config.automerge, false);
+  assert.deepEqual(config.dependencyDashboard, {enabled: true});
+  assert.equal(config.dependencyDashboardApproval, false);
+  assert.equal(config.prConcurrentLimit, 3);
+  assert.equal(config.branchConcurrentLimit, undefined);
+  assert.equal(config.prHourlyLimit, 1);
+  assert.equal(config.schedule, undefined);
+  assert.equal(config.platformAutomerge, true);
+  assert.equal(config.automergeType, "pr");
+  assert.equal(config.automerge, true);
   const pi = deps(agent, '@earendil-works/pi-coding-agent');
   assert.equal(pi.length, 1);
   assert.equal(pi[0].dependencyDashboardApproval, false);
@@ -288,7 +342,7 @@ try {
   assert.equal(pi[0].groupName, 'project pi harness');
   for (const name of ['pi-subagents', '@narumitw/pi-lsp']) {
     const extension = deps(agent, name)[0];
-    assert.equal(extension.dependencyDashboardApproval, true);
+    assert.equal(extension.dependencyDashboardApproval, false);
     assert.notEqual(extension.groupName, pi[0].groupName);
   }
   const privateDocker = live.filter(d => d.groupName === 'runtime private Docker 27');
@@ -312,12 +366,15 @@ try {
     content.set(dep.packageFile, updated);
   }
   // Both architecture checksum records and executable/central versions update.
+  const uvVersion = deps(agent, 'astral-sh/uv')[0].currentValue;
+  const nextUv = uvVersion.replace(/(\d+)$/, patch => String(Number(patch) + 1));
+  const uvAmd64 = /^ARG UV_SHA256_AMD64=(\w+)/m.exec(content.get(agent))[1];
   for (const d of live.filter(d => d.groupName === 'project uv tools')) {
-    const value = d.currentValue.replace('0.13.0', '0.13.1');
-    await update(d, value, d.currentDigest ? (d.currentDigest[0] === '1' ? 'c' : 'd').repeat(64) : undefined);
+    const value = d.currentValue.replace(uvVersion, nextUv);
+    await update(d, value, d.currentDigest ? (d.currentDigest === uvAmd64 ? 'c' : 'd').repeat(64) : undefined);
   }
-  assert(content.get(agent).includes('ARG UV_VERSION=0.13.1'));
-  assert.equal((content.get(agent).match(/checksum=astral-sh\/uv version=0.13.1/g) ?? []).length, 2);
+  assert(content.get(agent).includes('ARG UV_VERSION=' + nextUv));
+  assert.equal(content.get(agent).split('checksum=astral-sh/uv version=' + nextUv).length - 1, 2);
   assert(content.get(agent).includes('ARG UV_SHA256_AMD64=' + 'c'.repeat(64)));
   assert(content.get(agent).includes('ARG UV_SHA256_ARM64=' + 'd'.repeat(64)));
   const archiveGroups = new Set(deps(agent).filter(d => d.datasource === 'github-release-attachments' && d.groupName !== 'project uv tools').map(d => d.groupName));
@@ -327,14 +384,14 @@ try {
   }
   for (const d of live.filter(d => d.groupName === 'project scanner semgrep')) await update(d, '1.100.0');
   assert(!content.get('internal/apptown/integration/connector_catalog.go').includes('semgrep/semgrep:1.99.0'));
-  for (const d of deps('.github/workflows/ci.yml', 'gitleaks/gitleaks')) await update(d, d.currentValue.startsWith('v') ? 'v8.30.2' : '8.30.2', d.currentDigest ? 'e'.repeat(64) : undefined);
+  for (const d of deps('.github/workflows/ci.yml', 'github.com/zricethezav/gitleaks/v8')) await update(d, d.currentValue.startsWith('v') ? 'v8.30.2' : '8.30.2', d.currentDigest ? 'e'.repeat(64) : undefined);
   await update(deps('Makefile', 'golang.org/x/vuln')[0], 'v1.7.1');
   const stockGo = deps('stock/tool-versions.yaml', 'go')[0];
   await update(stockGo, '1.27.1');
   // Every coupled scanner occurrence, not just one representative, moves.
   for (const group of ['project Go tools', ...['osv-scanner', 'gitleaks', 'syft', 'trivy', 'hadolint', 'godot-ci', 'ruby'].map(n => `project scanner ${n}`)]) {
     for (const d of live.filter(d => d.groupName === group)) {
-      const value = d.currentValue.replace(/^(v?\d+\.\d+\.)(\d+)/, (_, prefix, patch) => prefix + (Number(patch) + 1));
+      const value = d.currentValue.replace(/^(v?\d+\.\d+)(?:\.(\d+))?/, (_, line, patch) => line + '.' + (Number(patch ?? 0) + 1));
       await update(d, value, d.currentDigest ? 'sha256:' + 'a'.repeat(64) : undefined);
     }
   }
@@ -363,13 +420,13 @@ try {
   }
   assert(content.get(agent).includes('ARG DOCKER_VERSION=27.5.2'));
   assert.deepEqual(content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm), dockerHashes, 'CLI checksums require manual verification');
-  for (const d of deployDocker) await update(d, d.currentValue.replace('29.9.2', '29.9.3'), 'sha256:' + 'e'.repeat(64));
-  assert.equal((content.get('deploy/Dockerfile').match(/docker:29\.9\.3-(?:cli|dind)@sha256:/g) ?? []).length, 2);
+  for (const d of deployDocker) await update(d, d.currentValue.replace(/^29\.\d+\.\d+/, '29.10.1'), 'sha256:' + 'e'.repeat(64));
+  assert.equal((content.get('deploy/Dockerfile').match(/docker:29\.10\.1-(?:cli|dind)@sha256:/g) ?? []).length, 2);
   const wpComposer = 'stock/seeds/wordpress/composer.json';
   for (const d of live.filter(d => d.groupName === 'WordPress PHP runtime')) {
-    await update(d, d.currentValue.replace('8.3.35', '8.3.36'), d.currentDigest ? 'sha256:' + 'b'.repeat(64) : undefined);
+    await update(d, d.currentValue.replace(/^8\.3(?:\.\d+)?/, '8.3.37'), d.currentDigest ? 'sha256:' + 'b'.repeat(64) : undefined);
   }
-  assert.equal(JSON.parse(content.get(wpComposer)).config.platform.php, '8.3.36');
+  assert.equal(JSON.parse(content.get(wpComposer)).config.platform.php, '8.3.37');
   const wp = 'stock/seeds/wordpress/Dockerfile';
   await update(deps(wp, 'wp-cli/wp-cli')[0], 'v2.12.1', 'a'.repeat(64));
   assert(content.get(wp).includes('/download/v2.12.1/wp-cli-2.12.1.phar'));
@@ -392,6 +449,6 @@ try {
   }
   for (const [file, text] of content) await fs.writeFile(path.join(temp, file), text);
   execFileSync('python3', ['scripts/pins-check.py', temp], {cwd: root});
-  console.log(`Renovate ${require('./package.json').version}: ${live.length} extracted dependencies; pin inventory, qualification rules, grouped versions, checksums and digest replacements passed.`);
+  console.log(`Renovate ${require('./package.json').version}: ${live.length} extracted dependencies; pin inventory, automerge rules, grouped versions, checksums and digest replacements passed.`);
   if (process.env.RENOVATE_EVIDENCE) await fs.writeFile(process.env.RENOVATE_EVIDENCE, JSON.stringify(live.map(({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled}) => ({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled})), null, 2));
 } finally { await fs.rm(temp, {recursive: true, force: true}); }

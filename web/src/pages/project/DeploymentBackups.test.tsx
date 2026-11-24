@@ -174,7 +174,7 @@ describe('a taken-down deployment', () => {
     expect(rows(el).some(r => r.textContent?.includes('nightly'))).toBe(true)
     expect(button(el, 'Restore…')).toBeUndefined()
     expect(button(el, 'Back up now')).toBeUndefined()
-    expect(el.querySelector('a[href="/projects/shop/deployments"]')?.textContent).toBe('Start a new deployment from it')
+    await vi.waitFor(() => expect(el.querySelector('a[href="/projects/shop/deployments"]')?.textContent).toBe('Start a new deployment from it'))
   })
   it('never calls an ordinary set final, nor offers to start from it', async () => {
     const { el, client } = await mount({ list: [], sets: [tdSet('o1', 6, { trigger: 'manual' })] })

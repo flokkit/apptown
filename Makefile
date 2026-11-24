@@ -3,7 +3,7 @@
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
 # renovate: datasource=go depName=github.com/sqlc-dev/sqlc versioning=semver
-SQLC_VERSION := v1.28.0
+SQLC_VERSION := v1.31.1
 GOLANGCI_LINT ?= golangci-lint
 # renovate: datasource=go depName=github.com/golangci/golangci-lint/v2 versioning=semver
 GOLANGCI_LINT_VERSION := v2.15.0
@@ -12,9 +12,9 @@ GOLANGCI_LINT_VERSION := v2.15.0
 # renovate: datasource=go depName=honnef.co/go/tools versioning=semver
 STATICCHECK_VERSION := v0.8.2
 # renovate: datasource=go depName=golang.org/x/vuln versioning=semver
-GOVULNCHECK_VERSION := v1.7.0
+GOVULNCHECK_VERSION := v1.10.0
 # renovate: datasource=go depName=golang.org/x/tools versioning=semver
-DEADCODE_VERSION := v0.50.0
+DEADCODE_VERSION := v0.53.0
 .PHONY: sqlc-tools check-sqlc generate-sql check-generated
 
 sqlc-tools:
@@ -321,7 +321,7 @@ check-race:              ## the race detector on the default tier (CI runs this)
 
 # The image CI runs the rule in (a local semgrep, when installed, runs it
 # instead); pinned by version and digest.
-SEMGREP_IMAGE = semgrep/semgrep:1.178.0@sha256:32e459968daabe7ab86968184a29109b9564aa00392401156f9788452b42786b
+SEMGREP_IMAGE = semgrep/semgrep:1.186.0@sha256:6e1b04340e60e910fbb4ddbf3c857ab0918f064417ad5ac530014ccb3cf8c8f1
 # The container gets only what the rule reads, read-only: Docker Desktop on
 # macOS keeps a host file handle for every file a container touches until it
 # restarts, and a whole-checkout mount left about 43,000 per worktree, most

@@ -44,7 +44,7 @@ services:
     stop_grace_period: 60s
 
   caddy:
-    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    image: caddy:2.11.9@sha256:4851e54a46b206517c574821bb5cc67f170d2156041e9fbc4c9193b45e84a75b
     network_mode: host
     restart: unless-stopped
     configs:

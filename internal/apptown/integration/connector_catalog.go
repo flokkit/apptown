@@ -71,7 +71,7 @@ func ConnectorCatalog() []ConnectorSpec {
 					// the rule can never be acted on here (excluding it per project
 					// would be the wrong tool).
 					Config: map[string]any{
-						"description": "SAST via semgrep", "image": "semgrep/semgrep:1.99.0",
+						"description": "SAST via semgrep", "image": "semgrep/semgrep:1.186.0",
 						"command": "semgrep scan --config auto --exclude-rule go.lang.security.audit.net.use-tls.use-tls --sarif --output /work/.apptown/semgrep.sarif /work",
 						"report":  ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "network": true,
 						"appliesTo": []string{"repository"},
@@ -79,7 +79,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Name: "trivy", Title: "Trivy", Icon: "trivy", Suggest: "trivy",
 					Description: "Filesystem vulnerability and misconfiguration scanning.",
 					Config: map[string]any{
-						"description": "vuln/misconfig scanning via trivy", "image": "aquasec/trivy:0.66.0",
+						"description": "vuln/misconfig scanning via trivy", "image": "aquasec/trivy:0.76.2",
 						"command": "fs --scanners vuln,misconfig --cache-backend memory --format sarif --output /work/.apptown/trivy.sarif /work",
 						"report":  ".apptown/trivy.sarif", "format": "sarif", "kind": "vuln", "network": true,
 						"appliesTo": []string{"repository"},
@@ -87,7 +87,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Name: "osv", Title: "osv-scanner", Icon: "osv", Suggest: "osv-custom",
 					Description: "SCA — dependency vulnerabilities via the OSV database.",
 					Config: map[string]any{
-						"description": "dependency scanning via osv-scanner", "image": "ghcr.io/google/osv-scanner:v2.2.4",
+						"description": "dependency scanning via osv-scanner", "image": "ghcr.io/google/osv-scanner:v2.7.1",
 						"command": "scan --format json --output /work/.apptown/osv-report.json -r /work",
 						"report":  ".apptown/osv-report.json", "format": "osv", "kind": "vuln", "network": true,
 						"appliesTo": []string{"tool:go", "tool:node", "tool:python", "tool:ruby", "tool:rust", "tool:java", "tool:dotnet", "tool:php"}, "emptyExit": 128,
@@ -95,7 +95,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Name: "gitleaks", Title: "Gitleaks", Icon: "gitleaks", Suggest: "gitleaks-custom",
 					Description: "Secrets detection — leaked keys and tokens in the tree.",
 					Config: map[string]any{
-						"description": "secrets scanning via gitleaks", "image": "zricethezav/gitleaks:v8.30.0",
+						"description": "secrets scanning via gitleaks", "image": "zricethezav/gitleaks:v8.30.1",
 						"command": "detect --source /work --no-git --redact --report-format sarif --report-path /work/.apptown/gitleaks-report.sarif --exit-code 1",
 						"report":  ".apptown/gitleaks-report.sarif", "format": "sarif", "kind": "secret",
 						"appliesTo": []string{"repository"},
@@ -103,7 +103,7 @@ func ConnectorCatalog() []ConnectorSpec {
 				{Name: "syft", Title: "Syft (SBOM)", Icon: "sbom", Suggest: "sbom-custom",
 					Description: "CycloneDX SBOM of the workspace — evidence, not findings.",
 					Config: map[string]any{
-						"description": "SBOM generation via syft", "image": "anchore/syft:v1.29.1",
+						"description": "SBOM generation via syft", "image": "anchore/syft:v1.57.2",
 						"command": "scan dir:/work -o cyclonedx-json=/work/.apptown/sbom.cdx.json -q",
 						"report":  ".apptown/sbom.cdx.json", "artifactKind": "sbom",
 						"appliesTo": []string{"repository"},
@@ -114,7 +114,7 @@ func ConnectorCatalog() []ConnectorSpec {
 			},
 			Fields: []ConnectorField{
 				{Key: "description", Label: "Description", Type: "string"},
-				{Key: "image", Label: "Image", Type: "string", Placeholder: "semgrep/semgrep:1.99.0", Help: "Pin a tag — the config hash is pinned into run receipts."},
+				{Key: "image", Label: "Image", Type: "string", Placeholder: "semgrep/semgrep:1.186.0", Help: "Pin a tag — the config hash is pinned into run receipts."},
 				{Key: "command", Label: "Command", Type: "command", Placeholder: "semgrep scan --sarif --output /work/.apptown/semgrep.sarif /work", Help: "Args to the image entrypoint. Exit 0 = clean, 1 = findings, else error."},
 				{Key: "report", Label: "Report path", Type: "string", Placeholder: ".apptown/semgrep.sarif", Help: "Workspace-relative report file, attached as evidence."},
 				{Key: "format", Label: "Findings format", Type: "select", Options: ",sarif,osv", Help: "Enables the structured findings layer; empty = exit-code verdict only."},

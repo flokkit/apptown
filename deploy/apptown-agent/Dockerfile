@@ -19,9 +19,9 @@
 # Each RUN that downloads mounts the extra certificates AppTown gives a build
 # (the secret apptown-trust; internal/trust) and runs them first, so a
 # build behind a TLS-inspecting proxy can fetch; without them it runs as is.
-FROM golang:1.27.0-bookworm@sha256:ded31c68586d2e49e760acc2e65a884b23d032e9bbbed0ae0c55abd3fcaf4452 AS gopls
+FROM golang:1.27.3-bookworm@sha256:dc0963f32053e4bc451d24d87e3892d42d01021b61f093e98eb95c0352bb84b0 AS gopls
 # renovate: datasource=go depName=golang.org/x/tools/gopls versioning=semver
-ARG GOPLS_VERSION=v0.23.0
+ARG GOPLS_VERSION=v0.24.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; CGO_ENABLED=0 GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION} && /out/gopls version
 
 FROM node:24-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205
@@ -49,11 +49,11 @@ RUN printf '#!/bin/sh\nset -e\ncase "$(dpkg --print-architecture)" in amd64) s=$
 
 # uv for python projects, from its release archive
 # renovate: datasource=github-releases depName=astral-sh/uv versioning=semver
-ARG UV_VERSION=0.13.0
-# renovate: checksum=astral-sh/uv version=0.13.0
-ARG UV_SHA256_AMD64=1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154
-# renovate: checksum=astral-sh/uv version=0.13.0
-ARG UV_SHA256_ARM64=3ccfb6af6e242433eb552f7d9676abd5412c6595c497e990d9c8cb7b5bd4d2c3
+ARG UV_VERSION=0.13.9
+# renovate: checksum=astral-sh/uv version=0.13.9
+ARG UV_SHA256_AMD64=a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5
+# renovate: checksum=astral-sh/uv version=0.13.9
+ARG UV_SHA256_ARM64=0797542018e541a9288855df555c8077eed06f7a47d206362030480e8ecc9f3d
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; case "$(dpkg --print-architecture)" in amd64) t=x86_64;; arm64) t=aarch64;; esac \
     && curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${t}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tgz \
     && sha "$UV_SHA256_AMD64" "$UV_SHA256_ARM64" /tmp/uv.tgz \
@@ -65,12 +65,12 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
 # routing comes from AppTown-generated /etc/mise/config.toml at run time.
 # MISE_MIRROR is overridable to pull mise itself through a local proxy.
 # renovate: datasource=github-releases depName=jdx/mise versioning=semver
-ARG MISE_VERSION=v2026.8.12
+ARG MISE_VERSION=v2026.11.12
 ARG MISE_MIRROR=https://github.com
-# renovate: checksum=jdx/mise version=v2026.8.12
-ARG MISE_SHA256_AMD64=f2092b1e67f0abc8803d3be120dd2bc5b656dd99680ba3159f710e149da10d05
-# renovate: checksum=jdx/mise version=v2026.8.12
-ARG MISE_SHA256_ARM64=071e2d16905360fa04762422a2a889692bb3a4d30f27650de50bc1ac0564840b
+# renovate: checksum=jdx/mise version=v2026.11.12
+ARG MISE_SHA256_AMD64=9c12c24f5eac6b6357e5265e2629166cc3005459037f5d747680a99e375ff2ab
+# renovate: checksum=jdx/mise version=v2026.11.12
+ARG MISE_SHA256_ARM64=52f4a75495bde5571d5d0a45b4d9b5227c2c099b92f9be85328569e67b12c553
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) m=x64;; arm64) m=arm64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "${MISE_MIRROR}/jdx/mise/releases/download/${MISE_VERSION}/mise-${MISE_VERSION}-linux-${m}" -o /usr/local/bin/mise \
     && sha "$MISE_SHA256_AMD64" "$MISE_SHA256_ARM64" /usr/local/bin/mise \
@@ -113,19 +113,19 @@ LABEL apptown.glab.version=${GLAB_VERSION}
 # renovate: datasource=docker depName=docker versioning=docker extractVersion=^(?<version>[0-9.]+)-dind$
 ARG DOCKER_VERSION=27.5.1
 # renovate: datasource=github-releases depName=docker/buildx versioning=semver extractVersion=^v(?<version>.*)$
-ARG BUILDX_VERSION=0.19.3
+ARG BUILDX_VERSION=0.39.1
 # renovate: datasource=github-releases depName=docker/compose versioning=semver extractVersion=^v(?<version>.*)$
-ARG COMPOSE_VERSION=5.5.0
+ARG COMPOSE_VERSION=5.8.0
 ARG DOCKER_SHA256_AMD64=4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640
 ARG DOCKER_SHA256_ARM64=e6b53725a73763ab3f988c73f8772eaed429754c1a579db5ff11f21990fd1817
-# renovate: checksum=docker/buildx version=v0.19.3
-ARG BUILDX_SHA256_AMD64=32ed111e941e385c2fb8261eba06a4056915718fd606f8278834ac1931d261a2
-# renovate: checksum=docker/buildx version=v0.19.3
-ARG BUILDX_SHA256_ARM64=138b587399b27bb61945a36d67866177b85dea1155101a2be63c7ab715f18a2e
-# renovate: checksum=docker/compose version=v5.5.0
-ARG COMPOSE_SHA256_AMD64=c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b
-# renovate: checksum=docker/compose version=v5.5.0
-ARG COMPOSE_SHA256_ARM64=ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e
+# renovate: checksum=docker/buildx version=v0.39.1
+ARG BUILDX_SHA256_AMD64=903090816da68f8bc1a2ff5346dd163a5adacfce4548d003c75df42cd47a9bf4
+# renovate: checksum=docker/buildx version=v0.39.1
+ARG BUILDX_SHA256_ARM64=05c88e0f9152825e609a1cdb391faf14d5f94d23d071eaecb87bae69d98da8b8
+# renovate: checksum=docker/compose version=v5.8.0
+ARG COMPOSE_SHA256_AMD64=b8840f5008c447f41fce0a57ae3adeab42c89b1eb6e6012524bcabbfb4ffbaf6
+# renovate: checksum=docker/compose version=v5.8.0
+ARG COMPOSE_SHA256_ARM64=1a9c918b2fb49b9c87f0018c64b5abd0d30715155e98dc939779fbaee6c414d3
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) d=x86_64;; arm64) d=aarch64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "https://download.docker.com/linux/static/stable/${d}/docker-${DOCKER_VERSION}.tgz" -o /tmp/docker.tgz \
     && sha "$DOCKER_SHA256_AMD64" "$DOCKER_SHA256_ARM64" /tmp/docker.tgz \
@@ -150,9 +150,9 @@ LABEL apptown.compose.version=${COMPOSE_VERSION}
 # (Python lint/fix), gopls (Go, built in the stage above). Rust/Java servers
 # can be added later. The npm and uv download caches are not used at run time.
 # renovate: datasource=npm depName=@biomejs/biome versioning=semver
-ARG BIOME_VERSION=2.3.14
+ARG BIOME_VERSION=2.6.8
 # renovate: datasource=pypi depName=ruff versioning=pep440
-ARG RUFF_VERSION=0.17.0
+ARG RUFF_VERSION=0.17.6
 COPY --from=gopls /out/gopls /usr/local/bin/gopls
 # No npm package's install script runs while this image is built
 # (--ignore-scripts here, npm_config_ignore_scripts for pi install, which
@@ -166,7 +166,7 @@ LABEL apptown.lsp.servers=biome,ruff,gopls
 
 # pi itself
 # renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
-ARG PI_VERSION=1.5.0
+ARG PI_VERSION=1.6.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL apptown.pi.version=${PI_VERSION}
@@ -207,7 +207,7 @@ LABEL apptown.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 # gains npm:@narumitw/pi-lsp. Off by default — trust:never means a repo can't
 # enable it, only a blessed pack/setting can.
 # renovate: datasource=npm depName=@narumitw/pi-lsp versioning=semver
-ARG PI_LSP_VERSION=0.49.6
+ARG PI_LSP_VERSION=0.49.12
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
 LABEL apptown.pi-lsp.version=${PI_LSP_VERSION}
 
