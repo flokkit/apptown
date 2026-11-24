@@ -13,10 +13,6 @@ import type { ClassificationView } from '../../../wire.gen'
 // what a change adds or removes, and the sentence a person accepts to lower
 // protection; this form shows them before saving.
 
-// PROTECTED_WORDS explains protection wherever a person picks audience or data.
-export const PROTECTED_WORDS = 'Protected means it reaches people outside the organisation or holds production data: only people with release permission can deploy there. Lowering its audience or data later asks you to confirm. A deployment that has run stays on its target.'
-export const isProtected = (audience: string, data: string) => audience === 'partners' || audience === 'public' || data === 'production'
-
 type Draft = { audience: string; data: string; was: { audience: string; data: string } }
 
 export function DeploymentClassification({ slug, name, onChanged }: { slug: string; name: string; onChanged: () => void }) {
@@ -50,7 +46,6 @@ export function DeploymentClassification({ slug, name, onChanged }: { slug: stri
           {c.dataClasses.map(d => <option key={d.value} value={d.value} disabled={!!d.refusal} title={d.refusal}>{DATA_WORDS[d.value] ?? d.value}{d.refusal ? ' (not here)' : ''}</option>)}
         </select></FieldRow>
       <RefusedChoices view={c} />
-      <div className="muted small">{isProtected(c.audience, c.data) ? 'This deployment is protected.' : 'This deployment is not protected.'} {PROTECTED_WORDS}</div>
       {changed && !p && <ReadStatus q={proposal} what="what this change does" />}
       {p && <div className="stack stack-1" aria-label="What this change does">
         {p.refusal && <div className="error" role="alert">Not allowed: {p.refusal}</div>}

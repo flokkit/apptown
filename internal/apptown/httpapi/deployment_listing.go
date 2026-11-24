@@ -59,7 +59,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
 		v := DeploymentView{RoutineUpdates: e.RoutineUpdates, RoutineUpdatesRevision: e.RoutineUpdatesRevision, RuntimeState: e.RuntimeState, RuntimeActor: e.RuntimeActor, RuntimeAt: e.RuntimeAt, RuntimeError: e.RuntimeError, RuntimeControls: e.RuntimeControls, RuntimeActions: e.RuntimeActions, ServingRelease: e.ServingRelease, LastApplied: e.LastApplied, ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
-			PromotedFromID: e.PromotedFromID, PromotionSource: e.PromotionSource, PromotionRelease: e.PromotionRelease, PromotionBundleID: e.PromotionBundleID, Feed: e.Feed, FeedRevision: e.FeedRevision, ApprovalRole: e.ApprovalRole, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
+			PromotedFromID: e.PromotedFromID, PromotionSource: e.PromotionSource, PromotionRelease: e.PromotionRelease, PromotionBundleID: e.PromotionBundleID, Feed: e.Feed, FeedRevision: e.FeedRevision, ApprovalRole: e.ApprovalRole, FeedConfirmed: e.FeedConfirmed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, ProtectedReason: e.ProtectedReason, UnprotectMeaning: e.UnprotectMeaning, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
@@ -118,10 +118,12 @@ type DeploymentView struct {
 	Static            bool                       `json:"static,omitempty"`
 	Target            *DeploymentTargetView      `json:"target,omitempty"`
 	RuntimeObservationView
-	Feed      string `json:"feed,omitempty"`
-	Audience  string `json:"audience,omitempty"`
-	Data      string `json:"data,omitempty"`
-	Protected bool   `json:"protected"`
+	Feed             string `json:"feed,omitempty"`
+	Audience         string `json:"audience,omitempty"`
+	Data             string `json:"data,omitempty"`
+	Protected        bool   `json:"protected"`
+	ProtectedReason  string `json:"protectedReason"`
+	UnprotectMeaning string `json:"unprotectMeaning"`
 	// Backups says AppTown keeps protection for it (dataprotection.Applies):
 	// a page asks for its backup state only then.
 	Backups    bool                 `json:"backups"`

@@ -716,6 +716,8 @@ export type DeploymentView = {
   audience?: string
   data?: string
   protected: boolean
+  protectedReason: string
+  unprotectMeaning: string
   backups: boolean
   generation?: number
   readiness?: string

@@ -309,7 +309,9 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 	if err := jobs.Migrate(context.Background(), db.Pool()); err != nil {
 		t.Fatal(err)
 	}
-	w := &dataWorld{t: t, db: db, api: &dofake.API{}, auth: &grants{who: "alice", deny: map[string]bool{}}}
+	// Alice requests releases herself, as a verified signed-in person. Keep
+	// production data protected while these tests exercise its data operations.
+	w := &dataWorld{t: t, db: db, api: &dofake.API{}, auth: &grants{who: "alice", via: access.ViaSession, deny: map[string]bool{}}}
 	api := w.api.Handler()
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		w.mu.Lock()

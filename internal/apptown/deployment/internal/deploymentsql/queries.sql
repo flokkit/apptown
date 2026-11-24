@@ -114,8 +114,8 @@ LOCK TABLE targets IN SHARE ROW EXCLUSIVE MODE;
 -- Writes: named operations preserve their guards and affected-row receipts.
 
 -- name: EnsureStanding :one
-INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),0,sqlc.arg(updated_at))
+INSERT INTO deployments (protected, protected_reason, display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
+  VALUES (sqlc.arg(protected), sqlc.arg(protected_reason), sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),0,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed,
  feed_revision=deployments.feed_revision+CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN 1 ELSE 0 END,
  feed_authority_json=CASE WHEN deployments.feed IS DISTINCT FROM excluded.feed THEN NULL ELSE deployments.feed_authority_json END,
@@ -128,8 +128,8 @@ UPDATE deployments SET audience=sqlc.arg(audience), data_class=sqlc.arg(data_cla
 WHERE id=sqlc.arg(id) AND audience=sqlc.arg(was_audience) AND data_class=sqlc.arg(was_data_class);
 
 -- name: RecordPreview :one
-INSERT INTO deployments (display_label, id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'manual','team','synthetic',1,1,sqlc.arg(updated_at))
+INSERT INTO deployments (protected, protected_reason, display_label, id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
+  VALUES (sqlc.arg(protected), sqlc.arg(protected_reason), sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'manual','team','synthetic',1,1,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET handle_json=excluded.handle_json, host_port=excluded.host_port, container=excluded.container,
   url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING *;
 
@@ -366,8 +366,8 @@ WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.p
 ORDER BY d.kind DESC,d.id;
 
 -- name: InsertRestoredCopyDeployment :one
-INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(backup_id), sqlc.arg(at))
+INSERT INTO deployments (protected, protected_reason, display_label, id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
+  VALUES (sqlc.arg(protected), sqlc.arg(protected_reason), sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(backup_id), sqlc.arg(at))
   RETURNING *;
 
 -- name: DeploymentOverrides :many
@@ -796,3 +796,7 @@ SELECT subject, identity, payload, act_counter, complete_act_counter FROM deploy
 SELECT sqlc.embed(d), a.finished_at AS last_applied_at FROM deployments d LEFT JOIN deployment_attempts a ON a.id=d.serving_attempt_id
 WHERE (NOT sqlc.arg(ids_only)::boolean OR d.id=ANY(sqlc.arg(ids)::uuid[]))
 AND (NOT sqlc.arg(projects_only)::boolean OR (d.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND d.kind<>'restored-copy')) ORDER BY d.kind DESC,d.id;
+
+-- name: SetDeploymentProtected :execrows
+UPDATE deployments SET protected=sqlc.arg(protected), protected_reason='', updated_at=sqlc.arg(at)
+WHERE id=sqlc.arg(id) AND protected=sqlc.arg(was);

@@ -43,7 +43,7 @@ func (s *Service) ConfirmAllFeeds(ctx context.Context) (confirmed, refused []str
 		if dep.Feed != "main" || dep.FeedConfirmed {
 			continue
 		}
-		if _, e := s.requireDeploy(ctx, dep.ProjectID, dep.Name, dep.Protected(), "deployment.confirm-feed"); e != nil {
+		if _, e := s.requireDeploy(ctx, dep.ProjectID, dep.Name, dep.Protected, "deployment.confirm-feed"); e != nil {
 			var denied *access.Denied
 			if errors.As(e, &denied) {
 				continue
@@ -86,7 +86,7 @@ func (s *Service) SetFeed(ctx context.Context, projectID ids.ID, name string, in
 	if err != nil {
 		return nil, err
 	}
-	actor, err := s.requireDeploy(ctx, projectID, name, dep.Protected(), "deployment.set-feed")
+	actor, err := s.requireDeploy(ctx, projectID, name, dep.Protected, "deployment.set-feed")
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (s *Service) SetFeed(ctx context.Context, projectID ids.ID, name string, in
 		if current.FeedRevision != in.Revision {
 			return errFeedMoved
 		}
-		if _, err := s.requireDeploy(ctx, projectID, name, current.Protected(), "deployment.set-feed"); err != nil {
+		if _, err := s.requireDeploy(ctx, projectID, name, current.Protected, "deployment.set-feed"); err != nil {
 			return err
 		}
 		if in.Feed == "main" && !current.StartFrom.IsZero() && !current.StartedFrom.Valid {

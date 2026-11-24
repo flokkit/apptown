@@ -487,6 +487,7 @@ var cliOperations = map[string]described{
 	"PUT /api/v1/projects/{slug}/deployments/{name}/feed":           {request: deployment.FeedSettings{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"GET /api/v1/projects/{slug}/deployments/{name}/classification": {status: 200, response: deployment.ClassificationView{}},
 	"PUT /api/v1/projects/{slug}/deployments/{name}/classification": {request: deployment.ClassificationSettings{}, strict: true, status: 200, response: deployment.Deployment{}},
+	"PUT /api/v1/projects/{slug}/deployments/{name}/protected":      {request: deployment.ProtectedSettings{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"POST /api/v1/projects/{slug}/deployments/{name}/confirm-feed":  {request: httpapi.FeedConfirmationRequest{}, strict: true, status: 200, response: deployment.Deployment{}},
 	"POST /api/v1/deployments/confirm-feed":                         {status: 200, response: httpapi.FeedsConfirmed{}},
 	"POST /api/v1/projects/{slug}/deployments/{name}/deploy":        {request: httpapi.DeployRequest{}, strict: true, status: 202, response: httpapi.ReleaseRequested{}},

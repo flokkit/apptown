@@ -1035,6 +1035,11 @@ FROM (
  AND a.payload_json->>'generation'=d.observed_generation::text
  WHERE d.observed_generation>0 ORDER BY d.id,a.id DESC
 ) h WHERE d.id=h.id;`}},
+	{n: 246, note: "store deployment release protection explicitly", stmts: []string{
+		"ALTER TABLE deployments ADD COLUMN protected BOOLEAN, ADD COLUMN protected_reason TEXT NOT NULL DEFAULT ''",
+		"UPDATE deployments SET protected = audience IN ('partners', 'public') OR data_class = 'production', protected_reason = CASE WHEN audience = 'public' THEN 'public audience' WHEN audience = 'partners' THEN 'partners audience' WHEN data_class = 'production' THEN 'production data' ELSE '' END",
+		"ALTER TABLE deployments ALTER COLUMN protected SET NOT NULL",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

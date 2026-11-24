@@ -14,7 +14,7 @@ const env: DeploymentView = { status: { word: 'working', reason: '', stale: fals
   runtimeState: 'running', runtimeActor: 'Priya', runtimeControls: { deploy: '', start: '', stop: '', restart: '' }, runtimeActions: ['start', 'stop', 'restart'],
   servingRelease: null, promotionBundleId: null, promotionRelease: 0, promotionSource: '',
   approvalRole: '', feedRevision: 1, feedConfirmed: true, readinessLabel: 'deployed', restoreLabel: 'unknown',
-  targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observation: 'running', observationStale: false, protected: false,
+  targetId: null, url: '', running: true, releaseRun: null, updatedAt: '', targetName: '', observation: 'running', observationStale: false, protected: false, protectedReason: "", unprotectMeaning: "",
 }
 
 const cleanups: (() => void)[] = []

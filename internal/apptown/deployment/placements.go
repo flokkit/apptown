@@ -257,8 +257,9 @@ type RestoredPlacement struct {
 // PlaceRestoredCopy records a restored copy's placement row (kind
 // restored-copy), which starts from its set.
 func (s *Deployments) PlaceRestoredCopy(ctx context.Context, p RestoredPlacement) (*Deployment, error) {
+	protected, reason := startingProtection(Attributes{Audience: "team", DataClass: p.DataClass})
 	return deploymentRecord(deploymentsql.New(s.db.SQL()).InsertRestoredCopyDeployment(ctx, deploymentsql.InsertRestoredCopyDeploymentParams{ID: ids.New(p.At), ProjectID: p.ProjectID,
-		Name: p.Name, TargetID: p.TargetID, DataClass: p.DataClass, BackupID: p.BackupID, At: p.At}))
+		Protected: protected, ProtectedReason: reason, Name: p.Name, TargetID: p.TargetID, DataClass: p.DataClass, BackupID: p.BackupID, At: p.At}))
 }
 
 // OnTargets lists the request's target placements once.

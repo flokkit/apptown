@@ -27,14 +27,19 @@ type configurationWorld struct {
 	contractErr error
 	before      func()
 	deny        access.Capability // one capability this caller lacks
-	agent       bool              // the caller is an agent, not a verified person
+	via         string
+	agent       bool // the caller is an agent, not a verified person
 }
 
 func (w *configurationWorld) Require(_ context.Context, p access.Permission) (access.Caller, error) {
 	if w.deny != "" && p.Capability == w.deny {
 		return access.Caller{}, fault.New(fault.Forbidden, "denied "+string(p.Capability))
 	}
-	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: w.actor.Name, Via: "header", Credential: "header:" + w.actor.Name}, Verified: !w.agent, Receipt: w.actor.Name}, w.denial
+	via := w.via
+	if via == "" {
+		via = "header"
+	}
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: w.actor.Name, Via: via, Credential: "header:" + w.actor.Name}, Verified: !w.agent, Receipt: w.actor.Name}, w.denial
 }
 func (w *configurationWorld) Project(_ context.Context, id ids.ID) (ReleaseProject, error) {
 	return ReleaseProject{Application: Application{ID: id, Slug: w.actor.ProjectSlug}, OwnerGroup: w.actor.OwnerGroup}, nil
@@ -208,7 +213,7 @@ func TestConfigureImplicitOffersAndGroupSelection(t *testing.T) {
 				t.Fatal(err)
 			}
 			in.DataClass = "production"
-			if !configureForTest(t, s, in).Protected() {
+			if !configureForTest(t, s, in).Protected {
 				t.Fatal("production data must be protected")
 			}
 		})

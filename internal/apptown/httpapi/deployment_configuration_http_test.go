@@ -158,7 +158,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 		t.Fatalf("saved incompatible configuration: %d %s", w.Code, w.Body.String())
 	}
 	env, err := a.service.Deployments.ByName(t.Context(), a.project, "prod")
-	if err != nil || !env.Protected() {
+	if err != nil || !env.Protected {
 		t.Fatalf("settings must be saved despite 422: %+v %v", env, err)
 	}
 	cloud.Capabilities.KeepsDataDir = true
@@ -283,6 +283,25 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	stale = authenticatedRequest(deployments.SetClassification, "owner", "PUT", "/", raise, values)
 	if stale.Code != 409 {
 		t.Fatalf("stale classification: %d %s", stale.Code, stale.Body.String())
+	}
+
+	if _, err := a.identity.Grant(t.Context(), identity.Spec{SubjectType: "user", Subject: "owner", Role: access.RoleReleaseManager, Scope: access.ScopeProject, ScopeID: auto.ProjectID.String(), By: "boss"}, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, who := range []string{"outsider", "owner"} {
+		saved := authenticatedRequest(deployments.SetProtected, who, "PUT", "/", `{"protected":true,"was":false}`, values)
+		want := 200
+		if who == "outsider" {
+			want = 403
+		}
+		if saved.Code != want {
+			t.Fatalf("protection for %s: %d %s", who, saved.Code, saved.Body.String())
+		}
+	}
+	stale = authenticatedRequest(deployments.SetProtected, "owner", "PUT", "/", `{"protected":true,"was":false}`, values)
+	if stale.Code != 409 {
+		t.Fatalf("stale protection: %d %s", stale.Code, stale.Body.String())
 	}
 	bulk := authenticatedRequest(deployments.ConfirmAllFeeds, "owner", "POST", "/", `{}`, nil)
 	if bulk.Code != 200 {

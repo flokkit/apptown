@@ -242,7 +242,9 @@ func TestPromotionRechecksDeployAuthorityAtEffectForAnApproverOnlyPerson(t *test
 func TestProtectedPromotionNeedsDeployAndPromoteAtExecution(t *testing.T) {
 	t.Parallel()
 	w, dep, _ := promotionFeedFixture(t)
-	reclassifyForTest(t, w.s.db, w.project, dep.Name, "public", "synthetic")
+	if _, err := w.s.SetProtected(t.Context(), w.project, dep.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+		t.Fatal(err)
+	}
 	auth := &policyAuthority{}
 	w.s.release.Authority, w.s.release.Still = auth, auth
 	for _, capability := range []access.Capability{access.CapDeploymentDeploy, access.CapReleasePromote} {

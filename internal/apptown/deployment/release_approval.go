@@ -39,7 +39,7 @@ func (s *Service) approvalMeaning(ctx context.Context, r *Release) (string, erro
 // admitApprovalIn runs under the project's release lock, in the request's
 // transaction. Only waiting requests can be superseded; a running release keeps
 // its existing exclusion. Supersession and its explanation commit together.
-func (s *Service) admitApprovalIn(ctx context.Context, tx *database.Tx, dep *Deployment, r NumberedRelease) (ReleaseState, error) {
+func (s *Service) admitApprovalIn(ctx context.Context, tx *database.Tx, dep *Deployment, r NumberedRelease, requester *access.Caller) (ReleaseState, error) {
 	q := deploymentsql.New(tx.SQL())
 	ids, err := q.SupersedeWaitingReleases(ctx, deploymentsql.SupersedeWaitingReleasesParams{DeploymentID: dep.ID, NewRelease: r.ID})
 	if err != nil {
@@ -50,15 +50,19 @@ func (s *Service) admitApprovalIn(ctx context.Context, tx *database.Tx, dep *Dep
 			return 0, err
 		}
 	}
+	wait, reason, err := s.releaseWait(ctx, dep, requester)
+	if err != nil {
+		return 0, err
+	}
 	state := Releasing
-	if dep.ApprovalRole != "" {
+	if wait {
 		state = releaseWaiting
 	}
-	if _, err := q.SetReleaseApprovalRule(ctx, deploymentsql.SetReleaseApprovalRuleParams{ID: r.ID, ApprovalRole: dep.ApprovalRole, State: state.String()}); err != nil {
+	if _, err := q.SetReleaseApprovalRule(ctx, deploymentsql.SetReleaseApprovalRuleParams{ID: r.ID, ApprovalRole: effectiveApprovalRole(dep), State: state.String()}); err != nil {
 		return 0, err
 	}
 	if state == releaseWaiting {
-		if err := appendReleaseEvent(ctx, tx, r.ID, "waiting for approval from "+dep.ApprovalRole+": "+approvalMeaning(r.Number, dep.DisplayLabel), s.now()); err != nil {
+		if err := appendReleaseEvent(ctx, tx, r.ID, reason+": "+approvalMeaning(r.Number, dep.DisplayLabel), s.now()); err != nil {
 			return 0, err
 		}
 	}
@@ -90,23 +94,19 @@ func (s *Service) approvalCaller(ctx context.Context, r *Release, consequential 
 	if s.release.Authority == nil {
 		return access.Caller{}, access.ErrAuthorityUnavailable
 	}
-	metadata, err := s.Releases.RequestMetadata(ctx, r.ID)
-	if err != nil {
-		return access.Caller{}, err
-	}
-	if metadata != nil && metadata.Routine && r.ApprovalRole == "" {
+	if r.ApprovalRole == "" {
 		caller, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapDeploymentDeploy, Resource: access.Resource{Type: "release-target", ID: r.Deployment, ProjectID: r.ProjectID}, Context: access.Context{Consequential: consequential, Route: "release.approve"}})
 		if err != nil {
 			return caller, err
 		}
 		if !caller.Verified || caller.Principal.Kind != "user" || !caller.Principal.Actor().Assents() {
-			return caller, fault.New(fault.Forbidden, "a person starts a waiting routine release")
+			return caller, fault.New(fault.Forbidden, "a person starts a waiting release")
 		}
 		dep, err := s.Deployments.ByID(ctx, r.DeploymentID)
 		if err != nil {
 			return caller, err
 		}
-		if dep.Protected() {
+		if dep.Protected {
 			if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: r.Deployment, ProjectID: r.ProjectID}, Context: access.Context{Consequential: consequential, Route: "release.approve"}}); err != nil {
 				return caller, err
 			}
@@ -123,7 +123,7 @@ func (s *Service) approvalCaller(ctx context.Context, r *Release, consequential 
 	if err := s.requireApprovalRole(ctx, caller.Principal, r); err != nil {
 		return caller, err
 	}
-	metadata, err = s.Releases.RequestMetadata(ctx, r.ID)
+	metadata, err := s.Releases.RequestMetadata(ctx, r.ID)
 	if err != nil {
 		return caller, err
 	}
@@ -287,7 +287,7 @@ func (s *Service) checkReleaseApproval(ctx context.Context, rel *Release) error 
 	if err != nil {
 		return err
 	}
-	if dep.ApprovalRole != rel.ApprovalRole {
+	if effectiveApprovalRole(dep) != rel.ApprovalRole {
 		return fault.New(fault.Conflict, "deployment approval rule changed; request a new release")
 	}
 	if rel.ApprovalRole == "" {
@@ -302,7 +302,7 @@ func (s *Service) checkReleaseApproval(ctx context.Context, rel *Release) error 
 		if err := s.release.Still.RequireStill(ctx, pr, access.Permission{Capability: access.CapDeploymentDeploy, Resource: resource, Context: access.Context{Consequential: true, Route: "release.execute"}}); err != nil {
 			return err
 		}
-		if dep.Protected() {
+		if dep.Protected {
 			return s.release.Still.RequireStill(ctx, pr, access.Permission{Capability: access.CapReleasePromote, Resource: resource, Context: access.Context{Consequential: true, Route: "release.execute"}})
 		}
 		return nil

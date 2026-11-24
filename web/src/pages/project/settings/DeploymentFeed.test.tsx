@@ -289,3 +289,71 @@ it.each(['row', 'card'])('keeps the recorded release when stopped in the %s', vi
   expect(html).not.toContain('No serving release recorded')
   client.clear()
 })
+
+it('saves protection immediately on and asks only the owner sentence before turning off', async () => {
+  let e = { id: 'main', name: 'main', kind: 'standing', feed: 'main', feedRevision: 1, feedConfirmed: true, approvalRole: 'manager',
+    routineUpdates: { mode: 'window', days: 'sun', from: '02:00', to: '04:00', zone: 'UTC' }, protected: true, protectedReason: 'public audience', unprotectMeaning: 'I state releases to Garden need no sign-off' } as DeploymentView
+  const sent: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'PUT') {
+      expect(url).toContain('/main/protected')
+      const body = JSON.parse(String(init.body))
+      sent.push(body)
+      e = { ...e, protected: body.protected, protectedReason: '' }
+      return new Response(JSON.stringify(e))
+    }
+    return new Response(JSON.stringify(url.includes('/authz/roles') ? { roles: [] } : [e]))
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><DeploymentFeed slug="garden" name="main" /></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('[role="switch"]')).not.toBeNull())
+    expect(el.textContent).toContain('public audience')
+    expect(el.textContent).toContain('Every release waits for a person with release rights.')
+    expect(el.querySelector('[aria-label="Needs approval"]')).toBeNull()
+    expect(el.querySelector('[aria-label="Routine updates"]')).toBeNull()
+    expect(el.querySelector('[aria-label="Window days"]')).toBeNull()
+    expect(el.querySelector('[role="switch"]')?.closest('.form-grid')).not.toBeNull()
+    expect(el.textContent).toContain('on · public audience')
+    await act(async () => { el.querySelector<HTMLButtonElement>('[role="switch"]')!.click() })
+    expect(sent).toEqual([])
+    expect(el.textContent).toContain(e.unprotectMeaning)
+    expect(el.textContent).not.toContain('public audience')
+    expect(el.querySelector('.quiet-confirm')?.textContent).toBe(`${e.unprotectMeaning}YesNo`)
+    expect(el.querySelector('.quiet-confirm button')?.getAttribute('type')).toBe('button')
+    expect(el.querySelector('[role="switch"]')).toBeNull()
+    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'No')!.click() })
+    expect(sent).toEqual([])
+    await act(async () => { el.querySelector<HTMLButtonElement>('[role="switch"]')!.click() })
+    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Yes')!.click() })
+    await vi.waitFor(() => expect(el.querySelector('[aria-label="Needs approval"]')).not.toBeNull())
+    expect(sent).toEqual([{ protected: false, was: true, meaning: e.unprotectMeaning }])
+    expect(el.querySelector('[aria-label="Routine updates"]')).not.toBeNull()
+    expect(el.textContent).toContain('off')
+    expect(el.textContent).not.toContain('public audience')
+    expect(el.textContent).not.toContain('Every release waits')
+    await act(async () => { el.querySelector<HTMLButtonElement>('[role="switch"]')!.click() })
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    expect(sent[1]).toEqual({ protected: true, was: false, meaning: '' })
+  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('shows the exact Protected help beside the label and keeps feed help', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.includes('/authz/roles') ? { roles: [] } : [{ name: 'main', kind: 'standing', protected: true }]))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><DeploymentFeed slug="garden" name="main" /></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('[aria-label="About Protected"]')).not.toBeNull())
+    const help = el.querySelector<HTMLButtonElement>('[aria-label="About Protected"]')!
+    expect(help.parentElement?.parentElement?.textContent).toBe('Protected ?')
+    expect(el.querySelector('.section-head [aria-label="About Deployment feed"]')).not.toBeNull()
+    await act(async () => help.click())
+    const pop = el.querySelector('.page-help-text, .page-help-pop')!
+    expect([...pop.querySelectorAll('p')].map(p => p.textContent)).toEqual([
+      'On: a person okays every release before it goes out, Janitor updates included.',
+      'Off: releases go out by themselves, as set below.',
+      "Turn it on for apps people rely on. Leave it off for toys and sketches, or when your backups are good and you'd rather stay up to date.",
+    ])
+    expect(pop.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/container-lifecycle')
+  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

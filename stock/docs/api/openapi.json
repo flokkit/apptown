@@ -2412,6 +2412,12 @@
               "null"
             ]
           },
+          "protected": {
+            "type": "boolean"
+          },
+          "protectedReason": {
+            "type": "string"
+          },
           "readiness": {
             "$ref": "#/components/schemas/Readiness"
           },
@@ -2487,6 +2493,8 @@
           }
         },
         "required": [
+          "protected",
+          "protectedReason",
           "routineUpdates",
           "routineUpdatesRevision",
           "runtimeState",
@@ -2776,6 +2784,9 @@
           "protected": {
             "type": "boolean"
           },
+          "protectedReason": {
+            "type": "string"
+          },
           "readiness": {
             "type": "string"
           },
@@ -2879,6 +2890,9 @@
           "targetName": {
             "type": "string"
           },
+          "unprotectMeaning": {
+            "type": "string"
+          },
           "unreachableSince": {
             "type": "string"
           },
@@ -2919,6 +2933,8 @@
           "targetName",
           "observationStale",
           "protected",
+          "protectedReason",
+          "unprotectMeaning",
           "backups"
         ],
         "type": "object"
@@ -5728,6 +5744,21 @@
           "targets",
           "group"
         ],
+        "type": "object"
+      },
+      "ProtectedSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "meaning": {
+            "type": "string"
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "was": {
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "QueueSkip": {
@@ -16497,6 +16528,67 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/protected": {
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsNameProtected",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProtectedSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deployment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetProtected",
+          "kind": "owner"
+        },
+        "x-apptown-feature": {
+          "area": "deployments",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/deployments/{name}/protection": {

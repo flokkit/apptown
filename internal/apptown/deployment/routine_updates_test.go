@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -292,28 +293,6 @@ func (q *routineDueQueue) EnqueueReleaseIn(_ context.Context, _ *database.Tx, id
 	return nil
 }
 
-func TestRoutineProtectedDeploymentStillWaitsForAPerson(t *testing.T) {
-	w, dep, base, _ := janitorReleaseWorld(t)
-	target, err := w.s.Targets.ByID(t.Context(), dep.TargetID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := w.s.Targets.Offer(t.Context(), target, "*", OfferCaps{}, "setup"); err != nil {
-		t.Fatal(err)
-	}
-	dep, err = w.s.SetClassification(t.Context(), w.project, dep.Name, edit(dep, "public", "synthetic", ""))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !dep.Protected() {
-		t.Fatal("fixture is not protected")
-	}
-	rel := requestJanitorBundle(t, w, nextJanitorBundle(t, w, base))
-	if rel.State != releaseWaiting {
-		t.Fatalf("protected deployment released automatically: %+v", rel)
-	}
-}
-
 func TestRoutineUpdateSettingsRefuseAStaleRevision(t *testing.T) {
 	w, dep, _, _ := janitorReleaseWorld(t)
 	in := RoutineUpdateSettings{Revision: dep.RoutineUpdatesRevision, RoutineUpdates: RoutineUpdates{Mode: "person"}}
@@ -370,5 +349,100 @@ func TestRoutineRedeliveryCannotTurnClaimedExecutionIntoAWaitingRequest(t *testi
 	case <-done:
 	case <-time.After(15 * time.Second):
 		t.Fatal("release did not finish")
+	}
+}
+
+func TestUnprotectedPublicRoutineUpdateRunsAutomatically(t *testing.T) {
+	w, dep, base, _ := janitorReleaseWorld(t)
+	target, err := w.s.Targets.ByID(t.Context(), dep.TargetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.s.Targets.Offer(t.Context(), target, "*", OfferCaps{}, "setup"); err != nil {
+		t.Fatal(err)
+	}
+	dep, err = w.s.SetClassification(t.Context(), w.project, dep.Name, edit(dep, "public", "synthetic", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dep.Protected {
+		t.Fatal("classification switched protection on")
+	}
+	rel := requestJanitorBundle(t, w, nextJanitorBundle(t, w, base))
+	if rel.State != Releasing {
+		t.Fatalf("unprotected public deployment waited: %+v", rel)
+	}
+	if err := w.s.ExecuteRelease(t.Context(), rel.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := w.s.Releases.ByID(t.Context(), rel.ID)
+	if err != nil || got.State != Released || got.Approval != nil {
+		t.Fatalf("routine release: %+v %v", got, err)
+	}
+}
+
+func TestProtectedAutomaticReleasesWaitAndRunAfterPersonalApproval(t *testing.T) {
+	for _, mode := range []string{"automatic", "window"} {
+		for _, routine := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/routine=%t", mode, routine), func(t *testing.T) {
+				w, dep, base, _ := janitorReleaseWorld(t)
+				dep, err := w.s.SetProtected(t.Context(), w.project, dep.Name, ProtectedSettings{Protected: true, Was: false})
+				if err != nil {
+					t.Fatal(err)
+				}
+				setting := RoutineUpdates{Mode: mode}
+				if mode == "window" {
+					setting = RoutineUpdates{Mode: mode, Days: "sun", From: "02:00", To: "04:00", Zone: "UTC"}
+				}
+				if _, err := w.s.SetRoutineUpdates(t.Context(), w.project, dep.Name, RoutineUpdateSettings{Revision: dep.RoutineUpdatesRevision, RoutineUpdates: setting}); err != nil {
+					t.Fatal(err)
+				}
+				b := nextJanitorBundle(t, w, base)
+				if err := w.s.RequestLandingReleases(t.Context(), w.project, b.BuiltFrom.RunID, b.BuiltFrom.ChangeID, "alice", routine); err != nil {
+					t.Fatal(err)
+				}
+				rel, err := w.s.Releases.Last(t.Context(), w.project, dep.Name)
+				if err != nil || rel.State != releaseWaiting || rel.ApprovalRole != "" {
+					t.Fatalf("automatic release did not wait: %+v %v", rel, err)
+				}
+				decision, err := w.s.ReleaseDecision(t.Context(), rel)
+				if err != nil || !decision.CanApprove || decision.WaitReason != protectedWait {
+					t.Fatalf("approval unavailable: %+v %v", decision, err)
+				}
+				if err := w.s.ApproveRelease(t.Context(), w.project, rel.Number, decision.Meaning); err != nil {
+					t.Fatal(err)
+				}
+				if err := w.s.ExecuteRelease(t.Context(), rel.ID); err != nil {
+					t.Fatal(err)
+				}
+				got, err := w.s.Releases.ByID(t.Context(), rel.ID)
+				if err != nil || got.State != Released || got.Approval == nil {
+					t.Fatalf("approved release did not run: %+v %v", got, err)
+				}
+			})
+		}
+	}
+}
+
+func TestProtectedPersonalRequestIgnoresConfiguredApprovalRole(t *testing.T) {
+	w, dep, base, _ := janitorReleaseWorld(t)
+	dep, err := w.s.SetFeed(t.Context(), w.project, dep.Name, FeedSettings{Revision: dep.FeedRevision, Feed: "manual", ApprovalRole: "release-manager"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.s.SetProtected(t.Context(), w.project, dep.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+		t.Fatal(err)
+	}
+	b := nextJanitorBundle(t, w, base)
+	accepted, err := w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: dep.Name, BundleID: b.ID})
+	if err != nil || accepted.State != Releasing {
+		t.Fatalf("personal release waited: %+v %v", accepted, err)
+	}
+	if err := w.s.ExecuteRelease(t.Context(), accepted.ID); err != nil {
+		t.Fatal(err)
+	}
+	rel, err := w.s.Releases.ByID(t.Context(), accepted.ID)
+	if err != nil || rel.State != Released || rel.ApprovalRole != "" {
+		t.Fatalf("personal release did not run: %+v %v", rel, err)
 	}
 }

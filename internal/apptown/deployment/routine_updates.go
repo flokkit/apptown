@@ -149,8 +149,8 @@ func (s *Service) routineReleaseIn(ctx context.Context, q database.Queryer, dep 
 			return true, time.Time{}, "waiting for a person: " + hold.String(), nil
 		}
 	}
-	if dep.Protected() {
-		return true, time.Time{}, "waiting for a person to approve this protected deployment", nil
+	if dep.Protected {
+		return true, time.Time{}, protectedWait, nil
 	}
 	switch dep.RoutineUpdates.Mode {
 	case "person":
@@ -162,4 +162,33 @@ func (s *Service) routineReleaseIn(ctx context.Context, q database.Queryer, dep 
 	default:
 		return false, time.Time{}, "", fmt.Errorf("unknown routine update setting %q", dep.RoutineUpdates.Mode)
 	}
+}
+
+const protectedWait = "waiting for a person with release rights: this deployment is protected"
+
+// releaseWait requires fresh personal assent; feed authority is not a requester.
+func (s *Service) releaseWait(ctx context.Context, dep *Deployment, requester *access.Caller) (bool, string, error) {
+	if dep.Protected {
+		if requester != nil && requester.Verified && requester.Principal.Kind == "user" && requester.Principal.Actor().Assents() {
+			if s.release.Authority == nil {
+				return false, "", access.ErrAuthorityUnavailable
+			}
+			if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: dep.Name, ProjectID: dep.ProjectID}, Context: access.Context{Consequential: true, Route: "release.request"}}); err != nil {
+				return false, "", err
+			}
+			return false, "", nil
+		}
+		return true, protectedWait, nil
+	}
+	if dep.ApprovalRole != "" {
+		return true, "waiting for approval from " + dep.ApprovalRole, nil
+	}
+	return false, "", nil
+}
+
+func effectiveApprovalRole(dep *Deployment) string {
+	if dep.Protected {
+		return ""
+	}
+	return dep.ApprovalRole
 }

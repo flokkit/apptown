@@ -7,7 +7,8 @@ import { ReactNode, useState } from 'react'
 // `prepare` runs before the question is shown, for acts whose question
 // depends on a fetch (what a pack update would change); what it returns
 // is shown under the question.
-export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle danger', yes = 'Yes', no = 'No', disabled, title }: {
+export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle danger', yes = 'Yes', no = 'No', disabled, title, trigger }: {
+  trigger?: (open: () => void, busy: boolean) => ReactNode
   label: ReactNode; ask: ReactNode
   onYes: () => unknown
   prepare?: () => Promise<ReactNode | void>
@@ -29,7 +30,7 @@ export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle d
   if (!asking) {
     return (
       <>
-        <button className={className} onClick={open} disabled={disabled || busy} title={title}>{busy ? '…' : label}</button>
+        {trigger ? trigger(() => { void open() }, !!disabled || busy) : <button type="button" className={className} onClick={open} disabled={disabled || busy} title={title}>{busy ? '…' : label}</button>}
         {err && <span className="error small">{err}</span>}
       </>
     )
@@ -37,11 +38,11 @@ export function QuietConfirm({ label, ask, onYes, prepare, className = 'subtle d
   return (
     <span className="small row quiet-confirm" style={{ gap: 6 }}>
       <span>{ask}{detail ? <div className="muted small" style={{ whiteSpace: 'pre-wrap', marginTop: 2 }}>{detail}</div> : null}</span>
-      <button className="danger" disabled={busy} onClick={async () => {
+      <button type="button" className="danger" disabled={busy} onClick={async () => {
         setBusy(true); setErr('')
         try { await onYes() } catch (e) { setErr((e as Error).message) } finally { setBusy(false); setAsking(false) }
       }}>{busy ? '…' : yes}</button>
-      <button onClick={() => setAsking(false)}>{no}</button>
+      <button type="button" onClick={() => setAsking(false)}>{no}</button>
       {err && <span className="error small">{err}</span>}
     </span>
   )

@@ -66,7 +66,7 @@ func (s *Service) JanitorDeployments(ctx context.Context, projects []ids.ID) ([]
 		if err := json.Unmarshal(row.RoutineUpdates, &setting); err != nil {
 			return nil, err
 		}
-		protected := (&Deployment{Audience: row.Audience, DataClass: row.DataClass}).Protected()
+		protected := row.Protected
 		item := JanitorDeployment{ProjectID: row.ProjectID, DeploymentID: row.ID, Name: row.Name, DisplayLabel: row.DisplayLabel, Automatic: !protected && setting.Mode != "person"}
 		if hold, ok := holds[row.ID]; ok {
 			item.Hold = &hold

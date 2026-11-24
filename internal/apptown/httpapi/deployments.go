@@ -423,3 +423,19 @@ func (h Deployments) SetRoutineUpdates(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, 200, out)
 	})
 }
+
+// SetProtected saves the deployment's release protection.
+func (h Deployments) SetProtected(w http.ResponseWriter, r *http.Request) {
+	p, ok := projectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.ProtectedSettings) {
+		dep, err := h.deployment.SetProtected(r.Context(), p.ID, r.PathValue("name"), in)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, dep)
+	})
+}

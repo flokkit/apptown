@@ -18,16 +18,16 @@ func (a *policyAuthority) Require(_ context.Context, p access.Permission) (acces
 	if p.Capability == a.denied {
 		return access.Caller{}, access.ErrAuthorityUnavailable
 	}
-	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: "policy-actor", Credential: "header:policy-actor"}, Verified: true}, nil
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: "policy-actor", Via: "header", Credential: "header:policy-actor"}, Verified: true}, nil
 }
 func (a *policyAuthority) RequireStill(ctx context.Context, _ access.Principal, p access.Permission) error {
 	_, err := a.Require(ctx, p)
 	return err
 }
 
-// Promotion permission follows classification. admission records whether the
+// Promotion permission follows stored protection. admission records whether the
 // locked deployment was protected, and execution requires promotion when
-// either the admitted record or the current classification asks for it.
+// either the admitted record or the current protection asks for it.
 func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *testing.T) {
 	s, in, _, _ := requestFixture(t)
 	auth := &policyAuthority{}
@@ -38,7 +38,9 @@ func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	reclassifyForTest(t, s.db, in.ProjectID, dep.Name, "team", "production")
+	if _, err := s.SetProtected(t.Context(), in.ProjectID, dep.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+		t.Fatal(err)
+	}
 	accepted, err := s.RequestRelease(t.Context(), in)
 	if err != nil {
 		t.Fatal(err)
@@ -51,13 +53,13 @@ func TestReleaseAdmissionCapturesLockedProtectionAndExecutionKeepsBothGates(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	principal := access.Principal{ID: idstest.N(501), Kind: "user", Name: "policy-actor", Credential: "header:policy-actor"}
+	principal := access.Principal{ID: idstest.N(501), Kind: "user", Name: "policy-actor", Via: "header", Credential: "header:policy-actor"}
 	auth.denied = access.CapReleasePromote
 	if err := s.requireReleaseAuthority(t.Context(), principal, unprotected.ID, false); err != nil {
 		t.Fatalf("unprotected deployment needed promotion permission: %v", err)
 	}
 	if err := s.requireReleaseAuthority(t.Context(), principal, unprotected.ID, true); err == nil {
-		t.Fatal("current classification erased the admitted promotion gate")
+		t.Fatal("current protection erased the admitted promotion gate")
 	}
 	if err := s.requireReleaseAuthority(t.Context(), principal, dep.ID, false); err == nil {
 		t.Fatal("admitted unprotected record bypassed the current promotion gate")
@@ -75,7 +77,9 @@ func TestReleaseAdmissionRefusesPromotionWithdrawnBeforeLockedProtectionCheck(t 
 	}
 	sources.before = func() {
 		sources.before = nil
-		reclassifyForTest(t, s.db, in.ProjectID, dep.Name, "team", "production")
+		if _, err := s.SetProtected(t.Context(), in.ProjectID, dep.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+			t.Fatal(err)
+		}
 		auth.denied = access.CapReleasePromote
 	}
 	got, err := s.RequestRelease(t.Context(), in)

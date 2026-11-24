@@ -231,3 +231,12 @@ it.each([false, true])('asks for backup state only where the owner keeps backups
   }
   client.clear()
 })
+
+it('shows the protected badge only while protection is on', () => {
+  const client = newQueryClient()
+  const env = { status: { word: 'unknown', reason: '', stale: false }, name: 'main', kind: 'standing', protected: true } as unknown as DeploymentView
+  const render = (protectedValue: boolean) => renderToStaticMarkup(<QueryClientProvider client={client}><MemoryRouter><PageCard slug="game" env={{ ...env, protected: protectedValue }} /></MemoryRouter></QueryClientProvider>)
+  expect(render(true)).toContain('every release waits for a person with release rights')
+  expect(render(false)).not.toContain('>protected</span>')
+  client.clear()
+})

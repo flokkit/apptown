@@ -172,7 +172,10 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 				want = errors.New("denied")
 				authority.deny = want
 			case "protected":
-				mutateStoredDeployment(t, s.db, in.ProjectID, in.DeploymentName, func(r *deploymentsql.Deployment) { r.Audience = "public" })
+				if _, err := s.SetProtected(t.Context(), in.ProjectID, in.DeploymentName, ProtectedSettings{Protected: true, Was: false}); err != nil {
+					t.Fatal(err)
+				}
+				authority.seen = nil
 			case "missing-deployment":
 				in.DeploymentName = "absent"
 				want = ErrDeploymentMissing
@@ -227,7 +230,7 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 			}
 			got, err := s.RequestRelease(ctx, in)
 			if want == nil {
-				if err != nil || got.ID.IsZero() || len(authority.seen) != 4 {
+				if err != nil || got.ID.IsZero() || len(authority.seen) != 5 {
 					t.Fatalf("protected selection: %+v %+v %v", got, authority.seen, err)
 				}
 				// Check the initial selection and the locked admission independently.

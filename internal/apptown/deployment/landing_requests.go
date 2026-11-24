@@ -102,7 +102,7 @@ func (s *Service) admitAutomaticReleaseIn(ctx context.Context, tx *database.Tx, 
 		raw := json.RawMessage(dep.feedAuthority)
 		authority = &raw
 	}
-	if _, err := q.InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: dep.TargetID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: authority, RequirePromotion: dep.Protected()}); err != nil {
+	if _, err := q.InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: dep.TargetID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: authority, RequirePromotion: dep.Protected}); err != nil {
 		return err
 	}
 	if _, err := q.LinkLandingRequest(ctx, deploymentsql.LinkLandingRequestParams{ReleaseID: rel.ID, FeedRevision: sql.NullInt64{Int64: dep.FeedRevision, Valid: true}, LandingApprovers: approvers}); err != nil {
@@ -120,7 +120,7 @@ func (s *Service) admitAutomaticReleaseIn(ctx context.Context, tx *database.Tx, 
 			return fmt.Errorf("routine release provenance was not recorded")
 		}
 	}
-	state, err := s.admitApprovalIn(ctx, tx, dep, rel)
+	state, err := s.admitApprovalIn(ctx, tx, dep, rel, nil)
 	if err != nil {
 		return err
 	}
