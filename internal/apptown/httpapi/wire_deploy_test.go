@@ -18,6 +18,7 @@ func init() {
 		wiregen.Named{Name: "DeploymentBackups", Value: DeploymentBackups{}},
 		wiregen.Named{Name: "BackupTaken", Value: BackupTaken{}},
 		wiregen.Named{Name: "AllBackups", Value: AllBackups{}},
+		wiregen.Named{Name: "BackupDeployments", Value: dataprotection.Fleet{}},
 		wiregen.Named{Name: "RestoreResult", Value: dataprotection.RestoreResult{}},
 		wiregen.Named{Name: "ReleaseRequested", Value: ReleaseRequested{}},
 		wiregen.Named{Name: "DeploymentChecked", Value: deploymentChecked{}},

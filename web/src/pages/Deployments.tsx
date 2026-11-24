@@ -15,10 +15,11 @@ import { BackupsView } from './Backups'
 // Fleet pages use the same deployment and release reads as their project pages.
 import type { Departure, Departures, TierMap } from '../wire.gen'
 import { PageHead } from '../PageHead'
+import { PageBar } from '../PageBar'
 
 export default function Deployments({ page = 'deployments' }: { page?: 'releases' | 'deployments' | 'backups' }) {
   return <div>
-    <PageHead page={page} />
+    {page === 'backups' ? <PageBar title="Backups" /> : <PageHead page={page} />}
     {page === 'releases' ? <DeparturesBoard /> : page === 'backups' ? <BackupsView /> : <FleetTable />}
   </div>
 }

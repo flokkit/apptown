@@ -11,9 +11,9 @@ for App Platform.
 (below), every backup goes to the store; AppTown's disk holds a set only
 while it uploads. Postgres is copied by its portable export, so a copy can
 also be rehearsed on another host. Without a store, backups
-stay on AppTown's own disk, and losing that disk loses them: the
-deployment's card reads "Backups kept on this host ⚠" and the Backups page
-"Kept on: this host ⚠". A restore rehearsal still works from those
+stay on AppTown's own disk, and losing that disk loses them: the Backups
+page warns "No backup store", and each deployment's backups page reads
+"Kept · AppTown's disk". A restore rehearsal still works from those
 backups. Once a
 store is attached,
 the nightly sweep moves the sets still on the disk into it, each checked
@@ -22,9 +22,10 @@ and says why. If AppTown stops just after it has moved a set and before
 it has deleted that set's folder, the folder stays under
 `<data directory>/backups/<project>/<deployment>/<time>`; AppTown logs
 its name as it moves the set, and the store holds the checked copy. Delete
-such a folder by hand. The Backups page's **All sets** table shows each
-set's **Kept on** and path: a folder is safe to remove when the set with
-the same `<project>/<deployment>/<time>` is kept on "backup store". If the store cannot be reached, backups fail and read
+such a folder by hand. Each deployment's backups page shows every set's
+folder (`<project>/<deployment>/<time>`) with the technical switch on: a
+folder is safe to remove when the set with the same place is kept in the
+backup store. If the store cannot be reached, backups fail and read
 stale; AppTown does not fall back to its disk, a take-down deletes
 nothing, and a restore is refused before anything changes.
 
@@ -54,7 +55,7 @@ outside is in [Secrets](secrets.md), "Restore rehearsals".
 **App Platform databases go to a backup store, off AppTown's host.** Two
 settings turn this on:
 
-1. **Attach a backup store** (Deployments → Backups → Attach a bucket,
+1. **Attach a backup store** (Deployments → Backups → Settings → Attach backup store,
    platform administrators): an existing private bucket in an S3-compatible
    store (DigitalOcean Spaces: endpoint `https://syd1.digitaloceanspaces.com`,
    region `syd1`) and the names of the two secrets that hold its key pair

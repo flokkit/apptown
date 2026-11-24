@@ -397,6 +397,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/backups", backups.TakeBackup, access.CapDeploymentDeploy, "project-slug").inArea("backups"),
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/backups/{id}/restore", backups.RestoreBackup, access.CapDeploymentDeploy, "project-slug").inArea("backups"),
 		requireRoute("GET /api/v1/backups", backups.AllBackups, access.CapDeploymentRead, "instance").inArea("backups"),
+		requireRoute("GET /api/v1/backups/deployments", backups.BackupDeployments, access.CapDeploymentRead, "instance").inArea("backups"),
 		requireRoute("GET /api/v1/backup-store", dataProtection.Store, access.CapDeploymentRead, "instance").inArea("backups"),
 		requireRoute("PUT /api/v1/backup-store", dataProtection.AttachStore, access.CapPlatformTargets, "instance").inArea("backups"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/protection", dataProtection.Protection, access.CapDeploymentRead, "project-slug").inArea("deployments"),

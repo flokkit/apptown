@@ -78,7 +78,7 @@ export function ReleasePermalinkPage({ slug, number, log = false }: { slug: stri
         {data.rollbackNumber && <p>Deploys <Link to={`/projects/${slug}/releases/${data.rollbackNumber}`}>release {data.rollbackNumber}</Link> again{r.restoreBackupId && ', with data restored from the selected backup'}.</p>}
         <ReleaseAssent approval={r.approval} />
         {!data.backup && data.backupReason && <p>{data.backupReason}</p>}
-        {data.backup && <p><Link to={`/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
+        {data.backup && <p><Link to={`/projects/${slug}/deployments/${encodeURIComponent(r.deployment)}/backups#backup-${data.backup.id}`}>{data.backup.status === 'ok' ? 'Backed up before this release →' : data.backup.status === 'pruned' ? 'Backup before this release was removed →' : 'Backup before this release was incomplete →'}</Link></p>}
         {r.bundleId && <ReleaseDeployments slug={slug} bundleId={r.bundleId} number={r.number} />}
         {data.changes.length > 0 && (
           <div className="release-record">

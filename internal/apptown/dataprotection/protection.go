@@ -432,9 +432,17 @@ func copyState(last *CopyRef, lastOp *operations.Operation, now time.Time) (Copy
 		return CopyStale, "the last copy failed: " + lastOp.Detail
 	}
 	if taken := mustTime(last.TakenAt); now.Sub(taken) > copyCadence+6*time.Hour {
-		return CopyStale, fmt.Sprintf("the newest copy is %s old", now.Sub(taken).Round(time.Hour))
+		return CopyStale, fmt.Sprintf("the newest copy is %s old", ageWords(now.Sub(taken)))
 	}
 	return CopyFresh, ""
+}
+
+// ageWords is an age as a person says it: hours under two days, days after.
+func ageWords(d time.Duration) string {
+	if h := int(d.Round(time.Hour).Hours()); h < 48 {
+		return fmt.Sprintf("%d hours", h)
+	}
+	return fmt.Sprintf("%d days", int(d.Round(24*time.Hour).Hours()/24))
 }
 
 func mustTime(s string) time.Time {
@@ -534,14 +542,14 @@ var (
 // backupsPage is why a deployment whose backups AppTown takes itself is
 // copied by those backups, from the Backups page, not by a copy operation.
 func backupsPage(t *deployment.Target) error {
-	return &deployment.Unavailable{Reason: "backups-page", Why: fmt.Sprintf("A deployment on %s (%s) is backed up daily and from the Backups page.", t.Name, deployment.DescribeTarget(t).Title)}
+	return &deployment.Unavailable{Reason: "backups-page", Why: fmt.Sprintf("A deployment on %s (%s) is backed up nightly; Back up now is on its backups page.", t.Name, deployment.DescribeTarget(t).Title)}
 }
 
 // onAppTownDiskNote is what a Docker host's deployment says first when no
 // store is attached: where its backups are and what that does not cover,
 // calmly, since it is a choice an instance may make (snapshots of that
 // disk, say).
-const onAppTownDiskNote = "Backups are kept on this host only: they do not outlive its disk."
+const onAppTownDiskNote = "Backups are kept on AppTown's disk only: they do not outlive it."
 
 // dockerProtection is a Docker host's deployment's protection: each item
 // its backups hold and how recent its newest good copy is, wherever it is
@@ -593,7 +601,7 @@ func (s *Service) dockerProtectionFromPlan(ctx context.Context, out *Protection,
 	case newest != nil && newest.Store == StoreBackupStore:
 		out.OffHost = true
 	case newest != nil:
-		out.Note = "The newest backup is still on this host; it moves to the backup store with the nightly sweep."
+		out.Note = "The newest backup is still on AppTown's disk; it moves to the backup store with the nightly sweep."
 	}
 	now := s.now()
 	// Each set's copies are placed on what the deployment holds now, by

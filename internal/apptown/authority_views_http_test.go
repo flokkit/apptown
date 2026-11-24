@@ -109,7 +109,7 @@ func TestPrivateHTTPAdministrativeReadRoutesEnforceDeclaredCapabilities(t *testi
 	}
 	h := a.Handler()
 	for _, path := range []string{
-		"/api/v1/backups", "/api/v1/targets", "/api/v1/targets/visible", "/api/v1/retained", "/api/v1/infrastructure", "/api/v1/jobs",
+		"/api/v1/backups", "/api/v1/backups/deployments", "/api/v1/targets", "/api/v1/targets/visible", "/api/v1/retained", "/api/v1/infrastructure", "/api/v1/jobs",
 		// Usage, tiers and departures without a project are filtered reads
 		// (checkMemberScopedReads); naming another project is refused.
 		"/api/v1/model-slots", "/api/v1/usage?project=game", "/api/v1/tiers?project=game", "/api/v1/guidance/generated?project=game",

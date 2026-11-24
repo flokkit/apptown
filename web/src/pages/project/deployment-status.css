@@ -14,4 +14,12 @@
 }
 /* The facts card's first line carries no rule above it, whichever line it is. */
 .deployment-status-facts .deploy-lines > :first-child, .deployment-status-facts .deploy-lines > .deployment-narrow-only:first-child .deploy-line { border-top: 0; padding-top: 0; }
+/* A deployment's backups: the last fourteen nights, one mark each, newest at
+   the left; a phone shows seven. */
+.backup-nights { padding: var(--space-2) var(--space-3); overflow-x: auto; }
+.backup-nights table { width: 100%; }
+.backup-nights th, .backup-nights td { text-align: center; padding: var(--space-1); }
+.backup-nights td { border-bottom: 0; }
+.backup-nights a { text-decoration: none; }
+@media (max-width: 600px) { .backup-nights .backup-night-older { display: none; } }
 }

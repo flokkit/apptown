@@ -1838,6 +1838,24 @@ func (q *Queries) StandingRestoredCopies(ctx context.Context, sourceID ids.ID) (
 	return count, err
 }
 
+const storeKeptBytes = `-- name: StoreKeptBytes :one
+SELECT COALESCE(SUM(bytes),0)::bigint FROM backups WHERE store=$1 AND status IN ($2,$3)
+`
+
+type StoreKeptBytesParams struct {
+	Store        string
+	OkState      string
+	PartialState string
+}
+
+// The bytes kept in the backup store: every set there that holds data.
+func (q *Queries) StoreKeptBytes(ctx context.Context, arg StoreKeptBytesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeKeptBytes, arg.Store, arg.OkState, arg.PartialState)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const storeReading = `-- name: StoreReading :exec
 INSERT INTO protection_readings (id, subject, kind, identity, payload)
 VALUES ($1,$2,$3,$4,$5)

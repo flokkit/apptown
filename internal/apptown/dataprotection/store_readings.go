@@ -100,3 +100,9 @@ func (s *Service) ObserveStore(ctx context.Context, _ string, _ map[string]any) 
 	err = protectionsql.New(s.db.SQL()).StoreReading(finish, protectionsql.StoreReadingParams{ID: ids.New(s.now()), Subject: "instance", Kind: "backup-store", Identity: identity, Payload: raw})
 	return nil, errors.Join(checkErr, err)
 }
+
+// KeptInStore is what the sets kept in the backup store hold, summed from
+// their records (sets that hold data; removed ones are gone from it).
+func (s *core) KeptInStore(ctx context.Context) (int64, error) {
+	return protectionsql.New(s.db.SQL()).StoreKeptBytes(ctx, protectionsql.StoreKeptBytesParams{Store: StoreBackupStore, OkState: BackupOK.String(), PartialState: BackupPartial.String()})
+}

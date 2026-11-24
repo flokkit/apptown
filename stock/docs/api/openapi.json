@@ -10006,6 +10006,32 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/backups/deployments": {
+      "get": {
+        "operationId": "getBackupsDeployments",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "backups"
+        ],
+        "x-apptown-access": {
+          "capability": "deployment:read",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-feature": {
+          "area": "backups",
+          "tier": "standard"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/catalog": {
       "get": {
         "operationId": "getCatalog",

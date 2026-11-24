@@ -31,6 +31,9 @@ type (
 	// BackupStoreState is the attached backup store, or none.
 	BackupStoreState struct {
 		Store *dataprotection.BackupStore `json:"store"`
+		// KeptBytes is what the sets kept in the attached store hold;
+		// absent when no store is attached.
+		KeptBytes *int64 `json:"keptBytes,omitempty"`
 	}
 	// FinalCopies are a project's final copies a new deployment can start from.
 	FinalCopies struct {
@@ -46,7 +49,16 @@ func (h DataProtection) Store(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, BackupStoreState{Store: st})
+	out := BackupStoreState{Store: st}
+	if st != nil {
+		kept, err := h.data.KeptInStore(r.Context())
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		out.KeptBytes = &kept
+	}
+	WriteJSON(w, 200, out)
 }
 
 // AttachStore: PUT /backup-store {endpoint, region, bucket, accessKeyFrom,

@@ -38,6 +38,8 @@
    phone the title's line is the menu, the title and the controls; the
    page's actions take the line under it, at the right. */
 .page-bar .page-bar-actions { min-height: 44px; }
+/* A page whose acts do not apply now (none drawn) keeps no empty line for them. */
+.page-bar .page-bar-actions:empty { display: none; }
 @media (max-width: 800px) {
   .page-bar .page-bar-actions { order: 4; flex-basis: 100%; }
 }

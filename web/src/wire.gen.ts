@@ -217,8 +217,14 @@ export type Backup = {
   storeBucket?: string
 }
 
+export type BackupDeployments = {
+  deployments: FleetDeployment[]
+  lastNight: LastNight
+}
+
 export type BackupStoreState = {
   store: BackupStore | null
+  keptBytes?: number | null
 }
 
 export type BackupTaken = {
@@ -590,7 +596,7 @@ export type DeploymentAddress = {
 }
 
 export type DeploymentBackups = {
-  backups: Backup[]
+  backups: ProjectBackup[]
   plan: BackupPlanItem[]
   note: string
   keep: number
@@ -2708,6 +2714,22 @@ export type BackupItem = {
 }
 
 export type BackupState = "ok" | "partial" | "failed" | "pruned"
+
+export type FleetDeployment = {
+  project: string
+  projectName: string
+  deployment: string
+  deploymentLabel: string
+  targetKind: string
+  protection: DeploymentProtection
+  newest?: CopyRef | null
+}
+
+export type LastNight = {
+  copied: number
+  of: number
+  at?: string
+}
 
 export type BackupStore = {
   reading: DetailReading
@@ -5130,6 +5152,13 @@ export type IntegrationWire = {
 
 export type CopyMethod = "declared" | "files" | "live-files"
 
+export type CopyRef = {
+  backup: string | null
+  takenAt: string
+  bytes: number
+  sha256: string
+}
+
 export type ChangeState = "in_progress" | "landing" | "shipped" | "abandoned"
 
 export type CatalogParam = {
@@ -5342,13 +5371,6 @@ export type Availability = {
 }
 
 export type CopyLabel = "unknown" | "fresh" | "overdue" | "missing" | "disposable"
-
-export type CopyRef = {
-  backup: string | null
-  takenAt: string
-  bytes: number
-  sha256: string
-}
 
 export type NativeBackups = {
   stale?: boolean

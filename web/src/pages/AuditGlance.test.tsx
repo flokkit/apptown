@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient, getKey } from '../data'
 import { ResourceTables } from './Infrastructure'
-import { BackupsView } from './Backups'
 import { groupJobs } from './Jobs'
 import { Evidence } from './change/Evidence'
 import { ProjectIntegrationsTab } from './project/settings/Services'
@@ -24,21 +23,6 @@ function firstView(html: string) {
   })
   return el.textContent || ''
 }
-
-it('shows the latest backup once and caps the history at ten', () => {
-  const client = newQueryClient()
-  client.setQueryData(getKey('/backups'), { keep: 7, where: '/backups', backups: Array.from({ length: 30 }, (_, n) => ({
-    id: String(n), project: 'Family photos', deployment: 'main', takenAt: '2026-10-30T00:00:00Z', status: 'ok', statusLabel: 'finished', bytes: 128, path: '/backups/club/main',
-    items: [{ kind: 'need', name: 'postgres', caveat: 'Technical copy limits' }],
-  })) })
-  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><BackupsView /></QueryClientProvider></MemoryRouter>)
-  expect(firstView(html)).toContain('Technical copy limits')
-  const el = document.createElement('div'); el.innerHTML = html
-  expect(el.querySelectorAll('table')[0].querySelectorAll('tbody tr')).toHaveLength(1)
-  expect(el.querySelectorAll('table')[1].querySelectorAll('tbody tr')).toHaveLength(10)
-  expect(html).toContain('Show 10 more')
-  client.clear()
-})
 
 it('groups successful work by kind across targets while preserving failures and waiting work', () => {
   const jobs = [

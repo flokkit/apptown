@@ -12,7 +12,7 @@ import * as Policies from './PoliciesPage'
 import WorkflowLibrary, { NEW_TEMPLATE } from './WorkflowLibrary'
 import { load as loadYaml } from 'js-yaml'
 import { routeAncestors } from '../breadcrumbs'
-import { StoreSection } from './DataProtection'
+import { StoreSettings } from './DataProtection'
 import Deployments from './Deployments'
 import Dashboard from './Dashboard'
 import { MembersTab } from './project/settings/Members'
@@ -93,10 +93,10 @@ it('uses the check title on a phone row instead of a long technical diagnostic',
 
 // The store's facts are shown, not folded; replacing it is the section's one action.
 it('shows the backup store, its endpoint and keys, with Attach another as its action', () => {
-  const el = page(<StoreSection canAttach />, { '/backup-store': { store: { bucket: 'household-copies', endpoint: 'https://storage.example.test', attachedBy: 'sam', attachedAt: '2026-10-31T01:00:00Z', accessKeyFrom: 'STORE_KEY', secretKeyFrom: 'STORE_SECRET' } } })
-  expect(firstView(el)).toContain('Backups go to household-copies')
+  const el = page(<StoreSettings />, { '/authz/me': { user: 'sam', instance: { 'platform:manage-deploy-targets': true } }, '/backup-store': { store: { bucket: 'household-copies', endpoint: 'https://storage.example.test', attachedBy: 'sam', attachedAt: '2026-10-31T01:00:00Z', accessKeyFrom: 'STORE_KEY', secretKeyFrom: 'STORE_SECRET' } } })
+  expect(firstView(el)).toContain('household-copies')
   expect(firstView(el)).toContain('https://storage.example.test')
-  expect(el.querySelector('.section-action')?.textContent).toBe('Attach another')
+  expect(el.querySelector('.deploy-trailer button')?.textContent).toBe('Attach another')
   expect(el.textContent).toContain('STORE_KEY')
 })
 

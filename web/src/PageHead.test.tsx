@@ -136,18 +136,6 @@ describe('every area page help entry', () => {
   }
 })
 
-it("shows the Backups page's own help", () => {
-  const el = document.createElement('div'); document.body.append(el)
-  const root = createRoot(el)
-  act(() => root.render(<MemoryRouter><PageHead page="backups" /></MemoryRouter>))
-  act(() => el.querySelector<HTMLButtonElement>('.page-help-q')!.click())
-  const text = el.querySelector('.page-help-pop')!.textContent
-  expect(text).toContain("Saved data")
-  expect(text).not.toContain(PAGE_HELP.deployments.line)
-  expect(el.querySelector('.page-help-pop a')?.getAttribute('href')).toBe('/docs/guides/container-lifecycle')
-  act(() => root.unmount()); el.remove()
-})
-
 // A conformance page's help is about that page (its remediations, its
 // check), not the area's summary of reviews.
 it.each([['Remediations', 'A remediation fixes findings'], ['this check', "This check's result in each project"]])('shows the conformance %s page its own help', (sub, words) => {

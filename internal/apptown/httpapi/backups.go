@@ -27,7 +27,7 @@ type (
 	// DeploymentBackups is one deployment's backup sets, what a backup of it
 	// would take, and how many sets are kept.
 	DeploymentBackups struct {
-		Backups []dataprotection.Backup         `json:"backups"`
+		Backups []dataprotection.ProjectBackup  `json:"backups"`
 		Plan    []dataprotection.BackupPlanItem `json:"plan"`
 		Note    string                          `json:"note"`
 		Keep    int                             `json:"keep"`
@@ -57,8 +57,38 @@ func (h Backups) ListBackups(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
+	out := make([]dataprotection.ProjectBackup, 0, len(bs))
+	for _, b := range bs {
+		out = append(out, dataprotection.ProjectBackup{Backup: b, Project: p.Slug, DeploymentLabel: b.Deployment})
+	}
+	if err := h.beforeReleases(r.Context(), out); err != nil {
+		WriteFault(w, err)
+		return
+	}
 	plan, why := h.data.BackupPlan(r.Context(), p.ID, p.Slug, r.PathValue("name"))
-	WriteJSON(w, 200, DeploymentBackups{Backups: bs, Plan: plan, Note: why, Keep: dataprotection.BackupKeep})
+	WriteJSON(w, 200, DeploymentBackups{Backups: out, Plan: plan, Note: why, Keep: dataprotection.BackupKeep})
+}
+
+// beforeReleases names the release each pre-release set was taken before.
+func (h Backups) beforeReleases(ctx context.Context, out []dataprotection.ProjectBackup) error {
+	byProject := map[ids.ID][]ids.ID{}
+	for _, b := range out {
+		if b.Trigger == dataprotection.TriggerPreRelease {
+			byProject[b.ProjectID] = append(byProject[b.ProjectID], b.ID)
+		}
+	}
+	for projectID, ids := range byProject {
+		numbers, err := h.releases.BeforeBackups(ctx, projectID, ids)
+		if err != nil {
+			return err
+		}
+		for i := range out {
+			if out[i].ProjectID == projectID {
+				out[i].BeforeRelease = numbers[out[i].ID]
+			}
+		}
+	}
+	return nil
 }
 
 // TakeBackup: POST /projects/{slug}/deployments/{name}/backups — now.
@@ -126,23 +156,21 @@ func (h Backups) AllBackups(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	byProject := map[ids.ID][]ids.ID{}
-	for _, b := range out {
-		if b.Trigger == dataprotection.TriggerPreRelease {
-			byProject[b.ProjectID] = append(byProject[b.ProjectID], b.ID)
-		}
-	}
-	for projectID, ids := range byProject {
-		numbers, err := h.releases.BeforeBackups(r.Context(), projectID, ids)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		for i := range out {
-			if out[i].ProjectID == projectID {
-				out[i].BeforeRelease = numbers[out[i].ID]
-			}
-		}
+	if err := h.beforeReleases(r.Context(), out); err != nil {
+		WriteFault(w, err)
+		return
 	}
 	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Retention: dataprotection.BackupRetention(), Where: h.data.BackupDirectory()})
+}
+
+// BackupDeployments: GET /backups/deployments — every deployment that
+// holds data, or may, with its protection as its own read answers it, the
+// newest set's time and size, and the nightly count. The Backups page reads it.
+func (h Backups) BackupDeployments(w http.ResponseWriter, r *http.Request) {
+	out, err := h.data.FleetProtection(r.Context())
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, out)
 }

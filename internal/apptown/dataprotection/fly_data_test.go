@@ -418,7 +418,7 @@ func TestFlyProtectionNamesFlyNotADockerHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Operations == nil || p.Operations.Copy.Reason != "backups-page" || p.Operations.Copy.Why != "A deployment on fly-syd (Fly.io Machines) is backed up daily and from the Backups page." {
+	if p.Operations == nil || p.Operations.Copy.Reason != "backups-page" || p.Operations.Copy.Why != "A deployment on fly-syd (Fly.io Machines) is backed up nightly; Back up now is on its backups page." {
 		t.Fatalf("copy: %+v", p.Operations)
 	}
 	for what, said := range map[string]string{"copy": p.Operations.Copy.Why, "check": p.Operations.Check.Why, "restore": p.Operations.Restore.Why, "restore test": p.RestoreTestNote} {

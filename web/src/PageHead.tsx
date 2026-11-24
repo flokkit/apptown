@@ -56,11 +56,6 @@ export const PAGE_HELP = {
     help: <p>Recent releases across projects, including those waiting for approval. Open a release to read its outcome and approval record.</p>,
     guide: 'container-lifecycle',
   },
-  backups: {
-    title: 'Backups',
-    help: <p>Saved data across all deployments, newest first. Each copy records when it was taken, its contents and where it is kept.</p>,
-    guide: 'container-lifecycle',
-  },
   infrastructure: {
     title: 'Targets',
     help: <p>A deployment target is a place deployments run, such as a Docker host, a Portainer environment or a DigitalOcean account. Previews, the trial copies of an app made while a change is worked on, run on the <Link to="/integrations/executor">executor</Link> instead.</p>,
