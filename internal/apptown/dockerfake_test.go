@@ -446,7 +446,12 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			return f.images.Run(context.Background(), "", docker.Command{Args: args})
 		}
 		if slices.Contains(args, "{{json .}}") {
-			return json.Marshal(map[string]any{"Id": dockerfake.ImageID(args[len(args)-1])})
+			ref := args[len(args)-1]
+			evidence := map[string]any{"Id": dockerfake.ImageID(ref)}
+			if strings.Contains(ref, "@sha256:") {
+				evidence["RepoDigests"] = []string{ref}
+			}
+			return json.Marshal(evidence)
 		}
 		if strings.Contains(strings.Join(args, " "), "{{.Config.User}}") {
 			return []byte("\n"), nil // no USER declared: the volume is left alone

@@ -37,15 +37,22 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 		f.bind(t, name, map[string]any{"image": "scanner:test", "target": "image", "command": []string{"scan", "${IMAGE_TAR}"}, "report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "vuln"})
 	}
 	digest := "registry.example/p@sha256:" + strings.Repeat("a", 64)
+	needDigest := "postgres:16.15-alpine@sha256:" + strings.Repeat("b", 64)
 	deps := runningDeploymentsFake{[]deployment.RunningImages{
 		{DeploymentID: idstest.N(1), Deployment: "prod", BundleID: idstest.N(2), Images: map[string]string{"web": digest}},
 		{DeploymentID: idstest.N(3), Deployment: "test", BundleID: idstest.N(2), Images: map[string]string{"web": digest}},
-		{DeploymentID: idstest.N(4), Deployment: "unknown", Reason: "the running bundle is not known"},
+		{DeploymentID: idstest.N(4), Deployment: "unknown", Reason: "the running bundle uses local image IDs", Images: map[string]string{"need/postgres": needDigest}},
 	}}
 	pulls, scans := 0, 0
 	steps := ScanSteps{db: f.DB, scanners: f.Scanners, deployments: deps, integrations: registryCredentialFake{t, f.ProjectID}, dataDir: t.TempDir(), exec: Executor{
 		Image: func(_ context.Context, req execution.ImageRequest) execution.ImageAnswer {
 			pulls++
+			if req.Pull == needDigest {
+				if req.Registry != nil {
+					t.Fatal("need pulled with project credentials")
+				}
+				return execution.ImageAnswer{ID: "sha256:need"}
+			}
 			if req.Pull != digest || req.Registry == nil || req.Registry.Username != "project-robot" || req.Registry.Token != "private-token" || req.AllowBuild {
 				t.Fatalf("pull: %+v", req)
 			}
@@ -53,7 +60,7 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 		},
 		Run: func(_ context.Context, req execution.Request) execution.Outcome {
 			scans++
-			if req.ExportImage != digest {
+			if req.ExportImage != digest && req.ExportImage != needDigest {
 				t.Fatalf("scanned %q, wanted exact running digest %q", req.ExportImage, digest)
 			}
 			return execution.Outcome{Termination: execution.Exited, ExitCode: 1, Report: []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"trivy"}},"results":[{"ruleId":"CVE-RUNNING","level":"error","message":{"text":"vulnerable running package"}}]}]}`)}
@@ -61,11 +68,15 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 	}}
 	subjects, _, _ := steps.imageSubjects(t.Context(), &workflow.Run{ProjectID: f.ProjectID}, "running")
 	observations, status, _ := steps.observeImages(t.Context(), &workflow.Run{ID: idstest.N(5), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(6), Config: []byte(`{"on":"running"}`)}, scanConfig{On: "running"}, subjects, nil)
-	if pulls != 1 || scans != 2 || len(observations) != 5 || status != workflow.StatusError {
+	if pulls != 2 || scans != 4 || len(observations) != 7 || status != workflow.StatusError {
 		t.Fatalf("pulls=%d scans=%d observations=%+v status=%s", pulls, scans, observations, status)
 	}
 	for _, o := range observations {
-		if o.Subject.Deployment == "unknown" {
+		if o.Subject.Part == "need/postgres" {
+			if o.Verdict != "fail" || len(o.Findings) != 1 || o.Subject.Digest != needDigest {
+				t.Fatalf("need scan missing: %+v", o)
+			}
+		} else if o.Subject.Deployment == "unknown" {
 			if o.Verdict != "error" {
 				t.Fatalf("unknown deployment passed: %+v", o)
 			}

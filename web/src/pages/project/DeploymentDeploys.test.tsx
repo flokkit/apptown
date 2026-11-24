@@ -241,3 +241,16 @@ it.each(['release-manager', ''])('keeps an older waiting decision available afte
     expect([...pending.querySelectorAll('button')].map(b => b.textContent)).toEqual([approvalRole ? 'Approve' : 'Release', 'Cancel'])
   } finally { client.clear() }
 })
+
+it('styles a need move exactly like its neighbouring change line', () => {
+ const client=runtimeClient()
+ client.setQueryData(getKey('/projects/lunch/releases'), [{number:9,deployment:'main',state:'released',createdAt:'2026-11-05T01:01:00Z',changes:[{id:'change',number:12,title:'Fix lunch'}],needMoves:[{need:'postgres',from:'16.15',to:'16.16'}]}])
+ const el=document.createElement('div')
+ el.innerHTML=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><DeploymentDeploys slug="lunch" name="main" /></QueryClientProvider></MemoryRouter>)
+ const change=history(el).querySelector('a[href="/changes/change"]')!.parentElement!
+ const move=change.nextElementSibling!
+ expect(move.textContent).toBe('postgres 16.15 → 16.16')
+ expect(move.tagName).toBe(change.tagName)
+ expect(move.className).toBe(change.className)
+ client.clear()
+})

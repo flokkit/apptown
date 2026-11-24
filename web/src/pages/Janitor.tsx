@@ -15,8 +15,11 @@ import { fmtWhen } from '../format'
 import { PageHead } from '../PageHead'
 import { RunNow } from './janitor/RunNow'
 import { TryAgain } from './janitor/TryAgain'
-import type { JanitorView, JanitorProject, JanitorHistoryView, JanitorLandedChange, QueueStatus } from '../wire.gen'
+import type { JanitorView, JanitorProject, JanitorHistoryView, QueueStatus } from '../wire.gen'
 
+type JanitorLandedChange = JanitorHistoryView['history']['changes'][number]
+
+const updateTo = (c: JanitorLandedChange) => c.releaseNumber ? `/projects/${c.slug}/releases/${c.releaseNumber}` : `/changes/${c.changeId}?tab=changes`
 const projectTo = (p: JanitorProject) => `/projects/${p.slug}/settings/general#janitor`
 const date = (value?: string) => value && !value.startsWith('0001-') ? fmtWhen(value) : 'Not known'
 
@@ -46,14 +49,14 @@ function History({ projects }: { projects: JanitorProject[] }) {
   const q = useGet<JanitorHistoryView>(`/janitor/history?${params}`, { poll: page.older ? undefined : 10000 })
   const data = q.data
   const columns: ListColumn<JanitorLandedChange>[] = [
-    { key: 'project', label: 'Project', phone: 'name', render: c => <Link to={`/changes/${c.changeId}?tab=changes`}>{c.project}</Link> },
-    { key: 'summary', label: 'What changed', render: c => c.packVersions.length ? `Ways of working: ${c.packVersions.map(p => p.pack).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from} → ${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
+    { key: 'project', label: 'Project', phone: 'name', render: c => <Link to={updateTo(c)}>{c.project}</Link> },
+    { key: 'summary', label: 'What changed', render: c => c.packVersions.length ? `Ways of working: ${c.packVersions.map(p => p.pack).join(', ')}` : c.packages.length ? c.packages.map(p => `${p.package} ${p.from ? `${p.from} → ` : ''}${p.to}`).join(', ') : projects.find(p => p.projectId === c.projectId)?.queues.find(q => q.queue === c.queue)?.title || c.title },
     { key: 'when', label: 'When', kind: 'time', render: c => date(c.landedAt) },
   ]
   return <>
     <h3>{page.older ? 'Older history' : 'Last 7 days'}</h3>
-    <ReadStatus q={q} what="landed janitor Changes" /><StaleNote q={q} />
-    {data && <>{data.history.changes.length ? <ListTable label="Landed janitor Changes" columns={columns} rows={data.history.changes} rowKey={c => c.changeId!} rowTo={c => `/changes/${c.changeId}?tab=changes`} /> : <p>{page.older ? 'No older janitor Changes.' : 'No janitor Changes landed in the last 7 days.'}</p>}
+    <ReadStatus q={q} what="recent updates" /><StaleNote q={q} />
+    {data && <>{data.history.changes.length ? <ListTable label="Recent updates" columns={columns} rows={data.history.changes} rowKey={c => c.releaseId || c.changeId!} rowTo={updateTo} /> : <p>{page.older ? 'No older updates.' : 'No updates in the last 7 days.'}</p>}
       <div className="row row-2">
         {page.offset > 0 && <button disabled={!q.current} onClick={() => setPage({ ...page, offset: Math.max(0, page.offset - 20) })}>Previous</button>}
         {data.history.more && <button disabled={!q.current} onClick={() => setPage({ ...page, before: data.until, offset: page.offset + 20 })}>Next 20</button>}

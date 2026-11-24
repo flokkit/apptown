@@ -167,3 +167,13 @@ it.each([[{}, false], [{ 'deployment:operate': true }, true]] as const)('offers 
     expect(!!el.querySelector('button[aria-label^="More actions"]')).toBe(shown)
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })
+
+it('describes a need refresh in the releases Change cell', async () => {
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify({departures:[{releaseNumber:8,slug:'ledger',name:'Ledger',tier:'main',state:'released',at:'2026-11-24T01:00:00Z',changes:[],needMoves:[{need:'postgres',from:'16.15',to:'16.16'}]}]}))))
+ const client=newQueryClient(),el=document.createElement('div'),root=createRoot(el)
+ try {
+ await act(async()=>root.render(<QueryClientProvider client={client}><MemoryRouter><Deployments page="releases"/></MemoryRouter></QueryClientProvider>))
+ await vi.waitFor(()=>expect(el.textContent).toContain('postgres 16.15 → 16.16'))
+ expect(el.textContent).not.toContain('No new changes')
+ } finally {act(()=>root.unmount());client.clear();vi.unstubAllGlobals()}
+})

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
@@ -97,4 +98,23 @@ describe('the problems list with nothing in it', () => {
     expect(none).toContain('No scans yet.')
     expect(none).not.toContain('No problems in the last scan.')
   })
+})
+
+it('names every need contributing to a package finding group', () => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/projects/game/findings'), {sources:[source],findings:[{fingerprint:'f',title:'Vulnerable OpenSSL',severity:'high',package:{name:'openssl',version:'3',fixedIn:'3.1'},needs:['postgres 16.15','redis 7.4.1']}],summary:{actionable:1},repo:{},statusLabel:'failed'})
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game"/></QueryClientProvider></MemoryRouter>)
+ expect(html).toContain('· in postgres 16.15, redis 7.4.1')
+ client.clear()
+})
+
+it('spaces a finding group heading and counts problems in the singular for one', () => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/projects/game/findings'), {sources:[{...source,findings:1}],findings:[{fingerprint:'f',kind:'vuln',title:'Vulnerable OpenSSL',severity:'high',package:{name:'openssl',version:'3.5.2',fixedIn:'3.5.4'}}],summary:{actionable:1},repo:{},statusLabel:'failed'})
+ const el=document.createElement('div')
+ el.innerHTML=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game"/></QueryClientProvider></MemoryRouter>)
+ expect(el.querySelector('h3')?.textContent).toBe('1 actionable openssl@3.5.2 1 finding · all fixed by 3.5.4')
+ expect(el.textContent).toContain('1 problem to fix')
+ expect(el.textContent).not.toContain('1 problems')
+ client.clear()
 })

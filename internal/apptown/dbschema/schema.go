@@ -1040,6 +1040,7 @@ FROM (
 		"UPDATE deployments SET protected = audience IN ('partners', 'public') OR data_class = 'production', protected_reason = CASE WHEN audience = 'public' THEN 'public audience' WHEN audience = 'partners' THEN 'partners audience' WHEN data_class = 'production' THEN 'production data' ELSE '' END",
 		"ALTER TABLE deployments ALTER COLUMN protected SET NOT NULL",
 	}},
+	{n: 247, note: "record released engine moves", stmts: []string{"ALTER TABLE releases ADD COLUMN need_moves JSONB NOT NULL DEFAULT '[]'"}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

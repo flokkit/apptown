@@ -31,6 +31,9 @@ func TestReadingsReuseRefreshAndRefuseExpiredAnswers(t *testing.T) {
 		}
 		return imageline.Answer{Tag: "python:3.12.9-slim", Digest: "sha256:" + strings.Repeat("a", 64), Registry: "registry.test"}, nil
 	}
+	if _, known, err := s.Cached(t.Context(), "python:3.12-slim", imageline.Line); err != nil || known || calls != 0 {
+		t.Fatalf("missing cached answer contacted registry: %t %d %v", known, calls, err)
+	}
 	first, err := s.Answer(t.Context(), "python:3.12-slim", imageline.Line)
 	if err != nil {
 		t.Fatal(err)
@@ -38,6 +41,9 @@ func TestReadingsReuseRefreshAndRefuseExpiredAnswers(t *testing.T) {
 	fresh, err := s.Answer(t.Context(), "python:3.12-slim", imageline.Line)
 	if err != nil || fresh.ReadAt != first.ReadAt || calls != 1 {
 		t.Fatalf("reuse %+v %d %v", fresh, calls, err)
+	}
+	if got, known, err := s.Cached(t.Context(), "python:3.12-slim", imageline.Line); err != nil || !known || got.Image() != first.Image() || calls != 1 {
+		t.Fatalf("cached read: %+v %t %d %v", got, known, calls, err)
 	}
 	now = now.Add(25 * time.Hour)
 	refresh, err := s.Answer(t.Context(), "python:3.12-slim", imageline.Line)
@@ -51,6 +57,10 @@ func TestReadingsReuseRefreshAndRefuseExpiredAnswers(t *testing.T) {
 		t.Fatalf("stale %+v %v", stale, err)
 	}
 	now = now.Add(5 * 24 * time.Hour)
+	before := calls
+	if _, known, err := s.Cached(t.Context(), "python:3.12-slim", imageline.Line); err != nil || known || calls != before {
+		t.Fatalf("expired cached answer contacted registry: %t %d %v", known, calls, err)
+	}
 	if _, err := s.Answer(t.Context(), "python:3.12-slim", imageline.Line); err == nil {
 		t.Fatal("8-day reading used")
 	}

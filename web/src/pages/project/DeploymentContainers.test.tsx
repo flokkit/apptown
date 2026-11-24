@@ -6,7 +6,7 @@ import { expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { getKey, newQueryClient } from '../../data'
-import { DeploymentContainerPage, imageRows } from './DeploymentContainers'
+import { DeploymentContainerPage, imageRows, containerLabel, ContainersTable } from './DeploymentContainers'
 import type { DeploymentDiagnostics, DeploymentResources, DeploymentView, PartMemory } from '../../wire.gen'
 
 const base = '/projects/shop/deployments/main'
@@ -191,4 +191,16 @@ it.each([false, true])('copies the whole reference when the digest is tapped (re
     expect(writeText).toHaveBeenCalledWith(image)
     expect(el.textContent?.includes('Could not copy the image reference.')).toBe(refused)
   } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it.each([
+ ['postgres:16.15-alpine@sha256:old', '16.16', 'postgres 16.15 · 16.16 available'],
+ ['postgres:16.16-alpine@sha256:new', undefined, 'postgres 16.16'],
+ ['postgres:16-alpine@sha256:old', '16.16', 'postgres · 16.16 available'],
+])('shows the running need build with a space and its cached update: %s', (image, available, expected) => {
+ const row = {part:'postgres',label:'postgres',use:{part:'postgres',image,need:true,known:true,usedBytes:0,limitBytes:0,cpuCores:0,cpuLimit:0},available,state:{word:'running' as const,trouble:'',help:'healthy'}}
+ expect(containerLabel(row)).toBe(expected)
+ const html=renderToStaticMarkup(<MemoryRouter><ContainersTable slug="shop" env={env()} rows={[row]} usage={() => undefined} noContainers={false}/></MemoryRouter>)
+ // Only the name is bold; the build reads at the row's normal weight.
+ expect(html).toContain(`<strong>postgres</strong><span class="container-build">${expected.slice('postgres'.length)}</span>`)
 })

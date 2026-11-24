@@ -290,7 +290,7 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
 		return result, fail(errors.Join(err, refusal(why)))
 	}
-	req := preparedRelease{releaseRun: rel.RunID, allowed: allowed, bundle: bundle, source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, actor: rel.ApprovedBy, baseGeneration: &placement.BaseGeneration}
+	req := preparedRelease{releaseRun: rel.RunID, allowed: allowed, bundle: bundle, source: deploy.Source{Needs: bundle.BuiltFrom.Needs, Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, actor: rel.ApprovedBy, baseGeneration: &placement.BaseGeneration}
 	req.retry, req.original = retry, original
 	req.address = address
 	if address != nil {
@@ -475,7 +475,14 @@ func (s *Service) executeRequestedRelease(ctx context.Context, rel *Release, pla
 			return result, fail(fmt.Errorf("reserving the deployment's host port: %w", err))
 		}
 	}
+	before, err := s.storageBindings(ctx, dep.ID)
+	if err != nil {
+		return result, fail(err)
+	}
 	result, err = s.execute(ctx, NumberedRelease{ID: rel.ID, Number: rel.Number}, dep, t, req)
+	if moveErr := s.recordNeedMoves(context.WithoutCancel(ctx), rel.ID, dep.ID, before); moveErr != nil {
+		return result, errors.Join(err, moveErr)
+	}
 	if err != nil && restored {
 		observed := s.ObserveContainerNow(ctx, dep)
 		if observed.State == ContainerStopped {

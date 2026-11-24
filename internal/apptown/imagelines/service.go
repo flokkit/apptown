@@ -33,6 +33,7 @@ func (r Reading) Evidence() string {
 }
 
 type Resolver interface {
+	Cached(context.Context, string, imageline.Scope) (Reading, bool, error)
 	Answer(context.Context, string, imageline.Scope) (Reading, error)
 	Digest(context.Context, string) (string, error)
 }
@@ -107,4 +108,21 @@ func (s *service) Digest(ctx context.Context, ref string) (string, error) {
 		return "", err
 	}
 	return imageline.Digest(ctx, ref, imageline.Access{Mirror: mirror, Transport: trust.Lazy(trust.Deployments)})
+}
+
+// Cached reads the stored answer without contacting a registry. Missing or expired is unknown.
+func (s *service) Cached(ctx context.Context, ref string, scope imageline.Scope) (Reading, bool, error) {
+	line, err := imageline.Parse(ref, scope)
+	if err != nil {
+		return Reading{}, false, err
+	}
+	row, err := q.New(s.db.SQL()).Reading(ctx, line.Key())
+	if errors.Is(err, sql.ErrNoRows) {
+		return Reading{}, false, nil
+	}
+	if err != nil {
+		return Reading{}, false, err
+	}
+	age := s.now().Sub(row.ReadAt)
+	return Reading{Answer: imageline.Answer{Tag: row.Tag, Digest: row.Digest, Registry: row.Registry}, ReadAt: row.ReadAt, Stale: age >= 24*time.Hour}, age < 7*24*time.Hour, nil
 }

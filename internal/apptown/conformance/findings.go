@@ -4,6 +4,8 @@ import "github.com/flokkit/apptown/internal/check"
 
 // Finding adds baseline and disposition observations to canonical scan evidence.
 type Finding struct {
+	// Needs names the need images contributing this finding in a view.
+	Needs []string `json:"needs,omitempty"`
 	check.Finding
 	// Regression: how a conformance finding reads against the change's
 	// baseline — introduced | preexisting | undecided (§4.2). Empty when no

@@ -126,10 +126,11 @@ type Kind struct {
 		ConfigAtStart bool `yaml:"configAtStart,omitempty" json:"configAtStart,omitempty"`
 		// KeepsImage says the service's data is in its image's own format
 		// (a database's files, which another major version cannot read): a
-		// standing one whose image moved is not remade on its volume under
-		// ConfigAtStart, and takes the rule for any other data service
-		// (deploy.ServiceSpec.KeepsImage).
-		KeepsImage bool `yaml:"keepsImage,omitempty" json:"keepsImage,omitempty"`
+		// standing one changes engine only within the declared line and move
+		// contract (deploy.ServiceSpec.KeepsImage).
+		Line       string `yaml:"line,omitempty" json:"line,omitempty"`
+		Move       string `yaml:"move,omitempty" json:"move,omitempty"`
+		KeepsImage bool   `yaml:"keepsImage,omitempty" json:"keepsImage,omitempty"`
 		// StepEnv is added to Env for the servers AppTown starts beside
 		// its own steps and for apptown dev, where the app's own tests run
 		// (LocalRuntime.Steps); never for a deployment or a preview.
@@ -334,6 +335,9 @@ func Parse(y string) (*Kind, error) {
 		return nil, fmt.Errorf("%w: %w", ErrSpec, err)
 	}
 	if err := d.checkProvides(); err != nil {
+		return nil, err
+	}
+	if err := d.checkMove(); err != nil {
 		return nil, err
 	}
 	if err := d.checkGenerate(); err != nil {
@@ -748,4 +752,33 @@ func (c *Catalog) Save(ctx context.Context, y, who string) (*Kind, error) {
 		return nil, err
 	}
 	return d, nil
+}
+
+// checkMove admits only catalogue-declared same-line engine restarts.
+func (k *Kind) checkMove() error {
+	if k.Local.Move != "" && (k.Local.Move != "restart" || !k.Local.KeepsImage || k.Local.Data == "" || !strings.Contains(k.Local.Image, "{version}") || k.Local.Line == "") {
+		return fmt.Errorf("%w: local.move requires restart, keepsImage, data, line and an image containing {version}", ErrSpec)
+	}
+	if k.Local.Line != "" && (k.Local.Move == "" || (k.Local.Line != "major" && k.Local.Line != "minor")) {
+		return fmt.Errorf("%w: local.line requires move and must be major or minor", ErrSpec)
+	}
+	return nil
+}
+
+// ImageLine is the rendered engine line and whether the app pins a build.
+func (k *Kind) ImageLine(params map[string]string) (string, bool) {
+	if k.Local.Move == "" {
+		return "", false
+	}
+	v := k.values(params, nil)["version"]
+	width := 1
+	if k.Local.Line == "minor" {
+		width = 2
+	}
+	parts := strings.Split(v, ".")
+	pinned := len(parts) > width
+	if pinned {
+		parts = parts[:width]
+	}
+	return strings.ReplaceAll(k.Local.Image, "{version}", strings.Join(parts, ".")), pinned
 }

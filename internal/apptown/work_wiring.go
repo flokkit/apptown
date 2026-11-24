@@ -53,7 +53,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	if a.cfg.worker != nil {
 		builds = &workflowexec.ReleaseBuilds{Tasks: a.tasks, PrivateDocker: a.cfg.privateDocker}
 	}
-	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Builds: builds, Images: a.imageLines, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
+	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Catalog: a.Dependencies, Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Builds: builds, Images: a.imageLines, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
 	repositories := workflowexec.NewRepositories(a.DB, a.repositoryAttachments, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
 	runners := make(map[string]workflow.Runner)
 	runners[workflowexec.CallKind] = workflowexec.NewCalls(a.DB, jobReporter{}).Run

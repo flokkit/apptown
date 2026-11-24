@@ -238,3 +238,8 @@ func TestToolchainPatchesMoveADeclaredImageWithinItsMinor(t *testing.T) {
 		})
 	}
 }
+
+func (r *updateResolver) Cached(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	a, e := r.Answer(ctx, ref, scope)
+	return a, e == nil, e
+}

@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"cmp"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -61,10 +64,28 @@ func (h Janitor) List(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, JanitorView{Unknown: unknown, Choices: choices, Projects: rows, Deployments: deployments})
 }
 
+type janitorLandedChange struct {
+	ReleaseID     ids.ID                 `json:"releaseId,omitzero"`
+	ReleaseNumber int64                  `json:"releaseNumber,omitempty"`
+	Slug          string                 `json:"slug,omitempty"`
+	Project       string                 `json:"project"`
+	PackVersions  []adoption.PackPick    `json:"packVersions"`
+	ChangeID      ids.ID                 `json:"changeId"`
+	ProjectID     ids.ID                 `json:"projectId"`
+	Title         string                 `json:"title"`
+	LandedAt      time.Time              `json:"landedAt"`
+	Queue         string                 `json:"queue"`
+	Packages      []workflow.PackageMove `json:"packages"`
+}
+type janitorHistory struct {
+	Changes []janitorLandedChange `json:"changes"`
+	More    bool                  `json:"more"`
+}
+
 type JanitorHistoryView struct {
-	History workflow.JanitorHistory `json:"history"`
-	Since   time.Time               `json:"since"`
-	Until   time.Time               `json:"until"`
+	History janitorHistory `json:"history"`
+	Since   time.Time      `json:"since"`
+	Until   time.Time      `json:"until"`
 }
 
 func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
@@ -92,11 +113,35 @@ func (h Janitor) History(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	history, err := h.work.LandedJanitorChanges(r.Context(), since, until, offset, 20)
+	landed, err := h.work.LandedJanitorChanges(r.Context(), since, until, 0, offset+21)
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
+	history := janitorHistory{Changes: []janitorLandedChange{}, More: landed.More}
+	for _, c := range landed.Changes {
+		history.Changes = append(history.Changes, janitorLandedChange{Project: c.Project, PackVersions: c.PackVersions, ChangeID: c.ChangeID, ProjectID: c.ProjectID, Title: c.Title, LandedAt: c.LandedAt, Queue: c.Queue, Packages: c.Packages})
+	}
+	updates, err := h.releases.RecentNeedMoves(r.Context(), since, until, offset+21)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	for _, u := range updates {
+		item := janitorLandedChange{ReleaseID: u.ID, ReleaseNumber: u.Number, Slug: u.Slug, ProjectID: u.ProjectID, Project: u.Project, LandedAt: u.At, Packages: []workflow.PackageMove{}, PackVersions: []adoption.PackPick{}}
+		for _, move := range u.Moves {
+			item.Packages = append(item.Packages, workflow.PackageMove{Package: move.Need, From: move.From, To: move.To})
+		}
+		history.Changes = append(history.Changes, item)
+	}
+	slices.SortFunc(history.Changes, func(a, b janitorLandedChange) int {
+		if n := b.LandedAt.Compare(a.LandedAt); n != 0 {
+			return n
+		}
+		return cmp.Compare(a.Title, b.Title)
+	})
+	history.More = history.More || len(history.Changes) > offset+20
+	history.Changes = history.Changes[min(offset, len(history.Changes)):min(offset+20, len(history.Changes))]
 	WriteJSON(w, 200, JanitorHistoryView{History: history, Since: since, Until: until})
 }
 

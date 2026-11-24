@@ -1435,6 +1435,7 @@ CREATE TABLE IF NOT EXISTS releases (
   stage_finished_at TIMESTAMPTZ,
   rebuilt_from BIGINT NOT NULL DEFAULT 0,
   rebuilt_commit TEXT NOT NULL DEFAULT '',
+  need_moves JSONB NOT NULL DEFAULT '[]',
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (

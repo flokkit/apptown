@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -234,4 +236,98 @@ func TestPromotionApprovalRechecksRoleBeforeBackup(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The copy gate precedes the driver; a driver failure must retain the engine
+// transition that already opened the volume, including its release summary.
+func TestReleaseCopiesBeforeEngineMoveAndRecordsAHealthFailure(t *testing.T) {
+	for _, scenario := range []string{"incomplete copy", "health failure", "success"} {
+		t.Run(scenario, func(t *testing.T) {
+			complete := scenario != "incomplete copy"
+			p := newPromotionTargetsWith(t, false, digestOneImageYAML+"needs: {postgres: {}}\n")
+			b := p.publish(t)
+			dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "main", p.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			copy := &backupBeforeRelease{complete: complete}
+			p.s.release.Data = copy
+			binding := deploy.StorageBinding{Need: "postgres", Volume: "pg", DataPath: "/var/lib/postgresql/data", DeclaredImage: "postgres:16.15-alpine", ImageID: "old", RepoDigest: "postgres@sha256:" + strings.Repeat("a", 64), VolumeCreated: time.Now().UTC(), VolumeDriver: "local", Origin: "created"}
+			storage := p.s.Deployments.StorageOf(dep)
+			if err := storage.Establish(t.Context(), binding); err != nil {
+				t.Fatal(err)
+			}
+			driver := &movingReleaseDriver{fail: scenario != "success", move: func(ctx context.Context) {
+				if strings.Join(copy.calls, ",") != "before" || !copy.complete {
+					t.Fatal("engine move preceded complete copy")
+				}
+				newer := binding
+				newer.DeclaredImage = "postgres:16.16-alpine"
+				newer.ImageID = "new"
+				newer.RepoDigest = "postgres@sha256:" + strings.Repeat("b", 64)
+				if err := storage.Move(ctx, binding, newer); err != nil {
+					t.Fatal(err)
+				}
+			}}
+			p.s.providers.drivers[KindDockerHost] = func(context.Context, *Target, *Deployment) (deploy.Driver, error) { return driver, nil }
+			accepted, err := p.s.RequestRelease(t.Context(), DeploySelection{ProjectID: p.project, DeploymentName: dep.Name, BundleID: b.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The build collaborator has returned the serving commit's refresh.
+			if scenario != "success" {
+				if _, err := deploymentsql.New(p.db.SQL()).ReplaceRebuiltReleaseBundle(t.Context(), deploymentsql.ReplaceRebuiltReleaseBundleParams{ID: accepted.ID, OriginalBundleID: b.ID, BundleID: b.ID, State: Releasing.String(), RebuiltFrom: 1, RebuiltCommit: b.ContractRevision}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			execErr := p.s.ExecuteRelease(t.Context(), accepted.ID)
+			if (execErr == nil) != (scenario == "success") {
+				t.Fatalf("execution: %v", execErr)
+			}
+			rel, err := p.s.Releases.ByID(t.Context(), accepted.ID)
+			expected := ReleaseFailed
+			if scenario == "success" {
+				expected = Released
+			}
+			if err != nil || rel.State != expected {
+				t.Fatalf("failed release: %+v %v", rel, err)
+			}
+			got, _, err := storage.Get(t.Context(), binding.Need, binding.Volume)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.s.authority = &requestAuthority{visible: []ids.ID{p.project}}
+			updates, err := p.s.RecentNeedMoves(t.Context(), time.Now().Add(-time.Hour), time.Now().Add(time.Hour), 20)
+			wantUpdates := 0
+			if scenario == "success" {
+				wantUpdates = 1
+			}
+			if err != nil || len(updates) != wantUpdates {
+				t.Fatalf("recent refreshes: %+v %v", updates, err)
+			}
+			if complete {
+				if driver.calls != 1 || got.ImageID != "new" || len(rel.NeedMoves) != 1 || rel.NeedMoves[0] != (NeedMove{"postgres", "16.15", "16.16"}) {
+					t.Fatalf("failed move: %+v %+v calls=%d", got, rel, driver.calls)
+				}
+			} else if driver.calls != 0 || got.ImageID != "old" || len(rel.NeedMoves) != 0 {
+				t.Fatalf("incomplete copy reached engine: %+v %+v", got, rel)
+			}
+		})
+	}
+}
+
+type movingReleaseDriver struct {
+	fakeDriver
+	move  func(context.Context)
+	calls int
+	fail  bool
+}
+
+func (d *movingReleaseDriver) Reconcile(ctx context.Context, _ deploy.Placement, generation int64, _ deploy.Artifact, _ string, _ deploy.Logf, _ deploy.Checkpoint) (deploy.Observation, error) {
+	d.calls++
+	d.move(ctx)
+	if d.fail {
+		return deploy.Observation{}, deploy.Terminal(errors.New("new engine failed health after writing"))
+	}
+	return deploy.Observation{Generation: generation, Rollout: "active", Health: "healthy"}, nil
 }

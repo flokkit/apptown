@@ -151,17 +151,21 @@ func TestDeploymentRecoveryMissingIdentityRemainsUncertain(t *testing.T) {
 		t.Fatalf("missing identity: %+v %v", result, err)
 	}
 	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE id=$1 AND status='uncertain' AND finished_at IS NULL`, attempt.ID)
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='releasing'`, started.ID)
+	if persisted, err := service.Releases.ByID(t.Context(), started.ID); err != nil || persisted.State != Releasing {
+		t.Fatalf("persisted release: %+v %v", persisted, err)
+	}
 }
 
 func TestDeploymentAdmissionReplayDoesNotExecuteProviderAgain(t *testing.T) {
 	t.Parallel()
-	service, provider, db, pid, dep, bundle := doReleaseWorld(t)
+	service, provider, _, pid, dep, bundle := doReleaseWorld(t)
 	accepted := doAcceptRelease(t, service, pid, dep, bundle)
 	if err := service.ExecuteRelease(context.Background(), accepted.ID); err != nil {
 		t.Fatal(err)
 	}
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='released'`, accepted.ID)
+	if persisted, err := service.Releases.ByID(t.Context(), accepted.ID); err != nil || persisted.State != Released {
+		t.Fatalf("persisted release: %+v %v", persisted, err)
+	}
 	if err := service.ExecuteRelease(context.Background(), accepted.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +184,9 @@ func TestDeploymentProviderCheckpointFailureStopsBeforeObservation(t *testing.T)
 		t.Fatalf("checkpoint failure: %v", err)
 	}
 	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=$1 AND status='uncertain' AND NOT jsonb_exists(observed_json,'appId') AND NOT jsonb_exists(observed_json,'deploymentId')`, dep.ID)
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='releasing'`, accepted.ID)
+	if persisted, err := service.Releases.ByID(t.Context(), accepted.ID); err != nil || persisted.State != Releasing {
+		t.Fatalf("persisted release: %+v %v", persisted, err)
+	}
 	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM river_job WHERE (args->>'operation')=$1`, RecoveryJob)
 	state := provider.Snapshot()
 	if state.DeploymentGeneration != 1 || state.DeploymentReads != 0 {

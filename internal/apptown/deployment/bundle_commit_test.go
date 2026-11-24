@@ -235,3 +235,19 @@ func TestDigestImagesOfADamagedBundleIsAnError(t *testing.T) {
 		t.Fatalf("a damaged digest bundle listed its images as %v, %v", images, err)
 	}
 }
+
+func TestBundlePreservesExactNeedBuildsOutsideAppImages(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	project := createTestProject(t, db, "bundle-needs", "Bundle needs")
+	bundles := newBundles(db)
+	image := "postgres:16.16-alpine@sha256:" + strings.Repeat("a", 64)
+	id, err := bundles.Cut(t.Context(), project, "tree", map[string]string{"web": "sha256:web"}, nil, nil, BundleOrigin{Needs: map[string]string{"postgres": image}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := bundles.ByID(t.Context(), id)
+	if err != nil || got.BuiltFrom.Needs["postgres"] != image || len(got.Parts) != 1 || len(got.Init) != 0 {
+		t.Fatalf("bundle: %+v %v", got, err)
+	}
+}

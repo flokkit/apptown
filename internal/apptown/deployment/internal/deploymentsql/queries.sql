@@ -800,3 +800,16 @@ AND (NOT sqlc.arg(projects_only)::boolean OR (d.project_id=ANY(sqlc.arg(project_
 -- name: SetDeploymentProtected :execrows
 UPDATE deployments SET protected=sqlc.arg(protected), protected_reason='', updated_at=sqlc.arg(at)
 WHERE id=sqlc.arg(id) AND protected=sqlc.arg(was);
+
+-- name: MoveStorageBinding :exec
+UPDATE deployment_storage_bindings SET declared_image=sqlc.arg(declared_image), image_id=sqlc.arg(image_id), repo_digest=sqlc.arg(repo_digest), recorded_at=sqlc.arg(recorded_at)
+WHERE deployment_id=sqlc.arg(deployment_id) AND need=sqlc.arg(need) AND volume=sqlc.arg(volume);
+
+-- name: RecordNeedMoves :exec
+UPDATE releases SET need_moves=sqlc.arg(need_moves) WHERE id=sqlc.arg(id);
+
+-- name: RecentNeedMoves :many
+SELECT r.*, p.name AS project_name, p.slug AS project_slug FROM releases r JOIN projects p ON p.id=r.project_id
+WHERE r.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND r.state='released' AND r.need_moves <> '[]'::jsonb
+AND r.released_at>=sqlc.arg(since) AND r.released_at<sqlc.arg(until)
+ORDER BY r.released_at DESC LIMIT sqlc.arg(row_limit);

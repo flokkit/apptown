@@ -5,6 +5,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -129,5 +135,121 @@ func TestFindingsHTTPAnnotatesOnlyCurrentProjectExceptions(t *testing.T) {
 		if w.Code != want {
 			t.Fatalf("missing run: %d %s", w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestSecurityKeepsStaleAndUnscannedNeedsUnknown(t *testing.T) {
+	for _, scenario := range []string{"stale", "digest move"} {
+		t.Run(scenario, func(t *testing.T) {
+			moved := scenario == "digest move"
+			t.Parallel()
+			readings := &releaseNeedReadings{tag: "16.15", digest: "a"}
+			w := newReleaseWorld(t, func(c *Config) { c.ImageResolver = readings })
+			image := "postgres:16.15-alpine@sha256:" + strings.Repeat("a", 64)
+			w.hosts.publicImages = map[string]bool{image: true}
+			w.appYAML = releaseAppYAML + "needs: {postgres: {}}\n"
+			w.mainOn(t, w.lab)
+			run, step := w.landingRun(t)
+			executeBootFixture(t, w.a, w.a.asEngine(t.Context()), step)
+			if err := w.a.Access.SeedAdministrator(t.Context(), "boss"); err != nil {
+				t.Fatal(err)
+			}
+			dep, err := w.a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := w.a.Projects.SetDefaultBranch(t.Context(), dep.ProjectID, "main"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := gitexec.Run(t.Context(), w.a.projectRepoPath("p"), "branch", "-M", "main"); err != nil {
+				t.Fatal(err)
+			}
+			// Keep source and app coverage current so only need evidence is unknown.
+			images, err := w.a.Deployment.RunningImagesIn(t.Context(), w.a.DB, dep.ProjectID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree, err := gitexec.Run(t.Context(), w.a.projectRepoPath("p"), "rev-parse", "HEAD^{tree}")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := w.a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+				subjects := []conformance.ScanSubject{{On: "source", Tree: strings.TrimSpace(tree)}}
+				for _, row := range images {
+					for part, digest := range row.Images {
+						if part != "need/postgres" {
+							subjects = append(subjects, conformance.ScanSubject{On: "running", DeploymentID: dep.ID, Part: part, Digest: digest})
+						}
+					}
+				}
+				for _, subject := range subjects {
+					if err := conformance.RecordScanObservationIn(t.Context(), tx, conformance.ScanObservation{ProjectID: dep.ProjectID, RunID: run.ID, StepID: step, Attempt: 1, Scanner: "trivy", ObservedAt: time.Now(), Verdict: "pass", ExpectedScanners: []string{"trivy"}, Subject: subject}); err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			old := time.Now()
+			if !moved {
+				old = old.Add(-4 * 24 * time.Hour)
+			}
+			observation := conformance.ScanObservation{ProjectID: dep.ProjectID, RunID: run.ID, StepID: step, Attempt: 1, Scanner: "trivy", ObservedAt: old, Verdict: "pass", ExpectedScanners: []string{"trivy"}, Subject: conformance.ScanSubject{On: "running", DeploymentID: dep.ID, Deployment: "main", Part: "need/postgres", Digest: image}}
+			if err := w.a.DB.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, observation) }); err != nil {
+				t.Fatal(err)
+			}
+			if moved {
+				storage := w.a.Deployment.Deployments.StorageOf(dep)
+				before, found, err := storage.Get(t.Context(), "postgres", docker.ByKey(dep.ID).NeedVolume("postgres"))
+				if err != nil || !found {
+					t.Fatalf("binding: %+v %v %v", before, found, err)
+				}
+				after := before
+				after.DeclaredImage = "postgres:16.16-alpine"
+				after.ImageID = "sha256:" + strings.Repeat("b", 64)
+				after.RepoDigest = "postgres@sha256:" + strings.Repeat("b", 64)
+				if err := storage.Move(t.Context(), before, after); err != nil {
+					t.Fatal(err)
+				}
+			}
+			coverage, err := w.a.Work.LatestMainScans(w.a.asEngine(t.Context()), dep.ProjectID, 0)
+			if err != nil || coverage.Known || coverage.Stale != !moved || coverage.Reason == "" {
+				t.Fatalf("coverage: %+v %v", coverage, err)
+			}
+			response := authzCall(w.a.Handler(), "boss", "GET", "/api/v1/projects/p/findings", "")
+			var out struct {
+				StatusLabel string
+				Sources     []struct{ Binding, Unreadable string }
+				Repo        struct{ Stale bool }
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &out); err != nil || response.Code != 200 {
+				t.Fatalf("response: %d %s %v", response.Code, response.Body.String(), err)
+			}
+
+			if out.StatusLabel != "unknown" || out.Repo.Stale != coverage.Stale {
+				t.Fatalf("stale or unscanned need became current success: %s", response.Body.String())
+			}
+			foundReason := false
+			for _, source := range out.Sources {
+				foundReason = foundReason || source.Unreadable == coverage.Reason
+			}
+			if !foundReason {
+				t.Fatalf("lost coverage reason %q: %s", coverage.Reason, response.Body.String())
+			}
+			// Current evidence of the bound digest resolves the unknown state.
+			if moved {
+				observation.Subject.Digest = "postgres:16.16-alpine@sha256:" + strings.Repeat("b", 64)
+			}
+			observation.ObservedAt = time.Now()
+			observation.Attempt++
+			if err := w.a.DB.InTx(t.Context(), func(tx *database.Tx) error { return conformance.RecordScanObservationIn(t.Context(), tx, observation) }); err != nil {
+				t.Fatal(err)
+			}
+			response = authzCall(w.a.Handler(), "boss", "GET", "/api/v1/projects/p/findings", "")
+			if err := json.Unmarshal(response.Body.Bytes(), &out); err != nil || response.Code != 200 || out.StatusLabel != "passed" || out.Repo.Stale {
+				t.Fatalf("current need scan: %d %s %v", response.Code, response.Body.String(), err)
+			}
+		})
 	}
 }

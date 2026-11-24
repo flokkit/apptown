@@ -98,6 +98,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	ctx := context.Background()
 	quiet := func(string, ...any) {}
 
+	art.Source.Needs = map[string]string{"postgres": "postgres:16.16-alpine@sha256:" + strings.Repeat("b", 64)}
 	noted := map[string]any{}
 	o, err := d.Reconcile(ctx, place, 1, art, "key", quiet, func(v map[string]any) error {
 		for k, val := range v {
@@ -110,6 +111,9 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	}
 	if o.Rollout != "active" || o.Health != "healthy" || o.Generation != 1 || o.URL != "http://127.0.0.1:41233" || o.ImageDigest != "sha256:game" {
 		t.Fatalf("observation after boot: %+v", o)
+	}
+	if boot.req.needImages["postgres"] != art.Source.Needs["postgres"] {
+		t.Fatalf("lost need builds: %+v", boot.req)
 	}
 	name := ByKey(idstest.N(7)).App()
 	if boot.req.Name != name || boot.req.Slug != "game" || boot.req.servingLabel != "stable-serving" || boot.req.Deployment != "main" || !boot.req.persistent || boot.req.identity.Deployment != "7" || boot.req.revision != "abc" || boot.req.DataClass != "production" {

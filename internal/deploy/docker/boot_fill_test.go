@@ -42,8 +42,11 @@ func TestAFillRunsAfterTheNeedsAndBeforeAnythingOfTheApp(t *testing.T) {
 			return nil
 		}
 		_, err := NewHost(deps).Boot(context.Background(), BootRequest{Allowed: AuthorisedWhenRequested, Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
-			Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), fill: fill}, c)
+			Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir(), needImages: map[string]string{"postgres": "postgres:16.16-alpine@sha256:" + strings.Repeat("b", 64)}, fill: fill}, c)
 		calls := client.calls
+		if !strings.Contains(strings.Join(calls, "\n"), "postgres:16.16-alpine@sha256:"+strings.Repeat("b", 64)) {
+			t.Fatalf("recorded need image not started: %v", calls)
+		}
 		if filledAt < 0 {
 			t.Fatalf("the fill never ran:\n%s", strings.Join(calls, "\n"))
 		}

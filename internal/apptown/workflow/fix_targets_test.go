@@ -192,6 +192,7 @@ func TestRunningTargetsAreImageOnlyPublicPartFindingsAboveThreshold(t *testing.T
 		{"public image", "web", "high", false, "", "1.2.4", 1},
 		{"no published fix", "web", "high", false, "", "", 0},
 		{"another part", "worker", "high", false, "", "1.2.4", 0},
+		{"need image", "need/postgres", "high", false, "", "1.2.4", 0},
 		{"below threshold", "web", "medium", false, "", "1.2.4", 0},
 		{"source package", "web", "high", true, "", "1.2.4", 0},
 	} {

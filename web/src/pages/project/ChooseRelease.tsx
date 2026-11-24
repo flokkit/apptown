@@ -90,10 +90,11 @@ function ConfirmRelease({ slug, name, label, deployment, choice, running, curren
 
 // The paired door belongs to the pre-deploy backup, and requires recorded
 // backup-time release evidence rather than adjacent release numbers.
-export function RollbackBefore({ slug, name, release, current, requested = false, onChoose }: { slug: string; name: string; release: ReleaseListed; current: boolean; requested?: boolean; onChoose: () => void }) {
+export function RollbackBefore({ slug, name, release, releases, current, requested = false, onChoose }: { slug: string; name: string; release: ReleaseListed; releases: ReleaseListed[]; current: boolean; requested?: boolean; onChoose: () => void }) {
   const backups = useGet<DeploymentBackups>(`/projects/${slug}/deployments/${name}/backups`)
   const backup = backups.data?.backups.find(b => b.id === release.backupId)
-  const eligible = !!backup?.runningReleaseId && backup.status === 'ok'
+  const needOnly = !!release.needMoves?.length && releases.find(r => r.id === backup?.runningReleaseId)?.commitSha === release.commitSha
+  const eligible = !!backup?.runningReleaseId && backup.status === 'ok' && !needOnly
   const backupsCurrent = backups.current
   // Opening the confirmation must not repeat while the URL change is pending.
   const opened = useRef(false)

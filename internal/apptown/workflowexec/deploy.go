@@ -111,15 +111,23 @@ func (a *shipping) RunBuild(task *workflow.Execution) {
 	if reading != "" {
 		a.progress.Append(step.ID, fmt.Sprintf("Serving the static parts with %s (%s)", contract.StaticServer, reading))
 	}
+	needs, needReadings, err := imagelines.Needs(task.Context(), a.images, a.catalog, contract)
+	if err != nil {
+		fail(err)
+		return
+	}
+	for _, line := range needReadings {
+		a.progress.Append(step.ID, line)
+	}
 	var bundle *deployment.ReleaseBundle
 	if a.builds != nil {
 		var ok bool
-		bundle, ok = a.buildRelease(task, releaseTarget{repository: ws, commit: revision, tree: tree.Directory, contract: contract, raw: raw}, finish)
+		bundle, ok = a.buildRelease(task, releaseTarget{repository: ws, commit: revision, tree: tree.Directory, contract: contract, raw: raw, needs: needs}, finish)
 		if !ok {
 			return
 		}
 	} else {
-		bundle, err = a.deployment.BuildRelease(task.Context(), deployment.SourceBuild{By: task, ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, Tree: tree.Directory, Revision: revision, Contract: contract, Raw: raw, RebuiltFrom: run.RebuildFrom, Log: func(format string, args ...any) { a.progress.Append(step.ID, fmt.Sprintf(format, args...)) }})
+		bundle, err = a.deployment.BuildRelease(task.Context(), deployment.SourceBuild{Needs: needs, By: task, ProjectID: run.ProjectID, ChangeID: run.ChangeID, RunID: run.ID, Tree: tree.Directory, Revision: revision, Contract: contract, Raw: raw, RebuiltFrom: run.RebuildFrom, Log: func(format string, args ...any) { a.progress.Append(step.ID, fmt.Sprintf(format, args...)) }})
 		if err != nil {
 			fail(err)
 			return

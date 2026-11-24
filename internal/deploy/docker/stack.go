@@ -573,6 +573,11 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			if err != nil {
 				return network, fmt.Errorf("admitting the %s engine: %w", svc.Name, err)
 			}
+			svc.Image = runImage
+			there, err = dk.Exists(ctx, "inspect", cname)
+			if err != nil {
+				return network, err
+			}
 		}
 		// Without the container, the requested image is not evidence of the
 		// engine that wrote retained data. Refuse before any writable start.

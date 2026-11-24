@@ -218,3 +218,36 @@ func (r storageRestoreRecorder) Restore(ctx context.Context, source *deploy.Stor
 	})
 	return err
 }
+
+// Move records the engine transition and its audit together under the deployment lock.
+func (r storageRecorder) Move(ctx context.Context, from, to deploy.StorageBinding) error {
+	if err := validateStorage(to); err != nil {
+		return err
+	}
+	if from.Need != to.Need || from.Volume != to.Volume || !sameStorageVolume(from, to) {
+		return errors.New("engine move changed volume evidence")
+	}
+	_, err := database.Transact(ctx, r.db, func(tx *database.Tx) (bool, error) {
+		dep, err := lockDeploymentRecordIn(ctx, tx, r.deployment)
+		if err != nil {
+			return false, err
+		}
+		q := deploymentsql.New(tx.SQL())
+		old, found, err := readStorage(ctx, q, dep.ID, from.Need, from.Volume)
+		if err != nil {
+			return false, err
+		}
+		if !found || !sameStorage(old, from) {
+			return false, errors.New("engine move source binding changed")
+		}
+		at := clock.Or(r.now)().UTC()
+		if err := q.MoveStorageBinding(ctx, deploymentsql.MoveStorageBindingParams{DeploymentID: dep.ID, Need: to.Need, Volume: to.Volume, DeclaredImage: to.DeclaredImage, ImageID: to.ImageID, RepoDigest: to.RepoDigest, RecordedAt: at}); err != nil {
+			return false, err
+		}
+		return true, audit.At(at).RecordIn(ctx, tx, "apptown-system", dep.ProjectID, "deployment.storage-moved", dep.Name, map[string]any{"from": from, "to": to})
+	})
+	return err
+}
+func sameStorageVolume(a, b deploy.StorageBinding) bool {
+	return strings.TrimRight(a.DataPath, "/") == strings.TrimRight(b.DataPath, "/") && a.VolumeCreated.Equal(b.VolumeCreated) && a.VolumeDriver == b.VolumeDriver
+}

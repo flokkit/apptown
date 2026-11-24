@@ -13,4 +13,7 @@
 /* The digest is a value that copies its reference when tapped: it sits on
    the row's text line like the other values, not as a boxed button. */
 .deploy-lines button.link { padding: 0; min-height: 0; font: inherit; }
+/* A need's build after its bold name ("postgres" 16.15 · 16.16 available)
+   reads at the regular weight: the name cell's link is bold. */
+.deployment-containers-table .container-build { font-weight: var(--fw-regular); }
 }

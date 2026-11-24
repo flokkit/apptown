@@ -13,9 +13,11 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/stock"
 	"io"
 	"io/fs"
@@ -50,6 +52,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -215,13 +218,14 @@ func (r *releaseRegistry) digestOf(t *testing.T, ref string) string {
 // own): recording fakes that pull images by digest from the registry, with
 // the credential written in the pull's own configuration.
 type releaseHosts struct {
-	t        *testing.T
-	mu       sync.Mutex
-	daemons  map[string]*fakeDocker
-	held     map[string]map[string]bool // host -> references by digest it holds
-	platform string                     // what `docker info` answers
-	onPull   func(host, ref string)
-	saved    map[string]string // image ID -> the manifest digest `docker save` packed
+	t            *testing.T
+	mu           sync.Mutex
+	daemons      map[string]*fakeDocker
+	held         map[string]map[string]bool // host -> references by digest it holds
+	platform     string                     // what `docker info` answers
+	publicImages map[string]bool            // explicitly supplied public engine fixtures
+	onPull       func(host, ref string)
+	saved        map[string]string // image ID -> the manifest digest `docker save` packed
 	// onCommand, if set, sees each command before it is answered.
 	onCommand atomic.Pointer[func(host string, args []string)]
 }
@@ -311,6 +315,13 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 		if !held {
 			return []byte("Error response from daemon: No such image: " + ref), errFakeExit
 		}
+		if h.publicImages[ref] {
+			if args[len(args)-2] == "{{json .}}" {
+				raw, e := json.Marshal(map[string]any{"Id": dockerfake.ImageID(ref), "RepoDigests": []string{ref}})
+				return raw, e
+			}
+			return []byte(dockerfake.ImageID(ref) + " [\"" + ref + "\"]"), nil
+		}
 		return []byte(`sha256:built ["` + ref + `"]`), nil
 	}
 	return out, err
@@ -319,6 +330,16 @@ func (h *releaseHosts) Run(ctx context.Context, host string, req docker.Command)
 // pull answers as Docker does: the registry's own refusal, or the image
 // held under its digest.
 func (h *releaseHosts) pull(host, config, ref string) ([]byte, error) {
+	if h.publicImages[ref] {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		if h.held[host] == nil {
+			h.held[host] = map[string]bool{}
+		}
+		h.held[host][ref] = true
+		return []byte("pulled fixture engine"), nil
+	}
+
 	d, err := name.ParseReference(ref)
 	if err != nil {
 		return []byte("invalid reference format"), errFakeExit
@@ -2180,9 +2201,23 @@ func TestOnlyAConfirmedMissingHubImageStartsAPinnedRebuild(t *testing.T) {
 // Stock composition reaches a fresh build of the serving commit, resumes the
 // release despite advisory scan failures, and bounds retries by usable evidence.
 func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T) {
-	for _, verdict := range []string{"fail", "error", "manual"} {
+	for _, verdict := range []string{"fail", "error", "manual", "need behind", "need daemon", "need protected", "need pin", "need current", "need older"} {
 		t.Run(verdict, func(t *testing.T) {
-			w := newReleaseWorld(t, nil)
+			needCase := strings.HasPrefix(verdict, "need ")
+			readings := &releaseNeedReadings{tag: "16.15", digest: "a"}
+			w := newReleaseWorld(t, func(c *Config) {
+				if needCase {
+					c.ImageResolver = readings
+				}
+			})
+			if needCase {
+				w.hosts.publicImages = map[string]bool{"postgres:16.15-alpine@sha256:" + strings.Repeat("a", 64): true, "postgres:16.16-alpine@sha256:" + strings.Repeat("b", 64): true}
+				version := "16"
+				if verdict == "need pin" {
+					version = "16.15"
+				}
+				w.appYAML = releaseAppYAML + "needs: {postgres: {version: \"" + version + "\"}}\n"
+			}
 			w.mainOn(t, w.lab)
 			run, step := w.landingRun(t)
 			executeBootFixture(t, w.a, w.a.asEngine(t.Context()), step)
@@ -2205,13 +2240,44 @@ func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T
 			}); err != nil {
 				t.Fatal(err)
 			}
-			first, err := w.promote(t, original.ID, "main", w.lab)
+			var first *deployment.Release
+			if needCase {
+				if err := w.a.Access.SeedAdministrator(t.Context(), "boss"); err != nil {
+					t.Fatal(err)
+				}
+				first, err = w.a.Deployment.Releases.Last(t.Context(), original.ProjectID, "main")
+			} else {
+				first, err = w.promote(t, original.ID, "main", w.lab)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
 			dep, err := w.a.Deployment.Deployments.ByName(t.Context(), first.ProjectID, "main")
 			if err != nil {
 				t.Fatal(err)
+			}
+			if verdict == "need daemon" {
+				// The deployment owner records a completed daemon-ID build. The host's
+				// database binding remains independently known and scannable.
+				local, err := w.a.Deployment.Bundles.Cut(t.Context(), first.ProjectID, first.CommitSHA, map[string]string{"web": "sha256:daemon"}, nil, []byte(w.appYAML), deployment.BundleOrigin{TargetID: w.lab.ID, Needs: original.BuiltFrom.Needs})
+				if err != nil {
+					t.Fatal(err)
+				}
+				r, err := w.a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBundle, ProjectID: first.ProjectID, DeploymentID: dep.ID, Deployment: dep.Name, BundleID: local, Revision: first.CommitSHA, Actor: "boss"}, "daemon-local build")
+				if err != nil {
+					t.Fatal(err)
+				}
+				at, _, err := w.a.Deployment.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "daemon-local", Inputs: deployment.Inputs{ReleaseID: r.ID, BundleID: local, Revision: first.CommitSHA}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := w.a.Deployment.Outcomes.Complete(t.Context(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", ImageDigest: "sha256:daemon"}}); err != nil {
+					t.Fatal(err)
+				}
+				first, err = w.a.Deployment.Releases.ByID(t.Context(), r.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			if _, err := w.a.Deployment.SetFeed(verifiedContext(t.Context(), access.Principal{ID: testPrincipalOf(t, w.a.DB, "boss"), Kind: "user", Name: "boss", Via: "header", Credential: identity.HeaderCredential("boss")}), first.ProjectID, "main", deployment.FeedSettings{Revision: dep.FeedRevision, Feed: "main"}); err != nil {
 				t.Fatal(err)
@@ -2222,6 +2288,20 @@ func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T
 			repo := w.a.projectRepoPath("p")
 			if _, err := gitexec.Run(t.Context(), repo, "branch", "-M", "main"); err != nil {
 				t.Fatal(err)
+			}
+			if needCase {
+				readings.tag, readings.digest = "16.16", "b"
+				if verdict == "need current" {
+					readings.tag, readings.digest = "16.15", "a"
+				}
+				if verdict == "need older" {
+					readings.tag = "16.14"
+				}
+				if verdict == "need protected" {
+					if _, err := w.a.Deployment.SetProtected(asLander(t, w.a), first.ProjectID, "main", deployment.ProtectedSettings{Protected: true, Was: false}); err != nil {
+						t.Fatal(err)
+					}
+				}
 			}
 			var definitions []workflow.PreparedRun
 			for _, name := range []string{"janitor-scan", "janitor-fix", "rebuild"} {
@@ -2242,6 +2322,10 @@ func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T
 				deps.Runners["scan"] = func(task *workflow.Execution) {
 					if _, err := task.Claim(); err != nil {
 						t.Error(err)
+						return
+					}
+					if needCase {
+						task.Settle(workflow.EncodeOutcome(workflow.StatusPass, map[string]string{"reason": "no app findings"}, nil))
 						return
 					}
 					var cfg struct {
@@ -2343,6 +2427,31 @@ func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T
 				}
 				return
 			}
+			if needCase {
+				requested := scan(1)
+				last, err := w.a.Deployment.Releases.Last(t.Context(), first.ProjectID, "main")
+				if err != nil {
+					t.Fatal(err)
+				}
+				due := verdict == "need behind" || verdict == "need daemon" || verdict == "need protected"
+				if !due {
+					if requested.Status != workflow.StatusNotApplicable || last.ID != first.ID {
+						t.Fatalf("need requested unexpected refresh: %s %+v", requested.Status, last)
+					}
+					return
+				}
+				expected := deployment.Releasing
+				if verdict == "need protected" {
+					expected = last.State
+					if last.State.String() != "waiting for approval" {
+						t.Fatalf("protected refresh did not wait: %+v", last)
+					}
+				}
+				if requested.Status != workflow.StatusPass || last.ID == first.ID || last.State != expected || last.CommitSHA != first.CommitSHA || !strings.Contains(last.Notes, "16.16 is available") {
+					t.Fatalf("need refresh: %s %+v", requested.Status, last)
+				}
+				return
+			}
 			requested := scan(1)
 			if requested.Status != workflow.StatusPass || !strings.Contains(string(requested.Evidence), "CVE-new") {
 				t.Fatalf("new finding did not request rebuild: %s %s", requested.Status, requested.Evidence)
@@ -2399,4 +2508,17 @@ func TestStockJanitorRebuildsNewFindingsAndUsesTheRebuiltBundleScan(t *testing.T
 			}
 		})
 	}
+}
+
+// The registry reading changes between the landing and the daily scan.
+type releaseNeedReadings struct {
+	testImageResolver
+	tag, digest string
+}
+
+func (r *releaseNeedReadings) Answer(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, error) {
+	if ref != "postgres:16-alpine" {
+		return r.testImageResolver.Answer(ctx, ref, scope)
+	}
+	return imagelines.Reading{Answer: imageline.Answer{Tag: "postgres:" + r.tag + "-alpine", Digest: "sha256:" + strings.Repeat(r.digest, 64)}, ReadAt: time.Now()}, nil
 }

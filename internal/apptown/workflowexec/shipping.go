@@ -7,6 +7,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/preview"
@@ -34,6 +35,7 @@ func NotContinued() []string { return []string{BuildKind} }
 // shipping adapts builds and previews into workflow evidence and settlement.
 // Deployment still owns release admission, generation guards and providers.
 type shipping struct {
+	catalog    *dependency.Catalog
 	db         *database.DB
 	deployment *deployment.Service
 	previews   *preview.Service
@@ -51,6 +53,7 @@ type ShippingConfig struct {
 	Routing        deployment.Routing
 }
 type ShippingDependencies struct {
+	Catalog    *dependency.Catalog
 	Deployment *deployment.Service
 	// Previews boots a run's preview step.
 	Previews *preview.Service
@@ -87,7 +90,7 @@ type CompileCheck struct {
 }
 
 func NewShipping(db *database.DB, d ShippingDependencies, cfg ShippingConfig) *shipping {
-	return &shipping{db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, builds: d.Builds, shots: d.Screenshots, images: d.Images, cfg: cfg, clock: d.Now}
+	return &shipping{catalog: d.Catalog, db: db, deployment: d.Deployment, previews: d.Previews, docker: d.Docker, checks: d.Checks, progress: d.Progress, builds: d.Builds, shots: d.Screenshots, images: d.Images, cfg: cfg, clock: d.Now}
 }
 func (a *shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)

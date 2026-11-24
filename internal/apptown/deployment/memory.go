@@ -291,6 +291,7 @@ type DeploymentResources struct {
 
 // PartResource is one part's or need's applied limits, override and use.
 type PartResource struct {
+	Available     string        `json:"available,omitempty"`
 	OverrideLabel ProgressLabel `json:"overrideLabel"`
 	Size          string        `json:"size,omitempty"`
 	// SuppliedService is resized through the workflow declaration, not overrides.
@@ -379,6 +380,13 @@ func (s *Service) resources(ctx context.Context, projectID ids.ID, name string, 
 	}
 	if len(out.Parts) == 0 && len(observed) == 1 {
 		out.Parts = append(out.Parts, PartResource{OverrideLabel: progressLabelUnknown, Memory: "not recorded", CPU: "not recorded", Public: true, Observed: observed[0]})
+	}
+	available, err := s.cachedNeedUpdates(ctx, dep)
+	if err != nil {
+		return DeploymentResources{}, err
+	}
+	for i := range out.Parts {
+		out.Parts[i].Available = available[out.Parts[i].Part]
 	}
 	out.Share = s.share(ctx, dep, out.Parts, applied)
 	out.LimitsKnown, out.LimitsSource = s.limitEventsSource(ctx, dep)
