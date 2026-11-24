@@ -4054,7 +4054,7 @@ func TestWebUICapture(t *testing.T) {
 				return
 			}
 			// This executor is the scene's released-image scanner boundary.
-			e.Settle(workflow.StepOutcome{Status: workflow.StatusFail, Evidence: []byte(`{"reason":"The released image contains three vulnerable packages.","findings":{"total":3,"actionable":3}}`)}, nil)
+			e.Settle(workflow.StepOutcome{Status: workflow.StatusFail, Evidence: []byte(`{"reason":"images observed","observations":[{"verdict":"fail","findings":[{"fingerprint":"vuln|CVE-1","severity":"high"},{"fingerprint":"vuln|CVE-2","severity":"medium"},{"fingerprint":"vuln|CVE-3","severity":"medium"}]}]}`)}, nil)
 		}
 	})
 	defineWorkflows(t, a, tourWorkflow)

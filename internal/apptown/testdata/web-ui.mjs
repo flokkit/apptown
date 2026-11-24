@@ -521,7 +521,7 @@ try {
             if (screen.endsWith('-finished')) {
               if (await page.locator('.ch-progress-segment.failed, .ch-progress-segment.unknown').count()) throw new Error('finished progress must be green');
               const note = page.locator('.ch-check-summary');
-              if (!(await note.innerText()).includes('3 findings') || !await note.getByRole('link', { name: 'Security →' }).count()) throw new Error('bundle findings need a neutral Security note');
+              if (!(await note.innerText()).includes('found 1 high, 2 medium') || !await note.getByRole('link', { name: 'Security →' }).count()) throw new Error('bundle findings need a neutral Security note');
             } else if (screen.endsWith('-failed')) {
               if (!await page.locator('.ch-progress-segment.failed').count()) throw new Error('gating failure needs a red segment');
             } else {
