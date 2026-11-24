@@ -41,7 +41,7 @@ jobs:
   # The candidate run this tag publishes: a successful candidate.yml run on
   # this exact commit for this version. Without one nothing is published.
   candidate:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -66,7 +66,7 @@ jobs:
   merge:
     name: tag and sign ${{ matrix.name }}
     needs: candidate
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       actions: read
       contents: read
@@ -126,7 +126,7 @@ jobs:
   archives:
     name: release archives
     needs: [candidate, merge]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       actions: read
@@ -178,7 +178,7 @@ jobs:
     name: Homebrew formula
     needs: archives
     if: ${{ !contains(github.ref_name, '-') }}
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: homebrew-tap
     permissions:
@@ -231,7 +231,7 @@ jobs:
       cancel-in-progress: false
     needs: [candidate, merge]
     if: ${{ !contains(github.ref_name, '-test.') }}
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     environment: apptown.dev
     permissions:
       actions: read

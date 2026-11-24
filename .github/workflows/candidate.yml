@@ -38,7 +38,7 @@ jobs:
   # (scripts/heavy-evidence.py: a first-attempt full execution on main or
   # its merge queue) and the release notes (scripts/release-notes-check.sh).
   identity:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: read
@@ -87,8 +87,8 @@ jobs:
           - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker, binary: /opt/apptown-worker/bin/apptown-worker }
           - { name: apptown-agent, context: deploy/apptown-agent, file: deploy/apptown-agent/Dockerfile, target: "", binary: "" }
         platform:
-          - { platform: linux/amd64, slug: amd64, runner: ubuntu-26.04 }
-          - { platform: linux/arm64, slug: arm64, runner: ubuntu-26.04-arm }
+          - { platform: linux/amd64, slug: amd64, runner: ubuntu-24.04 }
+          - { platform: linux/arm64, slug: arm64, runner: ubuntu-24.04-arm }
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}
       TAG: ${{ needs.identity.outputs.tag }}
@@ -151,7 +151,7 @@ jobs:
   merge:
     name: index ${{ matrix.name }}
     needs: [identity, build]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -196,7 +196,7 @@ jobs:
   # contents) and SHA256SUMS over them, beside the image builds.
   archives:
     needs: identity
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -255,7 +255,7 @@ jobs:
   # the notes: everything publication uploads, as the artifact release.
   manifest:
     needs: [identity, merge, archives]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       TAG: ${{ needs.identity.outputs.tag }}
@@ -292,7 +292,7 @@ jobs:
   # into internal/apptown/testdata/upgrade (scripts/release-prepare.sh).
   fixture:
     needs: identity
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       VERSION: ${{ needs.identity.outputs.version }}
@@ -325,7 +325,7 @@ jobs:
   # (scripts/stranger-install.sh), in a disposable Docker daemon of its own.
   stranger:
     needs: [identity, archives]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -341,7 +341,7 @@ jobs:
   # publication's site job publishes. make tour ends by checking every shot.
   tour:
     needs: identity
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-tour
