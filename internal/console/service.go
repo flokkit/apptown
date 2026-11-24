@@ -1167,6 +1167,18 @@ func (s *Service) Busy(ctx context.Context, m Match, within time.Duration) bool 
 	return false
 }
 
+// Working: a session the match selects has the helper mid-turn, as its
+// record says (Activity). Busy is a different question: watched or used
+// recently, whether or not the helper is replying.
+func (s *Service) Working(ctx context.Context, m Match) bool {
+	for _, sess := range s.List(ctx, m) {
+		if sess.Activity() == working {
+			return true
+		}
+	}
+	return false
+}
+
 // UsesWorkspace: a live session's checkout is this workspace or lies under it.
 func (s *Service) UsesWorkspace(ctx context.Context, workspace string) bool {
 	for _, sess := range s.List(ctx, Match{}) {

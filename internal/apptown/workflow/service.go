@@ -30,7 +30,7 @@ type Service struct {
 	retention          workRetention
 	runningImages      runningImages
 	scanSchedules      scanSchedules
-	workspaceChats     workspaceOwnership
+	chatSessions       chatSessions
 	stepCtx            func(context.Context, ids.ID) context.Context
 	heldSummaries      heldSummaryRequests
 	// attemptWatch is how often a running step's run is looked at.
@@ -99,7 +99,7 @@ type Dependencies struct {
 	Retention          workRetention
 	RunningImages      runningImages
 	ScanSchedules      scanSchedules
-	WorkspaceChats     workspaceOwnership
+	ChatSessions       chatSessions
 	HeldSummaries      heldSummaryRequests
 
 	Jobs         jobs.Enqueuer
@@ -180,7 +180,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	automatic := slices.Clone(deps.Automatic)
 	isAutomatic := func(kind string) bool { return slices.Contains(automatic, kind) }
 	authority := commandAuthority{db: db, checked: deps.Authority, visibility: deps.Authority, clocked: clocked{deps.Now}}
-	s := &Service{checked: deps.Authority, janitorDefinitions: deps.JanitorDefinitions, standing: deps.Standing, standingRequests: deps.StandingAcceptance, fixes: deps.Fixes, workspaceChats: deps.WorkspaceChats, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
+	s := &Service{checked: deps.Authority, janitorDefinitions: deps.JanitorDefinitions, standing: deps.Standing, standingRequests: deps.StandingAcceptance, fixes: deps.Fixes, chatSessions: deps.ChatSessions, heldSummaries: deps.HeldSummaries, life: life, db: db, authority: authority, wait: deps.Slots, means: deps.LandingMeans, inAdvance: deps.InAdvance, runners: maps.Clone(deps.Runners), recoverers: maps.Clone(deps.Recoverers), placement: deps.Placement, evalGate: deps.EvalGate, stepCtx: deps.StepContext, masker: deps.Masker, clocked: clocked{deps.Now}, attemptWatch: deps.AttemptWatch}
 	if s.attemptWatch <= 0 {
 		s.attemptWatch = defaultAttemptWatch
 	}

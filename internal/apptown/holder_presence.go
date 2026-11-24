@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -25,6 +26,19 @@ type holderPresence struct {
 
 func holderPresenceFor(a *App) holderPresence {
 	return holderPresence{a.Console, &a.docker, a.cfg.dataDir}
+}
+
+// changeChats answers workflow's questions about chats (workflow.Dependencies
+// ChatSessions) from the console owner, with the change label conversation
+// owns.
+type changeChats struct{ sessions *console.Service }
+
+func (c changeChats) UsesWorkspace(ctx context.Context, workspace string) bool {
+	return c.sessions.UsesWorkspace(ctx, workspace)
+}
+
+func (c changeChats) HelperWorking(ctx context.Context, changeID ids.ID) bool {
+	return c.sessions.Working(ctx, conversation.ForChange(changeID))
 }
 
 func (h holderPresence) Gone(ctx context.Context, chatID string) (bool, error) {

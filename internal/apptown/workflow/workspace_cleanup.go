@@ -31,8 +31,13 @@ import (
 // its attempt's receipt; the folder's copies moved here are the record of
 // everything else (reviews, older runs), not what a continuation resumes.
 
-type workspaceOwnership interface {
+// chatSessions is what workflow asks the chat owner: whether a live chat
+// still uses a workspace (so it is not reaped), and whether a change's
+// chat has its helper replying right now (so the change says it is
+// building rather than draft).
+type chatSessions interface {
 	UsesWorkspace(context.Context, string) bool
+	HelperWorking(ctx context.Context, changeID ids.ID) bool
 }
 
 const workspaceGrace = 24 * time.Hour
@@ -155,7 +160,7 @@ func (s *Service) Workspaces(ctx context.Context, logOnly bool) []string {
 			continue
 		}
 		ws := filepath.Join(root, e.Name())
-		if s.workspaceChats != nil && s.workspaceChats.UsesWorkspace(ctx, ws) {
+		if s.chatSessions != nil && s.chatSessions.UsesWorkspace(ctx, ws) {
 			continue
 		}
 		ok, why := reapWorkspaceDecision(e.Name(), now, changeState, runStatus)

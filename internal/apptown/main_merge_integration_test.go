@@ -169,7 +169,7 @@ func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 		WaitingOn   workflow.WaitingOn `json:"waitingOn"`
 		StateDetail string             `json:"stateDetail"`
 	}
-	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ended) != nil || !strings.Contains(ended.StateDetail, "conflicts with this change in app.txt") || ended.WaitingOn.Says != "building" {
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &ended) != nil || !strings.Contains(ended.StateDetail, "conflicts with this change in app.txt") || ended.WaitingOn.Says != "draft" {
 		t.Fatalf("the page after the ended landing: %d %s", rec.Code, rec.Body)
 	}
 	if view := read(); view.MainConflict == nil || offersLanding(view) {
