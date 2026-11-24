@@ -1,5 +1,5 @@
 import { ListTable } from '../../ListTable'
-import { fmtDay, fmtWhen } from '../../format'
+import { count, fmtDay, fmtWhen } from '../../format'
 import { useHolds } from '../../instancePages'
 import { Status } from '../../Status'
 import { Link } from 'react-router-dom'
@@ -40,13 +40,13 @@ export function FindingsTab({ slug }: { slug: string }) {
           <span className="row-status"><Status observation word={data.statusLabel} help={data.repo?.stale ? "Main changed since the last scan. Open a change to scan the latest code." : undefined} /></span>
           <span style={{ minWidth: 0 }} className="grow">{unread.length > 0
             ? (unread.length === 1 ? "One scan report couldn't be read; security checks are incomplete." : `${unread.length} scan reports couldn't be read; security checks are incomplete.`)
-            : data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
+            : data.summary.actionable > 0 ? `${count(data.summary.actionable, 'problem')} to fix` : data.sources.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
         </div>
         {(unread.length > 0 || data.repo?.stale || !data.sources.length) && <div className="security-next">{nextScan}</div>}
         {data.sources.length === 0 && <p className="muted small">No scans yet.</p>}
         {data.sources.length > 0 && <ListTable className="small" label="Scan sources" rows={data.sources} rowKey={s => s.binding} columns={[
           { key: 'binding', label: 'Source', phone: 'name', kind: 'technical', render: s => s.binding },
-          { key: 'result', label: 'Result', render: s => <span className={s.unreadable ? 'error' : 'muted'}>{s.unreadable || `${s.findings} problems`}</span> },
+          { key: 'result', label: 'Result', render: s => <span className={s.unreadable ? 'error' : 'muted'}>{s.unreadable || count(s.findings, 'problem')}</span> },
           { key: 'at', label: 'When', kind: 'time', render: s => fmtWhen(s.at) },
           { key: 'change', label: '', phone: 'action', render: s => s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link> },
         ]} />}
@@ -71,12 +71,13 @@ export function FindingsTab({ slug }: { slug: string }) {
                 <h3>
                   <span className="badge">
                     {actionable > 0 ? `${actionable} actionable` : 'all suppressed'}
-                  </span>
-                  <code>{group}</code>
+                  </span>{' '}
+                  <code>{group}</code>{' '}
                   <span className="muted small">
-                    {fs.length} finding{fs.length === 1 ? '' : 's'}
+                    {count(fs.length, 'finding')}
                     {reached > 0 ? ` · ${reached} reached` : ''}
                     {maxFix ? ` · all fixed by ${maxFix}` : ''}
+                    {fs.some(f => f.needs?.length) && ` · in ${[...new Set(fs.flatMap(f => f.needs || []))].join(', ')}`}
                   </span>
                 </h3>
                 <FindingsTable findings={fs} projectSlug={slug} onChanged={reload} />

@@ -30,6 +30,9 @@ func (m *bindingMemory) Establish(_ context.Context, b deploy.StorageBinding) er
 	m.writes++
 	return nil
 }
+func (m *bindingMemory) Move(ctx context.Context, from, to deploy.StorageBinding) error {
+	return m.Establish(ctx, to)
+}
 func (m *bindingMemory) Retire(context.Context, string, string) error {
 	if m.failure != nil {
 		return m.failure
@@ -69,6 +72,7 @@ func TestStorageAdmissionRequiresObservedEngineAndIncarnation(t *testing.T) {
 		{name: "restore matching source", volume: true, bound: true, restore: true, wantError: true},
 		{name: "restore previous target", volume: true, bound: true, restore: true, wantError: true, change: "restored"},
 		{name: "restore new target", bound: true, restore: true},
+		{name: "floating binding moves on its line", volume: true, bound: true, container: true, change: "floating"},
 		{name: "database failure", volume: true, bound: true, change: "database", wantError: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -83,6 +87,10 @@ func TestStorageAdmissionRequiresObservedEngineAndIncarnation(t *testing.T) {
 			spec := svc
 			if tc.change == "declaration" {
 				spec.Image = "postgres:18"
+			}
+			if tc.change == "floating" {
+				spec.Line = "postgres:17"
+				spec.Image = "postgres:17.1"
 			}
 			client := &fakeClient{reply: func(req Command) ([]byte, error) {
 				line := strings.Join(req.Args, " ")
@@ -107,6 +115,8 @@ func TestStorageAdmissionRequiresObservedEngineAndIncarnation(t *testing.T) {
 						stamp = time.Time{}
 					}
 					return json.Marshal(map[string]any{"Name": volume, "CreatedAt": stamp, "Driver": "local"})
+				case tc.change == "floating" && (line == "stop "+cname || line == "rm -f "+cname):
+					return nil, nil
 				case line == "image inspect "+spec.Image:
 					return []byte("[]"), nil
 				case line == "image inspect --format {{json .}} "+image || line == "image inspect --format {{json .}} "+spec.Image:
@@ -142,8 +152,11 @@ func TestStorageAdmissionRequiresObservedEngineAndIncarnation(t *testing.T) {
 				}
 				return
 			}
-			if got != image {
+			if got != spec.Image {
 				t.Fatalf("engine was not pinned: %q", got)
+			}
+			if tc.change == "floating" && (m.binding.DeclaredImage != spec.Image || m.writes != 1) {
+				t.Fatalf("floating binding not moved: %+v", m)
 			}
 			if !m.binding.VolumeCreated.Equal(created) {
 				t.Fatalf("incarnation precision lost: %s", m.binding.VolumeCreated)
@@ -252,7 +265,7 @@ func TestNewStoragePullsEngineBeforeCreatingVolume(t *testing.T) {
 				case line == "volume inspect --format {{json .}} "+volume:
 					return json.Marshal(map[string]any{"Name": volume, "CreatedAt": time.Date(2026, 10, 25, 0, 0, 0, 1, time.UTC), "Driver": "local"})
 				case len(req.Args) > 0 && req.Args[0] == "run":
-					if !m.found || m.binding.ImageID != image || !strings.Contains(line, image) {
+					if !m.found || m.binding.ImageID != image || !strings.Contains(line, svc.Image) {
 						t.Fatal("engine started before immutable binding")
 					}
 				}

@@ -133,6 +133,19 @@ func (p *promotionTargets) lastStack(t *testing.T) (string, int) {
 func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	t.Parallel()
 	p, b, asked := newPortainerNeeds(t)
+	// A recorded Docker build must not change the stack-managed need.
+	origin := b.BuiltFrom
+	origin.Needs = map[string]string{"postgres": "postgres:16.16-alpine@sha256:" + strings.Repeat("b", 64)}
+	origin.By = &claimedAttempt{db: p.db, project: p.project, run: origin.RunID, step: origin.StepID, at: origin.Attempt + 1}
+	bundleID, err := p.s.Bundles.Cut(t.Context(), p.project, b.ContractRevision, b.Parts, b.Init, p.contract, origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = p.s.Bundles.ByID(t.Context(), bundleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	lan, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "manual", Audience: "organisation", DataClass: "non-production"})
 	if err != nil || lan.URL != "" || lan.Placement().Handle["stack"] != nil {
 		t.Fatalf("the new deployment: %+v %v", lan, err)

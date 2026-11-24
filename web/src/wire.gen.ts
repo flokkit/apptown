@@ -570,7 +570,7 @@ export type DependencyKind = {
   credentials?: Record<string, string>
   generate?: string[]
   integration?: boolean
-  local: { image: string; command?: string[]; entrypoint?: string[]; configAtStart?: boolean; keepsImage?: boolean; stepEnv?: Record<string, string>; port?: number; env?: Record<string, string>; inject?: Record<string, string>; health?: string; data?: string; measure?: string }
+  local: { image: string; command?: string[]; entrypoint?: string[]; configAtStart?: boolean; line?: string; move?: string; keepsImage?: boolean; stepEnv?: Record<string, string>; port?: number; env?: Record<string, string>; inject?: Record<string, string>; health?: string; data?: string; measure?: string }
   copy?: Copy | null
   cloud?: Record<string, Cloud>
   register?: { connector: string; adapter?: string; inject?: Record<string, string> } | null
@@ -1161,7 +1161,7 @@ export type JanitorCounts = {
 }
 
 export type JanitorHistoryView = {
-  history: JanitorHistory
+  history: janitorHistory
   since: string
   until: string
 }
@@ -1172,6 +1172,9 @@ export type JanitorKindStatistics = {
 }
 
 export type JanitorLandedChange = {
+  releaseId?: string | null
+  releaseNumber?: number
+  slug?: string
   project: string
   packVersions: PackPick[]
   changeId: string | null
@@ -1825,6 +1828,7 @@ export type ReleaseListed = {
   deploymentLabel: string
   decision: ReleaseDecision
   statusLabel: ReleaseLabel
+  needMoves: NeedMove[]
   rebuiltFrom?: number
   rebuiltCommit?: string
   lastStage?: DeployStage
@@ -3280,6 +3284,7 @@ export type Delegation = {
 }
 
 export type Departure = {
+  needMoves: NeedMove[]
   releaseNumber?: number
   commitSha?: string
   changes: ReleaseChangeTitle[]
@@ -3479,6 +3484,7 @@ export type RestoredCopy = {
 }
 
 export type PartResource = {
+  available?: string
   overrideLabel: ProgressLabel
   size?: string
   suppliedService?: boolean
@@ -3526,6 +3532,7 @@ export type RoutineUpdates = {
 }
 
 export type Release = {
+  needMoves: NeedMove[]
   rebuiltFrom?: number
   rebuiltCommit?: string
   lastStage?: DeployStage
@@ -3972,7 +3979,7 @@ export type Waiting = {
   remediationNumber?: number
 }
 
-export type JanitorHistory = {
+export type janitorHistory = {
   changes: JanitorLandedChange[]
   more: boolean
 }
@@ -4134,6 +4141,7 @@ export type PackPolicy = {
 }
 
 export type ServiceSpec = {
+  line?: string
   name: string
   image: string
   env: Record<string, string>
@@ -4254,6 +4262,7 @@ export type Lifecycle = {
 }
 
 export type Finding = {
+  needs?: string[]
   scanPoint?: string
   fingerprint: string
   kind: string
@@ -4527,6 +4536,7 @@ export type workflowSummary = {
 }
 
 export type BundleOrigin = {
+  needs?: Record<string, string>
   rebuiltFrom?: number
   changeId?: string | null
   runId?: string | null
@@ -4587,6 +4597,12 @@ export type ReleaseBundleView = {
   platform?: string
   parts: Record<string, string>
   init: Record<string, string>
+}
+
+export type NeedMove = {
+  need: string
+  from: string
+  to: string
 }
 
 export type ReleaseApproval = {

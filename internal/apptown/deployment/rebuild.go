@@ -40,6 +40,7 @@ type RebuildPlan struct {
 	// images were built from: a rebuild from source builds with it again,
 	// never with a newer reading (BundleOrigin.StaticServer).
 	staticServer string
+	needs        map[string]string
 }
 
 // prepareRebuild decides whether a standing deployment's serving attempt,
@@ -104,6 +105,7 @@ func (s *Service) prepareRebuild(ctx context.Context, dep *Deployment, serving i
 	}
 	if b != nil {
 		plan.staticServer = b.BuiltFrom.StaticServer
+		plan.needs = b.BuiltFrom.Needs
 	}
 	if s.hosts.settings.NoLocalDocker || (b != nil && b.ByDigest()) {
 		if err := s.providers.RefusesBundle(ctx, b, t); err != nil {
@@ -195,6 +197,7 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 	if art.Source != nil {
 		source := *art.Source
 		source.Contract = inputs.Applied.On(source.Contract)
+		source.Needs = plan.needs
 		// Built from source, its static parts are built with the server
 		// the release was built with. A release from before the bundle
 		// recorded one, of a contract that pins none, cannot say which: it

@@ -38,7 +38,8 @@ func AuthorisedWhenRequested(context.Context) error { return nil }
 // BootRequest names what a boot is for. Everything the sequence needs beyond
 // the contract itself.
 type BootRequest struct {
-	stopped bool // Prepare application containers without starting them.
+	needImages map[string]string
+	stopped    bool // Prepare application containers without starting them.
 	// Allowed is required: a current permission check repeated before effects,
 	// or AuthorisedWhenRequested for an owner that authorizes at request time.
 	Allowed func(context.Context) error
@@ -422,7 +423,17 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{storage: t.storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.owned, persistent: t.persistent}
+	for i := range rs.Services {
+		if image := t.needImages[rs.Services[i].Name]; image != "" {
+			rs.Services[i].Image = image
+		}
+	}
+	for i := range rs.Needs {
+		if image := t.needImages[rs.Needs[i].Name]; image != "" {
+			rs.Needs[i].Image = image
+		}
+	}
+	t.own = Ownership{log: t.log, storage: t.storage, restoreStorage: t.restoreStorage, Record: t.Record, Needs: map[string]string{}, priorResources: t.owned, persistent: t.persistent}
 	if t.persistent {
 		t.own.info = dockerlabel.Informational(t.Slug, t.Deployment)
 	} else {

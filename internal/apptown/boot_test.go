@@ -35,6 +35,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/imageline"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -375,6 +376,11 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 		t.Fatal(err)
 	}
 	local := kind.ResolveLocal(nil, "", nil)
+	reading, err := a.imageLines.Answer(t.Context(), local.Image, imageline.Line)
+	if err != nil {
+		t.Fatal(err)
+	}
+	local.Image = reading.Image()
 	f.markStartedAs(pg, local.Spec())
 	// The previous engine actually has its declared data volume and mount.
 	volume := names.NeedVolume("postgres")
@@ -409,7 +415,7 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 
 func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	t.Parallel()
-	a, f := bootWorld(t)
+	a, f := bootWorld(t, Config{ImageResolver: &releaseNeedReadings{tag: "16.16", digest: "b"}})
 	runID, stepID := deployRun(t, a)
 	run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
 	if err != nil {
@@ -423,6 +429,10 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	env, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
 	if err != nil || env.ObservedGeneration != 1 {
 		t.Fatalf("initial deployment generation: %+v %v", env, err)
+	}
+	bundle, err := a.Deployment.Bundles.OfRun(t.Context(), env.ProjectID, runID)
+	if err != nil || bundle == nil || bundle.BuiltFrom.Needs["postgres"] != "postgres:16.16-alpine@sha256:"+strings.Repeat("b", 64) {
+		t.Fatalf("recorded need: %+v %v", bundle, err)
 	}
 	reservedPort := env.HostPort
 	f.reset()

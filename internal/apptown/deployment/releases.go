@@ -25,9 +25,17 @@ import (
 // ledger's read side and the startup repair of releases nobody owns.
 
 // Release is one row of the release ledger.
+// NeedMove names an engine given the volume during this release, even if health failed.
+type NeedMove struct {
+	Need string `json:"need"`
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
 type Release struct {
-	RebuiltFrom   int64  `json:"rebuiltFrom,omitempty"`
-	RebuiltCommit string `json:"rebuiltCommit,omitempty"`
+	NeedMoves     []NeedMove `json:"needMoves"`
+	RebuiltFrom   int64      `json:"rebuiltFrom,omitempty"`
+	RebuiltCommit string     `json:"rebuiltCommit,omitempty"`
 	// LastStage is historical when recovery cannot confirm current execution.
 	LastStage            deploy.DeployStage `json:"lastStage,omitempty"`
 	InterruptedByRestart bool               `json:"interruptedByRestart,omitempty"`
@@ -142,6 +150,9 @@ func (s *Releases) record(r deploymentsql.Release, err error) (*Release, error) 
 		Generation:       r.Generation,
 		ArtifactHash:     r.ArtifactHash,
 		Origin:           r.Origin,
+	}
+	if err := json.Unmarshal(r.NeedMoves, &v.NeedMoves); err != nil {
+		return nil, err
 	}
 	if r.Stage != "" {
 		v.Stage, err = deploy.ParseDeployStage(r.Stage)

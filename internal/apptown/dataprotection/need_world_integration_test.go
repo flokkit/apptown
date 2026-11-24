@@ -11,6 +11,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -25,7 +27,7 @@ import (
 // It returns the need's container per deployment; everything it makes is
 // removed when the test ends. The need's image is pulled first, so a stock
 // image no registry serves fails here and not only on a fresh host.
-func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
+func needWorld(t *testing.T, need string, images ...string) (*both, ids.ID, map[string]string) {
 	t.Helper()
 	db := testDB(t)
 	slug := fmt.Sprintf("it%s%d", need, os.Getpid())
@@ -40,7 +42,10 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 		t.Fatal(err)
 	}
 	dk := docker.Scope{Client: docker.CLI{Binary: "docker"}}
-	s := assembled(db, testRuntime{Scope: dk, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: stock.Images().Sh, BuiltInTarget: "local"}, deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+	vault := secret.NewService(db, secret.Config{DataDir: dir})
+	projects := project.New(db, nil)
+	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: vault, Kinds: catalog})
+	s := assembled(db, testRuntime{Projects: projects, Integrations: integrations, Scope: dk, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: stock.Images().Sh, BuiltInTarget: "local"}, deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
@@ -85,6 +90,9 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 		services, _, err := dependency.LocalRuntime{Catalog: catalog, Credentials: s.Service.env.NeedCredentials(deployment.NeedSecretsScope(dep.ID))}.Fulfil(t.Context(), []string{need}, nil)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(images) > 0 {
+			services[0].Image = images[0]
 		}
 		owner := s.Deployments.OwnerOf(dep)
 		own := docker.Ownership{Record: func(o deploy.Owned) error { return owner.Created(context.Background(), o) }, Needs: map[string]string{need: kind.Local.Data}}

@@ -26,6 +26,7 @@ import (
 // Needs names the need services and where each keeps its data ("" keeps
 // none).
 type Ownership struct {
+	log deploy.Logf
 	// storage records engine identity separately from deletion ownership.
 	storage        deploy.StorageBindings
 	restoreStorage deploy.StorageRestore

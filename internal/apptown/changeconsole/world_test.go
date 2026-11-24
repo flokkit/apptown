@@ -327,3 +327,8 @@ func eventually(t *testing.T, what string, cond func() bool) {
 func newDockerFake() *dockerfake.Daemon {
 	return dockerfake.New()
 }
+
+func (r serverReading) Cached(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	a, e := r.Answer(ctx, ref, scope)
+	return a, e == nil, e
+}

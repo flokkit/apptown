@@ -111,13 +111,20 @@ func (a Rebuilds) request(task *workflow.Execution) ([]rebuiltDeployment, string
 			continue
 		}
 		follows = true
-		if len(row.Images) == 0 {
+		behind, err := a.Deployment.NeedsBehind(ctx, dep)
+		if err != nil {
+			return results, "", err
+		}
+		if len(row.Images) == 0 && len(behind) == 0 {
 			reason = row.Reason
 			continue
 		}
 		due := []check.Finding{}
 		seen := map[string]bool{}
 		for part, digest := range row.Images {
+			if strings.HasPrefix(part, "need/") {
+				continue
+			}
 			// Receipts are newest first. One current observation per scanner and part.
 			scanners := map[string]bool{}
 			for _, o := range observations {
@@ -146,7 +153,7 @@ func (a Rebuilds) request(task *workflow.Execution) ([]rebuiltDeployment, string
 				}
 			}
 		}
-		if len(due) == 0 {
+		if len(due) == 0 && len(behind) == 0 {
 			continue
 		}
 		slices.SortFunc(due, func(a, b check.Finding) int { return cmp.Compare(a.Fingerprint, b.Fingerprint) })
@@ -154,7 +161,13 @@ func (a Rebuilds) request(task *workflow.Execution) ([]rebuiltDeployment, string
 		for _, f := range due {
 			fingerprints = append(fingerprints, f.Fingerprint)
 		}
-		why := "the running scan found findings absent from the image's usable build-time scan: " + strings.Join(fingerprints, ", ")
+		why := strings.Join(behind, "; ")
+		if len(fingerprints) > 0 {
+			if why != "" {
+				why += "; "
+			}
+			why += "the running scan found findings absent from the image's usable build-time scan: " + strings.Join(fingerprints, ", ")
+		}
 		release, err := a.Deployment.RequestRebuild(ctx, run.ProjectID, dep.Name, why)
 		if errors.Is(err, deployment.ErrRebuildNotApplicable) {
 			reason = err.Error()
@@ -177,7 +190,7 @@ func (a Rebuilds) request(task *workflow.Execution) ([]rebuiltDeployment, string
 // the newest usable bundle receipt of this digest and scanner. Errors cannot
 // establish a clean baseline; unknown permits a fresh build.
 func rebuildFindings(running conformance.ScanObservation, observations []conformance.ScanObservation, ds []conformance.Disposition, failOn string) []check.Finding {
-	if running.Verdict != workflow.StatusFail.String() {
+	if strings.HasPrefix(running.Subject.Part, "need/") || running.Verdict != workflow.StatusFail.String() {
 		return nil
 	}
 	var baseline *conformance.ScanObservation

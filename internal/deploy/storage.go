@@ -25,6 +25,8 @@ type StorageBinding struct {
 type StorageBindings interface {
 	Get(context.Context, string, string) (StorageBinding, bool, error)
 	Establish(context.Context, StorageBinding) error
+	// Move replaces the witnessed engine on the same volume before its first start.
+	Move(context.Context, StorageBinding, StorageBinding) error
 	Retire(context.Context, string, string) error
 }
 

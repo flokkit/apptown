@@ -92,3 +92,8 @@ func TestAPinIsKeptAndAFailedReadingIsRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func (r *staticReadings) Cached(ctx context.Context, ref string, scope imageline.Scope) (Reading, bool, error) {
+	a, e := r.Answer(ctx, ref, scope)
+	return a, e == nil, e
+}

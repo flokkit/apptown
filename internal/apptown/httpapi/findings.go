@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/imageline"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -127,6 +129,36 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 		findings = append(findings, fs...)
 		sources = append(sources, FindingSource{Binding: x.Name, RunID: x.RunID, RunNumber: source.RunNumber, ChangeID: source.ChangeID, ChangeNumber: source.ChangeNumber, At: x.CreatedAt, Findings: len(fs), Unreadable: unreadable})
 	}
+	scans, err := h.work.LatestMainScans(r.Context(), p.ID, 0)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	// Coverage includes current needs with no observation to render. Retain the
+	// owner's unknown reason alongside the reports instead of treating absence as success.
+	coverageUnknown := !scans.Known && !scans.NoRepository
+	if coverageUnknown {
+		sources = append(sources, FindingSource{Binding: "Current software", Unreadable: scans.Reason})
+	}
+	for _, scan := range scans.Running {
+		if !strings.HasPrefix(scan.Subject.Part, "need/") {
+			continue
+		}
+		label := strings.TrimPrefix(scan.Subject.Part, "need/")
+		image, err := imageline.Parse(scan.Subject.Digest, imageline.Line)
+		if err == nil && strings.Contains(image.Prefix, ".") {
+			label += " " + image.Prefix
+		}
+		for _, f := range scan.Findings {
+			f.Needs = []string{label}
+			findings = append(findings, f)
+		}
+		unread := ""
+		if scan.Verdict == workflow.StatusError.String() {
+			unread = scan.Reason
+		}
+		sources = append(sources, FindingSource{Binding: scan.Scanner + " · " + label, RunID: scan.RunID, At: scan.ObservedAt.Format(time.RFC3339Nano), Findings: len(scan.Findings), Unreadable: unread})
+	}
 	active, err := h.conformance.Dispositions(r.Context(), p.ID, true)
 	if err != nil {
 		WriteFault(w, err)
@@ -150,9 +182,12 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.Reverse(dispositions)
 
-	// Staleness: has the default branch moved since the newest contributing
-	// scan? (Approximate — compares commit time to scan time.)
+	// Retain scan freshness and whether the default branch moved since the
+	// newest contributing source scan (approximately, by commit time).
 	repoState := FindingsRepoState{}
+	if scans.Stale {
+		repoState.Stale = &scans.Stale
+	}
 	if p.DefaultBranch != "" {
 		dir, err := p.Repository(h.dataDir)
 		if err != nil {
@@ -190,11 +225,11 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 				rootID = source.RootRunID // scans often live on a child; the merge names the root
 			}
 			ownMerge := strings.Contains(subject, fmt.Sprintf("run %d", rootID))
-			stale := latestScan != "" && strings.TrimSpace(when) > latestScan && !ownMerge
+			stale := scans.Stale || latestScan != "" && strings.TrimSpace(when) > latestScan && !ownMerge
 			repoState.Stale = &stale
 		}
 	}
-	unread := false
+	unread := coverageUnknown
 	for _, source := range sources {
 		unread = unread || source.Unreadable != ""
 	}
@@ -334,7 +369,8 @@ type UnreadReport struct {
 	Reason string `json:"reason"`
 }
 
-// FindingSource is one scanner report that contributed to a posture.
+// FindingSource is a contributing scanner report or an unreadable coverage
+// reason when current software cannot be assessed.
 // ChangeID is the change the report's run worked on (none for a run without
 // one); RunNumber and ChangeNumber name them within the project (0: none). Unreadable, when set, says why the report could not be read: its
 // findings are unknown, not zero.

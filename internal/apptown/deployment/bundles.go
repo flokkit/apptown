@@ -44,10 +44,11 @@ type ReleaseBundle struct {
 }
 
 type BundleOrigin struct {
-	RebuiltFrom int64  `json:"rebuiltFrom,omitempty"`
-	ChangeID    ids.ID `json:"changeId,omitzero"`
-	RunID       ids.ID `json:"runId,omitzero"`
-	Tree        string `json:"tree"`
+	Needs       map[string]string `json:"needs,omitempty"`
+	RebuiltFrom int64             `json:"rebuiltFrom,omitempty"`
+	ChangeID    ids.ID            `json:"changeId,omitzero"`
+	RunID       ids.ID            `json:"runId,omitzero"`
+	Tree        string            `json:"tree"`
 	// TargetID is the target whose daemon the image IDs were read from:
 	// they exist there and nowhere else. 0 for a digest bundle, and for a
 	// bundle that names no host, which no-local-Docker mode refuses to

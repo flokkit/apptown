@@ -17,7 +17,7 @@ import { ReleaseApprovalActions } from './ReleaseApproval'
 import type { ReleaseChoice } from './ChooseRelease'
 import { useBackUp } from './DeploymentMenu'
 import { notDeployedWords } from './DeploymentDeploys'
-import { containerPath, containerRows, ContainersTable, ContainerStatus, nearLimit } from './DeploymentContainers'
+import { containerLabel, containerPath, containerRows, ContainersTable, ContainerStatus, nearLimit } from './DeploymentContainers'
 import { HoldLine, NextStep } from './settings/Diagnostics'
 import { DeploymentLine } from './settings/DeploymentLine'
 import { AIModelsLine, backupProblem, RestoreLines, ServingRelease, timesWords } from './settings/Deployments'
@@ -149,7 +149,7 @@ export function DeploymentStatus({ slug, env, refreshFailed, releases, current, 
           checking].filter(Boolean).join(' · ')}</span></>} />
 
   const narrowContainers = containers && containers.rows.length > 0
-    ? <DeploymentLine label={containers.noContainers ? 'Website' : 'Containers'}><span className="deployment-container-links">{containers.rows.map((c, i) => <span key={c.part}>{i > 0 && ' · '}<Link to={containerPath(slug, env.name, c.part)}>{c.label}</Link></span>)}</span></DeploymentLine>
+    ? <DeploymentLine label={containers.noContainers ? 'Website' : 'Containers'}><span className="deployment-container-links">{containers.rows.map((c, i) => <span key={c.part}>{i > 0 && ' · '}<Link to={containerPath(slug, env.name, c.part)}>{containerLabel(c)}</Link></span>)}</span></DeploymentLine>
     : null
   const newest = newestCopy(protection.data)
   const factLines = <>

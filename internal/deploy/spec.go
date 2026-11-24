@@ -6,6 +6,8 @@ import "github.com/flokkit/apptown/internal/deploy/appcontract"
 // need's emulator, a service a contract declares: started on the step's
 // network before the step runs, reachable by Name, torn down after.
 type ServiceSpec struct {
+	// Line bounds catalogue-authorized engine moves. Empty means no movement.
+	Line  string            `json:"line,omitempty"`
 	Name  string            `json:"name"`
 	Image string            `json:"image"`
 	Env   map[string]string `json:"env"`
@@ -23,9 +25,9 @@ type ServiceSpec struct {
 	// lifted size limit is.
 	ConfigAtStart bool `json:"configAtStart,omitempty"`
 	// KeepsImage says the service's data is in its image's own format: a
-	// standing one whose image moved is not remade under ConfigAtStart but
-	// refused unless its data is synthetic, as any data service is. A
-	// Postgres of another major version cannot read the old files.
+	// standing engine changes only within its declared Line. Without a line,
+	// a changed image is refused. A new engine is bound before it starts so
+	// a later reconcile cannot start older binaries on files it may have written.
 	KeepsImage bool `json:"keepsImage,omitempty"`
 	// Health is a shell healthcheck command (exit 0 = healthy). When set, the
 	// runtime applies it as docker --health-cmd and can gate startup on it.

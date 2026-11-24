@@ -174,6 +174,27 @@ attempt-bound runtime bundle, or a successful clean-tree build when no runtime
 is declared. A declared runtime without a bundle fails the build. Both worker
 and Docker-host builds use this contract.
 
+For Docker-host Postgres, each build reads the newest unpinned catalogue line
+beside the static-server reading and records the exact need references in
+`BundleOrigin.Needs`. Promotion and repair carry that record. An exact declared
+version remains a pin. Portainer, provider-managed needs and disposable servers
+keep their existing image selection.
+
+A release takes its data copy before reconciliation. Docker's storage binding
+admits only the same repository, variant and numeric line, retains a known newer
+engine when an older bundle is selected, and records a newer engine before its
+first start on the volume. A health failure leaves that newer engine bound and
+the release failed. The release records the net binding moves even on failure;
+Maintenance lists only successful refreshes. Restoring earlier data and code
+retains the newer engine. A need-only move offers no paired rollback in History.
+
+The Janitor's rebuild step compares unpinned bound needs with registry readings
+and requests the existing refresh release when behind. Protected deployments,
+routine-update consent and release windows apply. Container availability uses
+only cached readings. Running-image scans include bound need digests, including
+when the app's own image is unknown; need findings appear in Security but do not
+request app rebuilds or repository repairs.
+
 Completion records the landing and durable follow-up intent atomically. After
 that transaction commits, Deployment creates one queued release request per
 follows-main deployment for exactly that run’s bundle. A no-runtime landing

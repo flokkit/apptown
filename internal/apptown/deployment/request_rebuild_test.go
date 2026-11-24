@@ -7,7 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/imageline"
 )
 
 type recordedRebuilder struct {
@@ -124,4 +128,98 @@ func TestRequestRebuildHonoursRoutinePersonAndWindowSettings(t *testing.T) {
 			}
 		})
 	}
+}
+
+type needLineReadings struct{ tag, digest string }
+
+func (r needLineReadings) Answer(context.Context, string, imageline.Scope) (imagelines.Reading, error) {
+	return imagelines.Reading{Answer: imageline.Answer{Tag: r.tag, Digest: r.digest}}, nil
+}
+func (r needLineReadings) Digest(context.Context, string) (string, error) { return r.digest, nil }
+func (r needLineReadings) Cached(ctx context.Context, line string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	a, e := r.Answer(ctx, line, scope)
+	return a, true, e
+}
+func TestNeedLineAvailabilityUsesTheServingDeclarationAndForwardVersion(t *testing.T) {
+	for _, scenario := range []string{"behind", "protected", "pin", "current", "older", "floating"} {
+		t.Run(scenario, func(t *testing.T) {
+			w, dep, _, first := janitorReleaseWorld(t)
+			// The source owner supplies the serving commit's declaration.
+			sources := w.s.release.Sources
+			version := "16"
+			if scenario == "pin" {
+				version = "16.15"
+			}
+			w.s.release.Sources = needReleaseSources{ReleaseSources: sources, version: version}
+			bound := "postgres:16.15-alpine"
+			if scenario == "floating" {
+				bound = "postgres:16-alpine"
+			}
+			digest := "sha256:" + strings.Repeat("a", 64)
+			reading := needLineReadings{tag: "postgres:16.16-alpine", digest: "sha256:" + strings.Repeat("b", 64)}
+			if scenario == "current" {
+				reading.digest = digest
+			}
+			if scenario == "older" {
+				reading.tag = "postgres:16.14-alpine"
+			}
+			w.s.env.images = reading
+			if err := w.s.Deployments.StorageOf(dep).Establish(t.Context(), deploy.StorageBinding{Need: "postgres", Volume: "pg", DataPath: "/data", DeclaredImage: bound, ImageID: "local", RepoDigest: "postgres@" + digest, VolumeCreated: time.Now(), VolumeDriver: "local", Origin: "observed"}); err != nil {
+				t.Fatal(err)
+			}
+			reasons, err := w.s.NeedsBehind(t.Context(), dep)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cached, err := w.s.cachedNeedUpdates(t.Context(), dep)
+			if err != nil {
+				t.Fatal(err)
+			}
+			due := scenario == "behind" || scenario == "protected" || scenario == "floating"
+			if (len(reasons) > 0) != due || (len(cached) > 0) != due {
+				t.Fatalf("availability: %v %v", reasons, cached)
+			}
+			if !due {
+				return
+			}
+			if scenario == "protected" {
+				if _, err := w.s.SetProtected(t.Context(), w.project, dep.Name, ProtectedSettings{Protected: true, Was: false}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			w.s.imageRebuilder = &recordedRebuilder{}
+			rel, err := w.s.RequestRebuild(t.Context(), w.project, dep.Name, strings.Join(reasons, "; "))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := w.s.Releases.ByID(t.Context(), rel.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := Releasing
+			if scenario == "protected" {
+				expected = releaseWaiting
+			}
+			if got.State != expected || got.CommitSHA != first.CommitSHA {
+				t.Fatalf("refresh: %+v", got)
+			}
+		})
+	}
+}
+
+type needReleaseSources struct {
+	ReleaseSources
+	version string
+}
+
+func (s needReleaseSources) Contract(ctx context.Context, p ReleaseProject, revision string) (*appcontract.Contract, string, error) {
+	c, rev, e := s.ReleaseSources.Contract(ctx, p, revision)
+	if e != nil {
+		return c, rev, e
+	}
+	copy := *c
+	copy.Needs = append([]string(nil), c.Needs...)
+	copy.Needs = append(copy.Needs, "postgres")
+	copy.NeedParams = map[string]map[string]string{"postgres": {"version": s.version}}
+	return &copy, rev, nil
 }

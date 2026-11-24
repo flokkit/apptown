@@ -64,6 +64,7 @@ function DeparturesBoard() {
 function ReleaseCarries({ d }: { d: Departure }) {
   const changes = d.changes ?? []
   const latest = changes[changes.length - 1]
+  if (!latest && d.needMoves?.length) return <span>{d.needMoves.map(m => `${m.need} ${m.from ? `${m.from} → ` : ''}${m.to}`).join(', ')}</span>
   if (!latest) return <span className="muted">No new changes</span>
   return <span className="releases-carries">
     <Link className="releases-latest" to={`/changes/${latest.id}`} title={`#${latest.number} ${latest.title}`}>#{latest.number} {latest.title}</Link>

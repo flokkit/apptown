@@ -144,3 +144,8 @@ func TestSeedPinsOnlyExternalFromInstructions(t *testing.T) {
 func (r seedResolver) Digest(context.Context, string) (string, error) {
 	return "sha256:" + strings.Repeat("a", 64), nil
 }
+
+func (r seedResolver) Cached(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	a, e := r.Answer(ctx, ref, scope)
+	return a, e == nil, e
+}

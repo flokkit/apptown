@@ -760,3 +760,8 @@ func TestRoutineImageRefusalIsAnUnknownCheck(t *testing.T) {
 func (r testImageReadings) Digest(context.Context, string) (string, error) {
 	return r.answer.Digest, r.err
 }
+
+func (r testImageReadings) Cached(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	a, e := r.Answer(ctx, ref, scope)
+	return a, e == nil, e
+}

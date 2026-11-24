@@ -122,7 +122,7 @@ func policyLibraryUpgradeFixture(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate the schema before the hub registry and rebuilds.
-	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP INDEX integrations_one_hub; ALTER TABLE project_integrations DROP CONSTRAINT no_project_registry; ALTER TABLE runs DROP COLUMN source_commit, DROP COLUMN rebuild_release_id, DROP COLUMN rebuild_from; ALTER TABLE release_requests DROP COLUMN rebuild_pending; ALTER TABLE releases DROP COLUMN rebuilt_from, DROP COLUMN rebuilt_commit`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(t.Context(), `DROP INDEX integrations_one_hub; ALTER TABLE project_integrations DROP CONSTRAINT no_project_registry; ALTER TABLE runs DROP COLUMN source_commit, DROP COLUMN rebuild_release_id, DROP COLUMN rebuild_from; ALTER TABLE release_requests DROP COLUMN rebuild_pending; ALTER TABLE releases DROP COLUMN need_moves, DROP COLUMN rebuilt_from, DROP COLUMN rebuilt_commit`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: recreate the schema before automated summaries and

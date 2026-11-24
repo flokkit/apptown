@@ -65,6 +65,7 @@ const (
 // starts: the commit, the repository holding it
 // and the tree staged from it, and the contract read from that tree.
 type releaseTarget struct {
+	needs      map[string]string
 	repository string
 	commit     string
 	tree       string
@@ -122,7 +123,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 		return nil, false
 	}
 	build := deployment.BundleBuild{Worker: runner.backend(), Role: "agent", Profile: profile}
-	publication := deployment.ReleasePublication{RebuiltFrom: run.RebuildFrom, By: task, ChangeID: run.ChangeID, Tree: in.commit, Contract: in.raw, Plan: plan, Platform: platform, Build: build}
+	publication := deployment.ReleasePublication{Needs: in.needs, RebuiltFrom: run.RebuildFrom, By: task, ChangeID: run.ChangeID, Tree: in.commit, Contract: in.raw, Plan: plan, Platform: platform, Build: build}
 	publication.Log = logf
 	if len(images) == 0 {
 		// Every image is declared by reference: nothing to build, only

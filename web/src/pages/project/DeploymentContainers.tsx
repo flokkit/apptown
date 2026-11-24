@@ -25,7 +25,19 @@ import './deployment-containers.css'
 // containers (a bucket website, diagnostics' noContainers) has no image,
 // CPU, memory or start time: its parts say whether its address serves.
 
-export type ContainerRow = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory; state: ContainerState }
+export type ContainerRow = { part: string; label: string; role?: string; diag?: DeploymentDiagnostics['parts'][number]; use?: PartMemory; state: ContainerState; available?: string }
+
+// containerBuild is a need's running version and the newer build on its
+// line, after the name: " 16.15 · 16.16 available". The table sets it apart
+// from the bold name; containerLabel is the phone's Containers line.
+export function containerBuild(r: ContainerRow) {
+  const image = r.use?.image || ''
+  const tag = image.split('@')[0].split('/').at(-1)?.split(':')[1] || ''
+  const version = (r.diag?.need || r.use?.need) ? tag.match(/^\d+(?:\.\d+)+/)?.[0] : undefined
+  return `${version ? ` ${version}` : ''}${r.available ? ` · ${r.available} available` : ''}`
+}
+
+export const containerLabel = (r: ContainerRow) => r.label + containerBuild(r)
 
 // containerPath is a part's own page; the app's unnamed part is "app", as
 // the rows label it.
@@ -77,6 +89,7 @@ export function containerRows(resources: Read<DeploymentResources>, diagnostics:
     if (p.suppliedService) continue
     const r = add(p.part)
     r.use = p.observed
+    r.available = p.available
     r.role ??= p.need ? 'service' : p.public && p.part ? 'front door' : undefined
   }
   for (const r of rows) r.state = containerState(r.diag, { stopped, unknown: diagUnknown })
@@ -96,7 +109,7 @@ export function Gauge({ used, limit, format, what, kind }: { used: number; limit
   </span>
 }
 
-export function ContainerStatus({ state }: { state: ContainerState }) {
+export function ContainerStatus({ state }: { state: ContainerState; available?: string }) {
   return <Status observation word={state.word} reason={state.word === 'failed' && state.trouble ? state.trouble : undefined} help={state.help} />
 }
 
@@ -106,7 +119,7 @@ export function ContainerStatus({ state }: { state: ContainerState }) {
 export function ContainersTable({ slug, env, rows, usage, noContainers }: { slug: string; env: DeploymentView } & ReturnType<typeof containerRows>) {
   const need = (r: ContainerRow) => r.diag?.need || r.use?.need ? env.needs?.find(n => n.need === r.part) : undefined
   const columns: ListColumn<ContainerRow>[] = [
-    { key: 'name', label: noContainers ? 'Website' : 'Container', phone: 'name', render: r => <Link to={containerPath(slug, env.name, r.part)}><strong>{r.label}</strong></Link> },
+    { key: 'name', label: noContainers ? 'Website' : 'Container', phone: 'name', render: r => <Link to={containerPath(slug, env.name, r.part)}><strong>{r.label}</strong>{containerBuild(r) && <span className="container-build">{containerBuild(r)}</span>}</Link> },
     { key: 'status', label: 'Status', phone: 'state', render: r => <ContainerStatus state={r.state} /> },
     ...noContainers ? [] : [{ key: 'memory', label: 'Memory', render: (r: ContainerRow) => {
       const n = need(r)

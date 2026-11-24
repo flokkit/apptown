@@ -188,6 +188,7 @@ func (s *Service) tagRelease(ctx context.Context, number int64, b *ReleaseBundle
 
 // ReleasePublication is a release the worker built, to publish and commit.
 type ReleasePublication struct {
+	Needs       map[string]string `json:"needs,omitempty"`
 	RebuiltFrom int64
 	// Log reports phase entry only; image names, never credentials or image contents.
 	Log deploy.Logf
@@ -269,7 +270,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 	if in.Log != nil {
 		in.Log("Recording the published release bundle")
 	}
-	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{RebuiltFrom: in.RebuiltFrom, ChangeID: in.ChangeID, RunID: runID,
+	id, err := s.Bundles.Cut(ctx, projectID, in.Tree, parts, init, in.Contract, BundleOrigin{Needs: in.Needs, RebuiltFrom: in.RebuiltFrom, ChangeID: in.ChangeID, RunID: runID,
 		Registry: registry, Platform: in.Platform, Build: in.Build, StaticServer: in.Plan.StaticServer, By: in.By})
 	if err != nil {
 		return nil, fmt.Errorf("committing the release bundle: %w", err)

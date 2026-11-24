@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/imageline"
 )
 
 // inspectStorage decodes one daemon observation. A successful CLI command with
@@ -106,11 +107,15 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 		return "", err
 	}
 	if there {
+		observedSpec := svc
+		if found {
+			observedSpec.Image = binding.DeclaredImage
+		}
 		var current *deploy.StorageBinding
 		if found {
 			current = &binding
 		}
-		observed, err := observeExistingStorage(ctx, dk, stackID, path, svc, current)
+		observed, err := observeExistingStorage(ctx, dk, stackID, path, observedSpec, current)
 		if err != nil {
 			return "", err
 		}
@@ -118,21 +123,47 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 			if err := own.storage.Establish(ctx, observed); err != nil {
 				return "", err
 			}
+			binding, found = observed, true
 		}
-		return observed.ImageID, nil
 	}
 	if found && own.restoreStorage == nil {
-		if !sameDataPath(binding.DataPath, path) || binding.DeclaredImage != svc.Image || !binding.VolumeCreated.Equal(created) || binding.VolumeDriver != driver {
+		if !sameDataPath(binding.DataPath, path) || !binding.VolumeCreated.Equal(created) || binding.VolumeDriver != driver {
 			return "", fmt.Errorf("the %s service's engine declaration or volume incarnation differs from its storage binding", svc.Name)
 		}
-		id, _, err := imageEvidence(ctx, dk, binding.ImageID)
-		if err != nil {
-			return "", fmt.Errorf("the %s service's bound engine is unavailable: %w", svc.Name, err)
+		if binding.DeclaredImage != svc.Image {
+			line, le := imageline.Parse(svc.Line, imageline.Line)
+			old, oe := imageline.Parse(binding.DeclaredImage, imageline.Line)
+			next, ne := imageline.Parse(svc.Image, imageline.Line)
+			onLine := func(ref string) bool { return imageline.Allows(svc.Line, ref, svc.Line, imageline.Line) == nil }
+			if svc.Line == "" || le != nil || oe != nil || ne != nil || old.Repository.Name() != line.Repository.Name() || next.Repository.Name() != line.Repository.Name() || old.Variant != line.Variant || next.Variant != line.Variant || !onLine(binding.DeclaredImage) || !onLine(svc.Image) {
+				return "", fmt.Errorf("the %s engine declaration %s differs from its storage binding %s outside line %s", svc.Name, svc.Image, binding.DeclaredImage, svc.Line)
+			}
+			if imageline.Allows(binding.DeclaredImage, svc.Image, svc.Line, imageline.Line) != nil {
+				if own.log != nil {
+					own.log("%s stays on %s; this release names %s", svc.Name, old.Prefix, next.Prefix)
+				}
+			} else {
+				id, digest, err := resolveNewEngine(ctx, dk, svc.Image)
+				if err != nil {
+					return "", err
+				}
+				if there {
+					if _, err := dk.Run(ctx, "stop", cname); err != nil {
+						return "", err
+					}
+					if err := dk.Remove(ctx, cname); err != nil {
+						return "", err
+					}
+				}
+				moved := binding
+				moved.DeclaredImage, moved.ImageID, moved.RepoDigest = svc.Image, id, digest
+				if err := own.storage.Move(ctx, binding, moved); err != nil {
+					return "", err
+				}
+				binding = moved
+			}
 		}
-		if id != binding.ImageID {
-			return "", fmt.Errorf("the %s service's bound image identity differs", svc.Name)
-		}
-		return binding.ImageID, nil
+		return boundEngine(ctx, dk, binding)
 	}
 	if exists {
 		return "", fmt.Errorf("the %s service has retained data without witnessed engine evidence", svc.Name)
@@ -148,12 +179,12 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 		if err := own.restoreStorage.Restore(ctx, source, binding); err != nil {
 			return "", err
 		}
-		return id, nil
+		return boundEngine(ctx, dk, binding)
 	}
 	if err := own.storage.Establish(ctx, binding); err != nil {
 		return "", err
 	}
-	return id, nil
+	return boundEngine(ctx, dk, binding)
 }
 
 func restoreEngine(ctx context.Context, dk Scope, svc deploy.ServiceSpec, path string, source *deploy.StorageBinding, restore deploy.StorageRestore) (string, string, error) {
@@ -264,4 +295,20 @@ func observeExistingStorage(ctx context.Context, dk Scope, stackID, path string,
 
 func sameDataPath(a, b string) bool {
 	return a != "" && b != "" && strings.TrimRight(a, "/") == strings.TrimRight(b, "/")
+}
+
+// boundEngine confirms the recorded local identity before creating by its named reference.
+func boundEngine(ctx context.Context, dk Scope, b deploy.StorageBinding) (string, error) {
+	ref := b.DeclaredImage
+	if _, digest, ok := strings.Cut(b.RepoDigest, "@"); ok && !strings.Contains(ref, "@") {
+		ref += "@" + digest
+	}
+	id, _, err := imageEvidence(ctx, dk, ref)
+	if err != nil {
+		return "", fmt.Errorf("the %s service's bound engine is unavailable: %w", b.Need, err)
+	}
+	if id != b.ImageID {
+		return "", fmt.Errorf("the %s service's bound image identity differs", b.Need)
+	}
+	return ref, nil
 }

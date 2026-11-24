@@ -47,3 +47,11 @@ func TestRebuildsOnlyRequestFindingsAbsentFromAUsableBundleScan(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNeedImageFindingsNeverRequestAnAppRebuild(t *testing.T) {
+	t.Parallel()
+	running := conformance.ScanObservation{Subject: conformance.ScanSubject{On: "running", Part: "need/postgres"}, Verdict: "fail", Findings: []conformance.Finding{{Finding: check.Finding{Fingerprint: "F", Severity: "high"}}}}
+	if got := rebuildFindings(running, nil, nil, "high"); len(got) != 0 {
+		t.Fatalf("need findings requested an app rebuild: %v", got)
+	}
+}

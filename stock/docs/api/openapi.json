@@ -3527,6 +3527,12 @@
               }
             ]
           },
+          "needs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "package": {
             "anyOf": [
               {
@@ -3800,28 +3806,10 @@
         ],
         "type": "object"
       },
-      "JanitorHistory": {
-        "properties": {
-          "changes": {
-            "items": {
-              "$ref": "#/components/schemas/janitorLandedChange"
-            },
-            "type": "array"
-          },
-          "more": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "changes",
-          "more"
-        ],
-        "type": "object"
-      },
       "JanitorHistoryView": {
         "properties": {
           "history": {
-            "$ref": "#/components/schemas/JanitorHistory"
+            "$ref": "#/components/schemas/janitorHistory"
           },
           "since": {
             "format": "date-time",
@@ -4481,6 +4469,25 @@
           "fromLine",
           "allowed",
           "why"
+        ],
+        "type": "object"
+      },
+      "NeedMove": {
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "need": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "need",
+          "from",
+          "to"
         ],
         "type": "object"
       },
@@ -6009,6 +6016,12 @@
           "lastStage": {
             "$ref": "#/components/schemas/DeployStage"
           },
+          "needMoves": {
+            "items": {
+              "$ref": "#/components/schemas/NeedMove"
+            },
+            "type": "array"
+          },
           "notes": {
             "type": "string"
           },
@@ -6102,6 +6115,7 @@
           }
         },
         "required": [
+          "needMoves",
           "approvalRole",
           "id",
           "projectId",
@@ -7447,6 +7461,9 @@
           "keepsImage": {
             "type": "boolean"
           },
+          "line": {
+            "type": "string"
+          },
           "name": {
             "type": "string"
           },
@@ -8484,6 +8501,24 @@
         ],
         "type": "object"
       },
+      "janitorHistory": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/janitorLandedChange"
+            },
+            "type": "array"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "changes",
+          "more"
+        ],
+        "type": "object"
+      },
       "janitorLandedChange": {
         "properties": {
           "changeId": {
@@ -8520,6 +8555,19 @@
             ]
           },
           "queue": {
+            "type": "string"
+          },
+          "releaseId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "releaseNumber": {
+            "type": "integer"
+          },
+          "slug": {
             "type": "string"
           },
           "title": {

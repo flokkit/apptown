@@ -200,6 +200,7 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.Person(), State: r.State.DepartureLabel(),
 			Tier: labels[r.Deployment] + " deployment", Label: fmt.Sprintf("release #%d", r.Number), ReleaseNumber: r.Number}
 		d.CommitSHA = r.CommitSHA
+		d.NeedMoves = r.NeedMoves
 		// What the release brought, as on the project's own releases list,
 		// not every change its bundle carries.
 		changes, err := newReleaseChanges(ctx, h.work, h.deployment.Releases, p.ID, []ids.ID{r.ID})
@@ -285,14 +286,15 @@ type Departures struct {
 
 // Departure is one arrival on a tier.
 type Departure struct {
-	ReleaseNumber int64                `json:"releaseNumber,omitempty"`
-	CommitSHA     string               `json:"commitSha,omitempty"`
-	Changes       []ReleaseChangeTitle `json:"changes"`
-	Reason        string               `json:"reason,omitempty"`
-	At            string               `json:"at"`
-	Slug          string               `json:"slug"`
-	Name          string               `json:"name"`
-	Icon          string               `json:"icon,omitempty"`
+	NeedMoves     []deployment.NeedMove `json:"needMoves"`
+	ReleaseNumber int64                 `json:"releaseNumber,omitempty"`
+	CommitSHA     string                `json:"commitSha,omitempty"`
+	Changes       []ReleaseChangeTitle  `json:"changes"`
+	Reason        string                `json:"reason,omitempty"`
+	At            string                `json:"at"`
+	Slug          string                `json:"slug"`
+	Name          string                `json:"name"`
+	Icon          string                `json:"icon,omitempty"`
 	// Tier is where it went: the deployment's name with its kind ("main
 	// deployment", "intranet deployment"), or "preview".
 	Tier  string                    `json:"tier"`

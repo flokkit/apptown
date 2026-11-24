@@ -160,3 +160,19 @@ func TestADamagedKindFailsTheCatalogList(t *testing.T) {
 		t.Fatalf("emulators of a damaged catalog: %v %v", kinds, err)
 	}
 }
+
+func TestPostgresImageLineKeepsPinsSeparateFromTheLine(t *testing.T) {
+	t.Parallel()
+	k := stockKind(t, "postgres")
+	for _, version := range []string{"16", "16.15"} {
+		params := map[string]string{"version": version}
+		service := k.ResolveLocal(params, "", nil).Spec()
+		line, pin := k.ImageLine(params)
+		if line != "postgres:16-alpine" || service.Line != line || pin != (version == "16.15") || service.Image != "postgres:"+version+"-alpine" {
+			t.Fatalf("%s: %+v line=%s pin=%t", version, service, line, pin)
+		}
+	}
+	if line, _ := stockKind(t, "mariadb").ImageLine(nil); line != "" {
+		t.Fatalf("unmovable need line %s", line)
+	}
+}

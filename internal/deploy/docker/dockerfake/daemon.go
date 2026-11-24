@@ -654,7 +654,12 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	}
 	if args[0] == "image" {
 		if len(args) > 3 && args[1] == "inspect" && slices.Contains(args, "{{json .}}") {
-			return json.Marshal(map[string]any{"Id": ImageID(args[len(args)-1])})
+			ref := args[len(args)-1]
+			evidence := map[string]any{"Id": ImageID(ref)}
+			if strings.Contains(ref, "@sha256:") {
+				evidence["RepoDigests"] = []string{ref}
+			}
+			return json.Marshal(evidence)
 		}
 		if len(args) > 3 && args[1] == "inspect" && slices.Contains(args, "--format") && strings.Contains(strings.Join(args, " "), "{{json .Id}}") {
 			// execution.InspectImage's question: the ID and the labels.

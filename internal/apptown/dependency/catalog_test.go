@@ -377,3 +377,19 @@ func TestStockMariaDBDeclaresLocalConnectionAndLogicalCopy(t *testing.T) {
 		t.Fatalf("logical local copy: %+v", d.Copy)
 	}
 }
+
+func TestEngineMovementRequiresItsStorageAndLineContract(t *testing.T) {
+	t.Parallel()
+	for _, local := range []string{
+		"image: x:{version}\n  move: restart\n  line: major\n  data: /data",
+		"image: x:{version}\n  move: restart\n  line: major\n  keepsImage: true",
+		"image: x:16\n  move: restart\n  line: major\n  data: /data\n  keepsImage: true",
+		"image: x:{version}\n  line: major",
+		"image: x:{version}\n  line: patch\n  move: restart\n  data: /data\n  keepsImage: true",
+		"image: x:{version}\n  line: major\n  move: migrate\n  data: /data\n  keepsImage: true",
+	} {
+		if _, err := Parse("capability: x\nlocal:\n  " + local + "\n"); err == nil {
+			t.Fatalf("invalid move accepted: %s", local)
+		}
+	}
+}

@@ -194,6 +194,7 @@ type Release struct {
 	StageFinishedAt  sql.NullTime
 	RebuiltFrom      int64
 	RebuiltCommit    string
+	NeedMoves        json.RawMessage
 }
 
 type ReleaseBundle struct {

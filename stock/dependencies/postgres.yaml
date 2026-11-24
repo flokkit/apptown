@@ -65,12 +65,14 @@ provides:
 # a standing one is remade on its volume by its next deploy (configAtStart),
 # which also brings a password an app once chose to AppTown's. Its image
 # is not configuration (keepsImage): a new major version cannot read the
-# old files, so a version change is refused as before.
+# old files. New builds on the same major line restart on the same volume.
 local:
   image: postgres:{version}-alpine
   port: 5432
   configAtStart: true
   keepsImage: true
+  line: major
+  move: restart
   entrypoint: ["/bin/sh", "-c"]
   command:
     - |

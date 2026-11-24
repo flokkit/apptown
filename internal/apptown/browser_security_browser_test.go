@@ -44,6 +44,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/imagelines"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
@@ -55,6 +56,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
@@ -73,6 +75,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/imageline"
 	"github.com/flokkit/apptown/internal/openrouter/openrouterfake"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/version"
@@ -1294,7 +1297,8 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		}
 		return daemon.Run(ctx, host, req)
 	})
-	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{previewTier, fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
+	needReadings := &tourNeedReadings{}
+	a, h := internalApp(t, Config{ImageResolver: needReadings, DataDir: dataDir, PublicHost: publicHost, TierDomains: []string{previewTier, fmt.Sprintf("main=http://apps.localhost:%d", appPort)},
 		DockerClient: client, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), AgentImage: tourAgentImage,
 		DataDiskSpace: dataDisk,
 		InferenceURL:  "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
@@ -1331,7 +1335,15 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 	// landing workflow.
 	tourChecks(t, a)
 	useScriptTasks(t, a, tourScript)
-	defineWorkflows(t, a, tourWorkflow)
+	rebuildBody, err := stock.FS.ReadFile("rebuild.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebuildDoc, err := schema.ParseWorkflow(rebuildBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defineWorkflows(t, a, tourWorkflow, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "rebuild", Version: 1}, System: rebuildDoc.Metadata.System, Spec: rebuildDoc.Spec})
 
 	const password = "tour-password-not-secret"
 	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", password))
@@ -1354,6 +1366,9 @@ func newTourWorld(t *testing.T, garage bool, readerInterval time.Duration) *tour
 		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
 	}
 	moveClock(a, -a.cfg.clock.ahead)
+	if !garage {
+		s.movePostgres(needReadings)
+	}
 	if s.story {
 		made.preview = s.openPreview("tom", made.story)
 	}
@@ -6458,4 +6473,131 @@ func (f cameraStandingProcedure) StandingProcedures(ctx context.Context, q datab
 		out[name] = workflow.StandingProcedureResult{Procedure: proc, Err: err}
 	}
 	return out, nil
+}
+
+// Registry observations are the tour's external boundary. The same scene is
+// used by the local preview; its bundles and releases use the owners' operations.
+type tourNeedReadings struct {
+	testImageResolver
+	newer atomic.Bool
+}
+
+func (r *tourNeedReadings) Answer(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, error) {
+	if ref != "postgres:16-alpine" {
+		return r.testImageResolver.Answer(ctx, ref, scope)
+	}
+	version, digest := "16.15", "a"
+	if r.newer.Load() {
+		version, digest = "16.16", "b"
+	}
+	return imagelines.Reading{Answer: imageline.Answer{Tag: "postgres:" + version + "-alpine", Digest: "sha256:" + strings.Repeat(digest, 64), Registry: "registry.test"}, ReadAt: time.Now().UTC()}, nil
+}
+func (r *tourNeedReadings) Cached(ctx context.Context, ref string, scope imageline.Scope) (imagelines.Reading, bool, error) {
+	v, e := r.Answer(ctx, ref, scope)
+	return v, e == nil, e
+}
+func (s *tourScene) movePostgres(readings *tourNeedReadings) {
+	t, a, ctx := s.t, s.a, s.t.Context()
+	p, err := a.Projects.BySlug(asPerson("sam"), "lunch-orders")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.ByName(ctx, p.ID, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A second deployment stays on yesterday's bundle, showing availability.
+	old, err := a.Deployment.Releases.ByID(ctx, dep.ServingReleaseID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Deployments.EnsureStanding(ctx, p.ID, "staging", dep.TargetID, deployment.Attributes{Feed: "manual", Audience: dep.Audience, DataClass: "synthetic"}); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := a.Deployment.RequestRelease(verifiedContext(ctx, access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Name: "sam", Kind: "user", Via: "header", Credential: identity.HeaderCredential("sam")}), deployment.DeploySelection{ProjectID: p.ID, DeploymentName: "staging", BundleID: old.BundleID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.ExecuteRelease(ctx, accepted.ID); err != nil {
+		t.Fatal(err)
+	}
+	readings.newer.Store(true)
+	reasons, err := a.Deployment.NeedsBehind(ctx, dep)
+	if err != nil || len(reasons) != 1 {
+		t.Fatalf("tour behind: %v %v", reasons, err)
+	}
+	rel, err := a.Deployment.RequestRebuild(ctx, p.ID, dep.Name, strings.Join(reasons, "; "))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.ExecuteRelease(ctx, rel.ID); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	events, err := a.Deployment.Releases.Events(ctx, rel.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var build ids.ID
+	for _, e := range events {
+		if _, r, ok := strings.Cut(e.Text, " in run "); ok {
+			build, err = ids.Parse(strings.Split(r, ",")[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if build.IsZero() {
+		t.Fatalf("tour refresh has no build: %+v", events)
+	}
+	if _, err := workflowFollowUps(a).Complete(ctx, fmt.Sprintf("%s/release", build), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.ExecuteRelease(ctx, rel.ID); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := a.Deployment.Releases.ByID(ctx, rel.ID)
+	if err != nil || moved.State != deployment.Released || len(moved.NeedMoves) != 1 {
+		t.Fatalf("tour refresh: %+v %v", moved, err)
+	}
+	current, err := a.Deployment.Deployments.ByID(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if due, err := a.Deployment.NeedsBehind(ctx, current); err != nil || len(due) != 0 {
+		t.Fatalf("updated tour database still behind: %v %v", due, err)
+	}
+	// The scan owner's persisted receipt stands for the tour's external scanner.
+	// No real vulnerability is asserted about the published image.
+	observation := conformance.ScanObservation{ProjectID: p.ID, RunID: build, StepID: ids.New(a.cfg.clock.Now()), Attempt: 1, Scanner: "trivy", ObservedAt: a.cfg.clock.Now(), Verdict: "fail", ExpectedScanners: []string{"trivy"}, Subject: conformance.ScanSubject{On: "running", DeploymentID: acceptedDeployment(t, a, p.ID, "staging"), Deployment: "staging", BundleID: old.BundleID, Part: "need/postgres", Digest: "postgres:16.15-alpine@sha256:" + strings.Repeat("a", 64)}, Findings: []conformance.Finding{{Finding: check.Finding{Fingerprint: "tour-postgres-openssl", Title: "OpenSSL security update", Kind: "vuln", Source: "trivy", Package: &check.PackageRef{Name: "openssl", Version: "3.5.2", FixedIn: "3.5.4"}, Severity: "high", Identifiers: []string{"CVE-2026-TOUR"}}}}}
+	if err := a.DB.InTx(ctx, func(tx *database.Tx) error { return conformance.RecordScanObservationIn(ctx, tx, observation) }); err != nil {
+		t.Fatal(err)
+	}
+	var security struct {
+		Findings []struct {
+			Fingerprint string
+			Needs       []string
+		}
+	}
+	if err := json.Unmarshal(s.call("sam", "GET", "/api/v1/projects/lunch-orders/findings", nil), &security); err != nil {
+		t.Fatal(err)
+	}
+	seen := false
+	for _, f := range security.Findings {
+		if f.Fingerprint == "tour-postgres-openssl" && slices.Contains(f.Needs, "postgres 16.15") {
+			seen = true
+		}
+	}
+	if !seen {
+		t.Fatalf("tour need finding absent from Security: %+v", security)
+	}
+
+}
+func acceptedDeployment(t *testing.T, a *App, p ids.ID, name string) ids.ID {
+	t.Helper()
+	d, e := a.Deployment.Deployments.ByName(t.Context(), p, name)
+	if e != nil {
+		t.Fatal(e)
+	}
+	return d.ID
 }

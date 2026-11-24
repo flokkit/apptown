@@ -1,3 +1,5 @@
+import { renderToStaticMarkup } from 'react-dom/server'
+import { RollbackBefore } from './ChooseRelease'
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -170,3 +172,12 @@ it('reads protection for a Fly release and says when its backup goes first', asy
   expect(h.fetcher.mock.calls.some(([url]) => url.endsWith('/protection'))).toBe(true)
   expect(h.el.textContent).toContain('A backup is taken first.')
 })
+
+ it.each([true,false])('offers before-release restore only when the need move also changed app code: %s', async sameCommit => {
+ const client=newQueryClient()
+ client.setQueryData(getKey('/projects/shop/deployments/main/backups'),{backups:[{id:'copy',status:'ok',runningReleaseId:'earlier'}]})
+ const releases=[{id:'earlier',commitSha:'old'},{id:'move',number:9,commitSha:sameCommit?'old':'new',backupId:'copy',needMoves:[{need:'postgres',from:'16.15',to:'16.16'}]}] as ReleaseListed[]
+ const html=renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><RollbackBefore slug="shop" name="main" release={releases[1]} releases={releases} current onChoose={()=>{}}/></QueryClientProvider></MemoryRouter>)
+ expect(html.includes('Roll back to before')).toBe(!sameCommit)
+ client.clear()
+ })

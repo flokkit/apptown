@@ -105,16 +105,21 @@ func (a *ScanSteps) observeImages(ctx context.Context, run *workflow.Run, step *
 			}
 			// Preparation uses this project's existing per-request login, never an
 			// ambient credential. The executor handles the same request on a worker.
-			ri, rerr := a.integrations.Registry(ctx, run.ProjectID)
 			var login *execution.RegistryLogin
-			if rerr == nil && ri != nil {
-				login = &execution.RegistryLogin{Host: ri.Host, Username: ri.Username, Token: ri.Token}
+			var rerr error
+			need := strings.HasPrefix(subject.Part, "need/")
+			if !need {
+				ri, err := a.integrations.Registry(ctx, run.ProjectID)
+				rerr = err
+				if ri != nil {
+					login = &execution.RegistryLogin{Host: ri.Host, Username: ri.Username, Token: ri.Token}
+				}
 			}
 			image := execution.ImageAnswer{}
 			switch {
 			case rerr != nil:
 				image.Err = rerr.Error()
-			case login == nil:
+			case login == nil && !need:
 				image.Err = "no registry credential for this project"
 			default:
 				image = a.exec.Image(ctx, execution.ImageRequest{Pull: digest, Registry: login, Scratch: dir})
@@ -229,7 +234,6 @@ func (a *ScanSteps) imageSubjects(ctx context.Context, run *workflow.Run, on str
 		subject := conformance.ScanSubject{On: on, DeploymentID: row.DeploymentID, Deployment: row.Deployment, BundleID: row.BundleID}
 		if row.Reason != "" {
 			out = append(out, imageSubject{subject, row.Reason})
-			continue
 		}
 		parts := make([]string, 0, len(row.Images))
 		for part := range row.Images {

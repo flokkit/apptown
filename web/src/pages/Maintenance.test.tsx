@@ -105,7 +105,7 @@ it('names updated ways of working without versions', async () => {
  await settled(client)
  expect(el.textContent).toContain('Ways of working: apptown, wordpress')
  for (const text of ['v42','v38','Released']) expect(el.textContent).not.toContain(text)
- expect([...el.querySelectorAll('table[aria-label="Landed janitor Changes"] th')].map(h=>h.textContent)).toEqual(['Project','What changed','When'])
+ expect([...el.querySelectorAll('table[aria-label="Recent updates"] th')].map(h=>h.textContent)).toEqual(['Project','What changed','When'])
 })
 
 it('keeps only update choices in settings', async () => {

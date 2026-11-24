@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -65,6 +66,17 @@ func (s *Service) RunningImagesIn(ctx context.Context, db database.Queryer, proj
 	out := make([]RunningImages, 0, len(deps))
 	for _, dep := range deps {
 		row := RunningImages{DeploymentID: dep.ID, Deployment: dep.Name, Images: map[string]string{}}
+		bindings, err := deploymentsql.New(db.SQL()).StorageBindings(ctx, dep.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range bindings {
+			if b.RepoDigest != "" {
+				_, digest, _ := strings.Cut(b.RepoDigest, "@")
+				tag, _, _ := strings.Cut(b.DeclaredImage, "@")
+				row.Images["need/"+b.Need] = tag + "@" + digest
+			}
+		}
 		id, err := runningBundleIn(ctx, db, dep)
 		if err != nil {
 			return nil, err
