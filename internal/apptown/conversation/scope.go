@@ -100,6 +100,12 @@ func ForProject(projectID ids.ID) console.Match {
 	return console.Match{Labels: map[string]string{ProjectLabel: projectID.String()}}
 }
 
+// ForChange selects the sessions working one change: its chats and the
+// agent sessions continued in them.
+func ForChange(changeID ids.ID) console.Match {
+	return console.Match{Labels: map[string]string{ChangeLabel: changeID.String()}}
+}
+
 // scope names the project, Change and resumed producer owning a conversation.
 type scope struct {
 	ProjectID ids.ID

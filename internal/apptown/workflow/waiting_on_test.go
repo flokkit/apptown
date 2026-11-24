@@ -202,9 +202,21 @@ func TestFinishedRunsWithoutOpenChangesAreClosed(t *testing.T) {
 	svc := newService(db, allowProject(run.ProjectID), Runtime{})
 	transitionScopeChange(t, db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, RunID: run.ID})
 	changes, err := svc.Changes(t.Context(), run.ProjectID, ChangeList{})
-	// A change open in its chat is in progress: the busy tone, not neutral.
-	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "building" || changes[0].WaitingOn.Tone != "busy" {
+	// A change open in its chat with nobody talking to the helper is a
+	// draft: the neutral tone, not busy.
+	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "draft" || changes[0].WaitingOn.Tone != "neutral" {
 		t.Fatalf("open change list: %+v %v", changes, err)
+	}
+	// Another change's helper replying leaves this one a draft; its own
+	// helper replying makes it building, still in its chat.
+	svc.chatSessions = helperWorkingOn{change: idstest.N(999)}
+	if changes, err := svc.Changes(t.Context(), run.ProjectID, ChangeList{}); err != nil || len(changes) != 1 || changes[0].WaitingOn.Says != "draft" {
+		t.Fatalf("another change's helper: %+v %v", changes, err)
+	}
+	svc.chatSessions = helperWorkingOn{change: run.ChangeID}
+	changes, err = svc.Changes(t.Context(), run.ProjectID, ChangeList{})
+	if err != nil || len(changes) != 1 || changes[0].WaitingOn.Kind != "chat" || changes[0].WaitingOn.Says != "building · helper working" || changes[0].WaitingOn.Tone != "busy" {
+		t.Fatalf("helper replying: %+v %v", changes, err)
 	}
 	rows, err := svc.Runs(t.Context(), RunQuery{})
 	if err != nil || len(rows) != 1 || rows[0].WaitingOn.Kind != "chat" {
@@ -235,6 +247,14 @@ func TestFinishedRunsWithoutOpenChangesAreClosed(t *testing.T) {
 	if !found {
 		t.Fatal("system run missing from list")
 	}
+}
+
+// helperWorkingOn is a chat owner whose one change has its helper replying.
+type helperWorkingOn struct{ change ids.ID }
+
+func (helperWorkingOn) UsesWorkspace(context.Context, string) bool { return false }
+func (h helperWorkingOn) HelperWorking(_ context.Context, changeID ids.ID) bool {
+	return changeID == h.change
 }
 
 func TestBoardKeepsUnreadableProjectionAsUnknown(t *testing.T) {
@@ -481,9 +501,10 @@ func TestWaitingOnChangeLabels(t *testing.T) {
 		change Change
 		run    *RunSnapshot
 		want   string
+		tone   string
 	}{
-		{name: "chat", want: "building"},
-		{name: "ended run", run: &RunSnapshot{Run: &Run{Status: RunDone}}, want: "building"},
+		{name: "chat", want: "draft", tone: "neutral"},
+		{name: "ended run", run: &RunSnapshot{Run: &Run{Status: RunDone}}, want: "draft", tone: "neutral"},
 		{name: "agent", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: activityAgentWorking}}, want: "building · helper working"},
 		{name: "slot", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: activityQueued}}, want: "building · waiting for a free slot"},
 		{name: "working check", run: &RunSnapshot{Run: &Run{Status: RunRunning}, activity: Activity{State: ActivityWorking}}, want: "checking"},
@@ -514,12 +535,16 @@ func TestWaitingOnChangeLabels(t *testing.T) {
 			if got.Says != tc.want || strings.Contains(got.Says, "\n") {
 				t.Fatalf("label = %+v, want %q", got, tc.want)
 			}
-			if got.Kind == "work" || got.Kind == "chat" || got.Kind == "queued" {
-				if got.Tone != "busy" {
-					t.Fatalf("tone = %q", got.Tone)
-				}
+			if tc.tone == "" && (got.Kind == "work" || got.Kind == "queued") {
+				tc.tone = "busy"
+			}
+			if tc.tone != "" && got.Tone != tc.tone {
+				t.Fatalf("tone = %q, want %q", got.Tone, tc.tone)
 			}
 		})
+	}
+	if w := sayWaitingOn(WaitingOn{Kind: "chat"}, Activity{State: activityAgentWorking}, &Change{}); w.Says != "building · helper working" || w.Tone != "busy" {
+		t.Fatalf("a chat whose helper is replying = %+v", w)
 	}
 	w := sayWaitingOn(WaitingOn{Kind: "approval", You: "yes", Who: []decider{{Kind: "person"}}}, Activity{}, nil)
 	if w.Says != "waiting for you" {

@@ -80,7 +80,7 @@ func (s *Service) purgeAutomatedChange(ctx context.Context, projectID, changeID 
 			return err
 		}
 		ws := (Layout{DataDir: s.dataDir}).ChangeWorkspace(changeID)
-		if s.workspaceChats != nil && s.workspaceChats.UsesWorkspace(ctx, ws) {
+		if s.chatSessions != nil && s.chatSessions.UsesWorkspace(ctx, ws) {
 			return nil
 		}
 		if err := closure.CheckIn(ctx, tx, projectID, runIDs); err != nil {

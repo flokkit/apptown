@@ -146,7 +146,12 @@ func sayWaitingOn(w WaitingOn, a Activity, ch *Change) WaitingOn {
 			}
 		}
 	case "chat":
-		w.Says, w.Tone = "building", "busy"
+		// An open change with no running work is a draft: someone may come
+		// back to its chat. It is building only while the helper replies.
+		w.Says = "draft"
+		if a.State == activityAgentWorking {
+			w.Says, w.Tone = "building · helper working", "busy"
+		}
 	case "work":
 		w.Says, w.Tone = "checking", "busy"
 		switch {
@@ -348,12 +353,19 @@ func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapsho
 	return w
 }
 
-// ChangeWaitingOn applies the change's lifecycle to an already checked snapshot.
+// ChangeWaitingOn applies the change's lifecycle to an already checked
+// snapshot. A change in its chat asks the chat owner whether the helper is
+// replying right now.
 func (s *Service) ChangeWaitingOn(ctx context.Context, ch *Change, d *RunSnapshot) WaitingOn {
 	if d != nil && !ch.State.Closed() && (d.Run.Status == RunRunning || d.LandingQueued) {
 		return d.WaitingOn
 	}
-	return waitingOn(ch, d)
+	w := waitingOn(ch, d)
+	// Kind stays "chat": the next action is still the chat.
+	if w.Kind == "chat" && s.chatSessions != nil && s.chatSessions.HelperWorking(ctx, ch.ID) {
+		w = sayWaitingOn(w, Activity{State: activityAgentWorking}, ch)
+	}
+	return w
 }
 
 // mayVote includes current-round person identity, just as approvalEvidence.cast.

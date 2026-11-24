@@ -193,10 +193,28 @@ func TestAChangeConsole(t *testing.T) {
 	if !chats.UsesWorkspace(ctx, "/tmp/change-305") || chats.UsesWorkspace(ctx, "/tmp/change-306") {
 		t.Fatal("uses-workspace follows the checkout")
 	}
+	// Working is the helper mid-turn in a chat the match selects: another
+	// change's helper replying does not make this change's silent or
+	// answered chat working.
+	other, err := chats.Open(ctx, console.OpenRequest{Scope: "change:306", Labels: map[string]string{"project": "1", "change": "306"}, Workspace: console.Workspace{Path: "/tmp/change-306", Writable: true}, Actor: "bls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent.Working(other.ID)
+	change305 := console.Match{Labels: map[string]string{"change": "305"}}
+	if chats.Working(ctx, change305) || !chats.Working(ctx, console.Match{Labels: map[string]string{"change": "306"}}) {
+		t.Fatal("working follows the matched chat's turn: 305 is silent, 306 replying")
+	}
 	if err := chats.Send(ctx, s.ID, "make the button bigger"); err != nil {
 		t.Fatal(err)
 	}
+	if !chats.Working(ctx, change305) {
+		t.Fatal("a chat whose helper has the turn is working")
+	}
 	agent.Reply(s.ID, "Done: the button is bigger.")
+	if chats.Working(ctx, change305) {
+		t.Fatal("a chat that handed back is not working")
+	}
 	if _, err := chats.End(ctx, s.ID); err != nil {
 		t.Fatal(err)
 	}

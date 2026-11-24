@@ -135,8 +135,10 @@ and `wait`. A failed check takes precedence over a later pending approval;
 an error says the check could not run. Other holds name the stopped step;
 their recorded explanation stays in the change detail. All change chips use
 this projection, including the chat header and wiring changes in Services.
-An open change without running work says "building". Agent work says
-"building · helper working" or "building · waiting for a free slot".
+An open change without running work says "draft" in the neutral tone; while
+its chat's helper has the turn (the console owner's recorded turn) it says
+"building · helper working". Agent work says "building · helper working" or
+"building · waiting for a free slot".
 Other running work says "checking", except a landing's final pinned stage,
 which says "going live". This describes publication work, not deployment
 health. Accepted work awaiting its landing says "going live · queued";
