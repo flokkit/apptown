@@ -97,15 +97,12 @@ export default function PackPage() {
 
       <Section title="Versions" count={h.versions.length} note="The recommended version is what new projects get. Existing projects adopt separately.">
         {h.versions.map((v) => (
-          <ListRow key={v.version} className="card pack-version-row" identity={<div className="row row-2">
-              <strong>v{v.version}</strong>
+          <ListRow to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`} key={v.version} className="card pack-version-row" identity={<div className="row row-2">
+              <strong><Link to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`}>v{v.version}</Link></strong>
               {v.name && <span>“{v.name}”</span>}
               {v.version === h.recommended && <span className="badge">recommended</span>}
               <span className="muted small">{lineage(v)}</span>
-              <span className="muted small" title={v.at}>{relTime(v.at)}</span></div>} action={<>
-              <Link to={`/packs/${encodeURIComponent(name)}/versions/${v.version}`}>Contents</Link>
-
-            </>} detail={v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1">{v.note}</div>} />
+              <span className="muted small" title={v.at}>{relTime(v.at)}</span></div>} detail={v.note && v.note !== 'published contents' && v.note !== v.name && <div className="small mt-1">{v.note}</div>} />
         ))}
       </Section>
     </div>

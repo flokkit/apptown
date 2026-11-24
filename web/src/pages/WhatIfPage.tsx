@@ -59,7 +59,7 @@ export default function WhatIfPage() {
   if (w && running !== (w.state === 'queued' || w.state === 'running')) setRunning(!running)
   if (w && slug) {
     const p = w.projects.find(p => p.projectSlug === slug)
-    return <><PageBar title={slug} /><StaleNote q={q} />{p ? <ProjectResult w={w} p={p} /> : <p>This project was not assessed.</p>}</>
+    return <><PageBar title={slug} actions={<Link to={`/maintenance/standards/projects/${slug}`}>Standards →</Link>} /><StaleNote q={q} />{p ? <ProjectResult w={w} p={p} /> : <p>This project was not assessed.</p>}</>
   }
   if (!w) return <ReadStatus q={q} what="the what-if" />
   return (
@@ -223,7 +223,7 @@ function Table({ w }: { w: WhatIf }) {
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
       <div className="what-if-page-table-div-2">
-      <ListTable label="Projects in this what-if" className="small whatif-table what-if-page-table-whatif-table" rows={w.projects} rowKey={p => p.projectId ?? p.projectSlug} columns={[
+      <ListTable label="Projects in this what-if" className="small whatif-table what-if-page-table-whatif-table" rows={w.projects} rowKey={p => p.projectId ?? p.projectSlug} rowTo={p => `/maintenance/standards/what-ifs/${w.id}/projects/${p.projectSlug}`} columns={[
         { key: 'select', label: '', phone: 'action', render: p => {
           const pid = p.projectId ?? ''
           const done = adopted[pid]
@@ -231,10 +231,9 @@ function Table({ w }: { w: WhatIf }) {
           return <input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
             checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} />
         } },
-        { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/maintenance/standards/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
+        { key: 'project', label: 'Project', phone: 'name', render: p => <><Link to={`/maintenance/standards/what-ifs/${w.id}/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="badge what-if-page-badge">would join</span>}</> },
         { key: 'answer', label: 'Answer', phone: 'state', render: p => <Status word={p.statusLabel} help={OUTCOME_WORDS[p.outcome]} /> },
         { key: 'score', label: 'Score', render: p => <><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</> },
-        { key: 'details', label: 'Details', render: p => <Link to={`/maintenance/standards/what-ifs/${w.id}/projects/${p.projectSlug}`}>Check details</Link> },
         { key: 'adoption', label: 'Adoption', render: p => <AdoptedCell a={adopted[p.projectId ?? '']} /> },
       ]} />
       </div>

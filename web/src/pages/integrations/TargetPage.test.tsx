@@ -6,8 +6,8 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { RegistryReading, TargetView } from '../../wire.gen'
 import { newQueryClient } from '../../data'
-import { MemoryRouter } from 'react-router-dom'
-import { CopyRunnerLine, EditTarget, RegistryLine, Unaccounted } from './TargetPage'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { CopyRunnerLine, EditTarget, RegistryLine, TargetPage, Unaccounted } from './TargetPage'
 import type { InfrastructureView } from '../../wire.gen'
 
 // A status's details ride in its title, not in the page text.
@@ -237,4 +237,23 @@ describe('what is unaccounted for at a target', () => {
     expect(show({ live: true, asOf: new Date().toISOString(), resources: [claim] })).toContain(allClear)
     expect(show({ live: false, resources: [] })).toContain('checking')
   })
+})
+
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it.each([false, true])('opens a deployment row while preserving its resource-count link (%s)', async resources => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/targets/host') ? { target: { ...target('', false), name: 'host', address: {}, offers: [], check: {}, statusLabel: 'working', deployments: [{ project: 'shop', name: 'main', generation: 3, status: { word: 'working' } }] } }
+      : url.endsWith('/infrastructure') ? { targets: [{ target: 'host', live: true, resources: [] }] }
+      : url.endsWith('/retained') ? { retained: [] } : url.endsWith('/attention') ? { sources: [], items: [] } : {}
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/targets/host']}><Routes>
+      <Route path="/targets/:name" element={<TargetPage />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('td[data-label="Generation"]')).not.toBeNull())
+    await act(async () => el.querySelector<HTMLElement>(resources ? 'td[data-label="Resources"] a' : 'td[data-label="Generation"]')!.click())
+    expect(el.querySelector('output')?.textContent).toBe(resources ? '/targets/host/resources?deployment=shop%2Fmain' : '/projects/shop/deployments/main')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

@@ -3,7 +3,7 @@ import { HowJudged } from './conformance/parts'
 import { act, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
@@ -115,4 +115,15 @@ it('keeps check adopters behind a count link, including adopters without a resul
   expect(el.querySelector('a[href$="/clear/projects"]')?.textContent).toBe('100 projects')
   await click('a[href$="/clear/projects"]')
   expect(el.querySelectorAll('a[href^="/maintenance/standards/projects/app-"]')).toHaveLength(100)
+})
+
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it.each([false, true])('opens deployment text while preserving the target destination (%s)', async target => {
+  const { el } = await mount('/services/errors/projects', <>
+    <Route path="/services/:name/projects" element={<IntegrationProjects />} /><Route path="*" element={<Location />} />
+  </>, { '/integrations': { integrations: [{ name: 'errors', usedBy: { projects: [], deployments: [{ project: 'club', name: 'main', target: 'host' }] } }] } })
+  const link = el.querySelector<HTMLElement>('a[href="/targets/host"]')!
+  await act(async () => (target ? link : link.parentElement!).click())
+  expect(el.querySelector('output')?.textContent).toBe(target ? '/targets/host' : '/projects/club/deployments/main')
 })

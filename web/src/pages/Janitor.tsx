@@ -1,3 +1,4 @@
+import { shouldOpenRow } from '../ListRow'
 import { PRODUCT } from '../brand'
 import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -85,7 +86,7 @@ export function NeedsYou() {
 function NeedRow({ need, current, reload }: { need: Need; current: boolean; reload: () => Promise<void> }) {
   const nav = useNavigate()
   const row = (details?: ReactNode, actions?: ReactNode) => <tr data-linked onClick={e => {
-    if (!(e.target as Element).closest('a, button, input, select, [role=dialog]')) nav(need.to)
+    if (shouldOpenRow(e)) nav(need.to)
   }}>
     <td className="phone-name"><Link to={need.to}>{need.project.name}</Link></td>
     <td className="record-fit phone-value" data-label="What it was doing">{need.what}</td>

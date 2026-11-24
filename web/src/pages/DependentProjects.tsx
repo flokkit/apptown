@@ -2,6 +2,7 @@ import { PageBar } from '../PageBar'
 import { useEffect } from 'react'
 import { Ident } from '../Ident'
 import { Status } from '../Status'
+import { ListRow } from '../ListRow'
 import { ListTable } from '../ListTable'
 import { setPageContext } from '../chrome'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
@@ -21,7 +22,7 @@ export function GuidanceProjects() {
   usePageName(`/guidance/${encodeURIComponent(name)}`, q.data?.block.name)
   return <><PageBar title="Projects" /><ReadStatus q={q} what="the guidance's projects" /><StaleNote q={q} />
     {q.data && <Section title="Projects" count={q.data.usedBy.length}>
-      {q.data.usedBy.map(u => <p key={u.projectSlug}><Link to={`/projects/${u.projectSlug}`}>{u.projectSlug}</Link> · v{u.version}{u.disabled ? ' · turned off' : ''}</p>)}
+      {q.data.usedBy.map(u => <ListRow key={u.projectSlug} to={`/projects/${u.projectSlug}`} identity={<><Link to={`/projects/${u.projectSlug}`}>{u.projectSlug}</Link> · v{u.version}{u.disabled ? ' · turned off' : ''}</>} />)}
       {q.data.usedBy.length === 0 && <p>No project uses it directly.</p>}
     </Section>}</>
 }
@@ -31,9 +32,9 @@ export function PolicyProjects() {
   const q = useGet<PolicyUsageList>(`/policy-library/${encodeURIComponent(name)}/usage`)
   return <><PageBar title={<>Projects adopting <Ident>{name}</Ident></>} /><ReadStatus q={q} what="the policy's projects" /><StaleNote q={q} />
     {q.data && <Section title="Projects" count={q.data.usedBy.length}>
-      {q.data.usedBy.map(u => <div key={u.slug} className="card"><Link to={`/projects/${u.slug}`}>{u.project}</Link> · {u.conformant ? 'following it' : 'not following it'}
+      {q.data.usedBy.map(u => <ListRow key={u.slug} className="card" to={`/projects/${u.slug}`} identity={<><Link to={`/projects/${u.slug}`}>{u.project}</Link> · {u.conformant ? 'following it' : 'not following it'}
         {u.violations.map((v, i) => <p key={i}>Workflow “{v.workflow}”: {v.detail}</p>)}
-      </div>)}
+      </>} />)}
       {q.data.usedBy.length === 0 && <p>No project adopted it.</p>}
     </Section>}</>
 }
@@ -69,8 +70,8 @@ export function IntegrationProjects() {
   const label = binding?.displayLabel || name
   return <><PageBar title="Projects" /><ReadStatus q={q} what="the service's projects" /><StaleNote q={q} />
     {q.data && (!binding ? <p>No integration is called “{name}”.</p> : <Section title={`Using ${label}`}>
-      {use?.projects.map(p => <p key={p.slug}><Link to={`/projects/${p.slug}`}>{p.name}</Link></p>)}
-      {use?.deployments.map(d => <p key={`${d.project}/${d.name}`}><Link to={`/projects/${d.project}/deployments/${d.name}`}>{d.project}/{d.name}</Link> · deployment on <Link to={`/targets/${d.target}`}>{d.target}</Link></p>)}
+      {use?.projects.map(p => <ListRow key={p.slug} to={`/projects/${p.slug}`} identity={<><Link to={`/projects/${p.slug}`}>{p.name}</Link></>} />)}
+      {use?.deployments.map(d => <ListRow key={`${d.project}/${d.name}`} to={`/projects/${d.project}/deployments/${d.name}`} identity={<><Link to={`/projects/${d.project}/deployments/${d.name}`}>{d.project}/{d.name}</Link> · deployment on <Link to={`/targets/${d.target}`}>{d.target}</Link></>} />)}
       {!use?.projects.length && !use?.deployments.length && <p>No project or deployment names {label} directly.</p>}
     </Section>)}</>
 }
@@ -91,7 +92,7 @@ export function CheckProjects() {
   }, [base, checkKey, checkName, reviewId, reviewNumber])
   return <><PageBar title="Projects" /><ReadStatus q={q} what="the check's projects" /><StaleNote q={q} />
     {q.data && (!def ? <p>This check is no longer recorded.</p> : <Section title="Projects" count={def.adopters.length}>
-      {def.adopters.map(slug => <p key={slug}><Link to={`${base}/projects/${slug}`}>{slug}</Link></p>)}
+      {def.adopters.map(slug => <ListRow key={slug} to={`${base}/projects/${slug}`} identity={<><Link to={`${base}/projects/${slug}`}>{slug}</Link></>} />)}
       {def.adopters.length === 0 && <p>No project adopted this check.</p>}
     </Section>)}
   </>

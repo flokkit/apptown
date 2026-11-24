@@ -420,7 +420,7 @@ function GroupsCard({ groups, users, grants, act, canEdit, name, actionError }: 
         {editable && <button className="primary" onClick={() => setAdding(true)}>Add member</button>}
 
       </div>}>
-        <ListTable label="Group members" rows={members} rowKey={m => m} columns={[
+        <ListTable label="Group members" rows={members} rowKey={m => m} rowTo={m => `/people/accounts/${encodeURIComponent(m)}`} columns={[
           { key: 'name', label: 'Name', phone: 'name', render: m => <Link to={`/people/accounts/${encodeURIComponent(m)}`}>{m}</Link> },
           { key: 'status', label: 'Status', phone: 'state', render: m => <AccountStatus {...users.find(u => u.username === m)} /> },
           { key: 'seen', label: 'Last seen', kind: 'time', render: m => relTime(users.find(u => u.username === m)?.lastSeen ?? '') || '—' },

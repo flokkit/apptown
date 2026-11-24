@@ -153,7 +153,7 @@ export function TargetPage({ tab = 'overview' }: { tab?: 'overview' | 'capacity'
 
       <Section title="What runs here" count={t.deployments.length}>
         {t.deployments.length === 0 && <p className="muted small">No deployments on this target.</p>}
-        {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} columns={[
+        {!!t.deployments.length && <ListTable className="target-deployments-table" label="What runs here" rows={t.deployments} rowKey={e => `${e.project}/${e.name}`} rowTo={e => `/projects/${e.project}/deployments/${e.name}`} columns={[
           { key: 'name', label: 'Deployment', phone: 'name', render: e => <Link to={`/projects/${e.project}/deployments/${e.name}`}>{e.project}/{e.displayLabel || e.name}</Link> },
           { key: 'state', label: 'State', phone: 'state', render: e => <Status observation {...statusProps(pageQ.refreshFailed ? failedStatusRefresh(e.status, pageQ.reason) : e.status)} /> },
           { key: 'address', label: 'Address', kind: 'technical', render: e => !e.url ? 'unknown' : e.hostOnly ? <AppAddress url={e.url} hostOnly /> : <Tech>{e.url.replace(/^https?:\/\//, '')}</Tech> },

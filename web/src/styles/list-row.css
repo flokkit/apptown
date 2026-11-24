@@ -130,4 +130,15 @@
 }
 .list-row-link { cursor: pointer; }
 .list-row-link:hover { background: var(--hover); }
+/* A row that opens reads like a table's linked row: its name (the first link
+   at the start of its identity) is bold with no underline, since the row is
+   the way in; a later link in the row goes somewhere else and keeps its
+   underline. A name already set in <strong> keeps its own weights. */
+:where(.list-row-link > .list-identity > a:first-child, .list-row-link > .list-identity > :first-child > a:first-child, .list-row-link > .list-identity > :first-child > :first-child > a:first-child) { text-decoration-line: none; color: inherit; }
+:where(.list-row-link > .list-identity > a:first-child, .list-row-link > .list-identity > :first-child > a:first-child, .list-row-link > .list-identity > :first-child > :first-child > a:first-child):not(:has(strong)) { font-weight: var(--fw-strong); }
+/* Inside a section's surface the row, and so its hover, runs edge to edge,
+   as a table's rows do, however the page wraps its rows (as
+   .section-body .card.row does in sections.css); the extra class outranks
+   .section-body > .card, which zeroes a card row's margins. */
+.section-body .list-row.list-row-link { margin-inline: calc(-1 * var(--section-inset)); padding-inline: var(--section-inset); }
 }

@@ -1,3 +1,4 @@
+import { shouldOpenRow } from './ListRow'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './styles/list-table.css'
@@ -42,8 +43,8 @@ export function ListTable<T>({ label, columns, rows, rowKey, rowTo, rowId, class
   const open = (row: T) => {
     const to = rowTo?.(row)
     if (!to) return undefined
-    return (event: { target: EventTarget }) => {
-      if (!(event.target as Element).closest('a, button, input, select, [role=dialog]')) nav(to)
+    return (event: { target: EventTarget; currentTarget: HTMLElement }) => {
+      if (shouldOpenRow(event)) nav(to)
     }
   }
   return <table className={`record-table${rowTo ? ' record-table-links' : ''} ${className}`} aria-label={label}>

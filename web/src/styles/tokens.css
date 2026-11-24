@@ -36,6 +36,9 @@
   --space-4: calc(16rem / 14);
   --space-5: calc(24rem / 14);
   --space-6: calc(32rem / 14);
+  /* A section surface's inline inset: rows and tables inside it run to its
+     edges by this much and keep their content inset by it. */
+  --section-inset: 16px;
 
   /* Shape. Paper does not float: rules and borders, almost no shadow. */
   --radius-xs: 2px;  /* chips, inline code */

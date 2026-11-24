@@ -39,7 +39,7 @@ export default function TextRoles() {
     <Section title="In context" count={3}>
       <Group label="A table">
         <ListTable label="In context" rows={[{ n: 12, name: 'Weekly digest', kind: 'feature' }]} rowKey={r => String(r.n)} columns={[
-          { key: 'name', label: 'Name', phone: 'name', render: r => <Link to="/text-roles"><span className="muted">#{r.n} </span>{r.name}</Link> },
+          { key: 'name', label: 'Name', phone: 'name', render: r => <><span className="muted">#{r.n} </span>{r.name}</> },
           { key: 'kind', label: 'Kind', render: r => r.kind },
         ]} />
       </Group>

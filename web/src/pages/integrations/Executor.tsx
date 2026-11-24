@@ -1,3 +1,4 @@
+import { ListRow } from '../../ListRow'
 import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -46,13 +47,13 @@ export function ExecutorObservation() {
       {!work.data ? <ReadStatus q={work} what="running work" /> : <>
         <StaleNote q={work} />
         {!work.data.executing.length && <p className="muted small">No steps running at the last reading.</p>}
-        {work.data.executing.map(s => <p key={s.stepId}><Link to={`/changes/${s.changeId}?tab=details&run=${s.runId}`}>{s.project}: {s.title || s.step}</Link> · {s.step}</p>)}
+        {work.data.executing.map(s => <ListRow key={s.stepId} to={`/changes/${s.changeId}?tab=details&run=${s.runId}`} identity={<><Link to={`/changes/${s.changeId}?tab=details&run=${s.runId}`}>{s.project}: {s.title || s.step}</Link> · {s.step}</>} />)}
       </>}
       {!previews.data ? <ReadStatus q={previews} what="running previews" /> : <>
         <StaleNote q={previews} />
-        {preview?.observed ? <p>Previews are unknown: {preview.reason}</p> : preview?.apps.length ? preview.apps.map(p => <p key={p.changeId}><Link to={`/changes/${p.changeId}`}>{p.name || p.slug} · preview for change #{p.changeNumber}</Link></p>) : <p className="muted small">No change previews running at the last reading.</p>}
+        {preview?.observed ? <p>Previews are unknown: {preview.reason}</p> : preview?.apps.length ? preview.apps.map(p => <ListRow key={p.changeId} to={`/changes/${p.changeId}`} identity={<><Link to={`/changes/${p.changeId}`}>{p.name || p.slug} · preview for change #{p.changeNumber}</Link></>} />) : <p className="muted small">No change previews running at the last reading.</p>}
       </>}
-      {e.previewsUnknown ? <p>Release and workflow previews could not be read.</p> : (e.previews ?? []).map((p, i) => <p key={i}><Link to={p.release ? `/projects/${p.project}/releases/${p.release}` : `/changes/${p.changeId}?tab=details&run=${p.runId}`}>{p.project} · {p.release ? `preview for release #${p.release}` : 'workflow preview'}</Link></p>)}
+      {e.previewsUnknown ? <p>Release and workflow previews could not be read.</p> : (e.previews ?? []).map((p, i) => <ListRow key={i} to={p.release ? `/projects/${p.project}/releases/${p.release}` : `/changes/${p.changeId}?tab=details&run=${p.runId}`} identity={<><Link to={p.release ? `/projects/${p.project}/releases/${p.release}` : `/changes/${p.changeId}?tab=details&run=${p.runId}`}>{p.project} · {p.release ? `preview for release #${p.release}` : 'workflow preview'}</Link></>} />)}
     </Section>
   </>
 }

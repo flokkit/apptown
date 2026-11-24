@@ -58,7 +58,7 @@ function Seg({ s, width, share, format }: { s: Segment; width: string; share: nu
 // per bar.
 export function CapacityTable({ rows, heads }: { rows: { name: string; kind: string; cells: string[]; to?: string }[]; heads: string[] }) {
   return (
-    <ListTable label="Use by app or system" className="small cap-table" rows={rows} rowKey={r => r.to || r.kind + r.name} columns={[
+    <ListTable label="Use by app or system" className="small cap-table" rows={rows} rowKey={r => r.to || r.kind + r.name} rowTo={r => r.to} columns={[
       { key: 'name', label: 'App or system', phone: 'name', render: r => <><span className={`cap-swatch cap-${r.kind}`} />{r.to ? <Link to={r.to}>{r.name}</Link> : r.name}</> },
       ...heads.map((h, i) => ({ key: `c${i}`, label: h, kind: 'number' as const, render: (r: typeof rows[number]) => r.cells[i] })),
     ]} />

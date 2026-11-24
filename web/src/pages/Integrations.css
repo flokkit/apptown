@@ -6,7 +6,7 @@
 .int-focus .group-label { color: var(--accent); }
 
 /* name | state and when | an action only where it differs from opening */
-.list-row.int-list-row { grid-template-columns: minmax(0, 1fr) minmax(0, 16ch) auto; padding: 10px 0; }
+.list-row.int-list-row { grid-template-columns: minmax(0, 1fr) minmax(0, 16ch) auto; padding-block: 10px; }
 .int-row .int-when { color: var(--subtle); font-size: var(--fs-xs); margin-top: 2px; }
 .int-row .int-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .int-row .list-action .btn, .int-row .list-action button { min-height: 32px; }

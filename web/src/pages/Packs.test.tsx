@@ -2,11 +2,11 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
-import Packs from './Packs'
+import Packs, { PackInspect } from './Packs'
 
 // A status's details ride in its title, not in the page text.
 const details = (root: Element) => [...root.querySelectorAll('[data-help], [title]')].map(e => e.getAttribute('data-help') ?? e.getAttribute('title')).join(' | ')
@@ -82,4 +82,25 @@ it('offers workflows, guidance and policies as toggle chips', async () => {
     await act(async () => chip('scanner-bound').click())
     expect(chip('scanner-bound').getAttribute('aria-pressed')).toBe('true')
   } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it('opens guidance from version text in the real pack modal and leaves missing blocks inert', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/guidance/blocks') ? [{ name: 'guide', latestVersion: 2, bytes: 10, tags: '' }] : []))))
+  const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/inspect']}><Routes>
+      <Route path="/inspect" element={<PackInspect pack={{ name: 'team', description: '', guidance: ['guide', 'missing'], workflows: [] }} onClose={() => {}} />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    const rows = el.querySelectorAll<HTMLElement>('.pack-inspect-row')
+    expect(rows[0].querySelector('a')?.getAttribute('href')).toBe('/guidance/guide')
+    expect(rows[1].querySelector('a')).toBeNull()
+    expect(rows[1].classList.contains('list-row-link')).toBe(false)
+    await act(async () => rows[1].querySelector('code')!.click())
+    expect(el.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => rows[0].querySelector<HTMLElement>('.muted')!.click())
+    expect(el.querySelector('output')?.textContent).toBe('/guidance/guide')
+  } finally { act(() => root.unmount()); client.clear(); el.remove() }
 })
