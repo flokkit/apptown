@@ -1,8 +1,10 @@
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { getKey, newQueryClient } from '../data'
 import { InfrastructureHome } from './InfrastructureHome'
 
@@ -56,4 +58,23 @@ it('keeps the place under Place and the observation under its own label', () => 
   const observation = el.querySelector('td[data-label="Observation"]')!
   expect(observation.classList.contains('record-wide')).toBe(false)
   expect(observation.textContent).not.toBe('')
+})
+
+
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it('opens a target by its non-link Place cell and retains its name link', () => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'kitchen', place: 'Cupboard', resources: [], live: true }] })
+  client.setQueryData(getKey('/targets'), { targets: [{ name: 'kitchen', deployments: [] }] })
+  client.setQueryData(getKey('/attention'), { sources: [], items: [] })
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/targets']}><Routes>
+      <Route path="/targets" element={<InfrastructureHome />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    expect(el.querySelector('tbody a')?.getAttribute('href')).toBe('/targets/kitchen')
+    act(() => el.querySelector<HTMLElement>('td[data-label="Place"]')!.click())
+    expect(el.querySelector('output')?.textContent).toBe('/targets/kitchen')
+  } finally { act(() => root.unmount()); client.clear() }
 })

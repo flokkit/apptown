@@ -1,7 +1,9 @@
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient, getKey } from '../../data'
 import { ExecutorObservation } from './Executor'
@@ -66,4 +68,24 @@ it.each([false, true])('shows the work host CPU and memory, or says a worker is 
     expect(strips.MEMORY).toBe('3 GB / 8 GB')
     expect(html).toContain('href="/targets/built-in-docker"')
   }
+})
+
+
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it('opens the running step from its plain step text with the run query intact', () => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey('/executor'), { configured: false, previews: [] })
+  client.setQueryData(getKey('/infrastructure/disks'), { disks: [] })
+  client.setQueryData(getKey('/runs/executing'), { executing: [{ project: 'shop', runId: 'run-id', changeId: 'change-id', stepId: 'step-id', title: 'Fix dates', step: 'test' }] })
+  client.setQueryData(getKey('/tiers'), { tiers: [] })
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/executor']}><Routes>
+      <Route path="/executor" element={<ExecutorObservation />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    const text = [...el.querySelectorAll('*')].find(e => [...e.childNodes].some(n => n.nodeType === Node.TEXT_NODE && n.textContent === 'test'))!
+    act(() => (text as HTMLElement).click())
+    expect(el.querySelector('output')?.textContent).toBe('/changes/change-id?tab=details&run=run-id')
+  } finally { act(() => root.unmount()); client.clear() }
 })

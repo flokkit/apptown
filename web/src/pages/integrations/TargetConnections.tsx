@@ -23,7 +23,7 @@ export function TargetConnections({ targets }: { targets: TargetView[] }) {
     const rows = q.data?.integrations?.filter(b => b.capability === cap) ?? []
     return <Section key={cap} label={title} title={<>{title} <HelpButton about={title} guide="deployment-targets"><p>{cap === 'deploy' ? `Deploy connectors let ${PRODUCT} reach Docker hosts and Portainer environments to deploy apps and read their resources.` : `Cloud accounts let ${PRODUCT} deploy apps and manage resources, including image registries, with the cloud provider.`}</p></HelpButton></>}>
       <StaleNote q={q} />
-      {!q.data ? <ReadStatus q={q} what={title.toLowerCase()} /> : !rows.length ? <p className="muted small">None connected.</p> : <ListTable className="target-connections" label={title} rows={rows} rowKey={b => b.id || b.name} columns={[
+      {!q.data ? <ReadStatus q={q} what={title.toLowerCase()} /> : !rows.length ? <p className="muted small">None connected.</p> : <ListTable className="target-connections" label={title} rows={rows} rowKey={b => b.id || b.name} rowTo={b => `/integrations/${b.name}`} columns={[
         { key: 'name', label: 'Connection', phone: 'name', render: b => <Link to={`/integrations/${b.name}`}>{b.displayLabel || b.name}</Link> },
         { key: 'state', label: 'State', phone: 'state', render: b => <Status observation word={q.refreshFailed ? 'unknown' : healthState(b.health)} /> },
         { key: 'description', label: 'Description', render: b => <span title={usedFor(b, specFor(catalog.data?.catalog ?? [], b)) || undefined}>{usedFor(b, specFor(catalog.data?.catalog ?? [], b))}</span> },

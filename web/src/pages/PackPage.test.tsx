@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { enabledFeatures } from '../features.fixture'
@@ -94,4 +94,26 @@ it('describes each workflow and policy the pack holds', async () => {
     expect(rows).toContain('excavateReads an existing app and writes down how it works.')
     expect(rows).toContain('scanner-boundScanners run before landing.')
   } finally { await act(async () => root.unmount()); client.clear() }
+})
+
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it('opens version contents from the version note without a Contents action', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/features') ? enabledFeatures : url.endsWith('/packs/team') ? { name: 'team', origin: 'stock', description: '', declaration: { guidance: [], workflows: [], policies: [] }, versions: [{ version: 2, at: '', note: 'Updated rules' }] }
+      : url.endsWith('/packs') ? [] : {}
+  ))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/packs/team']}><Routes>
+      <Route path="/packs/:name" element={<PackPage />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    const contentsAction = [...el.querySelectorAll('a')].some(a => a.textContent === 'Contents')
+    const name = el.querySelector('.pack-version-row a')?.textContent
+    await act(async () => el.querySelector<HTMLElement>('.pack-version-row .list-detail')!.click())
+    expect(el.querySelector('output')?.textContent).toBe('/packs/team/versions/2')
+    expect(contentsAction).toBe(false)
+    expect(name).toBe('v2')
+  } finally { act(() => root.unmount()); client.clear() }
 })

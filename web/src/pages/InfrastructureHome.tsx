@@ -33,7 +33,7 @@ export function InfrastructureHome() {
       <ListTable className="target-list" label="Targets" rows={[
         ...live.map(t => ({ t, v: byName.get(t.target)! })),
         ...targets.data.targets.filter(v => !live.some(t => t.target === v.name)).map(v => ({ t: undefined, v })),
-      ]} rowKey={({ t, v }) => t?.target || v.name} columns={[
+      ]} rowKey={({ t, v }) => t?.target || v.name} rowTo={({ t, v }) => `/targets/${t?.target || v.name}`} columns={[
         { key: 'name', label: 'Target', phone: 'name', render: ({ t, v }) => <Link to={`/targets/${t?.target || v.name}`}>{v?.displayLabel || t?.target || v.name}</Link> },
         { key: 'state', label: 'State', phone: 'state', render: ({ t, v }) => { const state = hostState(t?.target || v.name, t?.statusLabel || v.statusLabel); return <Status observation word={state.word} /> } },
         { key: 'place', label: 'Place', render: ({ t }) => t?.place || 'unknown' },

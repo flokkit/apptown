@@ -23,7 +23,7 @@ const confirmed = (t: InfrastructureView) => !t.invalidated && !t.unknown && (t.
 export function TargetResourcesTable({ t, only = () => true, empty = 'No resources in this inventory.' }: { t: InfrastructureView; only?: (r: Resource) => boolean; empty?: string }) {
   const resources = t.resources.filter(only)
   if (!resources.length) return <p className="muted small">{empty}</p>
-  return <ListTable className="target-resources-table" label="Resources" rows={resources} rowKey={resourceKey} columns={[
+  return <ListTable className="target-resources-table" label="Resources" rows={resources} rowKey={resourceKey} rowTo={r => resourcePath(t.target, r)} columns={[
     { key: 'name', label: 'Name', kind: 'technical', phone: 'name', render: r => <Link to={resourcePath(t.target, r)} title={r.name}>{r.name || r.id}</Link> },
     { key: 'kind', label: 'Kind', className: 'record-words', render: r => r.kind },
     { key: 'deployment', label: 'Deployment', className: 'record-words', render: r => (r.hosts ?? []).map((h, i) => <span key={i}>{i > 0 && ", "}{h.project.startsWith('(') ? h.project : <Link to={`/projects/${h.project}/deployments/${h.deployment}`} title={`${h.project}/${h.deploymentLabel || h.deployment}`}>{h.project}/{h.deploymentLabel || h.deployment}</Link>}</span>) },

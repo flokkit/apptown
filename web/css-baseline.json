@@ -129,7 +129,7 @@
     "declaration-no-important": 1
   },
   "web/src/styles/sections.css": {
-    "apptown/pixel-spacing": 18
+    "apptown/pixel-spacing": 11
   },
   "web/src/styles/shell.css": {
     "apptown/pixel-spacing": 30

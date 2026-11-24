@@ -1,7 +1,9 @@
+import { act } from 'react'
+import { createRoot } from 'react-dom/client'
 // @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../data'
 import { TargetResourcesPage } from './TargetResources'
@@ -93,4 +95,22 @@ it('labels the deployment filter as the rows do, keeping the name as its value',
   const option = [...el.querySelectorAll('option')].find(o => o.getAttribute('value') === 'club-newsletter/main')
   expect(option?.textContent).toBe('club-newsletter/Production')
   expect(el.querySelector('tbody')?.textContent).toContain('club-newsletter/Production')
+})
+
+
+;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it.each([false, true])('opens a resource row while preserving its deployment link (%s)', deployment => {
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'host', live: true, resources: [
+    { name: 'api', id: 'abc', kind: 'container', record: 'recorded', statusLabel: 'running', hosts: [{ project: 'shop', deployment: 'main' }] },
+  ] }] })
+  try {
+    act(() => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/targets/host/resources']}><Routes>
+      <Route path="/targets/:name/resources" element={<TargetResourcesPage />} /><Route path="*" element={<Location />} />
+    </Routes></MemoryRouter></QueryClientProvider>))
+    act(() => el.querySelector<HTMLElement>(deployment ? 'td[data-label="Deployment"] a' : 'td[data-label="Owned"]')!.click())
+    expect(el.querySelector('output')?.textContent).toBe(deployment ? '/projects/shop/deployments/main' : '/targets/host/resources/container%3Aabc')
+  } finally { act(() => root.unmount()); client.clear() }
 })

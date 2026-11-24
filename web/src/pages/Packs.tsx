@@ -53,23 +53,23 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
         {pack.guidance.map((name) => {
           const b = blocks.find((x) => x.name === name)
           return (
-            <ListRow key={name} className="card packs-entry pack-inspect-row" identity={<div className="row">
-                <code>{name}</code>
+            <ListRow to={b ? `/guidance/${encodeURIComponent(b.name)}` : undefined} key={name} className="card packs-entry pack-inspect-row" identity={<div className="row">
+                <code>{b ? <Link to={`/guidance/${encodeURIComponent(b.name)}`}>{name}</Link> : name}</code>
                 {b ? <span className="muted small">v{b.latestVersion} · <span title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</span> · {b.tags}</span>
                    : <Status word="failed" help="This adopted pack is missing from the library. Ask an administrator to restore the pack or change the project’s adoption." />}
-              </div>} action={b && <Link to={`/guidance/${encodeURIComponent(b.name)}`}>Read</Link>} />
+              </div>} />
           )
         })}
 
         <div className="conn-section-head mt-4" ><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
         {packWf.map((w) => (
-          <ListRow key={w.name} className="card packs-entry pack-inspect-row" identity={<><div className="row packs-entry-action">
-              <strong>{w.name}</strong>
+          <ListRow to={`/workflows/${encodeURIComponent(w.name)}`} key={w.name} className="card packs-entry pack-inspect-row" identity={<><div className="row packs-entry-action">
+              <strong><Link to={`/workflows/${encodeURIComponent(w.name)}`}>{w.name}</Link></strong>
               <span className="badge">{w.kind}</span>
               <span className="muted small">{w.stages.join(' → ')}</span>
 
             </div>
-            <div className="muted small packs-entry-note">{w.description}</div></>} action={<Link to={`/workflows/${encodeURIComponent(w.name)}`}>Definition</Link>} />
+            <div className="muted small packs-entry-note">{w.description}</div></>} />
         ))}
 
         <div className="conn-section-head mt-4" ><h2>Policies</h2><span className="muted small">{(pack.policies ?? []).length}</span></div>

@@ -45,7 +45,7 @@ export function ArtifactBody({ artifact }: { artifact: Artifact }) {
 
 export function AdrLinks({ view }: { view: ChangeView; onChange: () => void }) {
   return <div>
-    {view.adrs.map(a => <ListRow className="card row change-decision-row" key={a.id} state={<Status word={a.statusLabel} />} identity={<>
+    {view.adrs.map(a => <ListRow className="card row change-decision-row" key={a.id} to={`/adrs/${a.id}`} state={<Status word={a.statusLabel} />} identity={<>
       <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
       <span className="muted small">{a.tags}</span></>} />)}
     <Link to={`/projects/${view.projectSlug}/memory/decisions`}>Create or link a decision in Memory › Decisions →</Link>

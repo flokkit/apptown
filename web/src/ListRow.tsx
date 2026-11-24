@@ -12,14 +12,22 @@ export function ListRow(props: Props) {
   return props.to ? <LinkedRow {...props} to={props.to} /> : <Row {...props} />
 }
 
+// Ignore controls within the row and synthetic events from portalled content.
+export function shouldOpenRow(event: { target: EventTarget; currentTarget: HTMLElement }): boolean {
+  const row = event.currentTarget, target = event.target as Element
+  if (!row.contains(target)) return false
+  const hit = target.closest('a, button, input, select, textarea, [role=dialog]')
+  return !hit || !row.contains(hit)
+}
+
 function LinkedRow(props: Props & { to: string }) {
   const nav = useNavigate()
   return <Row {...props} onOpen={event => {
-    if (!(event.target as Element).closest('a, button, input, select, textarea, [role=dialog]')) nav(props.to)
+    if (shouldOpenRow(event)) nav(props.to)
   }} />
 }
 
-function Row({ identity, state, action, detail, detailAction, listItem = false, className = '', onOpen }: Props & { onOpen?: (event: { target: EventTarget }) => void }) {
+function Row({ identity, state, action, detail, detailAction, listItem = false, className = '', onOpen }: Props & { onOpen?: (event: { target: EventTarget; currentTarget: HTMLElement }) => void }) {
   return <div className={`list-row${onOpen ? ' list-row-link' : ''} ${className}`} role={listItem ? 'listitem' : undefined} onClick={onOpen}>
     <div className="list-identity">{identity}</div>
     <div className="list-state">{state}</div>

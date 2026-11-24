@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { newQueryClient } from '../data'
 import { withFeatures } from '../features.fixture'
 import { settled } from '../settled'
@@ -54,7 +54,7 @@ async function render(answer: (url: string, init?: RequestInit) => unknown) {
   const el = document.createElement('div')
   const root = createRoot(el)
   await act(async () => {
-    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/maintenance/standards/what-ifs/${WHAT_IF}`]}><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<WhatIfPage />} /><Route path="/maintenance/standards/what-ifs/:id" element={<WhatIfPage />} /></Routes></MemoryRouter></QueryClientProvider>)
+    root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/maintenance/standards/what-ifs/${WHAT_IF}`]}><Routes><Route path="/maintenance/standards/what-ifs/:id/projects/:slug" element={<><WhatIfPage /><Location /></>} /><Route path="/maintenance/standards/what-ifs/:id" element={<WhatIfPage />} /><Route path="/maintenance/standards/projects/:slug" element={<Location />} /></Routes></MemoryRouter></QueryClientProvider>)
   })
   await settled(client)
   return { el, client, done: () => { act(() => root.unmount()); client.clear() } }
@@ -99,7 +99,7 @@ describe('the what-if page', () => {
       expect(chips(rows[3])).toEqual(['unknown: not evaluated'])
       expect(rows[0].textContent).not.toContain('0123456789')
       const link = rows[0].querySelector<HTMLAnchorElement>(`a[href="/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger"]`)!
-      expect(link.textContent).toBe('Check details')
+      expect(link.textContent).toBe('ledger')
       await act(async () => link.click())
       expect(el.querySelector('h1')?.textContent).toBe('ledger')
       expect(el.textContent).toContain('0123456789')
@@ -131,7 +131,7 @@ describe('the what-if page', () => {
     // Across projects: the check, how many it is missing from, why, and what would make it assessable.
     expect(text).toContain('img · scan 1 of 4 — no image of the app at this commit could be usedTo assess: the app must ship an image')
     const rows = projectRows(el).map((r) => r.textContent)
-    expect(rows[0]).toContain('ledger● failed3 checks · 1 pass · 2 failCheck details')
+    expect(rows[0]).toContain('ledger● failed3 checks · 1 pass · 2 fail')
     expect(chips(projectRows(el)[0])).toEqual(['failed: new failures'])
     expect(rows[0]).not.toContain('0123456789')
     expect(rows[1]).toContain('till● unknown2 checks · 1 pass · 1 could not be checked1 fixed')
@@ -347,4 +347,23 @@ it('names the what-if in the back link of a project result', async () => {
     await settled(client)
     await vi.waitFor(() => expect(el.querySelector('a.sidebar-parent')?.textContent).toBe('‹What-if: team v2'))
   } finally { act(() => root.unmount()); client.clear() }
+})
+
+function Location() { const l = useLocation(); return <output>{l.pathname}{l.search}</output> }
+
+it.each([false, true])('opens the result by row or name, preserves adoption, and reaches Standards (%s)', async name => {
+  const { el, done } = await render(url => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
+  try {
+    const row = projectRows(el)[0]
+    const detailsAction = el.textContent?.includes('Check details')
+    await act(async () => row.querySelector<HTMLInputElement>('input')!.click())
+    expect(row.querySelector<HTMLInputElement>('input')!.checked).toBe(true)
+    expect(el.querySelector('h1')?.textContent).toBe('What-if: team v2')
+    await act(async () => row.querySelector<HTMLElement>(name ? 'a' : 'td[data-label="Score"]')!.click())
+    expect(el.querySelector('h1')?.textContent).toBe('ledger')
+    expect(el.querySelector('output')?.textContent).toBe(`/maintenance/standards/what-ifs/${WHAT_IF}/projects/ledger`)
+    expect(detailsAction).toBe(false)
+    await act(async () => el.querySelector<HTMLAnchorElement>('a[href="/maintenance/standards/projects/ledger"]')!.click())
+    expect(el.querySelector('output')?.textContent).toBe('/maintenance/standards/projects/ledger')
+  } finally { done(); vi.unstubAllGlobals() }
 })
