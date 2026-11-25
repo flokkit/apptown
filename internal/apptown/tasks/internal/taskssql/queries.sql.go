@@ -162,6 +162,42 @@ func (q *Queries) HoldAttempt(ctx context.Context, arg HoldAttemptParams) (int64
 	return result.RowsAffected()
 }
 
+const keysHeld = `-- name: KeysHeld :many
+SELECT k::text AS key FROM unnest($1::text[]) AS k
+WHERE EXISTS (SELECT 1 FROM task_attempts t WHERE t.backend=$2
+  AND ((t.operation=k AND t.released_at IS NULL) OR (t.workspace=k AND t.workspace_released_at IS NULL)))
+`
+
+type KeysHeldParams struct {
+	Keys    []string
+	Backend string
+}
+
+// The keys among those named that a task or workspace on backend still holds
+// by AppTown's records: an operation or a workspace not confirmed released.
+func (q *Queries) KeysHeld(ctx context.Context, arg KeysHeldParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, keysHeld, pq.Array(arg.Keys), arg.Backend)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordExit = `-- name: RecordExit :execrows
 UPDATE task_attempts SET observed='collecting', exit_code=$1, updated_at=$2
 WHERE operation=$3 AND observed IN ('reserved','started','unknown') AND NOT timed_out

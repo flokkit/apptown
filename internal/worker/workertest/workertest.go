@@ -179,10 +179,11 @@ func BareClient(t *testing.T, ca *CA, name string) *http.Client {
 	return &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}, Timeout: time.Minute}
 }
 
-// Driver is AppTown's driver for a worker Start served.
+// Driver is AppTown's driver for a worker Start served: one AppTown
+// process's, with the keys it has in hand, as AppTown configures it.
 func Driver(t *testing.T, ca *CA, srv *httptest.Server) execution.WorkerTasks {
 	t.Helper()
-	return execution.WorkerTasks{URL: srv.URL, Client: Client(t, ca, Installation)}
+	return execution.WorkerTasks{URL: srv.URL, Client: Client(t, ca, Installation), InHand: &execution.KeysInHand{}}
 }
 
 // ServerFiles writes the CA certificate and a worker certificate and key
@@ -556,7 +557,7 @@ func (e *External) Driver(t *testing.T) execution.WorkerTasks {
 		t.Fatalf("%s holds no certificate", e.CA)
 	}
 	cfg := &tls.Config{RootCAs: pool, Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}
-	return execution.WorkerTasks{URL: e.URL, Client: &http.Client{Transport: worker.SpeakProtocol(&http.Transport{TLSClientConfig: cfg}), Timeout: time.Minute}}
+	return execution.WorkerTasks{URL: e.URL, Client: &http.Client{Transport: worker.SpeakProtocol(&http.Transport{TLSClientConfig: cfg}), Timeout: time.Minute}, InHand: &execution.KeysInHand{}}
 }
 
 // OwnerLabel is the label the external worker puts on what it makes.

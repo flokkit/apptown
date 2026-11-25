@@ -21,34 +21,15 @@ const admissionSlice = 20 * time.Second
 
 func (s *Server) admissionLine() (*execution.AdmissionLine, error) {
 	s.lineOnce.Do(func() {
-		var holders []string
-		entries, err := os.ReadDir(filepath.Join(s.State, "workspaces"))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		records, workspaces, err := s.onDisk()
+		if err != nil {
 			s.lineErr = err
 			return
 		}
-		for _, e := range entries {
-			if e.IsDir() {
-				holders = append(holders, e.Name())
-			}
-		}
-		entries, err = os.ReadDir(filepath.Join(s.State, "records"))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			s.lineErr = err
-			return
-		}
-		for _, e := range entries {
-			key, ok := strings.CutSuffix(e.Name(), ".json")
-			if !ok {
-				continue
-			}
-			rec, found, err := s.readRecord(key)
-			if err != nil {
-				s.lineErr = err
-				return
-			}
-			if found && rec.Workspace == "" {
-				holders = append(holders, key)
+		holders := workspaces
+		for _, rec := range records {
+			if rec.Workspace == "" {
+				holders = append(holders, rec.Key)
 			}
 		}
 		limit := s.TaskLimit
@@ -58,6 +39,61 @@ func (s *Server) admissionLine() (*execution.AdmissionLine, error) {
 		s.line = execution.NewAdmissionLine(limit, 2*admissionSlice, s.Now, holders)
 	})
 	return s.line, s.lineErr
+}
+
+// onDisk reads what the worker holds under a key: its task records not
+// released and its workspace folders. The admission line's holders at start
+// and the list AppTown reconciles (holdings) both come from it, so the slots
+// held and what AppTown is shown cannot disagree.
+func (s *Server) onDisk() ([]record, []string, error) {
+	var workspaces []string
+	entries, err := os.ReadDir(filepath.Join(s.State, "workspaces"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, nil, err
+	}
+	for _, e := range entries {
+		if e.IsDir() && keyPattern.MatchString(e.Name()) {
+			workspaces = append(workspaces, e.Name())
+		}
+	}
+	var records []record
+	entries, err = os.ReadDir(filepath.Join(s.State, "records"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, nil, err
+	}
+	for _, e := range entries {
+		key, ok := strings.CutSuffix(e.Name(), ".json")
+		if !ok || !keyPattern.MatchString(key) {
+			continue
+		}
+		rec, found, err := s.readRecord(key)
+		if err != nil {
+			return nil, nil, err
+		}
+		if found {
+			records = append(records, rec)
+		}
+	}
+	return records, workspaces, nil
+}
+
+// holdings is GET /v1/tasks: every task and workspace the worker holds,
+// for AppTown to release those it no longer knows (a task of a process that
+// stopped mid-call). The worker cannot judge that itself.
+func (s *Server) holdings(w http.ResponseWriter, r *http.Request) {
+	records, workspaces, err := s.onDisk()
+	if err != nil {
+		httpError(w, err)
+		return
+	}
+	out := execution.WorkerHoldings{Tasks: []string{}, Workspaces: workspaces}
+	if out.Workspaces == nil {
+		out.Workspaces = []string{}
+	}
+	for _, rec := range records {
+		out.Tasks = append(out.Tasks, rec.Key)
+	}
+	writeJSON(w, out)
 }
 func (s *Server) admission(w http.ResponseWriter, r *http.Request) {
 	line, err := s.admissionLine()

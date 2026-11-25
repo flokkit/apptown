@@ -208,7 +208,7 @@ func (w WorkerConfig) client() (*execution.WorkerTasks, error) {
 	// task's whole run, and the caller's context bounds it.
 	transport := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: pool, MinVersion: tls.VersionTLS13},
 		IdleConnTimeout: 90 * time.Second}
-	return &execution.WorkerTasks{URL: w.URL, Client: &http.Client{Transport: worker.SpeakProtocol(transport)}}, nil
+	return &execution.WorkerTasks{URL: w.URL, Client: &http.Client{Transport: worker.SpeakProtocol(transport)}, InHand: &execution.KeysInHand{}}, nil
 }
 
 type configuration struct {

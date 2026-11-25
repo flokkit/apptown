@@ -496,7 +496,61 @@ func (r *TaskRunner) ReleaseSettled(ctx context.Context) (int, error) {
 			confirmed++
 		}
 	}
-	return confirmed, nil
+	released, err := r.releaseLeftovers(ctx)
+	return confirmed + released, err
+}
+
+// leftovers is a backend that can list what it holds that this process
+// does not have in hand (execution.WorkerTasks). A backend without slots
+// (local Docker) has nothing a leftover could block.
+type leftovers interface {
+	Leftovers(context.Context) (execution.WorkerHoldings, error)
+}
+
+// releaseLeftovers releases what the backend holds that AppTown no longer
+// knows: neither in this process's hands nor named unreleased by its
+// records. A model-judged check or a database dump is never recorded; one
+// whose AppTown stopped mid-call, or whose release failed, is found here,
+// and its slot on the worker freed. The records are read after the backend
+// is listed: recorded work is reserved before its first effect there.
+// Tasks go before shared workspaces, which a task naming them keeps.
+func (r *TaskRunner) releaseLeftovers(ctx context.Context) (int, error) {
+	lister, ok := r.Driver.(leftovers)
+	if !ok {
+		return 0, nil
+	}
+	held, err := lister.Leftovers(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("listing the backend's tasks: %w", err)
+	}
+	known, err := r.Records.KeysHeld(ctx, r.backend(), append(slices.Clone(held.Tasks), held.Workspaces...))
+	if err != nil {
+		return 0, err
+	}
+	released := 0
+	release := func(kind, key string, remove func(context.Context) error) {
+		if slices.Contains(known, key) || ctx.Err() != nil {
+			return
+		}
+		ctx, cancel := briefly(ctx)
+		defer cancel()
+		if err := remove(ctx); err != nil {
+			log.Printf("%s %s: AppTown no longer knows it; removing it: %v; it is tried again later", kind, key, err)
+			return
+		}
+		log.Printf("%s %s: AppTown no longer knows it; removed it", kind, key)
+		released++
+	}
+	for _, key := range held.Tasks {
+		release("task", key, func(ctx context.Context) error { return r.Driver.Release(ctx, execution.TaskRef{Key: key}) })
+	}
+	for _, key := range held.Workspaces {
+		if slices.Contains(held.Tasks, key) {
+			continue // a task's own workspace goes with it
+		}
+		release("workspace", key, func(ctx context.Context) error { return r.Driver.ReleaseWorkspace(ctx, key) })
+	}
+	return released, nil
 }
 
 // releaseWorkspace removes a shared workspace from the backend once every
