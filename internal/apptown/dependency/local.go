@@ -16,6 +16,7 @@ import (
 type LocalService struct {
 	Name, Image, Health string
 	Line                string
+	Reversible          bool
 	// Data is where the emulator keeps its data (the kind's local data path).
 	Data                string
 	Port                int
@@ -49,7 +50,7 @@ func (s LocalService) ForSteps() LocalService {
 // Spec is the service to start for this emulator, with where it keeps its
 // data, so a throwaway start can give it a disposable folder there.
 func (s LocalService) Spec() deploy.ServiceSpec {
-	return deploy.ServiceSpec{Name: s.Name, Image: s.Image, Line: s.Line, Env: s.Env, Command: s.Command, Entrypoint: s.Entrypoint, ConfigAtStart: s.ConfigAtStart, KeepsImage: s.KeepsImage, Health: s.Health, Data: s.Data, Credentials: s.Credentials}
+	return deploy.ServiceSpec{Name: s.Name, Image: s.Image, Line: s.Line, Reversible: s.Reversible, Env: s.Env, Command: s.Command, Entrypoint: s.Entrypoint, ConfigAtStart: s.ConfigAtStart, KeepsImage: s.KeepsImage, Health: s.Health, Data: s.Data, Credentials: s.Credentials}
 }
 
 type localPlan struct {
@@ -122,6 +123,7 @@ func (k *Kind) ResolveLocal(params map[string]string, host string, generated map
 	}
 	s.ConfigAtStart = k.Local.ConfigAtStart
 	s.KeepsImage = k.Local.KeepsImage
+	s.Reversible = k.Local.Reversible
 	s.Line, _ = k.ImageLine(params)
 	for _, name := range k.Generate {
 		if v, ok := generated[name]; ok {

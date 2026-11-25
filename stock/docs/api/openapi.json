@@ -7472,6 +7472,9 @@
           },
           "resources": {
             "$ref": "#/components/schemas/Resources"
+          },
+          "reversible": {
+            "type": "boolean"
           }
         },
         "required": [

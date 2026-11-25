@@ -168,7 +168,7 @@ func TestPostgresImageLineKeepsPinsSeparateFromTheLine(t *testing.T) {
 		params := map[string]string{"version": version}
 		service := k.ResolveLocal(params, "", nil).Spec()
 		line, pin := k.ImageLine(params)
-		if line != "postgres:16-alpine" || service.Line != line || pin != (version == "16.15") || service.Image != "postgres:"+version+"-alpine" {
+		if line != "postgres:16-alpine" || service.Line != line || !service.Reversible || pin != (version == "16.15") || service.Image != "postgres:"+version+"-alpine" {
 			t.Fatalf("%s: %+v line=%s pin=%t", version, service, line, pin)
 		}
 	}

@@ -6,6 +6,8 @@ import "github.com/flokkit/apptown/internal/deploy/appcontract"
 // need's emulator, a service a contract declares: started on the step's
 // network before the step runs, reachable by Name, torn down after.
 type ServiceSpec struct {
+	// Reversible permits earlier exact builds on Line to open the same data.
+	Reversible bool `json:"reversible,omitempty"`
 	// Line bounds catalogue-authorized engine moves. Empty means no movement.
 	Line  string            `json:"line,omitempty"`
 	Name  string            `json:"name"`
