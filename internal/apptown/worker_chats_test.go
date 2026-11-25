@@ -629,7 +629,7 @@ func TestAppTownCheckChecksAWorkerChatsSavedWork(t *testing.T) {
 		t.Helper()
 		out := authzCall(w.a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/check", w.change.ID), `{}`)
 		var got struct{ Commit string }
-		if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &got) != nil {
+		if out.Code != 200 || decodeCheckAnswer(out.Body, &got) != nil {
 			t.Fatalf("check: %d %s", out.Code, out.Body.String())
 		}
 		return got.Commit
@@ -723,7 +723,7 @@ func TestAppTownCheckPublishedSavesNothingFromAWorkerChat(t *testing.T) {
 		t.Helper()
 		out := authzCall(w.a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/check", w.change.ID), body)
 		var got struct{ Commit string }
-		if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &got) != nil {
+		if out.Code != 200 || decodeCheckAnswer(out.Body, &got) != nil {
 			t.Fatalf("check %s: %d %s", body, out.Code, out.Body.String())
 		}
 		return got.Commit

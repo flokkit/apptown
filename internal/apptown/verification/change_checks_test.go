@@ -68,10 +68,36 @@ func TestAChangesChecksAreItsRunsRevisionOrAnError(t *testing.T) {
 // An introduced finding below failOn stays visible and explains why it does not block.
 func TestChangesCheckExplainsIntroducedFindingsBelowFailOn(t *testing.T) {
 	t.Parallel()
+	out, err := changesCheckWithDeclarations(t, `[{"name":"style","appliesTo":["repository"],"evaluator":"sh","sh":"test ! -f failure","severity":"medium","expects":"clean"}]`)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out["ok"] != true || out["failing"] != 0 {
+		t.Fatalf("below failOn should not block: %+v", out)
+	}
+	results := out["checks"].(Results)
+	if len(results) != 1 || results[0].Verdict != workflow.VerdictFail || results[0].Preexisting || results[0].Undecided || results[0].Note != "severity medium is below high: shown, does not block" {
+		t.Fatalf("introduced result: %+v", results)
+	}
+}
+
+type introducedCheckEffects struct{ Effects }
+
+func (e introducedCheckEffects) Run(_ context.Context, req execution.Request) execution.Outcome {
+	exit := 0
+	if _, err := os.Stat(filepath.Join(req.Workspace, "failure")); err == nil {
+		exit = 1
+	}
+	return execution.Outcome{Termination: execution.Exited, ExitCode: exit, Output: []byte("style finding\n")}
+}
+
+func changesCheckWithDeclarations(t *testing.T, checksJSON string) (map[string]any, error) {
+	t.Helper()
 	f := newScannerOwnerFixture(t)
 	ways := wow.New(f.DB, wow.Dependencies{})
 	library := wow.NewLibrary(f.DB)
-	if err := library.StockInsert(t.Context(), wow.StockBlock{Name: "checks", Body: "Check the source.", ChecksJSON: `[{"name":"style","appliesTo":["repository"],"evaluator":"sh","sh":"test ! -f failure","severity":"medium","expects":"clean"}]`}); err != nil {
+	if err := library.StockInsert(t.Context(), wow.StockBlock{Name: "checks", Body: "Check the source.", ChecksJSON: checksJSON}); err != nil {
 		t.Fatal(err)
 	}
 	block, err := ways.BlockByName(t.Context(), "checks")
@@ -95,25 +121,38 @@ func TestChangesCheckExplainsIntroducedFindingsBelowFailOn(t *testing.T) {
 	gittest.Run(t, repo, "update-ref", "refs/heads/main", commits[0])
 	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Scanners: f.Scanners, Adoption: adoption.New(f.DB, adoption.Dependencies{Ways: ways}), Evaluator: NewEvaluator(introducedCheckEffects{Effects: f.Effects}, nil, stock.Versions())})
 	ch := &workflow.Change{ID: idstest.N(7), ProjectID: f.ProjectID, Branch: "change", BaseSHA: commits[0]}
-	out, err := changes.Check(f.Context, ch, Selection{Commit: commits[1]})
+	return changes.Check(f.Context, ch, Selection{Commit: commits[1]})
+}
+
+func TestChangesCheckReportsLandingJudgementsAsSkipped(t *testing.T) {
+	t.Parallel()
+	out, err := changesCheckWithDeclarations(t, `[
+ {"name":"runtime","appliesTo":["repository"],"evaluator":"runtime","probe":"health","severity":"high","expects":"healthy"},
+ {"name":"model","appliesTo":["repository"],"evaluator":"llm","rubric":"clear","severity":"high","expects":"clear"},
+ {"name":"irrelevant","appliesTo":["tool:python"],"evaluator":"llm","rubric":"clear","severity":"high","expects":"clear"}
+ ]`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out["ok"] != true || out["failing"] != 0 {
-		t.Fatalf("below failOn should not block: %+v", out)
+	rows := out["checks"].(Results)
+	if len(rows) != 3 || out["ok"] != true {
+		t.Fatalf("missing landing rows: %v", out)
 	}
-	results := out["checks"].(Results)
-	if len(results) != 1 || results[0].Verdict != workflow.VerdictFail || results[0].Preexisting || results[0].Undecided || results[0].Note != "severity medium is below high: shown, does not block" {
-		t.Fatalf("introduced result: %+v", results)
+	if rows[0].Check != "runtime" || rows[0].Verdict != workflow.VerdictSkipped || rows[0].Note != "judged at the landing against this change's running preview; apptown check does not run it" {
+		t.Fatal(rows)
+	}
+	if rows[1].Check != "model" || rows[1].Verdict != workflow.VerdictSkipped || rows[1].Note != "judged by a model at the landing" {
+		t.Fatal(rows)
+	}
+	if rows[2].Verdict != workflow.VerdictNotApplicable || rows[2].Detail == "" {
+		t.Fatal(rows)
 	}
 }
 
-type introducedCheckEffects struct{ Effects }
-
-func (e introducedCheckEffects) Run(_ context.Context, req execution.Request) execution.Outcome {
-	exit := 0
-	if _, err := os.Stat(filepath.Join(req.Workspace, "failure")); err == nil {
-		exit = 1
+func TestChangesCheckKeepsMalformedApplicabilityAnError(t *testing.T) {
+	t.Parallel()
+	out, err := changesCheckWithDeclarations(t, `[{"name":"invalid","appliesTo":[],"evaluator":"runtime","probe":"health","severity":"high","expects":"healthy"}]`)
+	if err == nil || out != nil {
+		t.Fatalf("malformed applicability returned an answer: %v %v", out, err)
 	}
-	return execution.Outcome{Termination: execution.Exited, ExitCode: exit, Output: []byte("style finding\n")}
 }

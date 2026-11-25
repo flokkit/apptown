@@ -87,7 +87,9 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 		if answerFor != nil {
 			checked = answerFor(asked)
 		}
-		httpapi.WriteJSON(rw, 200, map[string]any{"ok": true, "commit": checked, "failOn": "high",
+		fmt.Fprintln(rw, `{"progress":"style · checking"}`)
+		rw.(http.Flusher).Flush()
+		_ = json.NewEncoder(rw).Encode(map[string]any{"ok": true, "commit": checked, "failOn": "high",
 			"checks": []map[string]any{{"block": "b", "version": 1, "check": "builds", "verdict": "pass"},
 				{"block": "b", "version": 1, "check": "style", "verdict": "fail", "note": "severity medium is below high: shown, does not block"},
 				{"block": "b", "version": 1, "check": "go-vet-clean", "verdict": "not-applicable", "detail": "no part is built with go"}}})
@@ -109,7 +111,7 @@ func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 	}
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000")
 	first, _, _ := strings.Cut(out, "\n")
-	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+	for _, want := range []string{"checks take several minutes", "image builds can take up to 30 minutes each", "background to a file"} {
 		if !strings.Contains(first, want) {
 			t.Fatalf("first line omitted %q: %s", want, first)
 		}
@@ -120,7 +122,7 @@ func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 	}
 	// A check that is not applicable is listed with its reason and counted
 	// apart: never among the checks that pass.
-	for _, words := range []string{"checking commit " + w.published + " (this folder's HEAD)", "commit " + w.published + "\n", "gate clear for commit " + w.published + " — 1 check(s) pass",
+	for _, words := range []string{"style · checking", "checking commit " + w.published + " (this folder's HEAD)", "commit " + w.published + "\n", "gate clear for commit " + w.published + " — 1 check(s) pass",
 		"✗ style", "severity medium is below high: shown, does not block", "○ go-vet-clean", "not applicable: no part is built with go", "1 check(s) not applicable"} {
 		if !strings.Contains(out, words) {
 			t.Fatalf("the output does not say %q:\n%s", words, out)
@@ -152,7 +154,7 @@ func TestAppTownCheckPublishedSaysWhatItChecks(t *testing.T) {
 	w := newCheckWorld(t, nil)
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000", "--published")
 	first, _, _ := strings.Cut(out, "\n")
-	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+	for _, want := range []string{"checks take several minutes", "image builds can take up to 30 minutes each", "background to a file"} {
 		if !strings.Contains(first, want) {
 			t.Fatalf("first line omitted %q: %s", want, first)
 		}
@@ -196,7 +198,7 @@ func TestAppTownCheckOutsideARepositoryNamesNoCommit(t *testing.T) {
 	t.Chdir(t.TempDir())
 	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000")
 	first, _, _ := strings.Cut(out, "\n")
-	for _, want := range []string{"usually takes several minutes", "at least 10 minutes", "background to a file"} {
+	for _, want := range []string{"checks take several minutes", "image builds can take up to 30 minutes each", "background to a file"} {
 		if !strings.Contains(first, want) {
 			t.Fatalf("first line omitted %q: %s", want, first)
 		}
@@ -356,5 +358,60 @@ func TestAppTownCheckDimsAndExplainsNonblockingFailures(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output omitted %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestCheckExplainsUnansweredChecksWithoutZeroFailures(t *testing.T) {
+	t.Setenv("APPTOWN_RUN_ID", "")
+	t.Chdir(t.TempDir())
+	oldExit := exitProcess
+	exit := 0
+	exitProcess = func(code int) { exit = code }
+	t.Cleanup(func() { exitProcess = oldExit })
+	fakeAppTown(t, func(_, _ string) (int, string) {
+		return 200, `{"commit":"abc","ok":false,"failing":0,"checkErrors":1,"failOn":"high","checks":[{"check":"slow","verdict":"error","output":"timed out"}]}`
+	})
+	out, err := run(t, "check", "-c", "00000000-0007-7000-8000-000000000000")
+	if err != nil || exit != 1 || !strings.Contains(out, "1 check(s) gave no answer") || strings.Contains(out, "0 check(s) fail") {
+		t.Fatalf("exit=%d error=%v output=%s", exit, err, out)
+	}
+}
+
+func TestCheckStreamRequiresATerminalAnswer(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, last string
+		ok         bool
+	}{
+		{"result", `{"ok":true,"commit":"abc"}`, true},
+		{"checker error", `{"error":"checker failed"}`, false},
+		{"EOF", "", false},
+		{"malformed", `{"ok":`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			observed := make(chan struct{})
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintln(w, `{"progress":"checking source"}`)
+				w.(http.Flusher).Flush()
+				select {
+				case <-observed:
+				case <-r.Context().Done():
+					return
+				}
+				fmt.Fprintln(w, tc.last)
+			}))
+			defer srv.Close()
+			c := &client{base: srv.URL, http: srv.Client(), getenv: func(string) string { return "" }}
+			raw, err := c.check("/changes/7/check", map[string]any{}, func(line string) {
+				if line != "checking source" {
+					t.Errorf("progress=%q", line)
+				}
+				close(observed)
+			})
+			if (err == nil) != tc.ok || tc.ok && !strings.Contains(string(raw), `"ok":true`) {
+				t.Fatalf("result=%s error=%v", raw, err)
+			}
+		})
 	}
 }

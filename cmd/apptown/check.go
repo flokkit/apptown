@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strconv"
@@ -55,7 +56,7 @@ func cmdCheck(args []string) error {
 		return usagef("no change: pass -c <id> (or run inside an agent step, where $APPTOWN_CHANGE is set)")
 	}
 
-	const durationHint = "; this check usually takes several minutes: give it at least 10 minutes, or run it in the background to a file"
+	const durationHint = "; checks take several minutes; image builds can take up to 30 minutes each; run in the background to a file if needed"
 	body := map[string]any{}
 	var asked string
 	switch {
@@ -85,7 +86,7 @@ func cmdCheck(args []string) error {
 		}
 	}
 
-	raw, err := api.request("POST", fmt.Sprintf("/changes/%d/check", cid), body)
+	raw, err := api.check(fmt.Sprintf("/changes/%d/check", cid), body, func(line string) { fmt.Println(dim(line)) })
 	if err != nil {
 		return err
 	}
@@ -204,13 +205,14 @@ func cmdCheck(args []string) error {
 	}
 	if out.OK {
 		fmt.Println(green(fmt.Sprintf("✓ gate clear for commit %s — %d check(s) pass", out.Commit, passed)))
-		if out.CheckErrors > 0 {
-			fmt.Println(yellow(fmt.Sprintf("  %d check(s) errored — they don't gate, but may be hiding a real result", out.CheckErrors)))
-		}
 		return nil
 	}
-	fmt.Println(red(fmt.Sprintf("✗ commit %s: %d check(s) fail at/above %s — the landing gate blocks on these", out.Commit, out.Failing, out.FailOn)))
-	os.Exit(1)
+	if out.Failing == 0 && out.CheckErrors > 0 {
+		fmt.Println(red(fmt.Sprintf("%d check(s) gave no answer (see above); a landing does not pass an unanswered check", out.CheckErrors)))
+	} else {
+		fmt.Println(red(fmt.Sprintf("✗ commit %s: %d check(s) fail at/above %s — the landing gate blocks on these", out.Commit, out.Failing, out.FailOn)))
+	}
+	exitProcess(1)
 	return nil
 }
 
@@ -298,4 +300,49 @@ func sendScratch(commit, ref string) error {
 		}
 		return nil
 	})
+}
+
+// check reads phase progress as it arrives. Only a decoded terminal result can
+// succeed: EOF, including EOF after progress, is not an answer.
+func (c *client) check(path string, body any, progress func(string)) (json.RawMessage, error) {
+	b, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.send("POST", path, b)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode >= 400 {
+		return c.answer(res, "POST", path)
+	}
+	defer res.Body.Close()
+	dec := json.NewDecoder(res.Body)
+	for {
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, fmt.Errorf("AppTown's check ended without a result")
+			}
+			return nil, err
+		}
+		var line struct {
+			Progress string `json:"progress"`
+			Error    string `json:"error"`
+			OK       *bool  `json:"ok"`
+		}
+		if err := json.Unmarshal(raw, &line); err != nil {
+			return nil, err
+		}
+		switch {
+		case line.Error != "":
+			return nil, errors.New(line.Error)
+		case line.Progress != "":
+			progress(line.Progress)
+		case line.OK != nil:
+			return raw, nil
+		default:
+			return nil, fmt.Errorf("AppTown sent an unrecognized check result")
+		}
+	}
 }

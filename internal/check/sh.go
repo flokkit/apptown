@@ -89,6 +89,9 @@ func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePre
 	ev := Evaluation{Declared: d, Mode: mode, TimedOut: outcome.Termination == execution.TimedOut,
 		Evidence: evidence{ExitCode: &exitCode, Duration: now().Sub(start)}}
 	switch {
+	case !outcome.Answered():
+		ev.Outcome = Error
+		ev.Evidence.Output = strs.Truncate(outcome.UnansweredReason(shTimeout)+"\n"+msg, 600)
 	case exitCode == 0:
 		ev.Outcome = Conforms
 	case exitCode == 1:

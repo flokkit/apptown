@@ -3,6 +3,7 @@ package stock
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -186,6 +187,15 @@ func TestEveryCodeChangeStageRunsTheLandingTestsBeforeHandover(t *testing.T) {
 
 // Janitor agents build and test with the same declared environment as other code-writing agents.
 func TestJanitorAgentsGetTheDeclaredEnvironment(t *testing.T) {
+	skill, err := FS.ReadFile("guidance/skill/janitor.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"`apptown check`", "Run declared tests and start-up"} {
+		if !strings.Contains(string(skill), want) {
+			t.Fatalf("janitor skill lacks %s", want)
+		}
+	}
 	t.Parallel()
 	for name, count := range map[string]int{"janitor-update": 2, "janitor-fix": 2, "janitor-adopt": 1} {
 		t.Run(name, func(t *testing.T) {
@@ -195,7 +205,10 @@ func TestJanitorAgentsGetTheDeclaredEnvironment(t *testing.T) {
 			}
 			type step struct {
 				Name, Uses string
-				With       struct{ Docker, Needs bool }
+				With       struct {
+					Docker, Needs bool
+					Skills        []string
+				}
 			}
 			var doc struct {
 				Spec struct {
@@ -215,6 +228,9 @@ func TestJanitorAgentsGetTheDeclaredEnvironment(t *testing.T) {
 						continue
 					}
 					found++
+					if !slices.Contains(s.With.Skills, "skill/janitor") {
+						t.Errorf("%s: missing janitor skill", s.Name)
+					}
 					if !s.With.Docker || !s.With.Needs {
 						t.Errorf("%s: docker=%v needs=%v; want both true", s.Name, s.With.Docker, s.With.Needs)
 					}

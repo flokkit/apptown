@@ -81,6 +81,9 @@ func (s *Scanners) imageForCommit(ctx context.Context, projectID ids.ID, buildDi
 				}
 			}
 		}
+		if allowBuild {
+			checkPhase(ctx, "building the image of commit "+sha)
+		}
 		a := s.exec.Image(ctx, execution.ImageRequest{Tag: tag, Tree: buildDir, Context: filepath.Clean(c.PublicPart().Build), AllowBuild: allowBuild})
 		switch {
 		case a.NotBuilt:

@@ -168,6 +168,7 @@ LABEL apptown.lsp.servers=biome,ruff,gopls
 # renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
 ARG PI_VERSION=1.6.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
+COPY --chmod=755 run-pi /usr/local/bin/apptown-pi
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL apptown.pi.version=${PI_VERSION}
 

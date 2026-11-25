@@ -353,6 +353,9 @@ apptown recheck calendar#7
 ```
 
 Name the change as `project#number` or its change ID, as with `apptown land`.
+A workflow step runs `apptown check` for feedback on its change; it cannot
+recheck a landing. The step still runs the declared tests and start-up.
+
 The change is a positional argument. `recheck` does not take `-c`.
 Inside that change's chat, `apptown recheck` without an argument uses the
 chat's change. Approvals still need someone with permission to give them.

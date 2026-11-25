@@ -392,6 +392,7 @@ func (s *Scanners) runSourceScans(ctx context.Context, scanSrc string, namePrefi
 		if m.Manual || m.Looks() != "source" {
 			continue
 		}
+		checkPhase(ctx, sc.Name+" · scanning source")
 		start := s.now()
 		res := workflow.CheckReceipt{Check: sc.Name, Scanner: sc.Name, Evaluator: "scanner"}
 		if why, err := scannerApplies(m, treeSrc); err != nil || why != "" {

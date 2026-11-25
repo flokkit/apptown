@@ -3,7 +3,6 @@ package apptown
 import (
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -261,7 +260,9 @@ func TestAScratchCommitIsCheckedAsFeedbackOnly(t *testing.T) {
 		}
 		defer resp.Body.Close()
 		var out map[string]any
-		_ = json.NewDecoder(resp.Body).Decode(&out)
+		if err := decodeCheckAnswer(resp.Body, &out); err != nil {
+			t.Fatal(err)
+		}
 		return resp.StatusCode, out, fmt.Sprint(out)
 	}
 	before, err := w.a.Work.Snapshot(asPerson("alice"), w.run.ID, workflow.DetailView)

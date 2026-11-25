@@ -9,10 +9,12 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
-// needStarted contains only names; connection values must never enter evidence.
+// needStarted records names and the catalogue override flag; connection values
+// must never enter evidence.
 type needStarted struct {
-	Kind string   `json:"kind"`
-	Env  []string `json:"env"`
+	Kind    string   `json:"kind"`
+	StepEnv bool     `json:"stepEnv,omitempty"`
+	Env     []string `json:"env"`
 }
 
 type needsEvidence struct {
@@ -32,7 +34,7 @@ func (a *Executor) describeNeeds(ctx context.Context, services []deploy.ServiceS
 			names = append(names, name)
 		}
 		slices.Sort(names)
-		out = append(out, needStarted{Kind: service.Name, Env: names})
+		out = append(out, needStarted{Kind: service.Name, Env: names, StepEnv: len(kind.Local.StepEnv) > 0})
 	}
 	return out, nil
 }
@@ -45,6 +47,9 @@ func (n needsEvidence) prompt() string {
 			fmt.Fprintf(&b, "- %s: %s\n", need.Kind, strings.Join(need.Env, ", "))
 		}
 		b.WriteString("Use these services through the injected environment for integration and end-to-end tests.")
+		if slices.ContainsFunc(n.Started, func(need needStarted) bool { return need.StepEnv }) {
+			b.WriteString("\nThese step servers give the app more rights than a deployment or preview does (see the services-and-data guide); check privilege contracts against a preview, not here.")
+		}
 	}
 	if n.Refused != "" {
 		b.WriteString("\n\nAppTown refuses this app's declared needs in .apptown/app.yaml, so their services were not started for you: " + n.Refused + ".\nAppTown cannot test, preview or release the app with these needs. If the app declares a need incorrectly (including parse errors or bad parameters), fix .apptown/app.yaml as part of this change and say so in your report.\nOnly when a correctly declared kind is missing from the catalogue, file `apptown complain`: that is a platform failure. Report which tests could not run.")

@@ -504,6 +504,9 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 			t.Errorf("the entry lacks %q:\n%s", line, entry)
 		}
 	}
+	if !slices.Contains(spec.Argv, "/usr/local/bin/apptown-pi") {
+		t.Fatalf("worker invocation lost image interpreter: %q", spec.Argv[4:])
+	}
 	command := strings.Join(spec.Argv[4:], "\x00")
 	for _, arg := range []string{"pi", "--session\x00/apptown/state/sessions/" + session, "--append-system-prompt\x00/apptown/in/steering.md", "Implement the change."} {
 		if !strings.Contains(command, arg) {

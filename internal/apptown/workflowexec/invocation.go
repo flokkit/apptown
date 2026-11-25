@@ -119,7 +119,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 			r = piResult{Outcome: execution.Outcome{RunErr: fmt.Errorf("making the agent's runtime folder: %w", err)}, Tries: tries}
 			break
 		}
-		argv := piharness.CapturedArgv(console.ToolchainArgs(append([]string{"pi"}, c.Args...)), eventsFile, eventsFile+".status")
+		argv := piharness.CapturedArgv(console.ToolchainArgs(append([]string{console.PiLauncher}, c.Args...)), eventsFile, eventsFile+".status")
 		// Every invocation of a step, whether a retry, a review's wrap-up or
 		// a re-run after an empty turn, waits until no earlier agent of the
 		// step is still there: they would share the step's folder.

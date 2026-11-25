@@ -44,12 +44,14 @@ If the lookup refuses, change nothing for that image and say so. For a security 
 choose the smallest digest-pinned build that clears it. Leave stage references,
 scratch and operands containing `$` unchanged.
 Toolchain versions change only when Toolchain patches is on, and then only to a
-patch release within the same minor, updating every declaration together:
+patch release within the same minor (a vendor JDK stays within its vendor and
+major), updating every declaration together:
 mise, version files, go.mod's toolchain line and the build image. A dependency
 update moves each toolchain to its newest such patch; for a security finding in
 the toolchain itself, use the smallest one that fixes it. Change application code only where a moved
-package needs it. Run declared tests, start-up and
-scans; if they cannot pass, say what needs a person.
+package needs it. A declaration without a patch number (go = "1.24",
+node = "24") already follows its newest patch and stays as it is. Run declared tests and start-up. Run `apptown check` from this step to check
+this change's declared checks and scans; if they cannot pass, say what needs a person.
 
 npm: `npm update` in every package folder (`--workspaces` for workspaces)
 moves lockfile entries, including indirect packages, within declared ranges;

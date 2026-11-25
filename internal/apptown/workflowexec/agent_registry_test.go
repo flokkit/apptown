@@ -2,6 +2,10 @@ package workflowexec
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"path/filepath"
 	"slices"
@@ -75,5 +79,31 @@ func TestALocalAgentsPrivateDockerIsLoggedInToNoRegistry(t *testing.T) {
 	}
 	if !strings.Contains(steering, "logged in to none") {
 		t.Errorf("the agent is not told its Docker is logged in nowhere:\n%s", steering)
+	}
+}
+
+func TestPrivateDockerFailureStopsTheAgentStep(t *testing.T) {
+	t.Parallel()
+	a, _, stepID := admittedAgentStep(t, `{"prompt":"build it","docker":true,"executor":"docker"}`)
+	daemon := newDockerFake()
+	daemon.SetReply(func(args []string) ([]byte, error, bool) {
+		if len(args) > 0 && args[0] == "run" && slices.Contains(args, "--privileged") {
+			return []byte("private daemon refused"), errors.New("refused"), true
+		}
+		return nil, nil, false
+	})
+	ex := a.agents
+	ex.workshop = agentenv.NewWorkshop(&docker.Scope{Client: daemon}, ex.integrations, ex.progress, a.dir, a.image, "private-daemon", nil)
+	calls := 0
+	installFakePi(a, func(_ int, _ execution.Request) execution.Outcome {
+		calls++
+		return execution.Outcome{Output: piSays("done")}
+	})
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	status, evidence := stepStatus(t, a, stepID)
+	if status != workflow.StatusError || !strings.Contains(fmt.Sprint(evidence), "starting the step's private Docker") || calls != 0 {
+		t.Fatalf("status=%s evidence=%v agent calls=%d", status, evidence, calls)
 	}
 }

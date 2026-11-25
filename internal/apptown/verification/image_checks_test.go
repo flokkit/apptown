@@ -139,3 +139,23 @@ func TestAWorkersImageBaselineIsUnavailableNotClean(t *testing.T) {
 		t.Fatalf("uncached worker exec-image baseline: %q %q %v", ref, status, err)
 	}
 }
+
+func TestImageBuildReportsTheCommitBeforeBuilding(t *testing.T) {
+	t.Parallel()
+	tree, sha := baselineTree(t, buildContract)
+	var progress []string
+	s := &Scanners{exec: Executor{Image: func(_ context.Context, req execution.ImageRequest) execution.ImageAnswer {
+		if req.Context == "" {
+			return execution.ImageAnswer{}
+		}
+		if !slices.Contains(progress, "building the image of commit "+sha) {
+			t.Fatal("build began without progress")
+		}
+		return execution.ImageAnswer{ID: "sha256:built"}
+	}}}
+	ctx := WithCheckProgress(t.Context(), func(line string) { progress = append(progress, line) })
+	ref, _, status, err := s.imageForCommit(ctx, idstest.N(1), tree, sha, true)
+	if err != nil || status != "ok" || ref != "sha256:built" {
+		t.Fatalf("%s %s %v", ref, status, err)
+	}
+}

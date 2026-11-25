@@ -171,8 +171,8 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, pl Place, mode M
 	req.Env = append(req.Env, placeEnv(pl, src)...)
 	outcome := j.Run(req)
 	ev := Evaluation{Declared: d, Mode: mode}
-	if outcome.Termination == execution.TimedOut {
-		ev.Outcome, ev.Detail, ev.TimedOut = Error, s.Name+" timed out", true
+	if !outcome.Answered() {
+		ev.Outcome, ev.Detail, ev.TimedOut = Error, outcome.UnansweredReason(req.Timeout), outcome.Termination == execution.TimedOut
 		return ev
 	}
 	exitCode := -1 // a run that gives no answer is an error

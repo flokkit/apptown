@@ -62,6 +62,7 @@ func (s *Scanners) runImageScans(ctx context.Context, projectID ids.ID, src, sha
 			results = append(results, res)
 			continue
 		}
+		checkPhase(ctx, sc.Name+" · scanning image")
 		start := s.now()
 		ref, note, _, err := s.imageForCommit(ctx, projectID, src, sha, true)
 		switch {

@@ -582,3 +582,27 @@ func (r Runner) exportImage(ctx context.Context, workspace, image string) error 
 func withoutTrustScript(env []string) []string {
 	return slices.DeleteFunc(env, func(kv string) bool { return strings.HasPrefix(kv, trust.EnvVar+"=") })
 }
+
+// UnansweredReason explains why a command did not produce an answer.
+func (o Outcome) UnansweredReason(timeout time.Duration) string {
+	switch {
+	case o.Termination == LaunchFailed:
+		return "the command could not be started: " + errText(o.RunErr)
+	case o.Termination == TimedOut:
+		return fmt.Sprintf("the command did not finish within %s, so it gave no answer", timeout)
+	case o.Termination == Canceled:
+		return "the command was stopped before it finished, so it gave no answer: " + errText(o.RunErr)
+	case o.Termination == Exited && o.CleanupErr != nil:
+		return fmt.Sprintf("the command exited %d, but its container could not be cleaned up, so the run is not an answer: %v", o.ExitCode, o.CleanupErr)
+	case o.Termination == OutOfMemory:
+		return "the command ran out of memory, so it gave no answer: " + errText(o.RunErr) + "; raise apptownd -task-memory-mib if the command needs more"
+	}
+	return "the command gave no answer: " + errText(o.RunErr)
+}
+
+func errText(err error) string {
+	if err == nil {
+		return "no reason given"
+	}
+	return err.Error()
+}

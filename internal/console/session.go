@@ -19,21 +19,22 @@ import (
 // to. Every path the steering promises and the runtime writes comes from
 // here, so a mount cannot move without the prose and the code moving too.
 const (
-	WorkMount     = "/work"                 // the checkout (a change's worktree for a change console)
-	Mount         = "/console"              // the session dir: pi-home, sessions, scratch, steering.md
-	SessionsMount = Mount + "/sessions"     // pi --session-dir
-	UploadsMount  = Mount + "/uploads"      // pasted pictures
-	ScratchMount  = Mount + "/scratch"      // throwaway notes and experiments
-	TmuxSession   = "console"               // tmux -s / -t
-	AgentSession  = "console"               // the agent's session id, unless another agent's session is resumed
-	MetaFile      = "session.json"          // present = alive
-	EndedFile     = "ended.json"            // the record after End: skipped by recovery, read by the transcript
-	SteeringFile  = "steering.md"           // the prompt the agent reads: authored text, the provision's notes, the notices
-	authoredFile  = "steering.authored.md"  // the authored part, as handed to Open
-	noticesFile   = "notices.md"            // what the console told the agent since: resumes
-	stagedFile    = "staged.json"           // the files the last provision placed, for replacement
-	RehearsedFile = "rehearsed-fingerprint" // the change console's boot-rehearsal memory
-	SavedFile     = "saved.json"            // the opener's record of the chat's last save to its branch
+	WorkMount     = "/work"                     // the checkout (a change's worktree for a change console)
+	Mount         = "/console"                  // the session dir: pi-home, sessions, scratch, steering.md
+	SessionsMount = Mount + "/sessions"         // pi --session-dir
+	PiLauncher    = "/usr/local/bin/apptown-pi" // pi on the agent image's own node (deploy/apptown-agent/run-pi), so mise shims stay first on its children's PATH
+	UploadsMount  = Mount + "/uploads"          // pasted pictures
+	ScratchMount  = Mount + "/scratch"          // throwaway notes and experiments
+	TmuxSession   = "console"                   // tmux -s / -t
+	AgentSession  = "console"                   // the agent's session id, unless another agent's session is resumed
+	MetaFile      = "session.json"              // present = alive
+	EndedFile     = "ended.json"                // the record after End: skipped by recovery, read by the transcript
+	SteeringFile  = "steering.md"               // the prompt the agent reads: authored text, the provision's notes, the notices
+	authoredFile  = "steering.authored.md"      // the authored part, as handed to Open
+	noticesFile   = "notices.md"                // what the console told the agent since: resumes
+	stagedFile    = "staged.json"               // the files the last provision placed, for replacement
+	RehearsedFile = "rehearsed-fingerprint"     // the change console's boot-rehearsal memory
+	SavedFile     = "saved.json"                // the opener's record of the chat's last save to its branch
 )
 
 // Meta is the session's record on disk: the durable identity, enough to

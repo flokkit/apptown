@@ -28,6 +28,9 @@ func TestEmptyTurnRetryCountsTheUsageOfBothTries(t *testing.T) {
 	dir := t.TempDir()
 	var names []string
 	a := testExecutor(db, dir, reviewProcess(func(req execution.Request) execution.Outcome {
+		if !strings.Contains(strings.Join(req.Argv, " "), "/usr/local/bin/apptown-pi") {
+			t.Fatalf("invocation lost image interpreter: %v", req.Argv)
+		}
 		names = append(names, req.Name)
 		text := ""
 		if len(names) == 2 {

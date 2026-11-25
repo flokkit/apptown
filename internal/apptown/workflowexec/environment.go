@@ -138,16 +138,14 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 	}
 	if k.useDind {
 		dindEnv, dindNet, dindCleanup, derr := a.workshop.StartStep(ctx, step.ID, ws, network, piharness.DockerConfigDir)
+
 		if derr != nil {
-			// The workshop is a convenience, not a receipt — degrade honestly
-			// rather than failing the step.
-			a.progress.Append(step.ID, "private docker unavailable: "+derr.Error())
-		} else {
-			env = append(env, dindEnv...)
-			network = dindNet
-			cleanups = append(cleanups, dindCleanup)
-			recordEvent(ctx, a.db, step.RunID, "docker.granted", map[string]any{"step": step.Name}, a.now())
+			return env, "", cleanup, fmt.Errorf("starting the step's private Docker: %w", derr)
 		}
+		env = append(env, dindEnv...)
+		network = dindNet
+		cleanups = append(cleanups, dindCleanup)
+		recordEvent(ctx, a.db, step.RunID, "docker.granted", map[string]any{"step": step.Name}, a.now())
 	}
 	return env, network, cleanup, nil
 }

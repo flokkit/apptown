@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -455,6 +456,9 @@ func CompareUpdateInputs(ctx context.Context, before, after map[string]any, base
 				continue
 			}
 		}
+		if images.ToolchainPatches {
+			return fmt.Errorf("Changes the toolchain version or build inputs beyond a patch: with Toolchain patches on, an exact x.y.z declaration may move only within its minor (a vendor JDK within its major); a declaration without a patch number already follows its newest patch and stays as it is. %s", k)
+		}
 		return fmt.Errorf("Changes the toolchain version or build inputs; your settings do not allow this change. %s", k)
 	}
 	return nil
@@ -486,6 +490,9 @@ func toolchainPatch(a, b any) bool {
 		for i, v := range oldFields {
 			w := nextFields[i]
 			if v == w {
+				continue
+			}
+			if vendorPatch(v, w) {
 				continue
 			}
 			if !patchVersion.MatchString(v) || !patchVersion.MatchString(w) || v[:strings.LastIndex(v, ".")] != w[:strings.LastIndex(w, ".")] {
@@ -531,4 +538,28 @@ func declaredTools(inputs map[string]any) []string {
 		}
 	}
 	return out
+}
+
+// Vendor declarations name a major line; compare every numeric release and build
+// field without overflowing on vendor build numbers.
+func vendorPatch(old, next string) bool {
+	a, b := vendorVersion.FindStringSubmatchIndex(old), vendorVersion.FindStringSubmatchIndex(next)
+	if a == nil || b == nil || old[:a[2]] != next[:b[2]] || old[a[2]:a[3]] != next[b[2]:b[3]] {
+		return false
+	}
+	digits := regexp.MustCompile("[0-9]+")
+	x, y := digits.FindAllString(old[a[2]:], -1), digits.FindAllString(next[b[2]:], -1)
+	for i := 0; i < max(len(x), len(y)); i++ {
+		u, v := new(big.Int), new(big.Int)
+		if i < len(x) {
+			u.SetString(x[i], 10)
+		}
+		if i < len(y) {
+			v.SetString(y[i], 10)
+		}
+		if cmp := v.Cmp(u); cmp != 0 {
+			return cmp > 0
+		}
+	}
+	return true
 }
