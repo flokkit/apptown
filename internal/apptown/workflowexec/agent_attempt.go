@@ -98,7 +98,7 @@ func agentOperation(stepID ids.ID, attempt int64, invocation string) string {
 }
 
 // agentWorkspace is the workspace an attempt's invocations share.
-func agentWorkspace(stepID ids.ID, attempt int64) string {
+func AgentWorkspace(stepID ids.ID, attempt int64) string {
 	return fmt.Sprintf("step-%d-a%d", stepID, attempt)
 }
 
@@ -266,7 +266,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 		refuse(err)
 		return
 	}
-	if err := admitTask(task.Context(), task, a.worker.Tasks.Driver, agentWorkspace(step.ID, step.OwnedAttempt()), a.db, a.capacity, a.now); err != nil {
+	if err := admitTask(task.Context(), task, a.worker.Tasks.Driver, AgentWorkspace(step.ID, step.OwnedAttempt()), a.db, a.capacity, a.now); err != nil {
 		refuse(err)
 		return
 	}

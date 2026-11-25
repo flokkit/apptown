@@ -51,7 +51,10 @@ const (
 // CheckSpec is the wire form of one check container: the runner's request
 // with no path of AppTown's in it.
 type CheckSpec struct {
-	Key          string   `json:"key"`
+	Key string `json:"key"`
+	// Shares runs the check in the slot Key already holds (an agent step's
+	// workspace, execution.WithHeldSlot) instead of consuming a grant.
+	Shares       bool     `json:"shares,omitempty"`
 	Image        string   `json:"image"`
 	Argv         []string `json:"argv"`
 	Env          []string `json:"env,omitempty"`
@@ -143,11 +146,20 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "a check needs its admission key", http.StatusBadRequest)
 		return
 	}
-	if err := s.consume(spec.Key); err != nil {
-		execution.WriteRefusal(w, http.StatusTooManyRequests, err)
-		return
+	// A shared check runs in the slot its step already holds: it neither
+	// takes nor frees one. Any other check consumes its own grant.
+	if spec.Shares {
+		if err := s.holding(spec.Key); err != nil {
+			execution.WriteRefusal(w, http.StatusTooManyRequests, err)
+			return
+		}
+	} else {
+		if err := s.consume(spec.Key); err != nil {
+			execution.WriteRefusal(w, http.StatusTooManyRequests, err)
+			return
+		}
+		defer s.freeSlot(spec.Key)
 	}
-	defer s.freeSlot(spec.Key)
 	timeout := time.Duration(spec.TimeoutSeconds) * time.Second
 	lifetime.forKey(timeout + checkGrace)
 	// The deadline the sweep judges the check's folder and container by,

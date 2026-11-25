@@ -17,6 +17,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/workflowexec"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // Multi-user (design/subsystems/auth.md). Identity comes from a bearer token
@@ -155,6 +157,10 @@ func (a *App) authMiddleware(next http.Handler) http.Handler {
 					// (the attempt is live, its owner enabled). The
 					// read-only port bounds what "member" can do here.
 					id = &authIdentity{User: fmt.Sprintf("run/%d", who.RunID), Role: "member", Via: "run", ProjectID: who.ProjectID}
+					// What the step's agent starts on the worker (its
+					// `apptown check`) runs in the slot the attempt holds:
+					// a second slot would wait on the step itself.
+					r = r.WithContext(execution.WithHeldSlot(r.Context(), workflowexec.AgentWorkspace(who.StepID, who.Attempt)))
 				}
 			}
 			if id == nil {

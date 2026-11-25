@@ -109,6 +109,34 @@ func (l *AdmissionLine) Consume(key string) error {
 	return nil
 }
 
+// Holds reports whether key is a live holder: its grant was consumed and
+// its owner has not released it. An unused grant is not a holder.
+func (l *AdmissionLine) Holds(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.expire()
+	at, ok := l.held[key]
+	return ok && at.IsZero()
+}
+
+// heldSlotKey carries the admission key whose slot the work started under
+// ctx already holds (WithHeldSlot).
+type heldSlotKey struct{}
+
+// WithHeldSlot says work started under ctx runs in the slot key already
+// holds (an agent step's workspace, for a check its agent asks for), so it
+// asks for no slot of its own. Only AppTown sets it, from an authenticated
+// step attempt; a caller never names the key.
+func WithHeldSlot(ctx context.Context, key string) context.Context {
+	return context.WithValue(ctx, heldSlotKey{}, key)
+}
+
+// HeldSlot is the key WithHeldSlot set, if any.
+func HeldSlot(ctx context.Context) (string, bool) {
+	key, ok := ctx.Value(heldSlotKey{}).(string)
+	return key, ok && key != ""
+}
+
 // Release is called only after the holder's resources have been removed.
 func (l *AdmissionLine) Release(key string) {
 	l.mu.Lock()

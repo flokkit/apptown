@@ -22,13 +22,23 @@ func TestAdmissionLineKeepsOrderAndExpiresOnlyUnusedCapacity(t *testing.T) {
 		}
 	}
 	ask("holder", 0, true)
+	// Only a consumed grant is a holder whose slot work may share.
+	if line.Holds("holder") {
+		t.Fatal("an unused grant holds a slot")
+	}
 	if err := line.Consume("holder"); err != nil {
 		t.Fatal(err)
+	}
+	if !line.Holds("holder") || line.Holds("first") {
+		t.Fatal("holders misread")
 	}
 	ask("first", 0, false)
 	ask("second", 1, false)
 	ask("third", 2, false)
 	line.Release("holder")
+	if line.Holds("holder") {
+		t.Fatal("a released key still holds its slot")
+	}
 	ask("third", 2, false)
 	ask("first", 0, true)
 	if err := line.Consume("first"); err != nil {

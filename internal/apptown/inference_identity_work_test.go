@@ -13,7 +13,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/workflowexec"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -202,6 +204,17 @@ func TestStepRuntimeTokenOpensBothDoorsOnlyWhileItsAttemptIsLive(t *testing.T) {
 			GETOnly(h).ServeHTTP(response, request)
 			if response.Code != 200 || !strings.Contains(response.Body.String(), `"allowed":true`) {
 				t.Fatalf("step cannot ask which majors are due: %d %s", response.Code, response.Body)
+			}
+			// What the step's agent starts on the worker runs in the slot
+			// its attempt's workspace holds, never in a second one.
+			held, inStep := "", false
+			request = httptest.NewRequest("GET", "/api/v1/me", nil)
+			request.Header.Set("X-AppTown-Session-Token", token)
+			a.authMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				held, inStep = execution.HeldSlot(r.Context())
+			})).ServeHTTP(httptest.NewRecorder(), request)
+			if want := workflowexec.AgentWorkspace(step.ID, step.Attempt); !inStep || held != want {
+				t.Fatalf("step request's slot: %q %t, want %q", held, inStep, want)
 			}
 			if scenario == "still live" {
 				return
