@@ -1042,6 +1042,32 @@ FROM (
 	}},
 	{n: 247, note: "record released engine moves", stmts: []string{"ALTER TABLE releases ADD COLUMN need_moves JSONB NOT NULL DEFAULT '[]'"}},
 	{n: 248, note: "AppTown owns titles derived from recorded facts", stmts: []string{`ALTER TABLE changes DROP CONSTRAINT change_title_ownership, ADD CONSTRAINT change_title_ownership CHECK(title_ownership IN ('human','awaiting_chat','generated','apptown'))`}},
+	// Migration 169 gave every check stored before appliesTo ["repository"],
+	// which kept an sh check's meaning (its script is stored with it) but not
+	// a tool check's: a tool check runs the current scanner, and since the
+	// same release a scanner fails when its subject is missing, on the
+	// premise that it only runs where a part declares the tool. An old
+	// lockfile check therefore failed a Go app with "part  is built with
+	// node". Each such tool check takes what the newest version of its own
+	// block says the same-named check applies to: the block author's
+	// statement, made once appliesTo existed. A tool check with no scoped
+	// check of its name in the newest version keeps ["repository"].
+	{n: 249, note: "old tool checks apply to what their block's newest version says, not the whole repository", stmts: []string{
+		`UPDATE guidance_block_versions v SET checks_json = (
+  SELECT jsonb_agg(CASE
+    WHEN c->>'evaluator' = 'tool' AND c->'appliesTo' = '["repository"]'::jsonb AND d.applies IS NOT NULL THEN jsonb_set(c, '{appliesTo}', d.applies)
+    ELSE c END ORDER BY ord)
+  FROM jsonb_array_elements(v.checks_json) WITH ORDINALITY AS t(c, ord)
+  LEFT JOIN LATERAL (
+    SELECT n->'appliesTo' AS applies
+    FROM guidance_block_versions nv, jsonb_array_elements(nv.checks_json) n
+    WHERE nv.block_id = v.block_id
+      AND nv.version = (SELECT max(m.version) FROM guidance_block_versions m WHERE m.block_id = v.block_id)
+      AND n->>'name' = c->>'name'
+      AND n->'appliesTo' NOT IN ('["repository"]'::jsonb, '[]'::jsonb)
+    LIMIT 1) d ON true)
+WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(v.checks_json) c WHERE c->>'evaluator' = 'tool' AND c->'appliesTo' = '["repository"]'::jsonb)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

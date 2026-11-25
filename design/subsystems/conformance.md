@@ -80,6 +80,12 @@ only for parts matching both declarations; a repository declaration imposes
 no part restriction. The scanner's limit also applies to older adopted checks.
 Hadolint is limited to parts built from a Dockerfile, so a static-only app
 has no Dockerfile finding even if its adopted check names the repository.
+A tool check stored before `appliesTo` existed applies to what the newest
+version of its own block says for the check of the same name: the scanner
+it names is today's, which fails where its subject is missing, so judging
+the whole repository would fail an app whose parts never claimed the tool.
+An `sh` check stored then keeps `repository`, since its script is stored
+with it and behaves as it did.
 
 `appliesTo` is required: there is no default reading of a check without
 it.
