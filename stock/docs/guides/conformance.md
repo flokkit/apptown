@@ -154,3 +154,8 @@ apptown review [-p <project>]      check every project, or one, and follow it
 apptown whatif <pack> <version>    run a what-if on a pack version
 apptown check                      run a change's checks on this folder; ○ marks one not applicable
 ```
+
+`apptown check` prints progress as each declared check or source/image scan
+starts, and when it builds an image. An image build can take up to 30 minutes.
+The final result names the checked commit. A check that gives no answer keeps
+the landing blocked and prints why; it does not count as a passing check.

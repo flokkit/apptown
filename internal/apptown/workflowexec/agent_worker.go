@@ -487,7 +487,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		prompt := a.agentPrompt(ctx, run, cfg, c.source, earlier)
 		args = piharness.StepArgs(piharness.StepPaths{SessionFile: sessionFile, Steering: workerSteeringFile}, c.session, st.Text != "", out.model, k.thinking, prompt)
 	}
-	command := console.ToolchainArgs(append([]string{"pi"}, args...))
+	command := console.ToolchainArgs(append([]string{console.PiLauncher}, args...))
 	// pi's events are written to a file in the attempt's state as they go,
 	// and read from there when it exits (a declared result), never from
 	// its log: the log's end can be lost (piharness.CaptureEvents).

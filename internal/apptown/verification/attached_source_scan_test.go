@@ -28,7 +28,12 @@ func TestRunAttachedSourceScans(t *testing.T) {
 
 	f.Effects.report = scannerSARIF(2) // writes .apptown/semgrep.sarif with 2 results
 	src := projectTree(t)
-	results, findings, errs := f.Scanners.runSourceScans(context.Background(), src, "test", "", "")
+	var progress []string
+	ctx := WithCheckProgress(t.Context(), func(line string) { progress = append(progress, line) })
+	results, findings, errs := f.Scanners.runSourceScans(ctx, src, "test", "", "")
+	if !slices.Contains(progress, "semgrep · scanning source") {
+		t.Fatalf("no scan progress: %v", progress)
+	}
 
 	if errs != 0 {
 		t.Fatalf("unexpected scan errors: %d", errs)

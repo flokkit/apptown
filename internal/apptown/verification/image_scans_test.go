@@ -76,7 +76,14 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 
 	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions())})
 	ch := &workflow.Change{ID: idstest.N(7), ProjectID: f.ProjectID, Branch: branch, BaseSHA: seed}
-	out, err := changes.Check(f.Context, ch, Selection{Commit: head})
+	var progress []string
+	ctx := WithCheckProgress(f.Context, func(line string) { progress = append(progress, line) })
+	out, err := changes.Check(ctx, ch, Selection{Commit: head})
+	for name := range scanners {
+		if !slices.Contains(progress, name+" · scanning image") {
+			t.Fatalf("missing image scan progress: %v", progress)
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

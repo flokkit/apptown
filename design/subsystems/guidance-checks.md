@@ -103,6 +103,16 @@ introduced findings at or above `high` (the point's default). Its
 answer is feedback, never evidence: nothing of it is recorded, no gate reads
 it, and the landing runs the checks again on the commit it lands. Every
 answer says so (`feedbackOnly: true`) and names the commit it is for.
+Applicable runtime and model checks appear as skipped rows: runtime probes
+are judged at the landing against the change's running preview; model checks
+are judged by a model at the landing. Checks that do not apply retain their
+not-applicable reason. Malformed applicability remains an error.
+
+The HTTP check endpoint streams newline-delimited JSON: progress objects with
+a `progress` string, then the result document as the final line. A checker
+failure after progress ends with an `error` object. Clients require a decoded
+terminal result; EOF is not success. MCP calls the check operation directly
+and returns its native result.
 
 A named commit is checked only when AppTown has it as the change's work:
 in the change's folder, on its published branch, or on one of the change's

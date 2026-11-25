@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,9 +154,12 @@ func TestAppTownCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	check := func(body string) (int, string, map[string]any) {
 		t.Helper()
 		resp := authzCall(a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/check", ch.ID), body)
+		bodyText := resp.Body.String()
 		var out map[string]any
-		_ = json.Unmarshal(resp.Body.Bytes(), &out)
-		return resp.Code, resp.Body.String(), out
+		if err := decodeCheckAnswer(resp.Body, &out); err != nil {
+			t.Fatal(err)
+		}
+		return resp.Code, bodyText, out
 	}
 	if code, body, out := check(`{"commit":"` + head + `"}`); code != 200 || out["commit"] != head || out["ok"] != true || len(saw) == 0 || saw[0] != "work\n" {
 		t.Fatalf("the folder's HEAD: %d %s, ran on %q", code, body, saw)
@@ -225,9 +229,12 @@ func TestAppTownCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {
 	check := func(body string) (int, string, map[string]any) {
 		t.Helper()
 		resp := authzCall(a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/check", ch.ID), body)
+		bodyText := resp.Body.String()
 		var out map[string]any
-		_ = json.Unmarshal(resp.Body.Bytes(), &out)
-		return resp.Code, resp.Body.String(), out
+		if err := decodeCheckAnswer(resp.Body, &out); err != nil {
+			t.Fatal(err)
+		}
+		return resp.Code, bodyText, out
 	}
 	tip := func() string { t.Helper(); return gittest.Run(t, hub, "rev-parse", "refs/heads/"+ch.Branch) }
 
@@ -256,5 +263,27 @@ func TestAppTownCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {
 	code, body, out := check(`{"published":true}`)
 	if code != 404 || !strings.Contains(body, "nothing published to check") || !strings.Contains(body, ch.Branch) || out["commit"] != nil || len(saw) != 0 {
 		t.Fatalf("no published branch: %d %s, ran %d checks", code, body, len(saw))
+	}
+}
+
+// decodeCheckAnswer reads the HTTP check stream through its terminal answer.
+func decodeCheckAnswer(r io.Reader, out any) error {
+	dec := json.NewDecoder(r)
+	for {
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return err
+		}
+		var line map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &line); err != nil {
+			return err
+		}
+		if _, progress := line["progress"]; progress {
+			continue
+		}
+		if line["ok"] == nil && line["error"] == nil {
+			return fmt.Errorf("missing terminal check answer: %s", raw)
+		}
+		return json.Unmarshal(raw, out)
 	}
 }

@@ -90,6 +90,29 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	defer cleanup()
 	results, findings, shErrors := v.evaluator.runShChecks(ctx, tools.Images.Sh, checks, src, fmt.Sprintf("apptown-check-%d", id))
 
+	// Runtime probes and model judgements belong to the landing. Apply the same
+	// declaration rules before saying they are deferred: invalid rules are errors.
+	for _, d := range declaredAll(checks) {
+		evaluator := check.Evaluator(d.Declaration)
+		if evaluator != "runtime" && evaluator != "llm" {
+			continue
+		}
+		if ev := check.NotApplicableHere(d, CheckSource(src), check.Gate); ev != nil {
+			r := resultOf(*ev)
+			if ev.Outcome == check.Error {
+				r.Output = ev.Detail
+				shErrors++
+			}
+			results = append(results, r)
+			continue
+		}
+		note := "judged at the landing against this change's running preview; apptown check does not run it"
+		if evaluator == "llm" {
+			note = "judged by a model at the landing"
+		}
+		results = append(results, workflow.CheckReceipt{Block: d.Namespace, Version: d.Version, Check: d.Name, Evaluator: evaluator, Verdict: workflow.VerdictSkipped, Note: note})
+	}
+
 	// tool checks (design/subsystems/conformance.md §13.6): the agent sees the real tool
 	// findings — SAST issues, framework self-check warnings — in its own loop.
 	// The exec-image tier builds the app image once, content-addressed by the
@@ -129,7 +152,8 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 
 	// The baseline, as the gate applies it: a finding that already fails
 	// on the tree this change forked from is marked and does not count.
-	base := v.baselineFor(ctx, tools, ch.ProjectID, checks, forkBase, fmt.Sprintf("apptown-check-%d", id))
+	baseCtx := context.WithValue(ctx, checkProgressKey{}, (*checkProgress)(nil))
+	base := v.baselineFor(baseCtx, tools, ch.ProjectID, checks, forkBase, fmt.Sprintf("apptown-check-%d", id))
 	// A check its caller stopped part-way has no answer: a cut-short phase
 	// reads as nothing found, never as a pass.
 	if err := ctx.Err(); err != nil {

@@ -398,7 +398,7 @@ func TestProvisioning(t *testing.T) {
 			// Every chat installs the project's declared toolchain before
 			// pi starts, whichever machine runs it: a worker's chats once
 			// started without it and the declared Maven was not found.
-			if install := strings.Index(string(run), console.ToolchainPrelude); install < 0 || install > strings.Index(string(run), "exec pi ") {
+			if install := strings.Index(string(run), console.ToolchainPrelude); install < 0 || install > strings.Index(string(run), "exec /usr/local/bin/apptown-pi ") {
 				t.Fatalf("launcher does not install the declared toolchain first: %s", run)
 			}
 		})
@@ -696,7 +696,7 @@ func TestAChatIsGivenTheExtraCertificatesAndRunsThem(t *testing.T) {
 		t.Fatalf("the chat's container is not given the extra certificates: %s", created())
 	}
 	run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh"))
-	pi := strings.Index(string(run), "exec pi ")
+	pi := strings.Index(string(run), "exec /usr/local/bin/apptown-pi ")
 	if at := strings.Index(string(run), trust.Run); at < 0 || at > pi {
 		t.Fatalf("the launcher does not run the extra certificates before pi: %s", run)
 	}

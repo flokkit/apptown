@@ -47,7 +47,7 @@ func (r *Runtime) provision(in console.Launch) error {
 	}
 	// Context files stay off (what steers a session is exactly the steering
 	// file); skills and extensions load only through the staged home.
-	piCmd := "exec pi --session-id '" + in.AgentSession + "' --session-dir " + console.SessionsMount +
+	piCmd := "exec " + console.PiLauncher + " --session-id '" + in.AgentSession + "' --session-dir " + console.SessionsMount +
 		" --append-system-prompt " + console.Mount + "/" + console.SteeringFile + " --no-context-files"
 	if in.Model != "" {
 		piCmd += " --model '" + strings.ReplaceAll(in.Model, "'", "") + "'"

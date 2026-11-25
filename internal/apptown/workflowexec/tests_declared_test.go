@@ -172,10 +172,10 @@ func TestTestsSummaryKeepsTheFirstWorstCommand(t *testing.T) {
 	}{
 		{"passes", false, []int{0, 0}, workflow.StatusPass, "first", ""},
 		{"failures", false, []int{0, 1, 1}, workflow.StatusFail, "second", "tests failed: web: second"},
-		{"errors", false, []int{1, -1, -1}, workflow.StatusError, "second", "the tests could not be started: unavailable"},
+		{"errors", false, []int{1, -1, -1}, workflow.StatusError, "second", "the command could not be started: unavailable"},
 		{"missing only", true, []int{0, 0}, workflow.StatusFail, "", ""},
 		{"missing and failures", true, []int{1, 1}, workflow.StatusFail, "first", "tests failed: web: first"},
-		{"missing and errors", true, []int{-1, -1, 1}, workflow.StatusError, "first", "the tests could not be started: unavailable"},
+		{"missing and errors", true, []int{-1, -1, 1}, workflow.StatusError, "first", "the command could not be started: unavailable"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

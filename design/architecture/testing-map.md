@@ -103,8 +103,8 @@ as a test **of** the vocabulary.
 ### 3. Harness shape
 
 In-process `apptownd` (the App and the real handler on a loopback port), a
-cloned test database, real Docker, a temp data directory, fake pi on
-`PATH`, `-tags=journey`. Same conventions as the integration tier:
+cloned test database, real Docker, a temp data directory, an agent image
+whose launcher (`/usr/local/bin/apptown-pi`) is the fake pi, `-tags=journey`. Same conventions as the integration tier:
 pid-salted names, `t.Cleanup`, a missing daemon fails loudly. Each journey
 is a Go test that reads as a story; shared story steps (create a project,
 land a change, release it) live in one file so a new journey is mostly

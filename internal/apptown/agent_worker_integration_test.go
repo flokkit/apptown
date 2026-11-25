@@ -96,7 +96,7 @@ var fakePiBuild fakePiBuilt
 func fakePiImage(t *testing.T) string {
 	t.Helper()
 	fakePiBuild.once.Do(func() {
-		dockerfile := "FROM alpine/git:v2.47.2\nRUN apk add --no-cache nodejs\nENTRYPOINT []\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/pi\n"
+		dockerfile := "FROM alpine/git:v2.47.2\nRUN apk add --no-cache nodejs\nENTRYPOINT []\nLABEL apptown.pi.version=\"" + fakePiVersion + "\"\nCOPY pi /usr/local/bin/apptown-pi\n"
 		sum := sha256.Sum256([]byte(dockerfile + fakePiScript))
 		image := "forge-it-fake-pi:" + hex.EncodeToString(sum[:])[:12]
 		if dockertest.Run("image", "inspect", image) == nil {

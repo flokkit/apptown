@@ -877,6 +877,9 @@ func cmdStart(args []string) error {
 // inside a change chat, it rechecks that chat's change through the chat's
 // door (the session token opens only that one). Approvals stay with a person.
 func cmdRecheck(args []string) error {
+	if os.Getenv("APPTOWN_RUN_ID") != "" {
+		return fmt.Errorf("a workflow step cannot recheck a landing; run `apptown check` to run this change's checks")
+	}
 	fs := newFlags("recheck")
 	yes := fs.Bool("y", false, "auto-approve landing gates")
 	noFollow := fs.Bool("no-follow", false, "start the recheck and return")

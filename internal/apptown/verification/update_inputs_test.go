@@ -131,6 +131,29 @@ func TestUpdateInputsPermitToolchainPatchesByChoice(t *testing.T) {
 			}
 		}
 	}
+	for _, tc := range []struct {
+		old, next string
+		allowed   bool
+	}{
+		{"temurin-21.0.5+11.0.LTS", "temurin-21.0.13+100000002.0.LTS", true},
+		{"temurin-21.0.5+11.0.LTS", "temurin-21.1.0+1.0.LTS", true},
+		{"temurin-21.0.5+11.0.LTS", "temurin-25.0.13+100000002.0.LTS", false},
+		{"temurin-21.0.5+11.0.LTS", "corretto-21.0.13+100000002.0.LTS", false},
+		{"temurin-21.0.5+11.0.LTS", "temurin-21.0.5+9.0.LTS", false},
+		{"temurin-21.0.13+11.0.LTS", "temurin-21.0.5+100000002.0.LTS", false},
+		{"1.24", "1.24.13", false},
+	} {
+		t.Run(tc.old+"/"+tc.next, func(t *testing.T) {
+			err := CompareUpdateInputs(t.Context(), map[string]any{".java-version": tc.old}, map[string]any{".java-version": tc.next}, true, ImageUpdates{ToolchainPatches: true})
+			if (err == nil) != tc.allowed {
+				t.Fatalf("allowed=%t: %v", tc.allowed, err)
+			}
+			if err != nil && strings.Contains(err.Error(), "your settings do not allow") {
+				t.Fatal(err)
+			}
+		})
+	}
+
 	if CompareUpdateInputs(t.Context(), map[string]any{".go-version": "1.27"}, map[string]any{".go-version": "1.28"}, true, ImageUpdates{ToolchainPatches: true, Security: true}) == nil {
 		t.Fatal("minor toolchain versions moved")
 	}

@@ -3,6 +3,7 @@ package verification
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/clock"
 	"strings"
 	"time"
 
@@ -49,5 +50,18 @@ func startCheck(ctx context.Context, d check.Declared) func(workflow.CheckReceip
 			verdict = "reused"
 		}
 		p.append(fmt.Sprintf("%s · %s · %.1fs", label, verdict, p.now().Sub(start).Seconds()))
+	}
+}
+
+// WithCheckProgress observes the existing check operation without recording
+// evidence. The callback runs synchronously for each phase.
+func WithCheckProgress(ctx context.Context, appendLine func(string)) context.Context {
+	return withCheckProgress(ctx, 0, clock.Or(nil), appendLine)
+}
+
+// checkPhase reports a phase of the existing check operation.
+func checkPhase(ctx context.Context, line string) {
+	if p, _ := ctx.Value(checkProgressKey{}).(*checkProgress); p != nil {
+		p.append(line)
 	}
 }

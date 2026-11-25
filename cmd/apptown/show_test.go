@@ -339,3 +339,17 @@ func TestShowAndWaitCarryTheFullSendBackRecord(t *testing.T) {
 		}
 	}
 }
+
+func TestRecheckInWorkflowExplainsCheckWithoutRequest(t *testing.T) {
+	t.Setenv("APPTOWN_RUN_ID", "run-123")
+	seen := fakeAppTown(t, func(_, _ string) (int, string) { return 403, `{"error":"refused"}` })
+	for _, args := range [][]string{nil, {"00000000-0024-7000-8000-000000000000"}} {
+		err := cmdRecheck(args)
+		if err == nil || err.Error() != "a workflow step cannot recheck a landing; run `apptown check` to run this change's checks" {
+			t.Fatalf("recheck: %v", err)
+		}
+	}
+	if len(*seen) != 0 {
+		t.Fatalf("recheck contacted server: %v", *seen)
+	}
+}

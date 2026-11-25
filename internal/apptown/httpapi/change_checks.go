@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/flokkit/apptown/internal/fault"
 	"net/http"
 	"strings"
 
@@ -41,10 +43,8 @@ func NewChangeChecks(db database.Queryer, checker changeVerifier) ChangeChecks {
 // change's DECLARED sh gate checks against its committed tree BEFORE handoff,
 // so a failing gate is fixed in the loop instead of discovered after the run
 // hands back. Same checks, same committed-tree posture, same gating rule as the
-// guidance/conformance STEP (they share runShChecks), so this is a faithful
-// preview of the gate, not a second opinion. llm checks are advisory and never
-// gate, so they're out of scope here — this reports only what can actually
-// block a landing and that the agent can act on.
+// guidance/conformance STEP (they share runShChecks). Runtime and model
+// judgements are reported as skipped here; the landing judges them.
 func (h ChangeChecks) Check(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r, "id")
 	if err != nil {
@@ -72,11 +72,42 @@ func (h ChangeChecks) Check(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonCommand(w, r, jsonBody{optional: true, limit: 4 << 10}, func(in ChangeCheckRequest) {
-		out, err := h.checker.Check(r.Context(), ch, verification.Selection{Commit: in.Commit, Published: in.Published})
-		if err != nil {
-			WriteFault(w, err)
+		streamChangeCheck(w, r, func(ctx context.Context, report func(string)) (map[string]any, error) {
+			return h.checker.Check(verification.WithCheckProgress(ctx, report), ch, verification.Selection{Commit: in.Commit, Published: in.Published})
+		})
+	})
+}
+
+// streamChangeCheck emits one NDJSON response: progress, then a result or error.
+// Errors before progress keep their HTTP classification.
+func streamChangeCheck(w http.ResponseWriter, r *http.Request, run func(context.Context, func(string)) (map[string]any, error)) {
+	started := false
+	enc := json.NewEncoder(w)
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	report := func(line string) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		started = true
+		if err := enc.Encode(map[string]string{"progress": line}); err != nil {
+			cancel()
 			return
 		}
-		WriteJSON(w, 200, out)
-	})
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			cancel()
+		}
+	}
+	out, err := run(ctx, report)
+	if err != nil {
+		if !started {
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			if code := fault.CodeOf(err); code != "" {
+				w.Header().Set("X-AppTown-Deny-Code", code)
+			}
+			w.WriteHeader(faultStatus(fault.KindOf(err), http.StatusInternalServerError))
+		}
+		_ = enc.Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	_ = enc.Encode(noNullLists(out))
 }

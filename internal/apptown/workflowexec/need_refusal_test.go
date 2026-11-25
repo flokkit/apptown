@@ -1,6 +1,8 @@
 package workflowexec
 
 import (
+	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/deploy"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,6 +76,30 @@ func TestNeedsRefusalDistinguishesAppMistakesFromMissingKinds(t *testing.T) {
 	for _, want := range []string{"If the app declares a need incorrectly (including parse errors or bad parameters), fix .apptown/app.yaml as part of this change", "Only when a correctly declared kind is missing from the catalogue, file `apptown complain`"} {
 		if !strings.Contains(prompt, want) {
 			t.Errorf("missing refusal guidance %q: %s", want, prompt)
+		}
+	}
+}
+
+func TestStepServerWarningFollowsTheCatalogueOverride(t *testing.T) {
+	t.Parallel()
+	catalog := dependency.NewCatalog(databaseSuite.New(t), nil)
+	a := &Executor{dependencies: catalog}
+	for _, override := range []bool{false, true} {
+		spec := "capability: test-server\nlocal:\n  image: test:1\n"
+		if override {
+			spec += "  stepEnv: {EXTRA_RIGHTS: yes}\n"
+		}
+		if _, err := catalog.Save(t.Context(), spec, "tester"); err != nil {
+			t.Fatal(err)
+		}
+		started, err := a.describeNeeds(t.Context(), []deploy.ServiceSpec{{Name: "test-server"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		prompt := (needsEvidence{Started: started}).prompt()
+		warning := "These step servers give the app more rights than a deployment or preview does (see the services-and-data guide); check privilege contracts against a preview, not here."
+		if strings.Contains(prompt, warning) != override {
+			t.Fatalf("override=%t: %s", override, prompt)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package check_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/check"
@@ -34,6 +35,12 @@ func TestTimeoutSurvivesEvaluation(t *testing.T) {
 				d.Evaluator = "tool"
 				d.Tool = "check"
 				ev = j.EvaluateTool(d, src, check.Gate, "t")
+			}
+			if kind == "sh" && (!strings.Contains(ev.Evidence.Output, "did not finish within 1m0s") || strings.Contains(ev.Evidence.Output, "report lost")) {
+				t.Fatalf("lost timeout reason: %+v", ev)
+			}
+			if kind == "source" && (!strings.Contains(ev.Detail, "did not finish within 5m0s") || strings.Contains(ev.Detail, "report lost")) {
+				t.Fatalf("lost tool timeout reason: %+v", ev)
 			}
 			wantCalls := 2
 			if kind == "exec-image" {

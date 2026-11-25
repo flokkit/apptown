@@ -20,6 +20,10 @@ mise install
 mise exec -- node --version
 ```
 
+Workflow and chat sessions run Pi with the agent image's Node interpreter.
+Commands Pi starts keep the mise shims on PATH, so each command reads the
+project's current toolchain declaration.
+
 The standard agent image supplies a baseline tool inventory. AppTown attempts
 project toolchain preparation, but some preparation paths are best-effort.
 Verify the actual tool/version before trusting a build or test. An agent starting

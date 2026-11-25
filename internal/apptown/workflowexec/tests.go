@@ -235,7 +235,7 @@ func (a *commands) RunTests(task *workflow.Execution) {
 		case !outcome.Answered():
 			commandStatus = workflow.StatusError
 			result["outcome"] = outcomeKind(outcome)
-			result["reason"] = unansweredReason(outcome, timeout)
+			result["reason"] = outcome.UnansweredReason(timeout)
 		default:
 			result["outcome"] = "exited"
 			if outcome.ExitCode != 0 {
@@ -417,29 +417,6 @@ func outcomeKind(o execution.Outcome) string {
 		return "no_answer"
 	}
 	return string(o.Termination)
-}
-
-func unansweredReason(o execution.Outcome, timeout time.Duration) string {
-	switch outcomeKind(o) {
-	case string(execution.LaunchFailed):
-		return "the tests could not be started: " + errText(o.RunErr)
-	case string(execution.TimedOut):
-		return fmt.Sprintf("the tests did not finish within %s, so they gave no answer", timeout)
-	case string(execution.Canceled):
-		return "the tests were stopped before they finished, so they gave no answer: " + errText(o.RunErr)
-	case "cleanup_failed":
-		return fmt.Sprintf("the tests exited %d, but their container could not be cleaned up, so the run is not an answer: %v", o.ExitCode, o.CleanupErr)
-	case string(execution.OutOfMemory):
-		return "the tests ran out of memory, so they gave no answer: " + errText(o.RunErr) + "; raise apptownd -task-memory-mib if the suite needs more"
-	}
-	return "the tests gave no answer: " + errText(o.RunErr)
-}
-
-func errText(err error) string {
-	if err == nil {
-		return "no reason given"
-	}
-	return err.Error()
 }
 
 // testsConfig is a tests step's options (schema.StepOptions("tests")).

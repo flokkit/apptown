@@ -200,9 +200,8 @@ func TestReviewInvocationsAllCarryCLIAndRunToken(t *testing.T) {
 			if envValue(req, "APPTOWN_RUN_ID") != fmt.Sprint(runID) || envValue(req, "APPTOWN_STEP") != "review" {
 				t.Errorf("call %d: APPTOWN_RUN_ID/APPTOWN_STEP wrong for run %d: %v", i+1, runID, req.Env)
 			}
-			// pi runs directly, or as the command the toolchain wrapper execs
-			// (sh -c '<install>; exec "$@"' sh pi ...).
-			if req.Argv[0] != "pi" && !(req.Argv[0] == "sh" && reviewHasArg(req, "pi")) {
+			// Every review, including its resume or fixup, uses the image launcher.
+			if !reviewHasArg(req, "/usr/local/bin/apptown-pi") {
 				t.Errorf("call %d: argv %v does not run pi", i+1, req.Argv)
 			}
 		}
