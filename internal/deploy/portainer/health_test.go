@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,7 +32,9 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				t.Fatal(err)
 			}
 			applied := false
-			recovery := false
+			// Atomic: a request from the timed-out settle can still be in the
+			// handler when the test switches to recovery.
+			var recovery atomic.Bool
 			applies := 0
 			probeCount := 0
 			revoked := false
@@ -67,7 +70,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 					_ = json.NewEncoder(w).Encode([]map[string]any{{"Id": 19, "Name": stack, "EndpointId": 3}})
 				case path == "/api/stacks/19":
 					status := 1
-					if mode == "recover-deploying" || mode == "settle-timeout" && !recovery {
+					if mode == "recover-deploying" || mode == "settle-timeout" && !recovery.Load() {
 						status = 3
 					}
 					if mode == "recover-failed" {
@@ -249,7 +252,7 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				if mode == "settle-timeout" && checkpoint["stackId"] != int64(19) {
 					t.Fatal("lost stack ID before settle")
 				}
-				recovery = true
+				recovery.Store(true)
 				d.settleTimeout = 5 * time.Second
 				got, err = d.Resume(t.Context(), placement, 1, checkpoint, func(string, ...any) {})
 				if err != nil || got.Health != "healthy" || applies != 1 {
