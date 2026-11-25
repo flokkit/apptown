@@ -214,7 +214,10 @@ func (s Schedules) fire(ctx context.Context, c firing, now time.Time, requestedB
 	if err != nil || admitted.outcome != fireNone {
 		return admitted, err
 	}
-	title := fmt.Sprintf("%s @ %s", c.workflow, now.Format("2006-01-02 15:04"))
+	title := c.title
+	if title == "" {
+		title = c.workflow
+	}
 	if err := ctx.Err(); err != nil {
 		return fired{}, err
 	}
@@ -376,6 +379,7 @@ type carried struct {
 	discoversTargets bool
 	scansSource      bool
 	workflow         string
+	title            string
 	version          int
 	trigger          schema.ScheduleTrigger
 	err              error
@@ -438,14 +442,14 @@ func carriedProcedures(items []workflow.JanitorProcedure, publications bool) []c
 	out := []carried{}
 	for _, p := range items {
 		if p.Problem != "" {
-			out = append(out, carried{workflow: p.Name, version: p.Version, scheduled: p.Scheduled, err: fmt.Errorf("%s", p.Problem)})
+			out = append(out, carried{title: p.Title, workflow: p.Name, version: p.Version, scheduled: p.Scheduled, err: fmt.Errorf("%s", p.Problem)})
 			continue
 		}
 		if publications && p.Publication {
-			out = append(out, carried{workflow: p.Name, version: p.Version, standing: p.Standing, publication: true, trigger: schema.ScheduleTrigger{Queue: p.Standing.Queue}})
+			out = append(out, carried{title: p.Title, workflow: p.Name, version: p.Version, standing: p.Standing, publication: true, trigger: schema.ScheduleTrigger{Queue: p.Standing.Queue}})
 		}
 		if p.Scheduled {
-			out = append(out, carried{workflow: p.Name, version: p.Version, scheduled: true, standing: p.Standing, trigger: p.Trigger, discoversTargets: p.DiscoversTargets, scansSource: p.ScansSource})
+			out = append(out, carried{title: p.Title, workflow: p.Name, version: p.Version, scheduled: true, standing: p.Standing, trigger: p.Trigger, discoversTargets: p.DiscoversTargets, scansSource: p.ScansSource})
 		}
 	}
 	return out

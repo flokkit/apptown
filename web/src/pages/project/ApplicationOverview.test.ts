@@ -4,7 +4,7 @@ import type { OverviewData } from '../../parts/runActivity'
 import type { Backup, DeploymentView } from '../../wire.gen'
 
 it('keeps unknown, unreachable and failed owner labels separate in the activity record', () => {
-  const data = { active: [], open: [], history: [{ changeId: 'change', changeNumber: 4, title: 'Fix photos', when: '2026-10-30', waitingOn: { says: 'Tests failed', tone: 'bad' } }] } as unknown as OverviewData
+  const data = { active: [], open: [], history: [{ change: { changeId: 'change', changeNumber: 4, title: 'Fix photos', when: '2026-10-30', waitingOn: { says: 'Tests failed', tone: 'bad' } } }] } as unknown as OverviewData
   const deployments = [
     { id: 'preview', name: 'preview', observation: 'unreachable', targetName: 'Club host', observedAt: '2026-10-31', observationIssue: 'Credential unavailable' },
     { id: 'main', name: 'main', observation: 'unknown', targetName: 'Main host', observedAt: '2026-10-29' },
@@ -40,7 +40,7 @@ it('names releases and opens their own pages', () => {
 it('keeps the landed change and its release as separate records', () => {
   const history = [{ changeId: 'change', changeNumber: 4, title: 'Fix photos', when: '2026-10-30', waitingOn: { says: 'landed', tone: 'ok' } }]
   const releases = [{ number: 6, changes: [{ id: 'change', number: 4, title: 'Fix photos' }], statusLabel: 'deployed', deployment: 'fly', releasedAt: '2026-10-31' }] as unknown as import('../../api').Release[]
-  const entries = overviewActivity({ active: [], open: [], history } as unknown as OverviewData, [], [], releases, 'club').past
+  const entries = overviewActivity({ active: [], open: [], history: history.map(change => ({ change })) } as unknown as OverviewData, [], [], releases, 'club').past
   expect(entries).toHaveLength(2)
   expect(entries[0]).toMatchObject({ title: 'Release 6 to fly', to: '/projects/club/releases/6', word: 'deployed' })
   expect(entries[1]).toMatchObject({ title: 'Fix photos', to: '/changes/change', waitingOn: { says: 'landed' } })
@@ -55,4 +55,12 @@ it('shows in-flight changes first, once each, even without history', () => {
     { changeId: 'chat', changeNumber: 2, title: 'Chat build', waitingOn: { says: 'building', tone: 'busy' } },
   ], history: [] } as unknown as unknown as OverviewData
   expect(overviewActivity(data, [], [], [], 'club').current.map(e => [e.title, 'waitingOn' in e ? e.waitingOn.says : undefined])).toEqual([['First build', 'checking'], ['Chat build', 'building']])
+})
+
+it('keeps the overview upkeep entry as the same count-and-date row', () => {
+ const span = { count: 14, from: '2026-11-17T10:00:00Z', until: '2026-11-22T10:00:00Z' }
+ const entries = overviewActivity({ notes: null, repo: null, active: [], open: [], history: [{ upkeep: span }] }, [], [], [], 'p').past
+ expect(entries).toHaveLength(1)
+ expect(entries[0]).toMatchObject({ title: '14 upkeep changes · 17–22 Nov', upkeep: span })
+ expect(entries[0]).not.toHaveProperty('word')
 })

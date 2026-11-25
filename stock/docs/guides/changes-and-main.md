@@ -6,6 +6,16 @@ The only path from a branch to `main` is **landing**, through the gates.
 This guide is how that works, the ways to work on a change, and how a change
 stays close to `main` while it's being built.
 
+## The Changes page
+
+The project's **Changes** page shows open and finished work. Consecutive
+finished changes AppTown opens form one upkeep row with a count and dates.
+Click it to open **Upkeep changes** and read the individual records. Daily
+upkeep therefore leaves people's changes within reach. Open AppTown work that
+needs approval, a failed-check decision or other attention keeps its own row.
+So does open work a person has touched, including work sent back. Other open
+upkeep shares a row in progress.
+
 ## Ways to work on a change
 
 A change can be worked in its chat, from your own computer, or by a

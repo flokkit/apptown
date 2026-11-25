@@ -1673,7 +1673,7 @@ export type ProjectOverviewView = {
   repo: OverviewRepo | null
   active: RunRow[]
   open: OpenChange[]
-  history: ChangeHistory[]
+  history: HistoryEntry[]
 }
 
 export type ProjectPage = {
@@ -1752,6 +1752,12 @@ export type ProjectServiceList = {
 export type ProjectTargets = {
   targets: OfferedTarget[]
   group: string
+}
+
+export type ProjectUpkeepView = {
+  active: RunRow[]
+  open: OpenChange[]
+  history: ChangeHistory[]
 }
 
 export type ProjectWorkflowRow = {
@@ -2028,6 +2034,8 @@ export type RunFindingsView = {
 }
 
 export type RunRow = {
+  automatedOrigin: boolean
+  untouched: boolean
   waitingOn: WaitingOn
   runId: string | null
   runNumber: number
@@ -2856,6 +2864,7 @@ export type ChecksSummary = {
 }
 
 export type WaitingOn = {
+  needsPerson: boolean
   queue?: slotQueue | null
   kind: string
   run: string | null
@@ -3902,6 +3911,7 @@ export type ActiveAgent = {
 }
 
 export type ChangeHistory = {
+  automatedOrigin: boolean
   waitingOn: WaitingOn
   completedRuns: number
   merged: boolean
@@ -4411,12 +4421,19 @@ export type OverviewRepo = {
 }
 
 export type OpenChange = {
+  automatedOrigin: boolean
+  untouched: boolean
   waitingOn: WaitingOn
   changeId: string | null
   changeNumber: number
   title: string
   state: ChangeState
   editing: number
+}
+
+export type HistoryEntry = {
+  change?: ChangeHistory | null
+  upkeep?: UpkeepRun | null
 }
 
 export type Violation = {
@@ -5575,6 +5592,12 @@ export type OverviewHead = {
   sha: string
   subject: string
   when: string
+}
+
+export type UpkeepRun = {
+  count: number
+  from: string
+  until: string
 }
 
 export type File = {

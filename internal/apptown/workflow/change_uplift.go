@@ -116,6 +116,23 @@ func (s changeStore) openUplift(ctx context.Context, in Uplift, who string) (*Ch
 		if target.ID.IsZero() || !json.Valid(target.Candidate) {
 			return nil, fmt.Errorf("adoption target was not recorded")
 		}
+		var candidate adoption.Candidate
+		if err := json.Unmarshal(target.Candidate, &candidate); err != nil {
+			return nil, err
+		}
+		packs, err := adoption.ProjectPacksIn(ctx, tx, in.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		previous := make([]adoption.PackPick, 0, len(packs))
+		for _, p := range packs {
+			previous = append(previous, adoption.PackPick{Pack: p.Pack, Version: p.Version})
+		}
+		title = upliftTitle(candidate, previous, in.Words)
+		// The opener owns this initial title; admission has not exposed it yet.
+		if err := workflowsql.New(tx.SQL()).SetUpliftOpeningTitle(ctx, workflowsql.SetUpliftOpeningTitleParams{ID: created.Change.ID, ProjectID: in.ProjectID, Title: title}); err != nil {
+			return nil, err
+		}
 		// Validate the participant's returned identity before attaching it. Target rows
 		// are immutable facts, scoped to this project and the negative Change revision.
 		owned, err := adoption.TargetOwnedIn(ctx, tx, in.ProjectID, created.Change.ID, target.ID, in.Acceptance.TargetDigest)
@@ -155,7 +172,7 @@ func upliftBrief(in Uplift) (string, string) {
 		}
 		lines = append(lines, line)
 	}
-	title := strs.Truncate("Adopt the way of working: "+strings.Join(in.Words, ", "), 99)
+	title := strs.Truncate("Way of working: "+strings.Join(in.Words, ", "), 99)
 	basis := ""
 	if in.Basis != "" {
 		basis = "\n" + in.Basis + "\n"
@@ -182,4 +199,23 @@ When this Change lands, the project's way of working moves to the target — unl
 project moved on meanwhile, in which case the landing is refused and the change is prepared
 again. Work in this Change's workspace and land through the ordinary gates.`, strings.Join(in.Words, ", "), basis, strings.Join(lines, "\n"))
 	return title, body
+}
+
+func upliftTitle(target adoption.Candidate, previous []adoption.PackPick, first []string) string {
+	if len(previous) == 0 {
+		return strs.Truncate("Way of working: "+strings.Join(first, ", "), 99)
+	}
+	versions := map[string]int64{}
+	for _, p := range previous {
+		versions[p.Pack] = p.Version
+	}
+	words := []string{}
+	for _, p := range adoption.ChangedPacks(target.Packs, previous) {
+		if from, ok := versions[p.Pack]; ok {
+			words = append(words, fmt.Sprintf("%s v%d → v%d", p.Pack, from, p.Version))
+		} else {
+			words = append(words, fmt.Sprintf("adds %s v%d", p.Pack, p.Version))
+		}
+	}
+	return strs.Truncate("Way of working: "+strings.Join(words, ", "), 99)
 }

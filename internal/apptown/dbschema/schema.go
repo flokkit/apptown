@@ -1041,6 +1041,7 @@ FROM (
 		"ALTER TABLE deployments ALTER COLUMN protected SET NOT NULL",
 	}},
 	{n: 247, note: "record released engine moves", stmts: []string{"ALTER TABLE releases ADD COLUMN need_moves JSONB NOT NULL DEFAULT '[]'"}},
+	{n: 248, note: "AppTown owns titles derived from recorded facts", stmts: []string{`ALTER TABLE changes DROP CONSTRAINT change_title_ownership, ADD CONSTRAINT change_title_ownership CHECK(title_ownership IN ('human','awaiting_chat','generated','apptown'))`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

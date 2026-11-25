@@ -64,6 +64,9 @@ func TestSpecializedUpliftCommitsExactTargetAndRequiredAttribution(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	if ch.Title != "Way of working: demo v2" {
+		t.Fatalf("adoption opening title: %q", ch.Title)
+	}
 	if ch.Type != "uplift" || ch.State != ChangeInProgress || ch.Branch != "" || ch.ExpectedRevision != 7 || ch.TargetAdoptionID.IsZero() {
 		t.Fatalf("uplift: %+v", ch)
 	}

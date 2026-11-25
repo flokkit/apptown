@@ -16,7 +16,7 @@ it.each([
   ['chat', 'chat open', 'busy', 'running'],
   ['ready', 'ready to continue', 'warn', 'pending'],
 ])('prints the owner wording and tone for %s in the row and change head', (kind, says, tone, cls) => {
-  const waitingOn: WaitingOn = { kind, says, tone, run: 'child', step: 'review', checks: 1, who: [], you: 'no' }
+  const waitingOn: WaitingOn = { needsPerson: true, kind, says, tone, run: 'child', step: 'review', checks: 1, who: [], you: 'no' }
   const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn, change: { id: 'change', number: 9, title: 'Fix photos', state: 'in_progress' }, statusLabel: 'working', state: 'working', projectSlug: 'photos', runs: [], detail: null } as unknown as ChangeView
   expect(changeChip(v)).toEqual({ text: says, cls })
   expect(nextStep(v).headline).toBe(says)
@@ -29,7 +29,7 @@ it.each([
 })
 
 it('places actions at the holding step supplied by the owner', () => {
-  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { kind: 'check', says: 'review failed', tone: 'bad', run: 'run', step: 'review', who: [], you: 'yes' }, change: { state: 'in_progress' }, next: [{ act: 'send-back' }], detail: {
+  const v = { checks: { tone: 'neutral', text: 'Not checked yet.', started: false }, goesTo: { branch: 'main', deployments: [] }, waitingOn: { needsPerson: true, kind: 'check', says: 'review failed', tone: 'bad', run: 'run', step: 'review', who: [], you: 'yes' }, change: { state: 'in_progress' }, next: [{ act: 'send-back' }], detail: {
     run: { id: 'run' }, events: [], next: [{ act: 'retry', stepId: 'review' }], steps: [
       { id: 'old', type: 'script', status: 'fail', evidence: {} },
       { id: 'review', type: 'agent/review', status: 'fail', evidence: { reason: 'A real problem.' } },
@@ -46,7 +46,7 @@ it('places actions at the holding step supplied by the owner', () => {
 // The owner's state detail for a waiting approval is the step's name; the
 // change's record shows who it waits on, never the bare name as a sentence.
 it('does not print a waiting approval step name as the state sentence', () => {
-  const waitingOn: WaitingOn = { kind: 'approval', says: 'waiting for a person allowed to approve it', tone: 'warn', run: 'run', step: 'accept', checks: 0, who: [], you: 'no' }
+  const waitingOn: WaitingOn = { needsPerson: true, kind: 'approval', says: 'waiting for a person allowed to approve it', tone: 'warn', run: 'run', step: 'accept', checks: 0, who: [], you: 'no' }
   const v = { checks: { tone: 'neutral', text: '', started: false }, waitingOn, stateDetail: 'accept', change: { id: 'c', number: 9, title: 'T', state: 'in_progress' }, runs: [], detail: null } as unknown as ChangeView
   expect(nextStep(v).sentence).toBeUndefined()
   const record = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><StateRecord view={v} /></QueryClientProvider></MemoryRouter>)

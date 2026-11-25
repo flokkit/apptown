@@ -396,7 +396,7 @@ func (q *Queries) ChangeStatesForScopes(ctx context.Context, arg ChangeStatesFor
 
 const changeSummaries = `-- name: ChangeSummaries :many
 SELECT wi.id,wi.number,wi.project_id,wi.type,wi.title,CASE WHEN $1::boolean THEN '' ELSE wi.body END::text AS body,wi.run_id,wi.created_at,
-wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed_as,
+wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed_as,wi.automated_origin,
 COALESCE(r.current_stage,'')::text AS stage,COALESCE(r.status,'')::text AS run_status,COALESCE(r.workflow_name,'')::text AS workflow_name,
 GREATEST(wi.created_at,wi.closed_at,r.updated_at)::timestamptz AS updated_at
 FROM changes wi LEFT JOIN runs r ON wi.run_id=r.id AND r.project_id=wi.project_id
@@ -411,25 +411,26 @@ type ChangeSummariesParams struct {
 }
 
 type ChangeSummariesRow struct {
-	ID           ids.ID
-	Number       int64
-	ProjectID    ids.ID
-	Type         string
-	Title        string
-	Body         string
-	RunID        ids.ID
-	CreatedAt    time.Time
-	State        string
-	Branch       string
-	BaseSha      string
-	ExternalRef  string
-	Summary      string
-	ClosedAt     sql.NullTime
-	ClosedAs     string
-	Stage        string
-	RunStatus    string
-	WorkflowName string
-	UpdatedAt    time.Time
+	ID              ids.ID
+	Number          int64
+	ProjectID       ids.ID
+	Type            string
+	Title           string
+	Body            string
+	RunID           ids.ID
+	CreatedAt       time.Time
+	State           string
+	Branch          string
+	BaseSha         string
+	ExternalRef     string
+	Summary         string
+	ClosedAt        sql.NullTime
+	ClosedAs        string
+	AutomatedOrigin bool
+	Stage           string
+	RunStatus       string
+	WorkflowName    string
+	UpdatedAt       time.Time
 }
 
 // Summary requests omit potentially large bodies at the SQL boundary. Preserve
@@ -464,6 +465,7 @@ func (q *Queries) ChangeSummaries(ctx context.Context, arg ChangeSummariesParams
 			&i.Summary,
 			&i.ClosedAt,
 			&i.ClosedAs,
+			&i.AutomatedOrigin,
 			&i.Stage,
 			&i.RunStatus,
 			&i.WorkflowName,
@@ -938,8 +940,8 @@ func (q *Queries) OpenChangeBranches(ctx context.Context, arg OpenChangeBranches
 }
 
 const openChangesWithoutRunsMeta = `-- name: OpenChangesWithoutRunsMeta :many
-SELECT c.id,c.number,c.title,c.state FROM changes c WHERE c.project_id=$1 AND c.state IN ($2,$3)
-AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.status=$4)
+SELECT c.id,c.number,c.title,c.state,c.automated_origin,c.automated AS untouched FROM changes c WHERE c.project_id=$1 AND c.state IN ($2,$3)
+AND NOT c.purge_pending AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.status=$4)
 ORDER BY c.number DESC LIMIT NULLIF($5::integer,0)
 `
 
@@ -952,10 +954,12 @@ type OpenChangesWithoutRunsMetaParams struct {
 }
 
 type OpenChangesWithoutRunsMetaRow struct {
-	ID     ids.ID
-	Number int64
-	Title  string
-	State  string
+	ID              ids.ID
+	Number          int64
+	Title           string
+	State           string
+	AutomatedOrigin bool
+	Untouched       bool
 }
 
 // Change metadata list omits potentially large body/acceptance/candidate JSON.
@@ -979,6 +983,8 @@ func (q *Queries) OpenChangesWithoutRunsMeta(ctx context.Context, arg OpenChange
 			&i.Number,
 			&i.Title,
 			&i.State,
+			&i.AutomatedOrigin,
+			&i.Untouched,
 		); err != nil {
 			return nil, err
 		}
@@ -1636,6 +1642,21 @@ func (q *Queries) RecordAutomatedChange(ctx context.Context, arg RecordAutomated
 	return err
 }
 
+const recordPackageMoves = `-- name: RecordPackageMoves :exec
+UPDATE automated_changes SET packages=$1 WHERE id=$2 AND project_id=$3
+`
+
+type RecordPackageMovesParams struct {
+	Packages  json.RawMessage
+	ID        ids.ID
+	ProjectID ids.ID
+}
+
+func (q *Queries) RecordPackageMoves(ctx context.Context, arg RecordPackageMovesParams) error {
+	_, err := q.db.ExecContext(ctx, recordPackageMoves, arg.Packages, arg.ID, arg.ProjectID)
+	return err
+}
+
 const recordQueueProposal = `-- name: RecordQueueProposal :exec
 UPDATE automated_changes SET fingerprint=$1,files=$2::jsonb
 WHERE id=$3 AND queue<>''
@@ -1843,6 +1864,21 @@ func (q *Queries) SetChangeWorkspaceBase(ctx context.Context, arg SetChangeWorks
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setUpliftOpeningTitle = `-- name: SetUpliftOpeningTitle :exec
+UPDATE changes SET title=$1 WHERE id=$2 AND project_id=$3
+`
+
+type SetUpliftOpeningTitleParams struct {
+	Title     string
+	ID        ids.ID
+	ProjectID ids.ID
+}
+
+func (q *Queries) SetUpliftOpeningTitle(ctx context.Context, arg SetUpliftOpeningTitleParams) error {
+	_, err := q.db.ExecContext(ctx, setUpliftOpeningTitle, arg.Title, arg.ID, arg.ProjectID)
+	return err
 }
 
 const settledSince = `-- name: SettledSince :one

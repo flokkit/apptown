@@ -221,6 +221,18 @@ the same update again. History stays recorded. If the new start fails, the next
 overnight run can still try. Agents use
 `apptown janitor run -p PROJECT [-queue QUEUE] [-again]`.
 
+Scheduled changes use the workflow's title, such as “Dependency updates” or
+“Security scan”. Once AppTown reads the update's package moves, its title names
+up to three of them: “Update node, vitest, link-checker”. A title you set stays
+as you wrote it. Pack adoption titles name the versions that move; the Change
+keeps the full target list.
+
+On a project's **Changes** page, consecutive finished AppTown changes form an
+upkeep row, such as “14 upkeep changes · 17–22 Nov”. Open work stays individual
+when it needs a person or a person has acted on it. Other open upkeep forms one
+row in progress. Each upkeep row opens **Upkeep changes**, with open AppTown
+work first and the finished changes in that row's time span after it.
+
 **Recent updates** lists landed Changes from the last seven days: project, what
 changed and when. Dependency rows show package moves; pack rows name only ways
 of working whose version changed or that were added. A first adoption names all

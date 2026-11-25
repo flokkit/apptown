@@ -5,6 +5,7 @@ import (
 	"github.com/flokkit/apptown/internal/projectnotes"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -97,19 +98,25 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	activeRuns, err := work.Runs(ctx, workflow.RunQuery{ProjectID: p.ID, State: workflow.RunRunning, RootsOnly: true})
+	activeRuns, err := work.Runs(ctx, workflow.RunQuery{ProjectID: p.ID, State: workflow.RunRunning, RootsOnly: true, IncludeQueueWork: true})
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
 	active := workflowRunRows(activeRuns, work.Now())
-	// History is CHANGE history: one row per finished
-	// change — its workflows, its outcome, its total wall time. Runs are the
-	// how; the change page holds them for the drill-in.
-	changes, err := work.ChangeHistory(ctx, workflow.HistoryQuery{ProjectID: p.ID, Limit: 30})
+	// History limits rows after consecutive upkeep changes have been grouped.
+	entries, err := work.ProjectHistory(ctx, workflow.HistoryQuery{ProjectID: p.ID, Limit: 30})
 	if err != nil {
 		WriteFault(w, err)
 		return
+	}
+	changes := make([]HistoryEntry, 0, len(entries))
+	for _, e := range entries {
+		entry := HistoryEntry{Change: e.Change}
+		if e.Upkeep != nil {
+			entry.Upkeep = &UpkeepRun{Count: e.Upkeep.Count, From: e.Upkeep.From, Until: e.Upkeep.Until}
+		}
+		changes = append(changes, entry)
 	}
 
 	// Open changes WITHOUT a running run — chat changes mid-edit, accepted
@@ -122,7 +129,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	for _, item := range available {
-		oc := OpenChange{WaitingOn: item.WaitingOn, ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
+		oc := OpenChange{AutomatedOrigin: item.AutomatedOrigin, Untouched: item.Untouched, WaitingOn: item.WaitingOn, ChangeID: item.ID, ChangeNumber: item.Number, Title: item.Title, State: item.State}
 		oc.Editing = item.Editing
 		open = append(open, oc)
 	}
@@ -133,12 +140,14 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 // OpenChange is an open change with no running run, and how many files it is
 // editing.
 type OpenChange struct {
-	WaitingOn    workflow.WaitingOn   `json:"waitingOn"`
-	ChangeID     ids.ID               `json:"changeId"`
-	ChangeNumber int64                `json:"changeNumber"` // within the project
-	Title        string               `json:"title"`
-	State        workflow.ChangeState `json:"state"`
-	Editing      int                  `json:"editing"` // uncommitted worktree files
+	AutomatedOrigin bool                 `json:"automatedOrigin"`
+	Untouched       bool                 `json:"untouched"`
+	WaitingOn       workflow.WaitingOn   `json:"waitingOn"`
+	ChangeID        ids.ID               `json:"changeId"`
+	ChangeNumber    int64                `json:"changeNumber"` // within the project
+	Title           string               `json:"title"`
+	State           workflow.ChangeState `json:"state"`
+	Editing         int                  `json:"editing"` // uncommitted worktree files
 }
 
 // ProjectOverviewView is a project's front page: its repository, what is
@@ -158,10 +167,25 @@ type ProjectNotesView struct {
 type ProjectOverviewView struct {
 	Notes *ProjectNotesView `json:"notes"`
 
-	Repo    *OverviewRepo            `json:"repo"`
-	Active  []runRowView             `json:"active"`
-	Open    []OpenChange             `json:"open"`
-	History []workflow.ChangeHistory `json:"history"`
+	Repo    *OverviewRepo  `json:"repo"`
+	Active  []runRowView   `json:"active"`
+	Open    []OpenChange   `json:"open"`
+	History []HistoryEntry `json:"history"`
+}
+
+// HistoryEntry is one row of the finished list: a change, or a run of
+// consecutive upkeep changes shown as one row that links to them.
+type HistoryEntry struct {
+	Change *workflow.ChangeHistory `json:"change,omitempty"`
+	Upkeep *UpkeepRun              `json:"upkeep,omitempty"`
+}
+
+// UpkeepRun is how many upkeep changes a grouped row stands for and the
+// span of their activity.
+type UpkeepRun struct {
+	Count int       `json:"count"`
+	From  time.Time `json:"from"`
+	Until time.Time `json:"until"`
 }
 
 // OverviewRepo is the project's repository card.

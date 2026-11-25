@@ -17,7 +17,7 @@ it.each(['open', 'failed', 'stale-empty'])('keeps current work before deployment
   let failed = mode === 'failed'
   const data = mode === 'open' ? { ...empty, active: [{ changeId: 'first', changeNumber: 1, title: 'First build', startedAt: '2026-11-01T12:00:00Z', waitingOn: { kind: 'work', says: 'building', tone: 'busy', who: [] } }], history: [{ changeId: 'first', title: 'Duplicate' }, ...Array.from({ length: 12 }, (_, i) => ({ changeId: `past-${i}`, changeNumber: i + 2, title: `Past change ${i}`, when: '2026-10-01', waitingOn: { kind: 'done', says: 'landed', tone: 'ok', who: [] } }))] } : empty
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-    if (url.endsWith('/overview')) return failed ? Response.json({ error: 'Activity unavailable' }, { status: 400 }) : Response.json(data)
+    if (url.endsWith('/overview')) return failed ? Response.json({ error: 'Activity unavailable' }, { status: 400 }) : Response.json({ ...data, history: data.history.map(change => ({ change })) })
     if (url.endsWith('/features')) return Response.json([{ area: 'backups', enabled: true }])
     if (url.endsWith('/deployments')) return Response.json(mode === 'open' ? [{ id: 'main', name: 'main', running: true, url: 'http://localhost:8000', hostOnly: true, targetName: 'Docker host', observation: 'running', status: { word: 'running', reason: '' } }] : [])
     if (url.endsWith('/backups')) return Response.json({ backups: [{ id: 'backup', deployment: 'main', takenAt: '2026-11-01', statusLabel: 'finished' }] })
@@ -77,4 +77,26 @@ it.each([true, false])('offers Home\'s Change split button beside Open app only 
     if (may) await vi.waitFor(() => expect(actions()?.querySelector('.split-button [aria-label="Change: more options"]')).not.toBeNull())
     else expect(actions()?.querySelector('.split-button')).toBeNull()
   } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('groups upkeep history and untouched busy work while keeping approval and sent-back work individual', async () => {
+ const attention = (kind: string, needsPerson: boolean) => ({ kind, needsPerson, says: kind === 'approval' ? 'waiting for approval' : 'building', tone: needsPerson ? 'warn' : 'busy', who: [], you: 'no' })
+ const run = (id: string, kind: string, needsPerson: boolean, untouched = true) => ({ changeId: id, changeNumber: 30, title: id, automatedOrigin: true, untouched, waitingOn: attention(kind, needsPerson), startedAt: '2026-11-22T10:00:00Z', durationS: 10, next: [] })
+ const from = '2026-11-17T10:00:00Z', until = '2026-11-22T10:00:00Z'
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => Response.json(url.endsWith('/overview') ? { active: [run('busy update', 'work', false), run('Approval update', 'approval', true), run('Sent back update', 'work', false, false)], open: [], history: [{ upkeep: { count: 26, from, until } }] } : [])))
+ const { ProjectChanges } = await import('./ApplicationOverview')
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectChanges project={{ slug: 'p', lifecycle: { state: 'inactive' } } as ProjectDetail} /></MemoryRouter></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.textContent).toContain('26 upkeep changes'))
+  const group = [...el.querySelectorAll('a')].find(a => a.textContent?.includes('26 upkeep changes'))!
+  expect(group.textContent).toContain('17–22 Nov')
+  expect(group.getAttribute('href')).toBe(`/projects/p/changes/upkeep?${new URLSearchParams({ from, until })}`)
+  expect(el.querySelectorAll('a[href="/changes/Approval update"]')).toHaveLength(1)
+  expect(el.querySelectorAll('a[href="/changes/Sent back update"]')).toHaveLength(1)
+  expect(el.querySelector('a[href="/changes/busy update"]')).toBeNull()
+  expect(el.textContent).toContain('1 upkeep change in progress')
+ } finally {
+  await act(async () => root.unmount());client.clear();vi.unstubAllGlobals()
+ }
 })

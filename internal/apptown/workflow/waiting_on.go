@@ -23,19 +23,30 @@ type slotQueue struct {
 	Says    string `json:"says"`
 }
 
+// NeedsPerson is conservative: unrecognised attention never disappears into upkeep.
+func (w WaitingOn) NeedsPerson() bool {
+	switch w.Kind {
+	case "work", "chat", "queued", "closed":
+		return false
+	default:
+		return true
+	}
+}
+
 // WaitingOn describes attention, after workflow classification. It is not a
 // lifecycle or permission to execute an act; commands check current authority.
 type WaitingOn struct {
-	Queue   *slotQueue `json:"queue,omitempty"`
-	Kind    string     `json:"kind"`
-	Run     ids.ID     `json:"run"`
-	Step    ids.ID     `json:"step"`
-	Attempt int64      `json:"attempt,omitempty"`
-	Checks  int        `json:"checks"`
-	Who     []decider  `json:"who"`
-	You     string     `json:"you"`
-	Says    string     `json:"says"`
-	Tone    string     `json:"tone"`
+	PersonNeeded bool       `json:"needsPerson"`
+	Queue        *slotQueue `json:"queue,omitempty"`
+	Kind         string     `json:"kind"`
+	Run          ids.ID     `json:"run"`
+	Step         ids.ID     `json:"step"`
+	Attempt      int64      `json:"attempt,omitempty"`
+	Checks       int        `json:"checks"`
+	Who          []decider  `json:"who"`
+	You          string     `json:"you"`
+	Says         string     `json:"says"`
+	Tone         string     `json:"tone"`
 }
 
 // decider retains whether an effective approval expression names a person,
@@ -48,7 +59,7 @@ type decider struct {
 }
 
 func unknownWaitingOn() WaitingOn {
-	return WaitingOn{Kind: "unknown", You: "unknown", Says: "unknown", Tone: "unknown", Who: []decider{}}
+	return WaitingOn{PersonNeeded: true, Kind: "unknown", You: "unknown", Says: "unknown", Tone: "unknown", Who: []decider{}}
 }
 
 func checkHold(s workflowActivityStep) bool {
@@ -56,8 +67,9 @@ func checkHold(s workflowActivityStep) bool {
 }
 
 // waitingOn applies lifecycle and classification precedence before wording it.
-func waitingOn(ch *Change, d *RunSnapshot) WaitingOn {
-	w := WaitingOn{Kind: "chat", You: "no", Who: []decider{}, Tone: "neutral"}
+func waitingOn(ch *Change, d *RunSnapshot) (w WaitingOn) {
+	defer func() { w.PersonNeeded = w.NeedsPerson() }()
+	w = WaitingOn{Kind: "chat", You: "no", Who: []decider{}, Tone: "neutral"}
 	if ch != nil && ch.State.Closed() {
 		w.Kind = "closed"
 		return sayWaitingOn(w, Activity{}, ch)
@@ -254,8 +266,9 @@ func eligibility(err error) string {
 
 // readerWaitingOn reads eligibility for the classified holding run, including
 // a child's. It never creates acts on the parent or treats global acts as grants.
-func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapshot) WaitingOn {
-	w := waitingOn(ch, d)
+func (s *Service) readerWaitingOn(ctx context.Context, ch *Change, d *RunSnapshot) (w WaitingOn) {
+	defer func() { w.PersonNeeded = w.NeedsPerson() }()
+	w = waitingOn(ch, d)
 	if w.Kind != "approval" && w.Kind != "check" && w.Kind != "person" && w.Kind != "ready" {
 		return w
 	}

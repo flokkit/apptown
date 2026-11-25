@@ -301,6 +301,7 @@ try {
     services: '/services', 'services-shared': '/services/shared', 'deployment': '/projects/club-newsletter/deployments/main', 'deployment-settings': '/projects/club-newsletter/deployments/main?tab=settings', 'deployment-container': '/projects/club-newsletter/deployments/main/containers/web', 'deployment-backups': '/projects/club-newsletter/deployments/main/backups',
     'camera-not-found': '/camera-missing-page',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
+    'upkeep-project-changes': '/projects/nextup/changes', 'project-upkeep': '/projects/nextup/changes/upkeep',
     overview: '/projects/club-newsletter', 'project-changes': '/projects/club-newsletter/changes', 'project-console': '/projects/club-newsletter/console', console: `/changes/${seeded.chat}?tab=conversation`,
     'memory-notes': '/projects/club-newsletter/memory/notes',
     'memory-decisions': '/projects/club-newsletter/memory/decisions',

@@ -344,8 +344,8 @@ func TestAgentUpdatesJudgeEveryChangedFile(t *testing.T) {
 				t.Fatalf("receipt: %+v", facts)
 			}
 			attempts, err := f.work.Attempts(f.ctx, f.projectID, "updates", 10)
-			if err != nil || len(attempts) != 1 || len(attempts[0].Files) == 0 {
-				t.Fatalf("files: %+v %v", attempts, err)
+			if err != nil || len(attempts) != 1 || len(attempts[0].Files) == 0 || len(attempts[0].Packages) == 0 {
+				t.Fatalf("recorded files and package moves: %+v %v", attempts, err)
 			}
 			if tc.want != workflow.StatusPass {
 				_, _ = f.work.Advance(f.ctx, run.ID)

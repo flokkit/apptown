@@ -17,7 +17,7 @@ import (
 
 const nightlyScan = `apiVersion: apptown.dev/v1
 kind: Workflow
-metadata: {name: nightly-scan}
+metadata: {name: nightly-scan, title: Dependency updates}
 spec:
   kind: pipeline
   role: working
@@ -55,10 +55,10 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 	}})
 	// Registered after the world, so the held run ends before Work stops.
 	t.Cleanup(func() { close(release) })
-	if _, _, err := w.ways.PublishWorkflow(t.Context(), nightlyScan, "fixture"); err != nil {
+	if _, _, err := w.ways.PublishWorkflow(t.Context(), strings.ReplaceAll(nightlyScan, "nightly-scan", "janitor-update"), "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	w.packWorkflow(t, w.project.ID, "nightly-scan")
+	w.packWorkflow(t, w.project.ID, "janitor-update")
 	if err := recordCatalogFixture(w.adoption, t.Context(), w.project.ID, "fixture"); err != nil {
 		t.Fatal(err)
 	}
@@ -71,11 +71,11 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 	noon := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
 
 	// Without a standing approval the schedule does not fire, early or not.
-	if _, err := w.schedules.RunNow(human, w.project, "nightly-scan", noon); fault.KindOf(err) != fault.Unprocessable {
+	if _, err := w.schedules.RunNow(human, w.project, "janitor-update", noon); fault.KindOf(err) != fault.Unprocessable {
 		t.Fatalf("fired without a standing approval: %v", err)
 	}
 	in := workflow.JanitorChoices{Dependencies: "routine", SecurityFixes: true}
-	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"nightly-scan","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
+	if err := json.Unmarshal([]byte(`{"schedules":[{"workflow":"janitor-update","crons":{"routine":"0 5 * * *","aggressive":"0 5 * * *"}}]}`), &in); err != nil {
 		t.Fatal(err)
 	}
 	rule, err := w.schedules.Standing.Save(human, workflow.JanitorChoicesCommand{Choices: in})
@@ -92,7 +92,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 		t.Fatal(err)
 	}
 	sam := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: stranger.PrincipalID, Kind: "user", Name: "sam", Via: "session"}, Verified: true})
-	if _, err := w.schedules.RunNow(sam, w.project, "nightly-scan", noon); fault.KindOf(err) != fault.Forbidden {
+	if _, err := w.schedules.RunNow(sam, w.project, "janitor-update", noon); fault.KindOf(err) != fault.Forbidden {
 		t.Fatalf("a person without authority: %v", err)
 	}
 	if runs := w.runs(t); len(runs) != 0 {
@@ -101,7 +101,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 
 	// A committed firing whose preparation fails still identifies its requester.
 	dbtest.FailNextStatement(t, w.schedules.DB, "-- name: MarkRunReady")
-	_, prepErr := w.schedules.RunNow(human, w.project, "nightly-scan", noon)
+	_, prepErr := w.schedules.RunNow(human, w.project, "janitor-update", noon)
 	if prepErr == nil || !strings.Contains(prepErr.Error(), "abandoned after preparation failed") {
 		t.Fatalf("expected committed preparation failure, got %v", prepErr)
 	}
@@ -112,7 +112,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 
 	// A failed admission is an error, not a started scan.
 	dbtest.FailNextStatement(t, w.schedules.DB, "-- name: InsertChange :one")
-	if ch, err := w.schedules.RunNow(human, w.project, "nightly-scan", noon); err == nil || ch != nil {
+	if ch, err := w.schedules.RunNow(human, w.project, "janitor-update", noon); err == nil || ch != nil {
 		t.Fatalf("a failed admission answered %+v %v", ch, err)
 	}
 
@@ -127,9 +127,12 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 				t.Fatal("the first scan never settled")
 			}
 		}
-		ch, err := w.schedules.RunNow(human, w.project, "nightly-scan", at)
+		ch, err := w.schedules.RunNow(human, w.project, "janitor-update", at)
 		if err != nil {
 			t.Fatalf("firing %d: %v", i, err)
+		}
+		if ch.Title != "Dependency updates" {
+			t.Fatalf("schedule title: %q", ch.Title)
 		}
 		select {
 		case <-claimed:
@@ -141,7 +144,7 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 			t.Fatalf("firing %d is not the schedule's queue change under the rule: %+v %v", i, attempts, err)
 		}
 		records, err := workflow.ScheduleRecordsIn(t.Context(), w.schedules.DB, w.project.ID)
-		if r := records["nightly-scan"]; err != nil || r.Outcome != workflow.ScheduleOpened || r.ChangeID != ch.ID || !r.At.Equal(at) {
+		if r := records["janitor-update"]; err != nil || r.Outcome != workflow.ScheduleOpened || r.ChangeID != ch.ID || !r.At.Equal(at) {
 			t.Fatalf("firing %d record: %+v %v", i, r, err)
 		}
 	}
@@ -154,12 +157,12 @@ func TestAPersonFiresAStandingScheduleNowAsTheScheduleWould(t *testing.T) {
 	}) {
 		t.Fatal("the running scan never showed as updating")
 	}
-	_, err = w.schedules.RunNow(human, w.project, "nightly-scan", noon.Add(2*time.Hour))
+	_, err = w.schedules.RunNow(human, w.project, "janitor-update", noon.Add(2*time.Hour))
 	if fault.KindOf(err) != fault.Conflict {
 		t.Fatalf("a busy queue: %v", err)
 	}
 	records, err := workflow.ScheduleRecordsIn(t.Context(), w.schedules.DB, w.project.ID)
-	if err != nil || !records["nightly-scan"].At.Equal(noon.Add(time.Hour)) {
+	if err != nil || !records["janitor-update"].At.Equal(noon.Add(time.Hour)) {
 		t.Fatalf("a refused request recorded a firing: %+v %v", records, err)
 	}
 }

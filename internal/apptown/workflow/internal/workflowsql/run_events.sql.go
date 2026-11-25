@@ -7,6 +7,7 @@ package workflowsql
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -34,7 +35,7 @@ const changeHistory = `-- name: ChangeHistory :many
 SELECT c.id,c.title,c.type,c.state,CASE WHEN $1::uuid IS NULL THEN p.slug ELSE '' END::text AS project,
 history.workflows,history.runs,COALESCE(history.last_activity,c.created_at)::timestamptz AS activity_at,history.took_s,history.completed,
 EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed') AS merged,
-c.number,c.closed_as
+c.number,c.closed_as,c.automated_origin
 FROM changes c JOIN projects p ON p.id=c.project_id CROSS JOIN LATERAL (
 SELECT COALESCE(string_agg(r.workflow_name,' → ' ORDER BY r.number),'')::text AS workflows,
 COUNT(*) AS runs,MAX(r.updated_at) AS last_activity,
@@ -43,32 +44,39 @@ COUNT(*) FILTER(WHERE r.status=$2) AS completed
 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
 ) history
 WHERE c.project_id=ANY($3::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN ($4,$5)
-ORDER BY 8 DESC,c.number DESC LIMIT NULLIF($6::integer,0)
+AND (NOT $6::boolean OR c.automated_origin)
+AND ($7::timestamptz IS NULL OR COALESCE(history.last_activity,c.created_at)>=$7)
+AND ($8::timestamptz IS NULL OR COALESCE(history.last_activity,c.created_at)<=$8)
+ORDER BY 8 DESC,c.number DESC LIMIT NULLIF($9::integer,0)
 `
 
 type ChangeHistoryParams struct {
-	ProjectID  ids.ID
-	Done       string
-	ProjectIds []ids.ID
-	Shipped    string
-	Abandoned  string
-	LimitCount int32
+	ProjectID     ids.ID
+	Done          string
+	ProjectIds    []ids.ID
+	Shipped       string
+	Abandoned     string
+	AutomatedOnly bool
+	FromAt        sql.NullTime
+	UntilAt       sql.NullTime
+	LimitCount    int32
 }
 
 type ChangeHistoryRow struct {
-	ID         ids.ID
-	Title      string
-	Type       string
-	State      string
-	Project    string
-	Workflows  string
-	Runs       int64
-	ActivityAt time.Time
-	TookS      int64
-	Completed  int64
-	Merged     bool
-	Number     int64
-	ClosedAs   string
+	ID              ids.ID
+	Title           string
+	Type            string
+	State           string
+	Project         string
+	Workflows       string
+	Runs            int64
+	ActivityAt      time.Time
+	TookS           int64
+	Completed       int64
+	Merged          bool
+	Number          int64
+	ClosedAs        string
+	AutomatedOrigin bool
 }
 
 func (q *Queries) ChangeHistory(ctx context.Context, arg ChangeHistoryParams) ([]ChangeHistoryRow, error) {
@@ -78,6 +86,9 @@ func (q *Queries) ChangeHistory(ctx context.Context, arg ChangeHistoryParams) ([
 		pq.Array(arg.ProjectIds),
 		arg.Shipped,
 		arg.Abandoned,
+		arg.AutomatedOnly,
+		arg.FromAt,
+		arg.UntilAt,
 		arg.LimitCount,
 	)
 	if err != nil {
@@ -101,6 +112,7 @@ func (q *Queries) ChangeHistory(ctx context.Context, arg ChangeHistoryParams) ([
 			&i.Merged,
 			&i.Number,
 			&i.ClosedAs,
+			&i.AutomatedOrigin,
 		); err != nil {
 			return nil, err
 		}
@@ -453,6 +465,112 @@ func (q *Queries) LatestStageChecks(ctx context.Context, arg LatestStageChecksPa
 	var checks string
 	err := row.Scan(&checks)
 	return checks, err
+}
+
+const projectHistory = `-- name: ProjectHistory :many
+WITH history_rows AS (
+SELECT c.id,c.title,c.type,c.state,CASE WHEN $2::uuid IS NULL THEN p.slug ELSE '' END::text AS project,
+history.workflows,history.runs,COALESCE(history.last_activity,c.created_at)::timestamptz AS activity_at,history.took_s,history.completed,
+EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed') AS merged,
+c.number,c.closed_as,c.automated_origin
+FROM changes c JOIN projects p ON p.id=c.project_id CROSS JOIN LATERAL (
+SELECT COALESCE(string_agg(r.workflow_name,' → ' ORDER BY r.number),'')::text AS workflows,
+COUNT(*) AS runs,MAX(r.updated_at) AS last_activity,
+COALESCE(SUM(EXTRACT(EPOCH FROM r.updated_at)-EXTRACT(EPOCH FROM r.created_at)),0)::bigint AS took_s,
+COUNT(*) FILTER(WHERE r.status=$3) AS completed
+FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
+) history
+WHERE c.project_id=ANY($4::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN ($5,$6)
+), islands AS (
+ SELECT id, title, type, state, project, workflows, runs, activity_at, took_s, completed, merged, number, closed_as, automated_origin, row_number() OVER (ORDER BY activity_at DESC,number DESC)
+ - row_number() OVER (PARTITION BY automated_origin ORDER BY activity_at DESC,number DESC) AS island
+ FROM history_rows
+), entries AS (
+ SELECT DISTINCT ON (automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END) id, title, type, state, project, workflows, runs, activity_at, took_s, completed, merged, number, closed_as, automated_origin, island,
+ count(*) OVER w AS upkeep_count,(min(activity_at) OVER w)::timestamptz AS from_at,(max(activity_at) OVER w)::timestamptz AS until_at
+ FROM islands
+ WINDOW w AS (PARTITION BY automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END)
+ ORDER BY automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END,activity_at DESC,number DESC
+)
+SELECT id,title,type,state,project,workflows,runs,activity_at,took_s,completed,merged,number,closed_as,automated_origin,upkeep_count,from_at,until_at FROM entries
+ORDER BY until_at DESC,number DESC LIMIT NULLIF($1::integer,0)
+`
+
+type ProjectHistoryParams struct {
+	LimitCount int32
+	ProjectID  ids.ID
+	Done       string
+	ProjectIds []ids.ID
+	Shipped    string
+	Abandoned  string
+}
+
+type ProjectHistoryRow struct {
+	ID              ids.ID
+	Title           string
+	Type            string
+	State           string
+	Project         string
+	Workflows       string
+	Runs            int64
+	ActivityAt      time.Time
+	TookS           int64
+	Completed       int64
+	Merged          bool
+	Number          int64
+	ClosedAs        string
+	AutomatedOrigin bool
+	UpkeepCount     int64
+	FromAt          time.Time
+	UntilAt         time.Time
+}
+
+func (q *Queries) ProjectHistory(ctx context.Context, arg ProjectHistoryParams) ([]ProjectHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, projectHistory,
+		arg.LimitCount,
+		arg.ProjectID,
+		arg.Done,
+		pq.Array(arg.ProjectIds),
+		arg.Shipped,
+		arg.Abandoned,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectHistoryRow
+	for rows.Next() {
+		var i ProjectHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Type,
+			&i.State,
+			&i.Project,
+			&i.Workflows,
+			&i.Runs,
+			&i.ActivityAt,
+			&i.TookS,
+			&i.Completed,
+			&i.Merged,
+			&i.Number,
+			&i.ClosedAs,
+			&i.AutomatedOrigin,
+			&i.UpkeepCount,
+			&i.FromAt,
+			&i.UntilAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const readRunEvents = `-- name: ReadRunEvents :many

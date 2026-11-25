@@ -100,7 +100,7 @@ SELECT project_id FROM changes WHERE id=$1;
 -- the established list projection rather than returning unseen Change fields.
 -- name: ChangeSummaries :many
 SELECT wi.id,wi.number,wi.project_id,wi.type,wi.title,CASE WHEN sqlc.arg(summary)::boolean THEN '' ELSE wi.body END::text AS body,wi.run_id,wi.created_at,
-wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed_as,
+wi.state,wi.branch,wi.base_sha,wi.external_ref,wi.summary,wi.closed_at,wi.closed_as,wi.automated_origin,
 COALESCE(r.current_stage,'')::text AS stage,COALESCE(r.status,'')::text AS run_status,COALESCE(r.workflow_name,'')::text AS workflow_name,
 GREATEST(wi.created_at,wi.closed_at,r.updated_at)::timestamptz AS updated_at
 FROM changes wi LEFT JOIN runs r ON wi.run_id=r.id AND r.project_id=wi.project_id
@@ -120,8 +120,8 @@ SELECT EXISTS(SELECT 1 FROM changes WHERE project_id=$1 AND type='uplift' AND st
 
 -- Change metadata list omits potentially large body/acceptance/candidate JSON.
 -- name: OpenChangesWithoutRunsMeta :many
-SELECT c.id,c.number,c.title,c.state FROM changes c WHERE c.project_id=sqlc.arg(project_id) AND c.state IN (sqlc.arg(in_progress),sqlc.arg(landing))
-AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.status=sqlc.arg(running))
+SELECT c.id,c.number,c.title,c.state,c.automated_origin,c.automated AS untouched FROM changes c WHERE c.project_id=sqlc.arg(project_id) AND c.state IN (sqlc.arg(in_progress),sqlc.arg(landing))
+AND NOT c.purge_pending AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.status=sqlc.arg(running))
 ORDER BY c.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 
 -- Startup needs only identities, not potentially large Change bodies/acceptance.
@@ -309,3 +309,9 @@ AND (NOT c.automated OR COALESCE(a.queue,'') <> 'packs'))));
 
 -- name: RetryQueueAttempt :exec
 UPDATE automated_changes SET outcome='retried' WHERE id=$1;
+
+-- name: SetUpliftOpeningTitle :exec
+UPDATE changes SET title=sqlc.arg(title) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id);
+
+-- name: RecordPackageMoves :exec
+UPDATE automated_changes SET packages=sqlc.arg(packages) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id);

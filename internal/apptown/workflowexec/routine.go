@@ -147,6 +147,18 @@ func (a *commands) runUpdateRoutine(task *workflow.Execution) {
 			return
 		}
 	}
+	moves := verification.UpdateInputMoves(inputs[0], inputs[1])
+	for _, old := range direct[0] {
+		for _, next := range direct[1] {
+			if old.Package == next.Package && old.Manifest == next.Manifest && old.Version != next.Version {
+				moves = append(moves, workflow.PackageMove{Ecosystem: string(old.Type), Package: old.Name, From: old.Version, To: next.Version})
+			}
+		}
+	}
+	if err := task.RecordPackageMoves(moves); err != nil {
+		fail(err)
+		return
+	}
 	paths := make([]string, 0, len(changes))
 	for _, f := range changes {
 		paths = append(paths, f.Path)

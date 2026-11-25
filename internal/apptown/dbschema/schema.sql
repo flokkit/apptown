@@ -1168,7 +1168,7 @@ CREATE TABLE IF NOT EXISTS changes (
   external_ref TEXT NOT NULL DEFAULT '',
   summary      TEXT NOT NULL DEFAULT '',
   provenance   TEXT NOT NULL DEFAULT '',
-  title_ownership TEXT NOT NULL DEFAULT 'human' CONSTRAINT change_title_ownership CHECK(title_ownership IN ('human','awaiting_chat','generated')),
+  title_ownership TEXT NOT NULL DEFAULT 'human' CONSTRAINT change_title_ownership CHECK(title_ownership IN ('human','awaiting_chat','generated','apptown')),
   created_at   TIMESTAMPTZ NOT NULL,
   closed_at    TIMESTAMPTZ,
   target_adoption_id UUID, -- an uplift's target revision (ways-of-working-versions.md §11)

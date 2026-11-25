@@ -2,14 +2,15 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"github.com/flokkit/apptown/internal/gitexec"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -31,26 +32,43 @@ func (s *Service) visibleProjects(ctx context.Context, action commandAction, pro
 }
 
 type HistoryQuery struct {
-	ProjectID ids.ID
-	Limit     int
+	ProjectID   ids.ID
+	Limit       int
+	From, Until time.Time
+	// automatedOnly is set by ProjectUpkeep: the upkeep read lists only
+	// changes AppTown opened (changes.automated_origin).
+	automatedOnly bool
+}
+
+// historyEntry is one row of a project's finished history: a change, or a
+// run of consecutive upkeep changes folded into one.
+type historyEntry struct {
+	Change *ChangeHistory
+	Upkeep *upkeepRun
+}
+
+type upkeepRun struct {
+	Count       int
+	From, Until time.Time
 }
 
 type ChangeHistory struct {
-	WaitingOn     WaitingOn   `json:"waitingOn"`
-	CompletedRuns int         `json:"completedRuns"`
-	Merged        bool        `json:"merged"`
-	ChangeID      ids.ID      `json:"changeId"`
-	ChangeNumber  int64       `json:"changeNumber"` // within its project
-	Title         string      `json:"title"`
-	Type          string      `json:"type"`
-	State         ChangeState `json:"state"`
-	ClosedAs      string      `json:"closedAs,omitempty"` // as Change.ClosedAs
-	StateLabel    string      `json:"stateLabel"`         // ChangeState.Label
-	Project       string      `json:"project,omitempty"`
-	Workflows     string      `json:"workflows"`
-	Runs          int         `json:"runs"`
-	When          string      `json:"when"`
-	TookS         int64       `json:"tookS"`
+	AutomatedOrigin bool        `json:"automatedOrigin"`
+	WaitingOn       WaitingOn   `json:"waitingOn"`
+	CompletedRuns   int         `json:"completedRuns"`
+	Merged          bool        `json:"merged"`
+	ChangeID        ids.ID      `json:"changeId"`
+	ChangeNumber    int64       `json:"changeNumber"` // within its project
+	Title           string      `json:"title"`
+	Type            string      `json:"type"`
+	State           ChangeState `json:"state"`
+	ClosedAs        string      `json:"closedAs,omitempty"` // as Change.ClosedAs
+	StateLabel      string      `json:"stateLabel"`         // ChangeState.Label
+	Project         string      `json:"project,omitempty"`
+	Workflows       string      `json:"workflows"`
+	Runs            int         `json:"runs"`
+	When            string      `json:"when"`
+	TookS           int64       `json:"tookS"`
 }
 
 func (s *Service) ChangeHistory(ctx context.Context, in HistoryQuery) ([]ChangeHistory, error) {
@@ -71,28 +89,38 @@ func (s *Service) ChangeHistory(ctx context.Context, in HistoryQuery) ([]ChangeH
 }
 
 func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery, projects []ids.ID) ([]ChangeHistory, error) {
-	rows, err := workflowsql.New(q.SQL()).ChangeHistory(ctx, workflowsql.ChangeHistoryParams{ProjectID: in.ProjectID, Done: RunDone.String(), ProjectIds: projects, Shipped: ChangeShipped.String(), Abandoned: ChangeAbandoned.String(), LimitCount: int32(in.Limit)})
+	rows, err := workflowsql.New(q.SQL()).ChangeHistory(ctx, workflowsql.ChangeHistoryParams{ProjectID: in.ProjectID, Done: RunDone.String(), ProjectIds: projects, Shipped: ChangeShipped.String(), Abandoned: ChangeAbandoned.String(), LimitCount: int32(in.Limit), AutomatedOnly: in.automatedOnly, FromAt: nullableHistoryTime(in.From), UntilAt: nullableHistoryTime(in.Until)})
 	if err != nil {
 		return nil, err
 	}
 	out := make([]ChangeHistory, 0, len(rows))
 	for _, row := range rows {
-		state, err := ParseChangeState(row.State)
+		ch, err := historyChange(row)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ChangeHistory{WaitingOn: waitingOn(&Change{State: state, ClosedAs: row.ClosedAs}, nil), ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StateLabel: state.Label(row.ClosedAs)})
+		out = append(out, ch)
 	}
 	return out, nil
 }
 
+func historyChange(row workflowsql.ChangeHistoryRow) (ChangeHistory, error) {
+	state, err := ParseChangeState(row.State)
+	if err != nil {
+		return ChangeHistory{}, err
+	}
+	return ChangeHistory{AutomatedOrigin: row.AutomatedOrigin, WaitingOn: waitingOn(&Change{State: state, ClosedAs: row.ClosedAs}, nil), ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StateLabel: state.Label(row.ClosedAs)}, nil
+}
+
 type openChange struct {
-	WaitingOn WaitingOn
-	ID        ids.ID
-	Number    int64 // within its project
-	Title     string
-	State     ChangeState
-	Editing   int // uncommitted worktree files outside .apptown
+	Untouched       bool
+	AutomatedOrigin bool
+	WaitingOn       WaitingOn
+	ID              ids.ID
+	Number          int64 // within its project
+	Title           string
+	State           ChangeState
+	Editing         int // uncommitted worktree files outside .apptown
 }
 
 func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, limit int) ([]openChange, error) {
@@ -126,7 +154,7 @@ func (s *Service) OpenChangesWithoutRuns(ctx context.Context, project ids.ID, li
 				w = s.ChangeWaitingOn(ctx, ch, d)
 			}
 		}
-		out = append(out, openChange{WaitingOn: w, ID: row.ID, Number: row.Number, Title: row.Title, State: state, Editing: s.editingFiles(ctx, row.ID)})
+		out = append(out, openChange{Untouched: row.Untouched, AutomatedOrigin: row.AutomatedOrigin, WaitingOn: w, ID: row.ID, Number: row.Number, Title: row.Title, State: state, Editing: s.editingFiles(ctx, row.ID)})
 	}
 	return out, nil
 }
@@ -198,4 +226,72 @@ func (s *Service) editingFiles(ctx context.Context, id ids.ID) int {
 		}
 	}
 	return count
+}
+
+func nullableHistoryTime(t time.Time) sql.NullTime { return sql.NullTime{Time: t, Valid: !t.IsZero()} }
+
+// ProjectHistory limits entries after folding consecutive upkeep in activity order.
+func (s *Service) ProjectHistory(ctx context.Context, in HistoryQuery) ([]historyEntry, error) {
+	if in.ProjectID.IsZero() || in.Limit < 0 || in.Limit > math.MaxInt32 {
+		return nil, fmt.Errorf("invalid project history bounds")
+	}
+	projects, err := s.visibleProjects(ctx, actionListChanges, in.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := workflowsql.New(s.db.SQL()).ProjectHistory(ctx, workflowsql.ProjectHistoryParams{ProjectID: in.ProjectID, ProjectIds: projects, Done: RunDone.String(), Shipped: ChangeShipped.String(), Abandoned: ChangeAbandoned.String(), LimitCount: int32(in.Limit)})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]historyEntry, 0, len(rows))
+	for _, row := range rows {
+		if row.AutomatedOrigin {
+			out = append(out, historyEntry{Upkeep: &upkeepRun{Count: int(row.UpkeepCount), From: row.FromAt, Until: row.UntilAt}})
+			continue
+		}
+		ch, err := historyChange(workflowsql.ChangeHistoryRow{ID: row.ID, Title: row.Title, Type: row.Type, State: row.State, Project: row.Project, Workflows: row.Workflows, Runs: row.Runs, ActivityAt: row.ActivityAt, TookS: row.TookS, Completed: row.Completed, Merged: row.Merged, Number: row.Number, ClosedAs: row.ClosedAs, AutomatedOrigin: row.AutomatedOrigin})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, historyEntry{Change: &ch})
+	}
+	return out, nil
+}
+
+// Upkeep is the project's automated work, open first and finished within a span.
+type upkeep struct {
+	Active  []RunSummary    `json:"active"`
+	Open    []openChange    `json:"-"`
+	History []ChangeHistory `json:"history"`
+}
+
+func (s *Service) ProjectUpkeep(ctx context.Context, in HistoryQuery) (upkeep, error) {
+	if in.ProjectID.IsZero() {
+		return upkeep{}, fmt.Errorf("upkeep requires a project")
+	}
+	in.automatedOnly = true
+	runs, err := s.Runs(ctx, RunQuery{ProjectID: in.ProjectID, State: RunRunning, RootsOnly: true, IncludeQueueWork: true})
+	if err != nil {
+		return upkeep{}, err
+	}
+	open, err := s.OpenChangesWithoutRuns(ctx, in.ProjectID, 0)
+	if err != nil {
+		return upkeep{}, err
+	}
+	history, err := s.ChangeHistory(ctx, in)
+	if err != nil {
+		return upkeep{}, err
+	}
+	out := upkeep{Active: []RunSummary{}, Open: []openChange{}, History: history}
+	for _, r := range runs {
+		if r.AutomatedOrigin {
+			out.Active = append(out.Active, r)
+		}
+	}
+	for _, c := range open {
+		if c.AutomatedOrigin {
+			out.Open = append(out.Open, c)
+		}
+	}
+	return out, nil
 }
