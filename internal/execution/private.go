@@ -36,6 +36,7 @@ const ProfileWorkerVM = "worker-vm"
 // Docker on, when it started, and what its operator declared. A fact that
 // could not be measured is "unknown", never a guess.
 type WorkerProfile struct {
+	Tasks         int    `json:"tasks"`
 	Name          string `json:"name"`
 	OS            string `json:"os"`
 	Architecture  string `json:"architecture"`

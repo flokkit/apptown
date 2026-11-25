@@ -51,6 +51,7 @@ const (
 // CheckSpec is the wire form of one check container: the runner's request
 // with no path of AppTown's in it.
 type CheckSpec struct {
+	Key          string   `json:"key"`
 	Image        string   `json:"image"`
 	Argv         []string `json:"argv"`
 	Env          []string `json:"env,omitempty"`
@@ -138,6 +139,15 @@ func (s *Server) runCheck(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "the report must be a path inside the check's tree", http.StatusBadRequest)
 		return
 	}
+	if !keyPattern.MatchString(spec.Key) {
+		http.Error(w, "a check needs its admission key", http.StatusBadRequest)
+		return
+	}
+	if err := s.consume(spec.Key); err != nil {
+		execution.WriteRefusal(w, http.StatusTooManyRequests, err)
+		return
+	}
+	defer s.freeSlot(spec.Key)
 	timeout := time.Duration(spec.TimeoutSeconds) * time.Second
 	lifetime.forKey(timeout + checkGrace)
 	// The deadline the sweep judges the check's folder and container by,

@@ -104,10 +104,18 @@ everything, and confirms only when nothing of the key is left; one
 interrupted is asked again. The worker's sweep stops a task whose admission
 has expired and removes its private Docker, with or without AppTown.
 
+New work joins the first come, first served admission line at
+`POST /v1/admissions/{key}`. `-tasks` limits its holders (default
+`max(1, number of CPUs / 4)`). A first write consumes a grant; without one
+it is refused `busy`. Workspaces hold slots until removed; workspace-less
+tasks hold them until release, and checks until their requests end. Shared
+invocations use their workspace's slot. On restart the worker rebuilds holders
+from the workspace folders and workspace-less task records. Waiters and
+unused grants expire after two twenty-second slices.
+
 New work is refused while a disk it writes to is short of space
 (`diskspace.Admit`, `admitNew`): a new task is admitted once, before the
-first thing of it is written (its own workspace's upload, or else its
-ensure before its record), reading the state folder and the task driver's
+first thing of it is written, at the admission endpoint, reading the state folder and the task driver's
 Docker data folder; the driver does not read it again
 (`execution.DockerTasks.CallerAdmitsDisk`). A disk filling after that is
 the accepted race. An image capture that would leave the state folder

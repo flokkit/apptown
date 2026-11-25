@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -60,8 +61,9 @@ import (
 // a recorded task through the workflow's own dispatch (Resume, then
 // RecoverScript), so its run continues when it settles.
 type TaskRunner struct {
-	Records *tasks.Records
-	Driver  execution.TaskDriver
+	capacity *model.Scheduler
+	Records  *tasks.Records
+	Driver   execution.TaskDriver
 	// Requests is the folder admitted requests are kept in, one folder per
 	// operation (<data>/tasks).
 	Requests string
@@ -638,6 +640,12 @@ func (a *commands) runScriptTask(task *workflow.Execution, step *workflow.Step, 
 			}
 		}
 	}
+	if a.tasks.Remote != nil {
+		if err := admitTask(task.Context(), task, a.tasks.Driver, taskOperation(step), a.db, a.capacity, a.now); err != nil {
+			a.finish(task, workflow.StatusError, err.Error())
+			return
+		}
+	}
 	now := a.tasks.now()
 	limits := a.tasks.Profile.Limits
 	limits.WallClock = plan.timeout
@@ -803,7 +811,7 @@ type taskKind struct {
 // It returns the attempt with its provider identity, its exit code, whether
 // it timed out, and how much output the live feed carries; ok is false when
 // the attempt was ended (or abandoned) here.
-func (r *TaskRunner) execute(task *workflow.Execution, db database.Queryer, attempt tasks.Attempt, spec execution.TaskSpec, kind taskKind) (_ tasks.Attempt, code int, timedOut bool, summarized int64, ok bool) {
+func (r *TaskRunner) execute(task *workflow.Execution, db *database.DB, attempt tasks.Attempt, spec execution.TaskSpec, kind taskKind) (_ tasks.Attempt, code int, timedOut bool, summarized int64, ok bool) {
 	// The task lives by its durable record, not a context: what a stopped
 	// AppTown leaves running is collected on restart.
 	ctx := context.WithoutCancel(task.Context())
@@ -835,7 +843,7 @@ func (r *TaskRunner) execute(task *workflow.Execution, db database.Queryer, atte
 		fail(stopped)
 		return attempt, 0, false, 0, false
 	}
-	id, err := r.provide(ctx, attempt, spec)
+	id, err := r.provide(ctx, task, db, attempt, spec)
 	switch {
 	case errors.Is(err, errAbandoned):
 		return attempt, 0, false, 0, false
@@ -1067,7 +1075,7 @@ func (r *TaskRunner) settleRepeatedly(task *workflow.Execution, settle func() er
 // Ensure refuses a different request under the key (ErrTaskConflict), and a
 // request whose admission expired. Nothing is created after the attempt's
 // deadline.
-func (r *TaskRunner) provide(ctx context.Context, attempt tasks.Attempt, spec execution.TaskSpec) (string, error) {
+func (r *TaskRunner) provide(ctx context.Context, task *workflow.Execution, db *database.DB, attempt tasks.Attempt, spec execution.TaskSpec) (string, error) {
 	if attempt.ProviderID != "" {
 		return attempt.ProviderID, nil
 	}
@@ -1077,6 +1085,15 @@ func (r *TaskRunner) provide(ctx context.Context, attempt tasks.Attempt, spec ex
 	var obs execution.TaskObservation
 	err := r.untilAnswered(ctx, attempt.Operation, attempt.Deadline, func(ctx context.Context) (err error) {
 		obs, err = r.Driver.Ensure(ctx, spec)
+		for errors.Is(err, execution.ErrBusy) {
+			key := spec.Key
+			if spec.SharedWorkspace != "" {
+				key = spec.SharedWorkspace
+			}
+			if err = admitTask(ctx, task, r.Driver, key, db, r.capacity, r.now); err == nil {
+				obs, err = r.Driver.Ensure(ctx, spec)
+			}
+		}
 		return err
 	})
 	if err != nil {

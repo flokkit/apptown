@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,7 +41,7 @@ func TestWorkerCheckHasReadOnlySourceBesideWritableWorkAndCollectsItsResult(t *t
 	repo := t.TempDir()
 	commits := gittest.BareRepository(t, repo, "main", gittest.Commit{Message: "source", Files: map[string]string{"README.md": "exact source"}})
 	spec := execution.TaskSpec{Key: "isolated-check", Image: "fixture", Argv: []string{"pi"}, Admission: execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Limits: execution.Limits{WallClock: time.Minute}}, Source: &execution.TaskSource{Repository: repo, Commit: commits[0]}, SourceAtSrc: true, Results: []execution.Result{{Name: "verdict", Path: "/work/answer.json", Max: 1024}}}
-	obs, err := driver.Ensure(t.Context(), spec)
+	obs, err := executiontest.Ensure(t.Context(), driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}

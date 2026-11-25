@@ -28,6 +28,7 @@ import (
 type RefusalCode string
 
 const (
+	refusalBusy         RefusalCode = "busy"
 	refusalExpired      RefusalCode = "expired"
 	refusalStartRefused RefusalCode = "start-refused"
 	refusalUnsupported  RefusalCode = "unsupported"
@@ -59,6 +60,8 @@ type Refusal struct {
 
 // ErrMissingBlob: the worker lacks a blob a request names (a worker restart
 // removes blobs no chat uses). AppTown sends it again, once.
+var ErrBusy = errors.New("waiting for a free slot")
+
 var ErrMissingBlob = errors.New("the worker lacks the blob")
 
 // refusalClasses pairs each code with its error. A worker error that wraps
@@ -68,6 +71,7 @@ var refusalClasses = []struct {
 	code  RefusalCode
 	class error
 }{
+	{refusalBusy, ErrBusy},
 	{refusalExpired, ErrExpired},
 	{refusalStartRefused, ErrStartRefused},
 	{refusalUnsupported, ErrUnsupported},

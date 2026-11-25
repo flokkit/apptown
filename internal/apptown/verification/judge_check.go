@@ -184,6 +184,21 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		return
 	}
 	defer release()
+	keyTask := "check-" + sessionID.String()
+	for {
+		if err := ctx.Err(); err != nil {
+			result.Reason = err.Error()
+			return
+		}
+		_, admitted, err := j.Driver.Admit(ctx, keyTask)
+		if err != nil {
+			result.Reason = err.Error()
+			return
+		}
+		if admitted {
+			break
+		}
+	}
 	started := clock.Or(j.Now)()
 	session := sessionID.String()
 	e.Session = session
@@ -200,7 +215,6 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 		return
 	}
 	defer os.RemoveAll(work)
-	keyTask := "check-" + session
 	expires := started.Add(j.TimeLimit)
 	token, err := j.Sessions.Open(keyTask, in.Call, j.TokenLimit, expires)
 	if err != nil {
@@ -257,6 +271,20 @@ func (j *CheckJudge) JudgeCheck(ctx context.Context, item check.Item, call model
 	runCtx, cancel := context.WithDeadline(ctx, expires)
 	defer cancel()
 	obs, err := j.Driver.Ensure(runCtx, spec)
+	for errors.Is(err, execution.ErrBusy) {
+		_, admitted, admissionErr := j.Driver.Admit(runCtx, keyTask)
+		if admissionErr != nil {
+			err = admissionErr
+			break
+		}
+		if admitted {
+			obs, err = j.Driver.Ensure(runCtx, spec)
+		}
+		if runCtx.Err() != nil {
+			err = runCtx.Err()
+			break
+		}
+	}
 	ref := execution.TaskRef{Key: keyTask, ProviderID: obs.ID}
 	// Even an unanswered Ensure may have created the task. Always stop and
 	// release by its operation key, independently of the caller's cancellation.

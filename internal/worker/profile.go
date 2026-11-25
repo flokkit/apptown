@@ -44,6 +44,10 @@ func (s *Server) MeasureProfile(ctx context.Context, exclusive bool) execution.W
 	} else {
 		p.DindVersion = s.dindVersion(ctx)
 	}
+	p.Tasks = s.TaskLimit
+	if p.Tasks == 0 {
+		p.Tasks = DefaultTaskLimit()
+	}
 	p.Name, p.Exclusive, p.Egress, p.Measured = execution.ProfileWorkerVM, exclusive, "not contained", s.now().UTC()
 	p.Privileged = s.probePrivileged(ctx, err == nil)
 	return p

@@ -496,3 +496,6 @@ func (d DockerTasks) DiskCategories(ctx context.Context) []diskspace.Category {
 		return []byte(s), err
 	}, clock.Or(d.Now)())
 }
+
+// Admit leaves local Docker execution unchanged.
+func (d DockerTasks) Admit(context.Context, string) (int, bool, error) { return 0, true, nil }

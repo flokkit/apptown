@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +28,7 @@ func TestReviewUnknownInputCreatesNoWorkspace(t *testing.T) {
 	spec := fakeSpec("unknown-input-source", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
 	spec.Inputs = []execution.Input{{Blob: strings.Repeat("0", 64), Path: "/apptown/in/missing", Mode: 0644}}
-	if _, err := driver.Ensure(context.Background(), spec); err == nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err == nil {
 		t.Fatal("unknown blob admitted")
 	}
 	for _, dir := range []string{filepath.Join(state, "workspaces", spec.Key), filepath.Join(state, "git", spec.Key+".git")} {

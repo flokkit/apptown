@@ -261,8 +261,17 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 			return
 		}
 	}
+	plan, err := a.planAgentOnWorker(ctx, call)
+	if err != nil {
+		refuse(err)
+		return
+	}
+	if err := admitTask(task.Context(), task, a.worker.Tasks.Driver, agentWorkspace(step.ID, step.OwnedAttempt()), a.db, a.capacity, a.now); err != nil {
+		refuse(err)
+		return
+	}
 	call.at = a.worker.Tasks.now()
-	req, err := a.prepareAgentOnWorker(ctx, call)
+	req, err := a.prepareAgentOnWorker(ctx, call, plan)
 	if err != nil {
 		refuse(err)
 		return

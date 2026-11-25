@@ -25,6 +25,7 @@ type Scheduler struct {
 	fallback int
 	mu       sync.Mutex
 	pools    map[string]*slotPool
+	external map[ids.ID]externalWait
 }
 
 func NewScheduler(source capacitySource, fallback int) *Scheduler {
@@ -112,12 +113,32 @@ func (s *Scheduler) Acquire(ctx context.Context, binding string, stepID ids.ID) 
 	return func() { <-slots }, true, nil
 }
 
+type externalWait struct {
+	binding string
+	ahead   int
+}
+
+// SetWaiting records an external admission wait in the same display registry.
+// The returned cleanup removes the observation; it acquires no model capacity.
+func (s *Scheduler) SetWaiting(stepID ids.ID, binding string, ahead int) func() {
+	s.mu.Lock()
+	if s.external == nil {
+		s.external = map[ids.ID]externalWait{}
+	}
+	s.external[stepID] = externalWait{binding, ahead}
+	s.mu.Unlock()
+	return func() { s.mu.Lock(); delete(s.external, stepID); s.mu.Unlock() }
+}
+
 // Waiting says whether stepID is waiting for a slot, on which binding,
 // and how many steps were queued ahead of it. This is a display observation,
 // not a reservation or a guarantee of acquisition order.
 func (s *Scheduler) Waiting(stepID ids.ID) (binding string, ahead int, waiting bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if w, ok := s.external[stepID]; ok {
+		return w.binding, w.ahead, true
+	}
 	for name, p := range s.pools {
 		for i, id := range p.waiting {
 			if id == stepID {

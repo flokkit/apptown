@@ -372,19 +372,43 @@ host's configuration; the worker does not attest it.
 says "reachable", "not reachable", or "could not tell" when the probe itself
 did not run; check after installing and after a reboot.
 
-### Disk space on the worker
+### Admission on the worker
 
 The worker refuses new work while a disk it writes to is short of space:
 less free than its **floor**, a twentieth of the filesystem but at least
-1 GiB and at most 20 GiB, or a disk it could not read. A new task is admitted once,
-before the first thing of it is written: when its own workspace is
-uploaded, or, for a task without one, at its ensure before its record. Both
-disks are read then, not from a cache:
+1 GiB and at most 20 GiB, or a disk it could not read. New work joins one first come, first served line at
+`POST /v1/admissions/{key}` before anything of it is written. The worker
+admits at most `-tasks N` holders at once; the default is
+`max(1, number of CPUs / 4)`, and N must be positive. `GET /v1/profile`
+reports this limit as `tasks`. A request waits up to twenty seconds and
+answers admitted or waiting with the number ahead. Waiters and unused
+grants expire after forty seconds without another ask or a first write,
+respectively. Both disks are read when granting, not from a cache:
 - **its state folder** (`-state`: workspaces, inputs, generated files,
   captured results), read with `statfs`;
 - **its Docker's data folder** (where task containers, images, build cache
   and each private daemon's storage land), read through the task driver
   with a throwaway `df` container of the pinned busybox image.
+
+A first write consumes its grant atomically: a new workspace upload, a new
+task without a workspace, or a check. Without one it is refused with code
+`busy` and status 429, leaving nothing created; AppTown asks for admission
+again. A task naming a workspace uses that workspace's slot, including
+later agent invocations and repeated ensures after restart. The slot stays
+held until the workspace or workspace-less task is released, or the check's
+request ends. Releasing an invocation in a shared workspace leaves its slot
+held until `ReleaseWorkspace` removes the workspace. Chats and previews
+hold no task slot.
+
+AppTown displays queued steps as "building · waiting for a free slot" through
+the same registry as model capacity. Admission precedes script, test, agent,
+review and release-build execution clocks, and ordinary and agent-judged
+check caps. A database dump waits within its caller's existing deadline.
+After a worker restart, workspaces and workspace-less task records rebuild
+the held set; waiters rejoin and unused grants are lost. Existing recovery
+and release paths remove settled work. A lost grant between admission and
+first write makes AppTown admit again within the attempt's existing deadline.
+An AppTown without a worker keeps its local execution behaviour.
 
 The refusal says which disk, what is free, the floor, and to free space and
 try again; it carries the refusal code `disk`, and AppTown settles the
@@ -851,7 +875,7 @@ What it is not:
   the external-worker tests showed new work refused with the reason ("Disk
   quota exceeded" on the test host's ZFS) and recovery by freeing space and releasing
   the full task, not prevention. New work is refused below a floor of free
-  space (see "Disk space on the worker"); work already admitted is not
+  space (see "Admission on the worker"); work already admitted is not
   stopped.
 
 **Limits.** Each container has its own: the agent's container the step's

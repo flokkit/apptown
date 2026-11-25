@@ -5868,6 +5868,7 @@ export type workflowStepSummary = {
 }
 
 export type WorkerProfile = {
+  tasks: number
   name: string
   os: string
   architecture: string

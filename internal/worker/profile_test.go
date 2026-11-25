@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,7 +117,7 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 		t.Fatal(err)
 	}
 	got.Measured = time.Time{}
-	want := execution.WorkerProfile{Name: "worker-vm", OS: "linux Debian GNU/Linux 13 (trixie)", Architecture: "x86_64", Kernel: "6.8.12", Cgroup: "v2 (systemd)",
+	want := execution.WorkerProfile{Tasks: srv.TaskLimit, Name: "worker-vm", OS: "linux Debian GNU/Linux 13 (trixie)", Architecture: "x86_64", Kernel: "6.8.12", Cgroup: "v2 (systemd)",
 		Docker: "26.1.5", StorageDriver: "overlay2", DindImage: "docker:27-dind", DindImageID: "sha256:d1d", DindDigest: "docker@sha256:aa3",
 		DindVersion: "27.5.1, build 4c9b3b0", Privileged: "yes", Exclusive: true, Egress: "not contained"}
 	if got != want {
@@ -161,7 +162,7 @@ func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 	kernel.Kernel, os2.OS, arch.Architecture = "6.8.11", "linux Debian GNU/Linux 12 (bookworm)", "aarch64"
 	for name, profile := range map[string]*execution.WorkerProfile{"another profile": &upgraded, "no profile": nil, "another kernel": &kernel, "another OS": &os2, "another architecture": &arch} {
 		binary.forget()
-		if _, err := driver.Ensure(ctx, spec("refused-"+strings.ReplaceAll(strings.ToLower(name), " ", "-"), profile)); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), "profile") {
+		if _, err := executiontest.Ensure(ctx, driver, spec("refused-"+strings.ReplaceAll(strings.ToLower(name), " ", "-"), profile)); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), "profile") {
 			t.Errorf("%s: %v", name, err)
 		}
 		if made := binary.made(); strings.Contains(made, "create") || strings.Contains(made, "run ") {
@@ -182,19 +183,19 @@ func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 		case "version":
 			one.DindVersion = otherImage.DindVersion
 		}
-		if _, err := driver.Ensure(ctx, spec("daemon-other-image-"+what, &one)); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), want) {
+		if _, err := executiontest.Ensure(ctx, driver, spec("daemon-other-image-"+what, &one)); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), want) {
 			t.Errorf("a daemon admitted on another image %s: %v", what, err)
 		}
 	}
 	services := spec("services-other-image", &otherImage)
 	services.Private.Daemon, services.Private.Services = false, []deploy.ServiceSpec{{Name: "cache", Image: "redis:7-alpine"}}
-	if _, err := driver.Ensure(ctx, services); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, services); err != nil {
 		t.Errorf("services admitted when the daemon's image was another: %v", err)
 	}
 
 	same := srv.Profile
 	s := spec("upgraded-before-start", &same)
-	created, err := driver.Ensure(ctx, s)
+	created, err := executiontest.Ensure(ctx, driver, s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +238,7 @@ func TestPrivateDockerIsRefusedOnAnotherKernel(t *testing.T) {
 	rebooted := func() { binary.set(func(d *profileDocker) { d.kernel = "6.8.13" }) }
 
 	ensured := spec("kernel-before-start")
-	created, err := driver.Ensure(ctx, ensured)
+	created, err := executiontest.Ensure(ctx, driver, ensured)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +256,7 @@ func TestPrivateDockerIsRefusedOnAnotherKernel(t *testing.T) {
 		t.Fatal("the fixture did not change the measured kernel")
 	}
 	binary.forget()
-	if obs, err := driver.Ensure(ctx, spec("kernel-before-ensure")); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), "kernel") {
+	if obs, err := executiontest.Ensure(ctx, driver, spec("kernel-before-ensure")); !errors.Is(err, execution.ErrUnsupported) || !strings.Contains(err.Error(), "kernel") {
 		t.Fatalf("a request admitted on kernel %q, on kernel %q: %s %v", admitted.Kernel, srv.Profile.Kernel, obs.State, err)
 	}
 	if made := binary.made(); strings.Contains(made, "create") || strings.Contains(made, "run ") {

@@ -37,7 +37,7 @@ func guidanceFor(a *App) *verification.Guidance {
 // "Checks on the worker").
 func checksFor(a *App) verification.Executor {
 	if at := a.cfg.worker; at != nil {
-		w := worker.Checks{URL: at.URL, Client: at.Client, Limits: a.cfg.taskLimits}
+		w := worker.Checks{Now: a.cfg.clock.Now, URL: at.URL, Client: at.Client, Limits: a.cfg.taskLimits}
 		// The worker builds its agent image from the same context, named
 		// by it (worker.AgentImage).
 		image, _ := worker.AgentImage(a.cfg.agentContext)

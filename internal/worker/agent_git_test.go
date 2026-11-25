@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,7 +93,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 	spec := fakeSpec("step-3-a1-agent", "", 0, false)
 	spec.Source, spec.SharedWorkspace = &execution.TaskSource{Repository: hub, Commit: source}, "step-3-a1"
 	spec.AgentGit = &execution.AgentGit{Branch: "change/1", Base: "main", BaseCommit: base}
-	if _, err := driver.Ensure(ctx, spec); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", "step-3-a1")
@@ -169,7 +170,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 	other := fakeSpec("step-4-a1-agent", "", 0, false)
 	other.Source, other.SharedWorkspace = &execution.TaskSource{Repository: hub, Commit: base}, "step-4-a1"
 	other.AgentGit = &execution.AgentGit{Branch: "change/1", Base: "main", BaseCommit: source}
-	if _, err := driver.Ensure(ctx, other); err == nil || !strings.Contains(err.Error(), "the agent's repository") {
+	if _, err := executiontest.Ensure(ctx, driver, other); err == nil || !strings.Contains(err.Error(), "the agent's repository") {
 		t.Fatalf("a base not in the source's history: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(state, "workspaces", "step-4-a1")); !os.IsNotExist(err) {
@@ -182,7 +183,7 @@ func TestAnAgentsOwnRepositoryIsNeverTheWorkers(t *testing.T) {
 		named := fakeSpec(fmt.Sprintf("step-%d-a1-agent", 5+i), "", 0, false)
 		named.Source, named.SharedWorkspace = &execution.TaskSource{Repository: hub, Commit: source}, fmt.Sprintf("step-%d-a1", 5+i)
 		named.AgentGit = &execution.AgentGit{Branch: names[0], Base: names[1], BaseCommit: base}
-		if _, err := driver.Ensure(ctx, named); err == nil || !strings.Contains(err.Error(), "is not a branch name") {
+		if _, err := executiontest.Ensure(ctx, driver, named); err == nil || !strings.Contains(err.Error(), "is not a branch name") {
 			t.Fatalf("the branch %q on %q: %v", names[0], names[1], err)
 		}
 		if _, err := os.Stat(filepath.Join(state, "workspaces", named.SharedWorkspace)); !os.IsNotExist(err) {

@@ -87,7 +87,11 @@ type Server struct {
 		Labels(ctx context.Context, image string) (map[string]string, error)
 	}
 
-	mu sync.Mutex // serializes record writes per worker
+	TaskLimit int // maximum admitted tasks; zero uses DefaultTaskLimit
+	lineOnce  sync.Once
+	line      *execution.AdmissionLine
+	lineErr   error
+	mu        sync.Mutex // serializes record writes per worker
 	// images: preparing a check image, and recording a use of one, hold it
 	// shared; the sweep holds it alone while it chooses and removes, so an
 	// image a preparation has just returned is never being removed.
@@ -194,6 +198,7 @@ func (s *Server) agentRoutes(mux *http.ServeMux) {
 	task := func(h http.HandlerFunc) http.HandlerFunc { return checked("key", keyPattern, h) }
 	session := func(h http.HandlerFunc) http.HandlerFunc { return checked("id", sessionPattern, h) }
 	blob := func(h http.HandlerFunc) http.HandlerFunc { return checked("sum", blobPattern, h) }
+	mux.HandleFunc("POST /v1/admissions/{key}", task(s.admission))
 	mux.HandleFunc("PUT /v1/workspaces/{key}", task(s.putWorkspace))
 	mux.HandleFunc("GET /v1/workspaces/{key}/result", task(s.workspaceResult))
 	mux.HandleFunc("DELETE /v1/workspaces/{key}", task(s.deleteWorkspace))
@@ -328,6 +333,16 @@ func (s *Server) readRecord(key string) (record, bool, error) {
 // changes nothing; another commit under the same key is a conflict.
 func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
+	unlock := s.lockTask(key)
+	defer unlock()
+	consumed := false
+	defer func() {
+		if consumed {
+			if _, err := os.Stat(s.workspacePath(key)); errors.Is(err, os.ErrNotExist) {
+				s.freeSlot(key)
+			}
+		}
+	}()
 	ref, commit := r.URL.Query().Get("ref"), r.URL.Query().Get("commit")
 	if !strings.HasPrefix(ref, "refs/heads/") || len(commit) != 40 {
 		http.Error(w, "a workspace needs the branch ref to check out and its commit", http.StatusBadRequest)
@@ -338,13 +353,13 @@ func (s *Server) putWorkspace(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// A new workspace is the first thing a new task writes: refused, before
-	// its bundle is read, on a disk short of space (admitNew).
+	// A new workspace consumes its grant before reading its bundle.
 	if _, err := os.Stat(s.workspacePath(key)); errors.Is(err, fs.ErrNotExist) {
-		if err := s.admitNew(r.Context()); err != nil {
-			execution.WriteRefusal(w, http.StatusUnprocessableEntity, err)
+		if err := s.consume(key); err != nil {
+			execution.WriteRefusal(w, http.StatusTooManyRequests, err)
 			return
 		}
+		consumed = true
 	}
 	incoming := filepath.Join(s.State, "incoming")
 	if err := os.MkdirAll(incoming, 0o700); err != nil {
@@ -655,12 +670,11 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// A new task is admitted once, before the first thing of it is written
-	// (admitNew): a task in its own workspace was admitted when that was
-	// uploaded; any other is admitted here, before its record.
-	if !found && req.Workspace != req.Key {
-		if err := s.admitNew(r.Context()); err != nil {
-			execution.WriteRefusal(w, http.StatusUnprocessableEntity, err)
+	// A workspace already holds its slot. Only a new workspace-less task
+	// consumes a grant here, before its record is written.
+	if !found && req.Workspace == "" {
+		if err := s.consume(req.Key); err != nil {
+			execution.WriteRefusal(w, http.StatusTooManyRequests, err)
 			return
 		}
 	}
@@ -670,6 +684,9 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 			existing.Private = s.privateSetFor(req.Key, req)
 		}
 		if err := s.writeRecord(existing); err != nil {
+			if req.Workspace == "" {
+				s.freeSlot(req.Key)
+			}
 			httpError(w, err)
 			return
 		}
@@ -1004,6 +1021,9 @@ func (s *Server) release(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
+	if found && (rec.Workspace == "" || rec.Workspace == key) {
+		s.freeSlot(key)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -1012,6 +1032,8 @@ func (s *Server) release(w http.ResponseWriter, r *http.Request) {
 // workspace already gone is removed.
 func (s *Server) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
+	unlock := s.lockTask(key)
+	defer unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	holders, err := s.tasksIn(key)
@@ -1030,6 +1052,7 @@ func (s *Server) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.freeSlot(key)
 	w.WriteHeader(http.StatusNoContent)
 }
 

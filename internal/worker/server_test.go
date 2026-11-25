@@ -53,7 +53,7 @@ func TestAWorkerServesOnlyItsInstallation(t *testing.T) {
 	tasks := &executionfake.Tasks{}
 	srv := workertest.Start(t, ca, t.TempDir(), tasks)
 	other := execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, "inst-2")}
-	if _, err := other.Ensure(context.Background(), fakeSpec("k-other", "", 0, false)); err == nil || !strings.Contains(err.Error(), "403") {
+	if _, err := executiontest.Ensure(context.Background(), other, fakeSpec("k-other", "", 0, false)); err == nil || !strings.Contains(err.Error(), "403") {
 		t.Fatalf("another installation's request: %v", err)
 	}
 	if obs, _ := tasks.Observe(context.Background(), execution.TaskRef{Key: "k-other"}); obs.State != execution.TaskAbsent {
@@ -73,7 +73,7 @@ func TestARestartedWorkerFindsItsTasks(t *testing.T) {
 	first := workertest.Start(t, ca, state, tasks)
 	client := workertest.Client(t, ca, "inst-1")
 	spec := fakeSpec("k-restart", "done", 0, true)
-	created, err := (execution.WorkerTasks{URL: first.URL, Client: client}).Ensure(context.Background(), spec)
+	created, err := executiontest.Ensure(context.Background(), execution.WorkerTasks{URL: first.URL, Client: client}, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestARestartedWorkerFindsItsTasks(t *testing.T) {
 	if err != nil || running.ID != created.ID || running.State != execution.TaskRunning {
 		t.Fatalf("after the restart: %+v %v", running, err)
 	}
-	again, err := second.Ensure(context.Background(), spec)
+	again, err := executiontest.Ensure(context.Background(), second, spec)
 	if err != nil || again.ID != created.ID {
 		t.Fatalf("a retried ensure after the restart made %+v: %v", again, err)
 	}
@@ -96,7 +96,7 @@ func TestARestartedWorkerFindsItsTasks(t *testing.T) {
 	}
 	changed := spec
 	changed.Argv = []string{"something", "else"}
-	if _, err := second.Ensure(context.Background(), changed); err == nil || !strings.Contains(err.Error(), "different request") {
+	if _, err := executiontest.Ensure(context.Background(), second, changed); err == nil || !strings.Contains(err.Error(), "different request") {
 		t.Fatalf("a different request under the same key: %v", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestSourceAndResultsTravelAsBundles(t *testing.T) {
 	base, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec := fakeSpec("k-bundle", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	// The fake runs nothing; write what a task would have left behind.
@@ -183,7 +183,7 @@ func TestATaskCannotConfigureTheWorkersGit(t *testing.T) {
 	base, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec := fakeSpec("k-hostile", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", spec.Key)
@@ -232,7 +232,7 @@ func TestAWorkspaceKeepsTheCommitItWasUploadedWith(t *testing.T) {
 	spec := fakeSpec("k-source", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: first}
 	for range 2 {
-		if _, err := driver.Ensure(context.Background(), spec); err != nil {
+		if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -241,7 +241,7 @@ func TestAWorkspaceKeepsTheCommitItWasUploadedWith(t *testing.T) {
 	}
 	later, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: later}
-	if _, err := driver.Ensure(context.Background(), spec); !errors.Is(err, execution.ErrTaskConflict) {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); !errors.Is(err, execution.ErrTaskConflict) {
 		t.Fatalf("another commit under the same key: %v", err)
 	}
 }
@@ -275,12 +275,12 @@ func TestANewTaskIsRefusedWhileTheStateFolderIsShortOfSpace(t *testing.T) {
 
 	set(diskspace.Space{TotalBytes: 100 * gib, FreeBytes: 5*gib - 1}, nil)
 	for _, spec := range []execution.TaskSpec{fakeSpec("k-plain", "", 0, false), withSource} {
-		if _, err := driver.Ensure(context.Background(), spec); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "free of 100.0 GiB") {
+		if _, err := executiontest.Ensure(context.Background(), driver, spec); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "free of 100.0 GiB") {
 			t.Errorf("%s on a state folder short of space: %v", spec.Key, err)
 		}
 	}
 	set(diskspace.Space{}, errors.New("input/output error"))
-	if _, err := driver.Ensure(context.Background(), fakeSpec("k-plain", "", 0, false)); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "input/output error") {
+	if _, err := executiontest.Ensure(context.Background(), driver, fakeSpec("k-plain", "", 0, false)); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "input/output error") {
 		t.Errorf("a task on an unread state folder: %v", err)
 	}
 	for _, key := range []string{"k-plain", "k-built"} {
@@ -295,11 +295,11 @@ func TestANewTaskIsRefusedWhileTheStateFolderIsShortOfSpace(t *testing.T) {
 	}
 
 	set(diskspace.Space{TotalBytes: 100 * gib, FreeBytes: 5 * gib}, nil)
-	if _, err := driver.Ensure(context.Background(), withSource); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, withSource); err != nil {
 		t.Fatalf("a task with its floor free: %v", err)
 	}
 	set(diskspace.Space{TotalBytes: 100 * gib, FreeBytes: gib}, nil)
-	if _, err := driver.Ensure(context.Background(), withSource); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, withSource); err != nil {
 		t.Errorf("a task already made, ensured again: %v", err)
 	}
 	disks, err := driver.Disks(context.Background())
@@ -335,7 +335,7 @@ func TestATaskOnAShortDockerDiskIsRefusedBeforeTheWorkerWritesAnything(t *testin
 	commit, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec := fakeSpec("k-docker-full", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: commit}
-	_, err := driver.Ensure(context.Background(), spec)
+	_, err := executiontest.Ensure(context.Background(), driver, spec)
 	if !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "/var/lib/docker") || !strings.Contains(err.Error(), "1.0 GiB free of 100.0 GiB") {
 		t.Fatalf("a task on a short Docker disk: %v", err)
 	}
@@ -382,7 +382,7 @@ func TestANewTaskIsAdmittedOnceBeforeItsFirstWrite(t *testing.T) {
 	commit, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec := fakeSpec("k-own-workspace", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: commit}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatalf("a task admitted at its upload: %v", err)
 	}
 	if n := tasks.reads.Load(); n != 1 {
@@ -390,7 +390,7 @@ func TestANewTaskIsAdmittedOnceBeforeItsFirstWrite(t *testing.T) {
 	}
 	// The disk now reads as unreadable: a task without a workspace is
 	// admitted at its ensure, and refused.
-	if _, err := driver.Ensure(context.Background(), fakeSpec("k-no-workspace", "", 0, false)); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "Docker is offline") {
+	if _, err := executiontest.Ensure(context.Background(), driver, fakeSpec("k-no-workspace", "", 0, false)); !errors.Is(err, diskspace.ErrRefused) || !strings.Contains(err.Error(), "Docker is offline") {
 		t.Errorf("a task without a workspace on an unreadable disk: %v", err)
 	}
 }
@@ -438,7 +438,7 @@ func TestAnEnsureNeverRecreatesATaskBeingReleased(t *testing.T) {
 	backend := &releaseBarrier{Tasks: &executionfake.Tasks{}, removed: make(chan struct{}), resume: make(chan struct{})}
 	driver := workertest.Driver(t, ca, workertest.Start(t, ca, t.TempDir(), backend))
 	spec := fakeSpec("release-race", "", 0, false)
-	first, err := driver.Ensure(ctx, spec)
+	first, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ func TestAnEnsureNeverRecreatesATaskBeingReleased(t *testing.T) {
 	go func() { released <- driver.Release(ctx, execution.TaskRef{Key: spec.Key, ProviderID: first.ID}) }()
 	<-backend.removed
 	ensured := make(chan error, 1)
-	go func() { _, err := driver.Ensure(ctx, spec); ensured <- err }()
+	go func() { _, err := executiontest.Ensure(ctx, driver, spec); ensured <- err }()
 	select {
 	case err := <-ensured:
 		close(backend.resume)
@@ -475,7 +475,7 @@ func TestAnInterruptedReleaseIsFinishedAndNeverUndone(t *testing.T) {
 	first := workertest.Start(t, ca, state, backend)
 	driver := workertest.Driver(t, ca, first)
 	spec := fakeSpec("release-interrupted", "", 0, true)
-	made, err := driver.Ensure(ctx, spec)
+	made, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,7 +491,7 @@ func TestAnInterruptedReleaseIsFinishedAndNeverUndone(t *testing.T) {
 	if obs, err := driver.Observe(ctx, ref); err != nil || obs.ID != made.ID {
 		t.Fatalf("before the release is finished, the task: %+v %v", obs, err)
 	}
-	if _, err := driver.Ensure(ctx, spec); err == nil || !strings.Contains(err.Error(), "stale") {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err == nil || !strings.Contains(err.Error(), "stale") {
 		t.Errorf("an ensure after the release was decided: %v", err)
 	}
 	if err := driver.Start(ctx, ref); err == nil || !strings.Contains(err.Error(), "stale") {

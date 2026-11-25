@@ -238,3 +238,5 @@ func (f *Tasks) AdmissionOf(key string) execution.Admission {
 	defer f.mu.Unlock()
 	return f.admitted[key]
 }
+
+func (f *Tasks) Admit(context.Context, string) (int, bool, error) { return 0, true, nil }

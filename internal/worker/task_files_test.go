@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,14 +85,14 @@ func TestAWorkerTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	ctx := context.Background()
 
 	spec := taskWithFiles("script-7", miseConfig)
-	if _, err := driver.Ensure(ctx, spec); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	src, body := readMount(t, tasks.of(spec.Key), miseConfig.Path)
 	if body != string(miseConfig.Content) || !strings.HasPrefix(src, filepath.Join(srv.State, "task-files")+string(filepath.Separator)) {
 		t.Fatalf("the task's file %s holds %q", src, body)
 	}
-	if _, err := driver.Ensure(ctx, spec); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 		t.Fatalf("an ensure repeated after a lost reply: %v", err)
 	}
 	if again, _ := readMount(t, tasks.of(spec.Key), miseConfig.Path); again != src {
@@ -105,7 +106,7 @@ func TestAWorkerTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	} {
 		other := taskWithFiles(spec.Key, changed)
 		other.Request = spec.Digest()
-		if _, err := driver.Ensure(ctx, other); !errors.Is(err, execution.ErrTaskConflict) {
+		if _, err := executiontest.Ensure(ctx, driver, other); !errors.Is(err, execution.ErrTaskConflict) {
 			t.Fatalf("an ensure with other files: %v", err)
 		}
 	}
@@ -155,7 +156,7 @@ func TestACollectedCommitHoldsNoGeneratedFiles(t *testing.T) {
 	base, _ := gitexec.Output(t.Context(), hub, "rev-parse", "HEAD")
 	spec := taskWithFiles("script-8", miseConfig)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	// The fake runs nothing; write what a task would have left behind.

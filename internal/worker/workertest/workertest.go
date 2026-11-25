@@ -113,7 +113,7 @@ func Start(t *testing.T, ca *CA, state string, tasks execution.TaskDriver) *http
 // makes the worker misbehave on the wire.
 func StartWith(t *testing.T, ca *CA, state string, tasks execution.TaskDriver, wrap func(http.Handler) http.Handler) *httptest.Server {
 	t.Helper()
-	return serve(t, ca, &worker.Server{Installation: Installation, State: state, Tasks: tasks}, wrap)
+	return serve(t, ca, &worker.Server{TaskLimit: 128, Installation: Installation, State: state, Tasks: tasks}, wrap)
 }
 
 // StartServer serves srv over mutual TLS, as the worker for Installation.
@@ -140,6 +140,11 @@ func Disk(string) (diskspace.Space, error) {
 
 func serve(t *testing.T, ca *CA, w *worker.Server, wrap func(http.Handler) http.Handler) *httptest.Server {
 	t.Helper()
+	// Lifecycle fixtures retain many unfinished tasks to inspect their records.
+	// Capacity tests set their own small limit explicitly.
+	if w.TaskLimit == 0 {
+		w.TaskLimit = 128
+	}
 	if w.StateDisk == nil {
 		w.StateDisk = Disk
 	}

@@ -107,6 +107,12 @@ func (g workflowActivityGraph) classify(id ids.ID, wait slotWait, path map[ids.I
 		}
 		switch {
 		case step.state == StatusRunning:
+			if wait != nil {
+				if binding, ahead, waiting := wait(step.id); waiting {
+					q := &slotQueue{Binding: binding, Ahead: ahead, Says: slotWaitWords(binding, ahead)}
+					return Activity{State: activityQueued, Detail: step.name, holdingStep: &step, queue: q}, nil
+				}
+			}
 			if step.kind == "workflow/call" {
 				var call struct {
 					ChildRunID ids.ID `json:"childRunId"`

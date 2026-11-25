@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"net/http"
 	"os"
 	"os/exec"
@@ -250,7 +251,7 @@ docker buildx inspect apptown >/dev/null && echo "builder apptown"
 echo "DOCKER_CONFIG=$DOCKER_CONFIG"
 `
 	spec := f.spec("build", script, private)
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +374,7 @@ echo exiting while the writer writes`
 	if err := os.WriteFile(stopFlag, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +442,7 @@ echo exiting while the writer writes`
 	if left := labelled(t, spec.Key); len(left) > 0 {
 		t.Errorf("released, the task left %v", left)
 	}
-	if _, err := f.driver.Ensure(ctx, spec); err == nil || !strings.Contains(err.Error(), "stale") {
+	if _, err := executiontest.Ensure(ctx, f.driver, spec); err == nil || !strings.Contains(err.Error(), "stale") {
 		t.Fatalf("the request replayed after the release: %v", err)
 	}
 	if err := f.driver.Start(ctx, ref); err == nil {
@@ -471,7 +472,7 @@ func TestIntegrationPrivateDockerIsRefusedOrCleanedUp(t *testing.T) {
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Errorf("%s: the worker answered %s", name, resp.Status)
 		}
-		if _, err := f.driver.Ensure(ctx, spec); err == nil {
+		if _, err := executiontest.Ensure(ctx, f.driver, spec); err == nil {
 			t.Errorf("%s: ensured", name)
 		}
 		if left := labelled(t, spec.Key); len(left) > 0 {
@@ -480,18 +481,18 @@ func TestIntegrationPrivateDockerIsRefusedOrCleanedUp(t *testing.T) {
 	}
 	zero := f.spec("refused-zero", "true", &execution.PrivateDocker{Daemon: true})
 	zero.Admission.Limits.PIDs = 0
-	if _, err := f.driver.Ensure(ctx, zero); err == nil || !strings.Contains(err.Error(), "zero is not unlimited") {
+	if _, err := executiontest.Ensure(ctx, f.driver, zero); err == nil || !strings.Contains(err.Error(), "zero is not unlimited") {
 		t.Errorf("a zero limit: %v", err)
 	}
 	f.srv.DindImage = ""
-	if _, err := f.driver.Ensure(ctx, f.spec("refused-nodaemon", "true", &execution.PrivateDocker{Daemon: true})); !errors.Is(err, execution.ErrUnsupported) {
+	if _, err := executiontest.Ensure(ctx, f.driver, f.spec("refused-nodaemon", "true", &execution.PrivateDocker{Daemon: true})); !errors.Is(err, execution.ErrUnsupported) {
 		t.Errorf("a daemon from a worker that runs none: %v", err)
 	}
 
 	// The second service exits at once: the first, made, is removed.
 	spec := f.spec("partial", "true", &execution.PrivateDocker{Services: []deploy.ServiceSpec{
 		{Name: "cache", Image: "redis:7-alpine"}, {Name: "broken", Image: stock.Images().DF, Command: []string{"false"}}}})
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,7 +540,7 @@ sleep 30
 echo done`
 	spec := f.spec("limits", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: stock.Images().DF, Command: []string{"sleep", "3600"}}}})
 	spec.Source.Commit = f.withHostImage(stock.Images().DF)
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -622,7 +623,7 @@ sleep 30`
 	spec := f.spec("aggregate", script, &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: stock.Images().DF, Command: []string{"sleep", "3600"}}}})
 	spec.Source.Commit = f.withHostImage(stock.Images().DF)
 	spec.Admission.Limits = execution.Limits{CPUs: 0.25, MemoryBytes: 512 << 20, PIDs: 512}
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -804,11 +805,11 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 	ctx := context.Background()
 	spec := f.spec("restarts", `docker info >/dev/null && echo up; sleep 4; echo done > /work/done.txt`, &execution.PrivateDocker{Daemon: true},
 		execution.Result{Name: "done", Path: "/work/done.txt", Max: 64})
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if again, err := f.driver.Ensure(ctx, spec); err != nil || again.ID != created.ID {
+	if again, err := executiontest.Ensure(ctx, f.driver, spec); err != nil || again.ID != created.ID {
 		t.Fatalf("a repeated ensure: %+v %v", again, err)
 	}
 	ref := execution.TaskRef{Key: spec.Key, ProviderID: created.ID}
@@ -846,7 +847,7 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 
 	// Its daemon removed behind the worker's back while it runs: lost.
 	lost := f.spec("lost", "sleep 60", &execution.PrivateDocker{Daemon: true})
-	created, err = f.driver.Ensure(ctx, lost)
+	created, err = executiontest.Ensure(ctx, f.driver, lost)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -875,7 +876,7 @@ func TestIntegrationPrivateDockerSurvivesLostRepliesAndRestarts(t *testing.T) {
 	// Far enough ahead that a slow start cannot pass it before the first
 	// sweep; the skew below moves the worker's clock past it.
 	expiring.Admission.Expires = time.Now().Add(10 * time.Minute)
-	created, err = f.driver.Ensure(ctx, expiring)
+	created, err = executiontest.Ensure(ctx, f.driver, expiring)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -921,7 +922,7 @@ func TestIntegrationAStopCoversThePrivateDockerAndFencesCollection(t *testing.T)
 docker run -d -v /work:/work `+stock.Images().DF+` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
 echo writer-ready
 sleep 120`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "ticks", Path: "/work/ticks.txt", Max: 1 << 20})
-	made, err := f.driver.Ensure(ctx, spec)
+	made, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1030,7 +1031,7 @@ func TestIntegrationAWorkerStoppedBetweenADecisionAndItsEffectRecovers(t *testin
 	}
 	ensure := func(t *testing.T, spec execution.TaskSpec) execution.TaskRef {
 		t.Helper()
-		made, err := f.driver.Ensure(ctx, spec)
+		made, err := executiontest.Ensure(ctx, f.driver, spec)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1039,7 +1040,7 @@ func TestIntegrationAWorkerStoppedBetweenADecisionAndItsEffectRecovers(t *testin
 
 	t.Run("record, then network", func(t *testing.T) {
 		spec := f.spec("crash-recorded", script, private(), result)
-		abandoned(t, "recorded", spec.Key, func() error { _, err := f.driver.Ensure(ctx, spec); return err })
+		abandoned(t, "recorded", spec.Key, func() error { _, err := executiontest.Ensure(ctx, f.driver, spec); return err })
 		if left := labelled(t, spec.Key); len(left) > 0 {
 			t.Fatalf("made before the record's effect: %v", left)
 		}
@@ -1136,7 +1137,7 @@ func TestIntegrationAWorkerStoppedBetweenADecisionAndItsEffectRecovers(t *testin
 		if left := labelled(t, spec.Key); len(left) != 3 {
 			t.Fatalf("abandoned before the removal, the task has %v", left)
 		}
-		if _, err := f.driver.Ensure(ctx, spec); err == nil || !strings.Contains(err.Error(), "stale") {
+		if _, err := executiontest.Ensure(ctx, f.driver, spec); err == nil || !strings.Contains(err.Error(), "stale") {
 			t.Fatalf("an ensure after the release was decided: %v", err)
 		}
 		if err := f.driver.Start(ctx, ref); err == nil || !strings.Contains(err.Error(), "stale") {
@@ -1152,7 +1153,7 @@ func TestIntegrationAWorkerStoppedBetweenADecisionAndItsEffectRecovers(t *testin
 	t.Run("a record that cannot be written", func(t *testing.T) {
 		spec := f.spec("unwritable", script, private(), result)
 		restore := worker.FailAfterRename(spec.Key+".json", errors.New("the records folder could not be synced"))
-		_, err := f.driver.Ensure(ctx, spec)
+		_, err := executiontest.Ensure(ctx, f.driver, spec)
 		restore()
 		if err == nil || !strings.Contains(err.Error(), "could not be synced") {
 			t.Fatalf("an ensure whose record was not written: %v", err)

@@ -596,3 +596,19 @@ func TestSlotWaitIdentifiesItsStepWithoutOfferingActs(t *testing.T) {
 		}
 	}
 }
+
+// Claimed execution may wait for worker capacity; the registry remains the
+// source of the phrase even though the step is already running.
+func TestARunningStepWaitingForWorkerCapacityReadsAsQueued(t *testing.T) {
+	t.Parallel()
+	runID, stepID := idstest.N(1), idstest.N(2)
+	graph := workflowActivityGraph{runID: {id: runID, state: RunRunning, steps: []workflowActivityStep{{id: stepID, name: "build", kind: "script", state: StatusRunning, attempt: 1}}}}
+	activity, err := graph.classify(runID, func(id ids.ID) (string, int, bool) { return "worker", 3, id == stepID }, map[ids.ID]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := waitingOn(nil, &RunSnapshot{Run: &Run{ID: runID, Status: RunRunning}, activity: activity})
+	if got.Says != "building · waiting for a free slot" || got.Step != stepID {
+		t.Fatalf("running wait: %+v", got)
+	}
+}

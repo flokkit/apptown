@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -125,7 +126,7 @@ echo done
 			{Name: "escape", Path: "/work/out/etc/passwd", Max: 1 << 20},
 			{Name: "folder", Path: "/work/adir", Max: 1024},
 		}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ echo done
 	stop()
 	driver, _ = start()
 	check("after a worker restart")
-	if again, err := driver.Ensure(ctx, spec); err != nil || again.ID != created.ID {
+	if again, err := executiontest.Ensure(ctx, driver, spec); err != nil || again.ID != created.ID {
 		t.Fatalf("the same request ensured after the restart: %+v %v", again, err)
 	}
 	// The state folder is kept beside the tree, on the worker, after the

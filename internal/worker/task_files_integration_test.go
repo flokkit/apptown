@@ -5,6 +5,7 @@ package worker_test
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestIntegrationAWorkerTaskAndCheckReadTheirGeneratedFiles(t *testing.T) {
 	key := fmt.Sprintf("files-%d", time.Now().UnixNano()%1_000_000_000)
 	spec := execution.TaskSpec{Key: key, Image: stock.Images().DF, Argv: []string{"sh", "-c", "cat /etc/mise/config.toml; echo changed > /etc/mise/config.toml && echo writable"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)}, Files: []execution.File{config}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
