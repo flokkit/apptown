@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -79,6 +80,19 @@ func (s *Server) consume(key string) error {
 		return err
 	}
 	return line.Consume(key)
+}
+
+// holding refuses, as busy, a key that is not a live holder: work that
+// shares a slot never acquires one.
+func (s *Server) holding(key string) error {
+	line, err := s.admissionLine()
+	if err != nil {
+		return err
+	}
+	if !line.Holds(key) {
+		return fmt.Errorf("%w: %s holds no slot on this worker to share", execution.ErrBusy, key)
+	}
+	return nil
 }
 func (s *Server) freeSlot(key string) {
 	// The line is initialized before any first write; initialize before release

@@ -400,6 +400,14 @@ request ends. Releasing an invocation in a shared workspace leaves its slot
 held until `ReleaseWorkspace` removes the workspace. Chats and previews
 hold no task slot.
 
+A check an agent step's agent asks for (`apptown check`, authenticated by
+the attempt's token) runs in the slot the attempt's workspace holds: the
+check names that key with `shares`, and the worker runs it only while the
+key is a live holder, neither consuming nor freeing the slot. Asking for a
+second slot would wait on the step itself on a one-slot worker. A shared
+check whose step no longer holds its slot is refused `busy` and reported as
+not run. Checks outside a step take their own slot.
+
 AppTown displays queued steps as "building · waiting for a free slot" through
 the same registry as model capacity. Admission precedes script, test, agent,
 review and release-build execution clocks, and ordinary and agent-judged

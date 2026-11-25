@@ -55,6 +55,13 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	if req.Workspace == "" && (req.Report != "" || req.History != nil || req.ExportImage != "") {
 		return notRun(errors.New("a check with no tree has no report, history or image to export"))
 	}
+	// A check an agent step asked for runs in the step's slot: asking for
+	// a second one would wait on the step itself where the worker has one
+	// slot. A busy answer means the step no longer holds it: not run, never
+	// asked again.
+	if held, ok := execution.HeldSlot(ctx); ok {
+		return c.runGranted(ctx, req, held, true)
+	}
 	key, err := checkID()
 	if err != nil {
 		return notRun(err)
@@ -70,7 +77,7 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 			return notRun(err)
 		}
 		if admitted {
-			out := c.runGranted(ctx, req, key)
+			out := c.runGranted(ctx, req, key, false)
 			if !errors.Is(out.RunErr, execution.ErrBusy) {
 				return out
 			}
@@ -78,8 +85,8 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	}
 }
 
-func (c Checks) runGranted(ctx context.Context, req execution.Request, key string) execution.Outcome {
-	spec := CheckSpec{Key: key,
+func (c Checks) runGranted(ctx context.Context, req execution.Request, key string, shares bool) execution.Outcome {
+	spec := CheckSpec{Key: key, Shares: shares,
 		Image: req.Image, Argv: req.Argv, Env: req.Env, NoEntrypoint: req.NoEntrypoint,
 		Egress: req.Network == "", TimeoutSeconds: int(req.Timeout.Seconds() + 0.5),
 		CaptureInputs: req.CaptureInputs, Writable: !req.WorkspaceRO, Report: req.Report, History: req.History != nil,

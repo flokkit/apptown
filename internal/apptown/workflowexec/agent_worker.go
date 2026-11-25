@@ -486,7 +486,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	if err != nil {
 		return workerAgentRequest{}, fmt.Errorf("reading the registry bindings: %w", err)
 	}
-	workspace := agentWorkspace(step.ID, step.Attempt)
+	workspace := AgentWorkspace(step.ID, step.Attempt)
 	amb := agentenv.AmbientFor(bound, workspace)
 
 	sessionFile := workerSessions + "/" + out.sessionFile

@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"errors"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -193,5 +194,60 @@ func TestWorkerCheckWaitStartsItsTimeoutAfterAdmission(t *testing.T) {
 	out := (worker.Checks{URL: srv.URL, Client: client, Now: func() time.Time { return now }}).Run(t.Context(), execution.Request{Image: "fake", Argv: []string{"true"}, Network: "none", Timeout: time.Minute})
 	if !out.Exited0() || !ran || transport.asks != 2 || !now.Equal(initial.Add(2*time.Minute)) {
 		t.Fatalf("delayed check: %+v, asks %d", out, transport.asks)
+	}
+}
+
+// A check an agent step asks for runs in the slot the step's workspace
+// holds: on a one-slot worker it neither waits on the step nor takes or
+// frees the slot, so other work still waits until the workspace is gone.
+// A check of no step still waits for a slot of its own.
+func TestACheckFromAStepRunsInTheStepsSlot(t *testing.T) {
+	t.Parallel()
+	ca := workertest.NewCA(t)
+	state := t.TempDir()
+	// The step's workspace holds the only slot (restored from disk, as
+	// after a restart).
+	if err := os.MkdirAll(filepath.Join(state, "workspaces", "step-7-a1"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ran := 0
+	server := &worker.Server{Installation: workertest.Installation, State: state, TaskLimit: 1,
+		Checks: capCheckExecutor{run: func(context.Context, execution.Request) execution.Outcome {
+			ran++
+			return execution.Outcome{Termination: execution.Exited, ExitCode: 0}
+		}}}
+	srv := workertest.StartServer(t, ca, server)
+	checks := worker.Checks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	req := execution.Request{Image: "fake", Argv: []string{"true"}, Network: "none", Timeout: time.Minute}
+
+	// Bounded so a check that waits on its own step fails here, not hangs.
+	bounded, stop := context.WithTimeout(t.Context(), 10*time.Second)
+	defer stop()
+	inStep := execution.WithHeldSlot(bounded, "step-7-a1")
+	for i := range 2 {
+		if out := checks.Run(inStep, req); !out.Exited0() {
+			t.Fatalf("check %d in the step's slot: %+v", i+1, out)
+		}
+	}
+	if ran != 2 {
+		t.Fatalf("checks ran %d times", ran)
+	}
+	// The step still holds its slot: other work waits.
+	if got := workerAdmission(t, server, "other", true); got.Admitted {
+		t.Fatalf("a shared check freed the step's slot: %+v", got)
+	}
+
+	// A key holding no slot, or only waiting for one, shares nothing.
+	for _, key := range []string{"step-8-a1", "other"} {
+		if out := checks.Run(execution.WithHeldSlot(t.Context(), key), req); out.Termination != execution.LaunchFailed || !errors.Is(out.RunErr, execution.ErrBusy) {
+			t.Fatalf("shared check under %s, which holds no slot: %+v", key, out)
+		}
+	}
+
+	// A check of no step waits for a slot of its own.
+	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+	defer cancel()
+	if out := checks.Run(ctx, req); out.Termination != execution.LaunchFailed || ran != 2 {
+		t.Fatalf("a check of no step did not wait: %+v, ran %d", out, ran)
 	}
 }
