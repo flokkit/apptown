@@ -361,6 +361,16 @@ func (r *Records) UnreleasedWorkspaces(ctx context.Context, backend string, max 
 	return taskssql.New(r.db.SQL()).UnreleasedWorkspaces(ctx, taskssql.UnreleasedWorkspacesParams{Backend: backend, MaxRows: int32(max)})
 }
 
+// KeysHeld returns those of keys that a task or workspace on backend still
+// holds by these records: an operation or a workspace whose release is not
+// confirmed. A key it does not return is no work AppTown recorded.
+func (r *Records) KeysHeld(ctx context.Context, backend string, keys []string) ([]string, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	return taskssql.New(r.db.SQL()).KeysHeld(ctx, taskssql.KeysHeldParams{Backend: backend, Keys: keys})
+}
+
 // errWorkspaceInUse: a task naming the workspace is not settled and
 // released, so the workspace's release cannot be recorded.
 var errWorkspaceInUse = errors.New("a task in this workspace is not settled and released")

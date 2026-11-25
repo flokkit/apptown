@@ -86,6 +86,13 @@ AND NOT EXISTS (SELECT 1 FROM task_attempts t WHERE t.workspace=sqlc.arg(workspa
 -- name: WorkspaceHeld :one
 SELECT EXISTS(SELECT 1 FROM task_attempts WHERE workspace=sqlc.arg(workspace) AND backend=sqlc.arg(backend) AND (observed<>'settled' OR released_at IS NULL));
 
+-- The keys among those named that a task or workspace on backend still holds
+-- by AppTown's records: an operation or a workspace not confirmed released.
+-- name: KeysHeld :many
+SELECT k::text AS key FROM unnest(sqlc.arg(keys)::text[]) AS k
+WHERE EXISTS (SELECT 1 FROM task_attempts t WHERE t.backend=sqlc.arg(backend)
+  AND ((t.operation=k AND t.released_at IS NULL) OR (t.workspace=k AND t.workspace_released_at IS NULL)));
+
 -- name: UnreleasedLayoutAttempts :many
 SELECT * FROM task_attempts WHERE released_at IS NULL ORDER BY operation;
 

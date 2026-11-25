@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flokkit/apptown/internal/clock"
@@ -35,6 +36,86 @@ type WorkerTasks struct {
 	Now func() time.Time
 	// MaxResultBytes bounds a returned bundle; zero means 256 MiB.
 	MaxResultBytes int64
+	// InHand holds the keys this AppTown process has admitted and not yet
+	// asked to release, shared by every copy of the client. Nil:
+	// the client cannot tell its process's work from a leftover, and
+	// Leftovers refuses.
+	InHand *KeysInHand
+}
+
+// KeysInHand is the work one AppTown process has in hand on its worker: a
+// model-judged check or a database dump lives only there, never in
+// AppTown's records, between its admission and its release.
+type KeysInHand struct {
+	mu   sync.Mutex
+	keys map[string]bool
+}
+
+// add puts a key in hand when it is admitted: the worker makes nothing
+// under a key without its grant, except a task in a workspace already held,
+// which AppTown records before it ensures it.
+func (k *KeysInHand) add(key string) {
+	if k == nil {
+		return
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.keys == nil {
+		k.keys = map[string]bool{}
+	}
+	k.keys[key] = true
+}
+
+// drop forgets a key once its release is asked, whatever the answer: the
+// caller is done with it, and a release that failed is the reconcile's to
+// repeat. Recorded work stays protected by its record.
+func (k *KeysInHand) drop(key string) {
+	if k == nil {
+		return
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	delete(k.keys, key)
+}
+
+func (k *KeysInHand) has(key string) bool {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	return k.keys[key]
+}
+
+// WorkerHoldings is GET /v1/tasks: every task record and workspace folder
+// a worker holds, each under its key.
+type WorkerHoldings struct {
+	Tasks      []string `json:"tasks"`
+	Workspaces []string `json:"workspaces"`
+}
+
+// Leftovers lists what the worker holds that this process does not have in
+// hand. The worker is listed before the keys in hand are read: anything
+// listed was admitted, and so put in hand, before that read; a key released
+// in between is released again, which changes nothing. The caller drops
+// what AppTown's records still name, read after this.
+func (w WorkerTasks) Leftovers(ctx context.Context) (WorkerHoldings, error) {
+	if w.InHand == nil {
+		return WorkerHoldings{}, errors.New("this worker client does not track the work it has in hand, so it cannot tell a leftover")
+	}
+	var held WorkerHoldings
+	if err := w.call(ctx, http.MethodGet, "/v1/tasks", nil, &held); err != nil {
+		return WorkerHoldings{}, err
+	}
+	out := WorkerHoldings{}
+	for _, key := range held.Tasks {
+		if !w.InHand.has(key) {
+			out.Tasks = append(out.Tasks, key)
+		}
+	}
+	for _, key := range held.Workspaces {
+		if !w.InHand.has(key) {
+			out.Workspaces = append(out.Workspaces, key)
+		}
+	}
+	return out, nil
 }
 
 var _ TaskDriver = WorkerTasks{}
@@ -472,12 +553,14 @@ func (w WorkerTasks) Stop(ctx context.Context, ref TaskRef) error {
 // Release removes the task, its own workspace on the worker (not one it
 // shares) and the worker's record of it.
 func (w WorkerTasks) Release(ctx context.Context, ref TaskRef) error {
+	defer w.InHand.drop(ref.Key)
 	return w.call(ctx, http.MethodDelete, taskPath(ref, ""), nil, nil)
 }
 
 // ReleaseWorkspace removes a shared workspace from the worker. The worker
 // refuses while a task naming it is not released (ErrWorkspaceInUse).
 func (w WorkerTasks) ReleaseWorkspace(ctx context.Context, key string) error {
+	defer w.InHand.drop(key)
 	resp, err := w.do(ctx, http.MethodDelete, "/v1/workspaces/"+url.PathEscape(key), nil, "")
 	if err != nil {
 		return err
@@ -561,6 +644,8 @@ type AdmissionAnswer struct {
 }
 
 func (w WorkerTasks) Admit(ctx context.Context, key string) (int, bool, error) {
+	// In hand before the worker can hold anything under it.
+	w.InHand.add(key)
 	var answer struct {
 		Ahead    *int  `json:"ahead"`
 		Admitted *bool `json:"admitted"`

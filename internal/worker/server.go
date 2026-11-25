@@ -202,6 +202,7 @@ func (s *Server) agentRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /v1/workspaces/{key}", task(s.putWorkspace))
 	mux.HandleFunc("GET /v1/workspaces/{key}/result", task(s.workspaceResult))
 	mux.HandleFunc("DELETE /v1/workspaces/{key}", task(s.deleteWorkspace))
+	mux.HandleFunc("GET /v1/tasks", s.holdings)
 	mux.HandleFunc("POST /v1/tasks/{key}", task(s.ensure))
 	mux.HandleFunc("POST /v1/tasks/{key}/start", task(s.start))
 	mux.HandleFunc("GET /v1/tasks/{key}", task(s.observe))

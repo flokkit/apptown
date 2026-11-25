@@ -414,7 +414,22 @@ review and release-build execution clocks, and ordinary and agent-judged
 check caps. A database dump waits within its caller's existing deadline.
 After a worker restart, workspaces and workspace-less task records rebuild
 the held set; waiters rejoin and unused grants are lost. Existing recovery
-and release paths remove settled work. A lost grant between admission and
+and release paths remove settled work.
+
+A slot is held only by work AppTown still knows. AppTown knows a task or
+workspace while its task records name it unreleased, or while this AppTown
+process has its key in hand: admitted and not yet asked to release. A
+model-judged check and a database dump are never recorded; they live for
+one call in one process. When AppTown stops mid-call, or such a release
+fails, the worker would keep the task and count it as a holder forever. So
+the reconcile that releases settled tasks (every five minutes, and at start)
+also lists the worker's task records and workspaces (`GET /v1/tasks`, the
+same reading that rebuilds the held set), drops what is in hand and what the
+records name, and releases the rest through the ordinary task and workspace
+release. The worker is listed before the keys in hand and the records are
+read: anything listed was admitted, or recorded, before that reading.
+
+A lost grant between admission and
 first write makes AppTown admit again within the attempt's existing deadline.
 An AppTown without a worker keeps its local execution behaviour.
 
