@@ -178,6 +178,9 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		}
 	}
 	state, owner := ChangeInProgress, titleHuman
+	if caller, ok := access.CallerFrom(ctx); ok && caller.Principal.Kind == "instrument" && caller.Principal.Instrument == access.SystemInstrument && caller.Principal.Via == "schedule" {
+		owner = titleAppTown
+	}
 	if in.TitleFromChat {
 		owner = titleAwaitingChat
 	}

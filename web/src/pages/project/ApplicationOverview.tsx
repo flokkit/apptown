@@ -5,14 +5,14 @@ import { failedRuntimeRefresh } from '../../runtime'
 import './ApplicationOverview.css'
 import { PageHead } from '../../PageHead'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useGet } from '../../data'
 import { DeploymentTable } from '../DeploymentTable'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { ChangeStatus, Status, STATUS_LIGHT } from '../../Status'
+import { ChangeStatus, Status, StatusDot, STATUS_LIGHT } from '../../Status'
 import { AppAddress } from '../../runtime'
-import { fmtWhen } from '../../format'
-import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
+import { fmtWhen, stampDate } from '../../format'
+import type { HistoryEntry, ChangeHistory, OpenChange, ProjectUpkeepView, UpkeepRun, Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
 import type { Release } from '../../api'
 import { ActiveRunList, type OverviewData } from '../../parts/runActivity'
 import { BigChangeBox } from './Overview'
@@ -22,7 +22,7 @@ import { Section } from '../../Section'
 import './overview.css'
 
 type ActivityEntry = { id: string; when: string; number?: number; title: string; source: string; to: string } & (
-  { waitingOn: import('../../wire.gen').WaitingOn } | { word: keyof typeof STATUS_LIGHT; help?: string }
+  { waitingOn: import('../../wire.gen').WaitingOn } | { word: keyof typeof STATUS_LIGHT; help?: string } | { upkeep: UpkeepRun }
 )
 
 // Keep each recorded fact attached to its source. A runtime observation is
@@ -36,7 +36,8 @@ export function overviewActivity(data: OverviewData, deployments: DeploymentView
     current.push({ id: `change-${c.changeId}`, when: 'startedAt' in c ? c.startedAt : '', number: c.changeNumber, title: c.title, source: '', waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })
   }
   const past: ActivityEntry[] = [
-    ...data.history.filter(c => !seen.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })),
+    ...data.history.filter(e => e.upkeep).map(e => ({ id: `upkeep-${e.upkeep!.until}`, when: e.upkeep!.until, title: upkeepWords(e.upkeep!), source: '', upkeep: e.upkeep!, to: upkeepLink(slug, e.upkeep!) })),
+    ...data.history.filter(e => e.change && !seen.has(e.change.changeId)).map(e => e.change!).map(c => ({ id: `change-${c.changeId}`, when: c.when, number: c.changeNumber, title: c.title, source: '', waitingOn: c.waitingOn, to: `/changes/${c.changeId}` })),
     ...releases.map(r => ({
       id: `release-${r.number}`, when: r.releasedAt || r.createdAt,
       title: `Release ${r.number} to ${r.deployment}`, source: '',
@@ -47,6 +48,7 @@ export function overviewActivity(data: OverviewData, deployments: DeploymentView
 }
 
 function ActivityRow({ e }: { e: ActivityEntry }) {
+  if ('upkeep' in e) return <UpkeepRow to={e.to} span={e.upkeep} />
   return <ListRow to={e.to} className="card row application-overview-card" state={<span className="row-status">{'waitingOn' in e ? <ChangeStatus waiting={e.waitingOn} /> : <Status word={e.word} help={e.help} />}</span>} identity={<>
     <Link to={e.to} className="row grow application-overview-link">
       <strong>{e.number !== undefined && <span className="muted">#{e.number} </span>}{e.title}</strong>
@@ -116,33 +118,75 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
   </div>
 }
 
-// An open change with no run yet is worked in its chat: say so, not "waiting".
+function upkeepLink(slug: string, span?: UpkeepRun) {
+  const base = `/projects/${slug}/changes/upkeep`
+  return span ? `${base}?${new URLSearchParams({ from: span.from, until: span.until })}` : base
+}
+
+function upkeepWords(span: UpkeepRun) {
+  const from = stampDate(span.from), until = stampDate(span.until)
+  const sameYear = from.getFullYear() === until.getFullYear()
+  const sameMonth = sameYear && from.getMonth() === until.getMonth()
+  const date = (d: Date) => d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', ...(!sameYear ? { year: 'numeric' as const } : {}) })
+  const range = from.toDateString() === until.toDateString() ? date(until) : `${sameMonth ? from.getDate() : date(from)}–${date(until)}`
+  return `${span.count} upkeep change${span.count === 1 ? '' : 's'} · ${range}`
+}
+
+function UpkeepRow({ to, span, count }: { to: string; span?: UpkeepRun; count?: number }) {
+ return <ListRow to={to} className="card row application-overview-card" state={<StatusDot word="none" />} identity={<Link to={to} className="run-link"><strong>{span ? upkeepWords(span) : `${count} upkeep change${count === 1 ? '' : 's'} in progress`}</strong></Link>} />
+}
+
+function FinishedChange({ c }: { c: ChangeHistory }) {
+ return <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<ChangeStatus waiting={c.waitingOn} />} identity={<>
+   <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong></Link>
+   <div className="muted small">{fmtWhen(c.when)}</div>
+ </>} />
+}
+
+function OpenChangeRow({ c }: { c: OpenChange }) {
+ return <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>} identity={
+  <Link to={`/changes/${c.changeId}`} className="row grow application-overview-link">
+   <strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong>
+   {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
+  </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/changes/${c.changeId}?tab=conversation`} className="btn">Continue chat</Link></span>} />
+}
+
+function groupableOpen(c: { automatedOrigin: boolean; untouched: boolean; waitingOn: { needsPerson: boolean } }) {
+ return c.untouched && !c.waitingOn.needsPerson
+}
+
+function HistoryRows({ entries, slug }: { entries: HistoryEntry[]; slug: string }) {
+ return entries.map((e, i) => e.upkeep ? <UpkeepRow key={`upkeep-${i}`} to={upkeepLink(slug, e.upkeep)} span={e.upkeep} /> : e.change ? <FinishedChange key={e.change.changeId} c={e.change} /> : null)
+}
 
 export function ProjectChanges({ project }: { project: ProjectDetail }) {
  const slug = project.slug
  const activityQ = useGet<OverviewData>(`/projects/${slug}/overview`, { poll: 5000 })
  const data = activityQ.data
- const open = data ? data.active.length + (data.open?.length ?? 0) : null
+ const open = data ? data.active.length + data.open.length : null
+ const grouped = data ? [...data.active, ...data.open].filter(groupableOpen).length : 0
  return <><StaleNote q={activityQ} />
-    <Section title="Open changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
-      <ReadStatus q={activityQ} what="activity" />
-      {data && !open && <p className="muted">No open changes.</p>}
-      {data && <ActiveRunList runs={data.active} />}
-      {/* An open change with no run yet: the same row as a run, its number
-          before its title, its one action on the right. */}
-      {data?.open?.map(c => (
-        <ListRow key={c.changeId} to={`/changes/${c.changeId}`} className="card row application-overview-card" state={<span className="row-status"><ChangeStatus waiting={c.waitingOn} /></span>} identity={
-          <Link to={`/changes/${c.changeId}`} className="row grow application-overview-link">
-            <strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong>
-            {c.editing > 0 && <span className="muted small">{c.editing} file{c.editing === 1 ? '' : 's'} being edited</span>}
-          </Link>} action={c.waitingOn.kind === 'chat' && <span className="row-action"><Link to={`/changes/${c.changeId}?tab=conversation`} className="btn">Continue chat</Link></span>} />
-      ))}
-    </Section>
-<Section title="Finished changes">
- {/* The same row as an open change: number and title, then how it ended and when. */}
- {data?.history.map(c => <ListRow to={`/changes/${c.changeId}`} className="card row application-overview-card" key={c.changeId} state={<ChangeStatus waiting={c.waitingOn} />} identity={<>
-   <Link to={`/changes/${c.changeId}`} className="run-link"><strong><span className="muted">#{c.changeNumber} </span>{c.title}</strong></Link>
-   <div className="muted small">{fmtWhen(c.when)}</div>
- </>} />)}
- </Section></>
+  <Section title="Open changes" count={open ?? undefined} action={(project.lifecycle?.state ?? 'active') === 'active' ? <BigChangeBox slug={slug} inline /> : undefined}>
+   <ReadStatus q={activityQ} what="activity" />
+   {data && !open && <p className="muted">No open changes.</p>}
+   {data && <ActiveRunList runs={data.active.filter(c => !groupableOpen(c))} />}
+   {data?.open.filter(c => !groupableOpen(c)).map(c => <OpenChangeRow key={c.changeId} c={c} />)}
+   {grouped > 0 && <UpkeepRow to={upkeepLink(slug)} count={grouped} />}
+  </Section>
+  <Section title="Finished changes">
+   {data && <HistoryRows entries={data.history} slug={slug} />}
+  </Section>
+ </>
+}
+
+export function ProjectUpkeep({ project }: { project: ProjectDetail }) {
+ const { search } = useLocation()
+ const q = useGet<Omit<ProjectUpkeepView, 'active'> & { active: OverviewData['active'] }>(`/projects/${project.slug}/upkeep${search}`, { poll: 5000 })
+ return <><ReadStatus q={q} what="upkeep changes" /><StaleNote q={q} />
+  {q.data && <Section title={null}>
+   <ActiveRunList runs={q.data.active} />
+   {q.data.open.map(c => <OpenChangeRow key={c.changeId} c={c} />)}
+   {q.data.history.map(c => <FinishedChange key={c.changeId} c={c} />)}
+  </Section>}
+ </>
 }

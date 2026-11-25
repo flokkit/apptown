@@ -19,6 +19,7 @@ import (
 // Reading these facts grants no authority to start work.
 type JanitorProcedure struct {
 	Name                                                  string
+	Title                                                 string
 	Version                                               int
 	Scheduled, Publication, DiscoversTargets, ScansSource bool
 	Trigger                                               schema.ScheduleTrigger
@@ -38,6 +39,7 @@ func DescribeJanitorProcedure(wf adoption.AdoptedWorkflow, scheduled bool) (Jani
 		p.Problem = err.Error()
 		return p, nil
 	}
+	p.Title = doc.Metadata.DisplayTitle()
 	trigger, standing := doc.Standing()
 	var queue *QueueStatus
 	if standing && trigger.Queue != "" {

@@ -13,6 +13,7 @@ import type { NextAct, ProjectOverviewView } from '../wire.gen'
 // the project's Overview tab and the front page.
 
 export type RunRow = {
+  automatedOrigin: boolean; untouched: boolean
   // changeId is null, and changeNumber 0, for a run with no change (a
   // scheduled uplift, a system run).
   runId: string | null; runNumber: number; changeId: string | null; changeNumber: number; workflow: string; title: string

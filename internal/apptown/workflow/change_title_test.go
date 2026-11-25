@@ -11,7 +11,7 @@ import (
 
 func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
 	t.Parallel()
-	for _, owner := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated} {
+	for _, owner := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated, titleAppTown} {
 		value, err := owner.Value()
 		if err != nil {
 			t.Fatal(err)
@@ -23,14 +23,17 @@ func TestChangeTitleOwnsItsStatesAndLegalActs(t *testing.T) {
 			}
 		}
 		old := changeTitle{"before", owner}
-		for _, act := range []titleAct{pinTitle, nameFromFirstMessage, reviseTitle} {
+		for _, act := range []titleAct{pinTitle, nameFromFirstMessage, reviseTitle, titleFromFacts} {
 			next, applied, err := old.decide(changeTitleEdit{act, "new words", "before"})
-			wantApplied := act == pinTitle || act == nameFromFirstMessage && owner == titleAwaitingChat || act == reviseTitle && owner == titleGenerated
+			wantApplied := act == pinTitle || act == nameFromFirstMessage && owner == titleAwaitingChat || act == reviseTitle && owner == titleGenerated || act == titleFromFacts && owner == titleAppTown
 			if err != nil || applied != wantApplied {
 				t.Fatalf("act %d owner %d: %+v %v %v", act, owner, next, applied, err)
 			}
 			if applied {
 				wantOwner := titleGenerated
+				if act == titleFromFacts {
+					wantOwner = titleAppTown
+				}
 				if act == pinTitle {
 					wantOwner = titleHuman
 				}

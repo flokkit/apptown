@@ -7,7 +7,7 @@ import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { ProjectDeployments } from './project/ProjectDeployments'
-import { ApplicationOverview, ProjectChanges } from './project/ApplicationOverview'
+import { ApplicationOverview, ProjectChanges, ProjectUpkeep } from './project/ApplicationOverview'
 import { UsageView } from './Usage'
 import { ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
@@ -77,14 +77,14 @@ export default function Project() {
   return (
     <div>
       <StaleNote q={q} />
-      {tab === 'changes' && <PageBar title="Changes" />}
+      {tab === 'changes' && <PageBar title={rawStab === 'upkeep' ? 'Upkeep changes' : 'Changes'} />}
       {tab === 'deployments' && <PageHead page="projectDeployments" actions={mayReadTargets && <Link to="/targets">Targets</Link>} />}
       {tab === 'releases' && <PageBar title={`Release #${rawStab}`} />}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
       {tab === 'overview' && <ApplicationOverview project={project} />}
-      {tab === 'changes' && <ProjectChanges project={project} />}
+      {tab === 'changes' && (rawStab === 'upkeep' ? <ProjectUpkeep project={project} /> : <ProjectChanges project={project} />)}
       {tab === 'deployments' && <ProjectDeployments slug={slug!} />}
       {tab === 'security' && (
         <>

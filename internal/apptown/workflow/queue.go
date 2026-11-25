@@ -23,8 +23,7 @@ import (
 
 const queueStopAfter = 3
 
-// PackageMove is a historical observation from a dependency listing.
-// New proposals record classified files instead.
+// PackageMove records an independently observed dependency, image or toolchain move.
 type PackageMove struct {
 	Ecosystem string `json:"ecosystem"`
 	Package   string `json:"package"`
@@ -599,4 +598,40 @@ func storedQueuesIn(ctx context.Context, db database.Queryer, project ids.ID) ([
 	}
 	err = json.Unmarshal(rows[0].Queues, &out)
 	return out, err
+}
+
+// RecordPackageMoves records this attempt's observations and names the update from
+// those facts. A human pin remains authoritative, including an identical title.
+func (e *Execution) RecordPackageMoves(moves []PackageMove) error {
+	if moves == nil {
+		moves = []PackageMove{}
+	}
+	raw, err := json.Marshal(moves)
+	if err != nil {
+		return err
+	}
+	return e.InAttempt(e.step.Type, func(tx *database.Tx, _ int64) error {
+		ctx := e.ctx
+		if err := workflowsql.New(tx.SQL()).RecordPackageMoves(ctx, workflowsql.RecordPackageMovesParams{ID: e.run.ChangeID, ProjectID: e.run.ProjectID, Packages: raw}); err != nil {
+			return err
+		}
+		if len(moves) > 0 {
+			names := []string{}
+			seen := map[string]bool{}
+			for _, m := range moves {
+				if !seen[m.Package] {
+					seen[m.Package] = true
+					names = append(names, m.Package)
+				}
+			}
+			words := "Update " + strings.Join(names[:min(3, len(names))], ", ")
+			if len(names) > 3 {
+				words += fmt.Sprintf(" and %d more", len(names)-3)
+			}
+			if _, err := editChangeTitleIn(ctx, tx, e.run.ProjectID, e.run.ChangeID, changeTitleEdit{act: titleFromFacts, words: words}); err != nil {
+				return err
+			}
+		}
+		return recordJanitorChangeIn(ctx, tx, e.run.ChangeID, e.now())
+	})
 }

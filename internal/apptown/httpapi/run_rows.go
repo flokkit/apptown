@@ -9,10 +9,12 @@ import (
 )
 
 type runRowView struct {
-	WaitingOn workflow.WaitingOn `json:"waitingOn"`
-	RunID     ids.ID             `json:"runId"`
-	RunNumber int64              `json:"runNumber"`
-	ChangeID  ids.ID             `json:"changeId"`
+	AutomatedOrigin bool               `json:"automatedOrigin"`
+	Untouched       bool               `json:"untouched"`
+	WaitingOn       workflow.WaitingOn `json:"waitingOn"`
+	RunID           ids.ID             `json:"runId"`
+	RunNumber       int64              `json:"runNumber"`
+	ChangeID        ids.ID             `json:"changeId"`
 	// ChangeNumber is 0 when the run has no change.
 	ChangeNumber int64                  `json:"changeNumber"`
 	Workflow     string                 `json:"workflow"`
@@ -45,11 +47,12 @@ func workflowRunRows(rows []workflow.RunSummary, now time.Time) []runRowView {
 	out := make([]runRowView, 0, len(rows))
 	current := now.UTC().Format(time.RFC3339)
 	for _, row := range rows {
+		row.WaitingOn.PersonNeeded = row.WaitingOn.NeedsPerson()
 		end := row.UpdatedAt
 		if row.Status == workflow.RunRunning {
 			end = current
 		}
-		out = append(out, runRowView{WaitingOn: row.WaitingOn, RunID: row.ID, RunNumber: row.Number, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, Workflow: row.WorkflowName, Title: row.ItemTitle,
+		out = append(out, runRowView{AutomatedOrigin: row.AutomatedOrigin, Untouched: row.Untouched, WaitingOn: row.WaitingOn, RunID: row.ID, RunNumber: row.Number, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, Workflow: row.WorkflowName, Title: row.ItemTitle,
 			Status: row.Status, Stage: row.CurrentStage, State: row.State, Detail: row.StateDetail, Project: row.ProjectSlug,
 			StartedAt: row.CreatedAt, DurationS: durationSeconds(row.CreatedAt, end), Next: []workflow.NextAct{}})
 	}

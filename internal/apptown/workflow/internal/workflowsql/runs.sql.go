@@ -1926,21 +1926,22 @@ func (q *Queries) WorkflowSource(ctx context.Context, arg WorkflowSourceParams) 
 
 const workflowSummaries = `-- name: WorkflowSummaries :many
 SELECT r.id,r.number,r.status,r.current_stage,r.workflow_name,r.workflow_version,r.kind,r.change_id,
-COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,r.created_at,r.updated_at
+COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,r.created_at,r.updated_at,COALESCE(c.automated_origin,false)::boolean AS automated_origin,COALESCE(c.automated,false)::boolean AS untouched
 FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
 WHERE ($1::uuid IS NULL OR r.project_id=$1)
-AND (c.id IS NULL OR (NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>''))))
-AND ($2::text='' OR r.status=$2) AND (NOT $3::boolean OR r.parent_run_id IS NULL)
-AND ($4::uuid[] IS NULL OR r.project_id=ANY($4::uuid[]))
-ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF($5::integer,0)
+AND (c.id IS NULL OR (NOT c.purge_pending AND ($2::boolean OR NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')))))
+AND ($3::text='' OR r.status=$3) AND (NOT $4::boolean OR r.parent_run_id IS NULL)
+AND ($5::uuid[] IS NULL OR r.project_id=ANY($5::uuid[]))
+ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF($6::integer,0)
 `
 
 type WorkflowSummariesParams struct {
-	ProjectID  ids.ID
-	Status     string
-	RootsOnly  bool
-	ProjectIds []ids.ID
-	LimitCount int32
+	ProjectID        ids.ID
+	IncludeQueueWork bool
+	Status           string
+	RootsOnly        bool
+	ProjectIds       []ids.ID
+	LimitCount       int32
 }
 
 type WorkflowSummariesRow struct {
@@ -1957,12 +1958,15 @@ type WorkflowSummariesRow struct {
 	ProjectSlug     string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	AutomatedOrigin bool
+	Untouched       bool
 }
 
 // Summary projection excludes definitions/inputs and carries project identity.
 func (q *Queries) WorkflowSummaries(ctx context.Context, arg WorkflowSummariesParams) ([]WorkflowSummariesRow, error) {
 	rows, err := q.db.QueryContext(ctx, workflowSummaries,
 		arg.ProjectID,
+		arg.IncludeQueueWork,
 		arg.Status,
 		arg.RootsOnly,
 		pq.Array(arg.ProjectIds),
@@ -1989,6 +1993,8 @@ func (q *Queries) WorkflowSummaries(ctx context.Context, arg WorkflowSummariesPa
 			&i.ProjectSlug,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AutomatedOrigin,
+			&i.Untouched,
 		); err != nil {
 			return nil, err
 		}

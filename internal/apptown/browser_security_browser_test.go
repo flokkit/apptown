@@ -5396,6 +5396,7 @@ spec:
 		return runtime, res.Reading.ObservedAt, inv.ObservedAt
 	}
 	cameraJanitorProjects(t, a, scene)
+	cameraUpkeepHistory(t, a, scene)
 	cameraNotifications(t, a)
 	phases.mark("records")
 	runtimeBefore, resourcesBefore, inventoryBefore := readAt()
@@ -6475,6 +6476,117 @@ func (f cameraStandingProcedure) StandingProcedures(ctx context.Context, q datab
 	return out, nil
 }
 
+// cameraUpkeepHistory is a nextup-sized history made with Workflow's creation
+// and lifecycle participants. It fabricates no check, acceptance or merge
+// receipts: these rows exercise the history projection, not landing evidence.
+func cameraUpkeepHistory(t *testing.T, a *App, scene *tourScene) {
+	t.Helper()
+	scene.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": "nextup", "name": "Next up", "blurb": "A household's shared list of things to do"})
+	p, err := a.Projects.BySlug(t.Context(), "nextup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	system := access.WithCaller(t.Context(), access.Caller{Verified: true, Receipt: "apptown-system", Principal: access.Principal{Kind: "instrument", Name: "system", Instrument: access.SystemInstrument, Via: "schedule", ProjectID: p.ID}})
+	person := asPerson("sam")
+	at := time.Date(2026, 11, 12, 9, 0, 0, 0, time.UTC)
+	create := func(ctxSystem bool, title, kind, queue string) *workflow.Change {
+		ctx, who := person, "sam"
+		if ctxSystem {
+			ctx, who = system, "apptown-system"
+		}
+		created, err := database.Transact(ctx, a.DB, func(tx *database.Tx) (workflow.CreatedChange, error) {
+			return workflow.CreateChangeIn(ctx, tx, workflow.ChangeDraft{ProjectID: p.ID, Type: kind, Title: title, Queue: queue, Schedule: queue}, who, at)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		at = at.Add(8 * time.Hour)
+		return created.Change
+	}
+	close := func(ch *workflow.Change) {
+		if err := a.DB.InTx(person, func(tx *database.Tx) error {
+			_, err := workflow.TransitionChangeIn(person, tx, p.ID, ch.ID, workflow.ChangeMove{Action: workflow.ShipChange}, at)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	people := []string{"Add a shared shopping list", "Keep the next appointment on the home page", "Remember who added each task", "Make the weekly list easier to read"}
+	for i := 0; i < 20; i++ {
+		if i%5 == 0 {
+			close(create(false, people[i/5], "feature", ""))
+		}
+		close(create(true, fmt.Sprintf("Way of working: apptown v%d → v%d", 38+i, 39+i), "uplift", "packs"))
+		if i%3 == 0 && i < 18 {
+			ch := create(true, "Update node, vitest, link-checker", "scheduled", "updates")
+			if i == 3 || i == 12 {
+				if err := a.Work.TryQueueAgain(person, p.ID, "updates", ch.ID); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				close(ch)
+			}
+		}
+	}
+	// A no-op runner leaves real admitted roots queued; approval is classified
+	// by its actual step, so the two open states use the ordinary owner read.
+	rebuildWork(t, a, func(deps *workflow.Dependencies) {
+		original := deps.Resolve
+		deps.Resolve = func(ctx context.Context, in workflow.StartRequest, source workflow.StartSource) (workflow.PreparedRun, error) {
+			if in.WorkflowName != "upkeep-camera-work" && in.WorkflowName != "upkeep-camera-approval" {
+				return original(ctx, in, source)
+			}
+			kind := "upkeep-camera-wait"
+			if in.WorkflowName == "upkeep-camera-approval" {
+				kind = "approval"
+			}
+			return workflow.PreparedRun{AdoptionID: source.AdoptionID, Workflow: workflow.DefinitionRef{Name: in.WorkflowName, Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "update", Steps: []schema.Step{{Name: "update", Uses: kind}}}}}}, nil
+		}
+		deps.Runners["upkeep-camera-wait"] = func(*workflow.Execution) {}
+	})
+	for _, item := range []struct{ title, name, queue string }{{"Update node, vitest", "upkeep-camera-approval", "updates"}, {"Way of working: apptown v58 → v59", "upkeep-camera-work", "packs"}} {
+		ch := create(true, item.title, "scheduled", item.queue)
+		if _, err := a.Work.StartRun(system, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: item.name}); err != nil {
+			t.Fatal(err)
+		}
+		a.Work.Wait()
+	}
+}
+
+// TestUpkeepCamera shares the design tour's owner fixtures and local preview.
+func TestUpkeepCamera(t *testing.T) {
+	out := os.Getenv("APPTOWN_DESIGN_OUT")
+	if os.Getenv("APPTOWN_DESIGN_HOLD") == "" && out == "" {
+		t.Skip("set APPTOWN_DESIGN_OUT to capture, or APPTOWN_DESIGN_HOLD and APPTOWN_DESIGN_VITE for the local preview")
+	}
+	w := newTourWorld(t, false, 0)
+	cameraUpkeepHistory(t, w.a, w.scene)
+	if w.hold() {
+		return
+	}
+	w.server.Config.Handler = w.a.Handler()
+	w.server.StartTLS()
+	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
+	if module == "" {
+		module = filepath.Join("..", "..", "web", "node_modules", "playwright", "index.mjs")
+		absolute, err := filepath.Abs(module)
+		if err != nil {
+			t.Fatal(err)
+		}
+		module = absolute
+	}
+	testinputs.Files(t, "testdata/upkeep-browser.mjs")
+	result := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{
+		Argv:    []string{"node", "testdata/upkeep-browser.mjs"},
+		Env:     []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + w.a.cfg.publicHost, "DESIGN_RESOLVE=" + w.a.cfg.publicHost + " " + w.server.Listener.Addr().String(), "DESIGN_OUT=" + out, "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
+		Timeout: 3 * time.Minute,
+	})
+	t.Log(string(result.Output))
+	if result.ExitCode != 0 {
+		t.Fatalf("upkeep browser assertions: %s", result.Output)
+	}
+}
+
 // Registry observations are the tour's external boundary. The same scene is
 // used by the local preview; its bundles and releases use the owners' operations.
 type tourNeedReadings struct {
@@ -6597,8 +6709,8 @@ func (s *tourScene) movePostgres(readings *tourNeedReadings) {
 	if !seen {
 		t.Fatalf("tour need finding absent from Security: %+v", security)
 	}
-
 }
+
 func acceptedDeployment(t *testing.T, a *App, p ids.ID, name string) ids.ID {
 	t.Helper()
 	d, e := a.Deployment.Deployments.ByName(t.Context(), p, name)

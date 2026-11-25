@@ -82,13 +82,13 @@ func TestHandleProjectOverview(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Repo != nil || len(body.Active) != 1 || body.Active[0]["title"] != "original" || body.Active[0]["state"] != "waiting on you" || len(body.Open) != 1 || body.Open[0]["title"] != "still cooking" || len(body.History) != 1 || int(body.History[0]["runs"].(float64)) != 2 || body.History[0]["workflows"] != "build → land" {
+	if body.Repo != nil || len(body.Active) != 1 || body.Active[0]["title"] != "original" || body.Active[0]["state"] != "waiting on you" || len(body.Open) != 1 || body.Open[0]["title"] != "still cooking" || len(body.History) != 1 || int(body.History[0]["change"].(map[string]any)["runs"].(float64)) != 2 || body.History[0]["change"].(map[string]any)["workflows"] != "build → land" {
 		t.Fatalf("overview partitions: %+v", body)
 	}
 	// Each row names its change (and a running run its run) by number, in
 	// the order the fixture opened them: the run's change, then the open
 	// one, then the shipped one.
-	if body.Active[0]["changeNumber"] != float64(1) || body.Active[0]["runNumber"] != float64(1) || body.Open[0]["changeNumber"] != float64(2) || body.History[0]["changeNumber"] != float64(3) {
+	if body.Active[0]["changeNumber"] != float64(1) || body.Active[0]["runNumber"] != float64(1) || body.Open[0]["changeNumber"] != float64(2) || body.History[0]["change"].(map[string]any)["changeNumber"] != float64(3) {
 		t.Fatalf("overview numbers: %+v", body)
 	}
 }

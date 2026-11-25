@@ -447,6 +447,7 @@ func appRoutes(a *App) []routeSpec {
 		adminRoute("DELETE /api/v1/complaints/{id}", byNumber(func(ctx context.Context, n int64) (ids.ID, error) { return a.Complaints.IDByNumber(ctx, n) }, complaints.DeleteComplaint)).inArea("complaints"),
 		publicRoute("GET /api/v1/complaints/steering", complaints.ComplaintSteering, "complaints.ComplaintSteering: shared complaint submission instructions").inArea("complaints"),
 		filteredRoute("GET /api/v1/tiers/departures", tiers.Departures, "tiers.Departures").inArea("deployments"),
+		requireRoute("GET /api/v1/projects/{slug}/upkeep", projectOverview.ProjectUpkeep, access.CapChangeList, "project-slug").inArea("projects"),
 		requireRoute("GET /api/v1/projects/{slug}/overview", projectOverview.ProjectOverview, access.CapProjectRead, "project-slug").inArea("projects"),
 		filteredRoute("GET /api/v1/activity", activity.Activity, "activity.Activity").inArea("setup"),
 		requireRoute("GET /api/v1/projects/{slug}/changes", changes.ListChanges, access.CapChangeList, "project-slug").inArea("changes"),

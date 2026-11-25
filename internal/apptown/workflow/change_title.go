@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -22,6 +23,7 @@ const (
 	titleHuman titleOwner = iota + 1
 	titleAwaitingChat
 	titleGenerated
+	titleAppTown
 )
 
 var errChangeTitle = errors.New("invalid Change title ownership")
@@ -34,6 +36,8 @@ func (o titleOwner) Value() (driver.Value, error) {
 		return "awaiting_chat", nil
 	case titleGenerated:
 		return "generated", nil
+	case titleAppTown:
+		return "apptown", nil
 	default:
 		return nil, errChangeTitle
 	}
@@ -49,7 +53,7 @@ func (o *titleOwner) Scan(raw any) error {
 	default:
 		return errChangeTitle
 	}
-	for _, candidate := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated} {
+	for _, candidate := range []titleOwner{titleHuman, titleAwaitingChat, titleGenerated, titleAppTown} {
 		value, _ := candidate.Value()
 		if value == text {
 			*o = candidate
@@ -65,6 +69,7 @@ const (
 	pinTitle titleAct = iota + 1
 	nameFromFirstMessage
 	reviseTitle
+	titleFromFacts
 )
 
 type changeTitle struct {
@@ -106,6 +111,15 @@ func (t changeTitle) decide(edit changeTitleEdit) (changeTitle, bool, error) {
 			return t, false, nil
 		}
 		return changeTitle{words, titleGenerated}, true, nil
+	case titleFromFacts:
+		words = strs.Truncate(words, 99)
+		if t.owner != titleAppTown || words == "" {
+			return t, false, nil
+		}
+		if err := validateChangeTitle(words); err != nil {
+			return t, false, err
+		}
+		return changeTitle{words, titleAppTown}, true, nil
 	case reviseTitle:
 		if t.owner != titleGenerated || t.words != edit.observed || words == "" {
 			return t, false, nil

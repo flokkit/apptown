@@ -49,7 +49,7 @@ SELECT COUNT(*)::bigint FROM run_events WHERE run_id=$1 AND kind='step.started' 
 SELECT c.id,c.title,c.type,c.state,CASE WHEN sqlc.narg(project_id)::uuid IS NULL THEN p.slug ELSE '' END::text AS project,
 history.workflows,history.runs,COALESCE(history.last_activity,c.created_at)::timestamptz AS activity_at,history.took_s,history.completed,
 EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed') AS merged,
-c.number,c.closed_as
+c.number,c.closed_as,c.automated_origin
 FROM changes c JOIN projects p ON p.id=c.project_id CROSS JOIN LATERAL (
 SELECT COALESCE(string_agg(r.workflow_name,' → ' ORDER BY r.number),'')::text AS workflows,
 COUNT(*) AS runs,MAX(r.updated_at) AS last_activity,
@@ -58,7 +58,38 @@ COUNT(*) FILTER(WHERE r.status=sqlc.arg(done)) AS completed
 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
 ) history
 WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN (sqlc.arg(shipped),sqlc.arg(abandoned))
+AND (NOT sqlc.arg(automated_only)::boolean OR c.automated_origin)
+AND (sqlc.narg(from_at)::timestamptz IS NULL OR COALESCE(history.last_activity,c.created_at)>=sqlc.narg(from_at))
+AND (sqlc.narg(until_at)::timestamptz IS NULL OR COALESCE(history.last_activity,c.created_at)<=sqlc.narg(until_at))
 ORDER BY 8 DESC,c.number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
+
+-- name: ProjectHistory :many
+WITH history_rows AS (
+SELECT c.id,c.title,c.type,c.state,CASE WHEN sqlc.narg(project_id)::uuid IS NULL THEN p.slug ELSE '' END::text AS project,
+history.workflows,history.runs,COALESCE(history.last_activity,c.created_at)::timestamptz AS activity_at,history.took_s,history.completed,
+EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed') AS merged,
+c.number,c.closed_as,c.automated_origin
+FROM changes c JOIN projects p ON p.id=c.project_id CROSS JOIN LATERAL (
+SELECT COALESCE(string_agg(r.workflow_name,' → ' ORDER BY r.number),'')::text AS workflows,
+COUNT(*) AS runs,MAX(r.updated_at) AS last_activity,
+COALESCE(SUM(EXTRACT(EPOCH FROM r.updated_at)-EXTRACT(EPOCH FROM r.created_at)),0)::bigint AS took_s,
+COUNT(*) FILTER(WHERE r.status=sqlc.arg(done)) AS completed
+FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL
+) history
+WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT c.purge_pending AND NOT (c.automated AND EXISTS(SELECT 1 FROM automated_changes a WHERE a.id=c.id AND a.queue<>'')) AND c.state IN (sqlc.arg(shipped),sqlc.arg(abandoned))
+), islands AS (
+ SELECT *, row_number() OVER (ORDER BY activity_at DESC,number DESC)
+ - row_number() OVER (PARTITION BY automated_origin ORDER BY activity_at DESC,number DESC) AS island
+ FROM history_rows
+), entries AS (
+ SELECT DISTINCT ON (automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END) *,
+ count(*) OVER w AS upkeep_count,(min(activity_at) OVER w)::timestamptz AS from_at,(max(activity_at) OVER w)::timestamptz AS until_at
+ FROM islands
+ WINDOW w AS (PARTITION BY automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END)
+ ORDER BY automated_origin,island,CASE WHEN automated_origin THEN NULL ELSE id END,activity_at DESC,number DESC
+)
+SELECT id,title,type,state,project,workflows,runs,activity_at,took_s,completed,merged,number,closed_as,automated_origin,upkeep_count,from_at,until_at FROM entries
+ORDER BY until_at DESC,number DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);
 
 -- name: ChangeMergedReceipt :one
 SELECT EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND e.kind='merge.completed');

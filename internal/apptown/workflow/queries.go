@@ -29,16 +29,19 @@ type queries struct {
 }
 
 type RunQuery struct {
-	projects    []ids.ID // service-owned visibility fence; nil only for private queries
-	ProjectID   ids.ID
-	ProjectSlug string
-	State       RunState // zero selects all lifecycle states
-	RootsOnly   bool
-	Limit       int // zero is uncapped, used by the project overview
+	projects         []ids.ID // service-owned visibility fence; nil only for private queries
+	ProjectID        ids.ID
+	ProjectSlug      string
+	State            RunState // zero selects all lifecycle states
+	IncludeQueueWork bool
+	RootsOnly        bool
+	Limit            int // zero is uncapped, used by the project overview
 }
 type RunSummary struct {
-	WaitingOn WaitingOn `json:"waitingOn"`
-	activity  Activity
+	Untouched       bool      `json:"untouched"`
+	AutomatedOrigin bool      `json:"automatedOrigin"`
+	WaitingOn       WaitingOn `json:"waitingOn"`
+	activity        Activity
 	// Held is the activity classifier’s dispatch hold, for actions on list rows.
 	Held            bool                 `json:"-"`
 	StatusLabel     status.DisplayStatus `json:"statusLabel"`
@@ -99,7 +102,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 			return nil, err
 		}
 	}
-	stored, err := workflowsql.New(db.SQL()).WorkflowSummaries(ctx, workflowsql.WorkflowSummariesParams{ProjectID: query.ProjectID, Status: status, RootsOnly: query.RootsOnly, ProjectIds: query.projects, LimitCount: int32(query.Limit)})
+	stored, err := workflowsql.New(db.SQL()).WorkflowSummaries(ctx, workflowsql.WorkflowSummariesParams{ProjectID: query.ProjectID, Status: status, RootsOnly: query.RootsOnly, IncludeQueueWork: query.IncludeQueueWork, ProjectIds: query.projects, LimitCount: int32(query.Limit)})
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +112,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 		if err != nil {
 			return nil, err
 		}
-		rows = append(rows, RunSummary{StatusLabel: state.display(), ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
+		rows = append(rows, RunSummary{Untouched: row.Untouched, AutomatedOrigin: row.AutomatedOrigin, StatusLabel: state.display(), ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
 	}
 	idList := make([]ids.ID, 0, len(rows))
 	for _, row := range rows {

@@ -11,7 +11,7 @@ const CHANGE = '00000000-0021-7000-8000-000000000000'
 
 
 describe('a blocked change on the needs-you list', () => {
-  const blocked = (next: RunRow['next']): RunRow => ({ waitingOn: { kind: 'check', says: 'review failed', tone: 'bad', run: null, step: null, checks: 1, who: [], you: 'yes' },
+  const blocked = (next: RunRow['next']): RunRow => ({ automatedOrigin: false, untouched: false, waitingOn: { needsPerson: true, kind: 'check', says: 'review failed', tone: 'bad', run: null, step: null, checks: 1, who: [], you: 'yes' },
     runId: '00000000-0022-7000-8000-000000000000', runNumber: 3, changeId: CHANGE, changeNumber: 13, workflow: 'adopt', title: 'Adopt the way of working: html-game',
     status: 'running', stage: 'checks', state: 'blocked', project: 'demo-smoke', startedAt: '2026-10-01T08:50:00Z', durationS: 60, next,
   })
@@ -33,7 +33,7 @@ describe('a blocked change on the needs-you list', () => {
 
 it('keeps a held change chip short despite a long recorded reason', () => {
   const reason = 'The helper stopped.\n' + 'A long blocker report.\n'.repeat(30)
-  const waitingOn = { kind: 'person', says: 'build stopped', tone: 'warn', run: null, step: null, checks: 0, who: [], you: 'no' }
+  const waitingOn = { needsPerson: true, kind: 'person', says: 'build stopped', tone: 'warn', run: null, step: null, checks: 0, who: [], you: 'no' }
   const row = { runId: 'run', changeId: CHANGE, changeNumber: 13, title: 'Held work', waitingOn, detail: reason, next: [] } as unknown as RunRow
   const el = document.createElement('div')
   el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><ActiveRunList runs={[row]} /></MemoryRouter></QueryClientProvider>)

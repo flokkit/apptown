@@ -1532,6 +1532,9 @@
       },
       "ChangeHistory": {
         "properties": {
+          "automatedOrigin": {
+            "type": "boolean"
+          },
           "changeId": {
             "format": "uuid",
             "type": [
@@ -1583,6 +1586,7 @@
           }
         },
         "required": [
+          "automatedOrigin",
           "waitingOn",
           "completedRuns",
           "merged",
@@ -8035,6 +8039,9 @@
           "kind": {
             "type": "string"
           },
+          "needsPerson": {
+            "type": "boolean"
+          },
           "queue": {
             "anyOf": [
               {
@@ -8076,6 +8083,7 @@
           }
         },
         "required": [
+          "needsPerson",
           "kind",
           "run",
           "step",
@@ -8707,6 +8715,9 @@
       },
       "runRowView": {
         "properties": {
+          "automatedOrigin": {
+            "type": "boolean"
+          },
           "changeId": {
             "format": "uuid",
             "type": [
@@ -8757,6 +8768,9 @@
           "title": {
             "type": "string"
           },
+          "untouched": {
+            "type": "boolean"
+          },
           "waitingOn": {
             "$ref": "#/components/schemas/WaitingOn"
           },
@@ -8765,6 +8779,8 @@
           }
         },
         "required": [
+          "automatedOrigin",
+          "untouched",
           "waitingOn",
           "runId",
           "runNumber",
@@ -19895,6 +19911,42 @@
         ],
         "x-apptown-access": {
           "capability": "evidence:read",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-feature": {
+          "area": "projects",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/upkeep": {
+      "get": {
+        "operationId": "getProjectsSlugUpkeep",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "change:list",
           "kind": "capability",
           "scope": "project-slug"
         },

@@ -44,7 +44,7 @@ it('says when nobody holds the role', async () => {
 // says it, with the way to the change; a status with nothing to open stays
 // a plain chip.
 it('opens what went wrong from a failed status, and nothing from a plain one', async () => {
-  const failed: WaitingOn = { kind: 'check', run: 'r1', step: 's2', checks: 1, who: [], you: '', says: 'Review failed', tone: 'bad' }
+  const failed: WaitingOn = { needsPerson: true, kind: 'check', run: 'r1', step: 's2', checks: 1, who: [], you: '', says: 'Review failed', tone: 'bad' }
   const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
   client.setQueryData(getKey('/steps/s2/advice'), { text: 'The reviewer found the login form posts the password in the address.', recommend: 'send-back' })
   try {
@@ -61,7 +61,7 @@ it('opens what went wrong from a failed status, and nothing from a plain one', a
 // Where there is no written advice (no model), the failed step's own
 // recorded reason says what went wrong.
 it('falls back to the failed step’s recorded reason when there is no advice', async () => {
-  const failed: WaitingOn = { kind: 'check', run: 'r1', step: 's3', checks: 1, who: [], you: '', says: 'Style failed', tone: 'bad' }
+  const failed: WaitingOn = { needsPerson: true, kind: 'check', run: 'r1', step: 's3', checks: 1, who: [], you: '', says: 'Style failed', tone: 'bad' }
   const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
   client.setQueryData(getKey('/steps/s3/advice'), { text: '', recommend: '' })
   client.setQueryData(getKey('/changes/c3'), { change: { id: 'c3' }, detail: { steps: [{ id: 's3', evidence: { reason: 'prettier: 3 files need formatting\nweb/src/a.tsx' } }, { id: 's4', evidence: { reason: 'reviewer rejected: The preview looked styled on desktop and phone. Everything else passed.', findings: ['config/application.php sets the scheme too early. When a visitor opens the site over HTTPS the links break.', 'Second problem.'] } }] } })
@@ -75,7 +75,7 @@ it('falls back to the failed step’s recorded reason when there is no advice', 
 
 // A review leads with the problem it found, not its summary of what passed.
 it('leads a failed review with its first problem, in one sentence', async () => {
-  const failed: WaitingOn = { kind: 'check', run: 'r1', step: 's4', checks: 1, who: [], you: '', says: 'Review failed', tone: 'bad' }
+  const failed: WaitingOn = { needsPerson: true, kind: 'check', run: 'r1', step: 's4', checks: 1, who: [], you: '', says: 'Review failed', tone: 'bad' }
   const client = newQueryClient(), el = document.body.appendChild(document.createElement('div')), root = createRoot(el)
   client.setQueryData(getKey('/steps/s4/advice'), { text: '', recommend: '' })
   client.setQueryData(getKey('/changes/c3'), { change: { id: 'c3' }, detail: { steps: [{ id: 's4', evidence: { reason: 'reviewer rejected: The preview looked styled on desktop and phone. Everything else passed.', findings: ['config/application.php sets the scheme too early. When a visitor opens the site over HTTPS the links break.', 'Second problem.'] } }] } })
