@@ -129,6 +129,7 @@ type Kind struct {
 		// standing one changes engine only within the declared line and move
 		// contract (deploy.ServiceSpec.KeepsImage).
 		Line       string `yaml:"line,omitempty" json:"line,omitempty"`
+		Reversible bool   `yaml:"reversible,omitempty" json:"reversible,omitempty"`
 		Move       string `yaml:"move,omitempty" json:"move,omitempty"`
 		KeepsImage bool   `yaml:"keepsImage,omitempty" json:"keepsImage,omitempty"`
 		// StepEnv is added to Env for the servers AppTown starts beside
@@ -756,6 +757,9 @@ func (c *Catalog) Save(ctx context.Context, y, who string) (*Kind, error) {
 
 // checkMove admits only catalogue-declared same-line engine restarts.
 func (k *Kind) checkMove() error {
+	if k.Local.Reversible && k.Local.Move == "" {
+		return fmt.Errorf("%w: local.reversible requires move", ErrSpec)
+	}
 	if k.Local.Move != "" && (k.Local.Move != "restart" || !k.Local.KeepsImage || k.Local.Data == "" || !strings.Contains(k.Local.Image, "{version}") || k.Local.Line == "") {
 		return fmt.Errorf("%w: local.move requires restart, keepsImage, data, line and an image containing {version}", ErrSpec)
 	}

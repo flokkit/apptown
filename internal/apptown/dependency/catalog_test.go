@@ -385,6 +385,7 @@ func TestEngineMovementRequiresItsStorageAndLineContract(t *testing.T) {
 		"image: x:{version}\n  move: restart\n  line: major\n  keepsImage: true",
 		"image: x:16\n  move: restart\n  line: major\n  data: /data\n  keepsImage: true",
 		"image: x:{version}\n  line: major",
+		"image: x:{version}\n  reversible: true",
 		"image: x:{version}\n  line: patch\n  move: restart\n  data: /data\n  keepsImage: true",
 		"image: x:{version}\n  line: major\n  move: migrate\n  data: /data\n  keepsImage: true",
 	} {

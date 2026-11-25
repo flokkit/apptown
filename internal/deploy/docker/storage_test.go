@@ -335,3 +335,38 @@ func TestPhysicalRestoreRefusesChangedDataPathBeforeCreation(t *testing.T) {
 		t.Fatalf("physical layout refusal had effects: %+v", h)
 	}
 }
+
+// Old bundles name only the line, even when the catalogue now allows returns.
+func TestReversibleFloatingRequestKeepsBoundBuild(t *testing.T) {
+	for _, requested := range []string{"postgres:16-alpine", "postgres:16-alpine@sha256:" + strings.Repeat("c", 64), "postgres:17.1-alpine", "postgres:16.15-bookworm", "other/postgres:16.15-alpine"} {
+		t.Run(requested, func(t *testing.T) {
+			const stack = "floating-return"
+			image := "sha256:" + strings.Repeat("a", 64)
+			volume := Current.NeedVolume(stack, "postgres")
+			created := time.Now().UTC()
+			binding := deploy.StorageBinding{Need: "postgres", Volume: volume, DataPath: "/data", DeclaredImage: "postgres:16.16-alpine", ImageID: image, VolumeCreated: created, VolumeDriver: "local"}
+			m := &bindingMemory{binding: binding, found: true}
+			client := &fakeClient{reply: func(req Command) ([]byte, error) {
+				switch strings.Join(req.Args, " ") {
+				case "volume inspect " + volume:
+					return []byte("[]"), nil
+				case "volume inspect --format {{json .}} " + volume:
+					return json.Marshal(map[string]any{"Name": volume, "CreatedAt": created, "Driver": "local"})
+				case "image inspect " + requested:
+					return []byte("[]"), nil
+				case "image inspect --format {{json .}} " + requested, "image inspect --format {{json .}} " + binding.DeclaredImage:
+					return json.Marshal(map[string]any{"Id": image})
+				default:
+					t.Errorf("unexpected command: %v", req.Args)
+					return nil, errors.New("unexpected command")
+				}
+			}}
+			spec := deploy.ServiceSpec{Name: "postgres", Image: requested, Line: "postgres:16-alpine", Reversible: true}
+			got, err := bindService(t.Context(), Scope{Client: client}, stack, Current.Service(stack, "postgres"), "/data", spec, false, Ownership{storage: m})
+			offLine := strings.Contains(requested, "17.1") || strings.Contains(requested, "bookworm") || strings.HasPrefix(requested, "other/")
+			if (err != nil) != offLine || (!offLine && got != binding.DeclaredImage) || m.writes != 0 || m.binding != binding {
+				t.Fatalf("image=%s binding=%+v writes=%d err=%v", got, m.binding, m.writes, err)
+			}
+		})
+	}
+}

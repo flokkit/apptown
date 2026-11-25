@@ -241,9 +241,14 @@ func TestPromotionApprovalRechecksRoleBeforeBackup(t *testing.T) {
 // The copy gate precedes the driver; a driver failure must retain the engine
 // transition that already opened the volume, including its release summary.
 func TestReleaseCopiesBeforeEngineMoveAndRecordsAHealthFailure(t *testing.T) {
-	for _, scenario := range []string{"incomplete copy", "health failure", "success"} {
+	for _, scenario := range []string{"incomplete copy", "health failure", "success", "backward"} {
 		t.Run(scenario, func(t *testing.T) {
 			complete := scenario != "incomplete copy"
+			success := scenario == "success" || scenario == "backward"
+			from, to := "16.15", "16.16"
+			if scenario == "backward" {
+				from, to = to, from
+			}
 			p := newPromotionTargetsWith(t, false, digestOneImageYAML+"needs: {postgres: {}}\n")
 			b := p.publish(t)
 			dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "main", p.lab.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
@@ -252,17 +257,17 @@ func TestReleaseCopiesBeforeEngineMoveAndRecordsAHealthFailure(t *testing.T) {
 			}
 			copy := &backupBeforeRelease{complete: complete}
 			p.s.release.Data = copy
-			binding := deploy.StorageBinding{Need: "postgres", Volume: "pg", DataPath: "/var/lib/postgresql/data", DeclaredImage: "postgres:16.15-alpine", ImageID: "old", RepoDigest: "postgres@sha256:" + strings.Repeat("a", 64), VolumeCreated: time.Now().UTC(), VolumeDriver: "local", Origin: "created"}
+			binding := deploy.StorageBinding{Need: "postgres", Volume: "pg", DataPath: "/var/lib/postgresql/data", DeclaredImage: "postgres:" + from + "-alpine", ImageID: "old", RepoDigest: "postgres@sha256:" + strings.Repeat("a", 64), VolumeCreated: time.Now().UTC(), VolumeDriver: "local", Origin: "created"}
 			storage := p.s.Deployments.StorageOf(dep)
 			if err := storage.Establish(t.Context(), binding); err != nil {
 				t.Fatal(err)
 			}
-			driver := &movingReleaseDriver{fail: scenario != "success", move: func(ctx context.Context) {
+			driver := &movingReleaseDriver{fail: !success, move: func(ctx context.Context) {
 				if strings.Join(copy.calls, ",") != "before" || !copy.complete {
 					t.Fatal("engine move preceded complete copy")
 				}
 				newer := binding
-				newer.DeclaredImage = "postgres:16.16-alpine"
+				newer.DeclaredImage = "postgres:" + to + "-alpine"
 				newer.ImageID = "new"
 				newer.RepoDigest = "postgres@sha256:" + strings.Repeat("b", 64)
 				if err := storage.Move(ctx, binding, newer); err != nil {
@@ -275,18 +280,18 @@ func TestReleaseCopiesBeforeEngineMoveAndRecordsAHealthFailure(t *testing.T) {
 				t.Fatal(err)
 			}
 			// The build collaborator has returned the serving commit's refresh.
-			if scenario != "success" {
+			if !success {
 				if _, err := deploymentsql.New(p.db.SQL()).ReplaceRebuiltReleaseBundle(t.Context(), deploymentsql.ReplaceRebuiltReleaseBundleParams{ID: accepted.ID, OriginalBundleID: b.ID, BundleID: b.ID, State: Releasing.String(), RebuiltFrom: 1, RebuiltCommit: b.ContractRevision}); err != nil {
 					t.Fatal(err)
 				}
 			}
 			execErr := p.s.ExecuteRelease(t.Context(), accepted.ID)
-			if (execErr == nil) != (scenario == "success") {
+			if (execErr == nil) != success {
 				t.Fatalf("execution: %v", execErr)
 			}
 			rel, err := p.s.Releases.ByID(t.Context(), accepted.ID)
 			expected := ReleaseFailed
-			if scenario == "success" {
+			if success {
 				expected = Released
 			}
 			if err != nil || rel.State != expected {
@@ -299,14 +304,14 @@ func TestReleaseCopiesBeforeEngineMoveAndRecordsAHealthFailure(t *testing.T) {
 			p.s.authority = &requestAuthority{visible: []ids.ID{p.project}}
 			updates, err := p.s.RecentNeedMoves(t.Context(), time.Now().Add(-time.Hour), time.Now().Add(time.Hour), 20)
 			wantUpdates := 0
-			if scenario == "success" {
+			if success {
 				wantUpdates = 1
 			}
 			if err != nil || len(updates) != wantUpdates {
 				t.Fatalf("recent refreshes: %+v %v", updates, err)
 			}
 			if complete {
-				if driver.calls != 1 || got.ImageID != "new" || len(rel.NeedMoves) != 1 || rel.NeedMoves[0] != (NeedMove{"postgres", "16.15", "16.16"}) {
+				if driver.calls != 1 || got.ImageID != "new" || len(rel.NeedMoves) != 1 || rel.NeedMoves[0] != (NeedMove{"postgres", from, to}) {
 					t.Fatalf("failed move: %+v %+v calls=%d", got, rel, driver.calls)
 				}
 			} else if driver.calls != 0 || got.ImageID != "old" || len(rel.NeedMoves) != 0 {

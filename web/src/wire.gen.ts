@@ -570,7 +570,7 @@ export type DependencyKind = {
   credentials?: Record<string, string>
   generate?: string[]
   integration?: boolean
-  local: { image: string; command?: string[]; entrypoint?: string[]; configAtStart?: boolean; line?: string; move?: string; keepsImage?: boolean; stepEnv?: Record<string, string>; port?: number; env?: Record<string, string>; inject?: Record<string, string>; health?: string; data?: string; measure?: string }
+  local: { image: string; command?: string[]; entrypoint?: string[]; configAtStart?: boolean; line?: string; reversible?: boolean; move?: string; keepsImage?: boolean; stepEnv?: Record<string, string>; port?: number; env?: Record<string, string>; inject?: Record<string, string>; health?: string; data?: string; measure?: string }
   copy?: Copy | null
   cloud?: Record<string, Cloud>
   register?: { connector: string; adapter?: string; inject?: Record<string, string> } | null
@@ -4141,6 +4141,7 @@ export type PackPolicy = {
 }
 
 export type ServiceSpec = {
+  reversible?: boolean
   line?: string
   name: string
   image: string

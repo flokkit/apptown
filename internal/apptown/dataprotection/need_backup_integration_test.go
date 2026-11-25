@@ -137,9 +137,9 @@ func psql(t *testing.T, container, sql string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// A logical pre-release copy restores the earlier rows and app code while the
-// same-line binding retains the engine that has already opened this volume.
-func TestIntegrationBeforeReleaseRestoresRowsAndCodeOnTheNewerPostgres(t *testing.T) {
+// Composed coverage: restore the logical pre-release copy, then reconcile an
+// earlier bundle to return its rows, app code and same-line engine build.
+func TestIntegrationBeforeReleaseRestoresRowsCodeAndEarlierPostgres(t *testing.T) {
 	const older = "postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139"
 	const newer = "postgres:16.16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d"
 	s, pid, pg := needWorld(t, "postgres", older)
@@ -247,7 +247,7 @@ func TestIntegrationBeforeReleaseRestoresRowsAndCodeOnTheNewerPostgres(t *testin
 		t.Fatal(err)
 	}
 	binding, found, err := s.Deployments.StorageOf(dep).Get(t.Context(), "postgres", names.NeedVolume("postgres"))
-	if err != nil || !found || binding.DeclaredImage != newer {
-		t.Fatalf("new engine lost: %+v %v", binding, err)
+	if err != nil || !found || binding.DeclaredImage != older {
+		t.Fatalf("earlier engine not restored: %+v %v", binding, err)
 	}
 }

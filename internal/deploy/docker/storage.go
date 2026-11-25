@@ -138,7 +138,8 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 			if svc.Line == "" || le != nil || oe != nil || ne != nil || old.Repository.Name() != line.Repository.Name() || next.Repository.Name() != line.Repository.Name() || old.Variant != line.Variant || next.Variant != line.Variant || !onLine(binding.DeclaredImage) || !onLine(svc.Image) {
 				return "", fmt.Errorf("the %s engine declaration %s differs from its storage binding %s outside line %s", svc.Name, svc.Image, binding.DeclaredImage, svc.Line)
 			}
-			if imageline.Allows(binding.DeclaredImage, svc.Image, svc.Line, imageline.Line) != nil {
+			permittedReturn := svc.Reversible && strings.Count(next.Prefix, ".") > strings.Count(line.Prefix, ".")
+			if imageline.Allows(binding.DeclaredImage, svc.Image, svc.Line, imageline.Line) != nil && !permittedReturn {
 				if own.log != nil {
 					own.log("%s stays on %s; this release names %s", svc.Name, old.Prefix, next.Prefix)
 				}
@@ -159,6 +160,9 @@ func bindService(ctx context.Context, dk Scope, stackID, cname, path string, svc
 				moved.DeclaredImage, moved.ImageID, moved.RepoDigest = svc.Image, id, digest
 				if err := own.storage.Move(ctx, binding, moved); err != nil {
 					return "", err
+				}
+				if own.log != nil {
+					own.log("%s moves from %s to %s on its volume", svc.Name, old.Prefix, next.Prefix)
 				}
 				binding = moved
 			}

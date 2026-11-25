@@ -6567,6 +6567,12 @@ func (s *tourScene) movePostgres(readings *tourNeedReadings) {
 	if due, err := a.Deployment.NeedsBehind(ctx, current); err != nil || len(due) != 0 {
 		t.Fatalf("updated tour database still behind: %v %v", due, err)
 	}
+	// Sam selects the earlier release through the same operation as Deploy this again.
+	returned := s.redeploy("sam", "lunch-orders", "main", old.Number)
+	back, err := a.Deployment.Releases.ByNumber(ctx, p.ID, returned)
+	if err != nil || len(back.NeedMoves) != 1 || back.NeedMoves[0] != (deployment.NeedMove{Need: "postgres", From: "16.16", To: "16.15"}) {
+		t.Fatalf("tour database return: %+v %v", back, err)
+	}
 	// The scan owner's persisted receipt stands for the tour's external scanner.
 	// No real vulnerability is asserted about the published image.
 	observation := conformance.ScanObservation{ProjectID: p.ID, RunID: build, StepID: ids.New(a.cfg.clock.Now()), Attempt: 1, Scanner: "trivy", ObservedAt: a.cfg.clock.Now(), Verdict: "fail", ExpectedScanners: []string{"trivy"}, Subject: conformance.ScanSubject{On: "running", DeploymentID: acceptedDeployment(t, a, p.ID, "staging"), Deployment: "staging", BundleID: old.BundleID, Part: "need/postgres", Digest: "postgres:16.15-alpine@sha256:" + strings.Repeat("a", 64)}, Findings: []conformance.Finding{{Finding: check.Finding{Fingerprint: "tour-postgres-openssl", Title: "OpenSSL security update", Kind: "vuln", Source: "trivy", Package: &check.PackageRef{Name: "openssl", Version: "3.5.2", FixedIn: "3.5.4"}, Severity: "high", Identifiers: []string{"CVE-2026-TOUR"}}}}}

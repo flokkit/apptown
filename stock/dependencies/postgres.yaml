@@ -72,6 +72,9 @@ local:
   configAtStart: true
   keepsImage: true
   line: major
+  # Files share a format across one major line, so earlier and later builds
+  # on that line open the same volume.
+  reversible: true
   move: restart
   entrypoint: ["/bin/sh", "-c"]
   command:

@@ -181,12 +181,16 @@ version remains a pin. Portainer, provider-managed needs and disposable servers
 keep their existing image selection.
 
 A release takes its data copy before reconciliation. Docker's storage binding
-admits only the same repository, variant and numeric line, retains a known newer
-engine when an older bundle is selected, and records a newer engine before its
-first start on the volume. A health failure leaves that newer engine bound and
-the release failed. The release records the net binding moves even on failure;
-Maintenance lists only successful refreshes. Restoring earlier data and code
-retains the newer engine. A need-only move offers no paired rollback in History.
+admits only the same repository, variant and numeric line. A need declaring
+`local.reversible: true` also permits an earlier exact build on that line;
+otherwise an older bundle keeps the newer engine. A floating line request keeps
+the bound build. The binding records each move before the engine first starts
+on the volume. A health failure leaves that engine bound and the release failed.
+The release records the net binding moves even on failure; Maintenance lists
+only successful refreshes. Deploying an earlier bundle again returns a reversible
+need to its recorded build, including after a failed refresh. Roll back to before
+a release restores its pre-release copy and deploys the earlier bundle, returning
+stock Postgres to that build on the same volume.
 
 The Janitor's rebuild step compares unpinned bound needs with registry readings
 and requests the existing refresh release when behind. Protected deployments,
