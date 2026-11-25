@@ -104,8 +104,8 @@ github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1x
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/cloudflare/circl v1.6.3 h1:9GPOhQGF9MCYUeXyMYlqTR6a5gTrgR/fBLXvUgtVcg8=
-github.com/cloudflare/circl v1.6.3/go.mod h1:2eXP6Qfat4O/Yhh8BznvKnJ+uzEoTQ6jVKJRn81BiS4=
+github.com/cloudflare/circl v1.6.5 h1:O64F26HEqNhznd/hrC5KZXVKYuKM2rx4deZDTc4ihQA=
+github.com/cloudflare/circl v1.6.5/go.mod h1:h5LNyxAc5nTue9DS5jT+48en2PSDYt3zdGnz5OstK6c=
 github.com/codahale/rfc6979 v0.0.0-20141003034818-6a90f24967eb h1:EDmT6Q9Zs+SbUoc7Ik9EfrFqcylYqgPZ9ANSbTAntnE=
 github.com/codahale/rfc6979 v0.0.0-20141003034818-6a90f24967eb/go.mod h1:ZjrT6AXHbDs86ZSdt/osfBi5qfexBrKUdONk989Wnk4=
 github.com/coreos/go-oidc/v3 v3.21.0 h1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=
@@ -357,8 +357,8 @@ github.com/theupdateframework/go-tuf v0.7.1 h1:Aog4aeC0kMpZno/N16uSGP0yrJHB4ZH1u
 github.com/theupdateframework/go-tuf v0.7.1/go.mod h1:qp61mIYjcpISwN32wWs+mxc5F3TrtVMzFe/yap5grY8=
 github.com/theupdateframework/go-tuf/v2 v2.4.2 h1:w7976/W8uTwlsegP5nRymlpjPgrwSh+AXUf85is6nJk=
 github.com/theupdateframework/go-tuf/v2 v2.4.2/go.mod h1:JqBrIUnNLAaNq/8GmBcEMFWfAFBbqp/MkJEJseXKbks=
-github.com/tidwall/gjson v1.20.5 h1:OV4dBDripDl7ZK0GJIxWe1pn2zD6VB8vX+6hq6fLmuw=
-github.com/tidwall/gjson v1.20.5/go.mod h1:jV1Xkr7LRLVFhesDFU/nInoQ+MjVlnuqkUreTWMveUo=
+github.com/tidwall/gjson v1.20.6 h1:Wk62aj5eK6e5MC+hn9fkRb4KndcvFWAtKIMVN/naHxQ=
+github.com/tidwall/gjson v1.20.6/go.mod h1:jV1Xkr7LRLVFhesDFU/nInoQ+MjVlnuqkUreTWMveUo=
 github.com/tidwall/match v1.2.0 h1:0pt8FlkOwjN2fPt4bIl4BoNxb98gGHN2ObFEDkrfZnM=
 github.com/tidwall/match v1.2.0/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=
 github.com/tidwall/pretty v1.3.0 h1:DZmEzADnMIbThFXXslDgq9C0LCC/xzMrONm7iM77RM0=
