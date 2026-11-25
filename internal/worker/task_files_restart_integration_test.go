@@ -5,6 +5,7 @@ package worker_test
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,7 +72,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 		spec := execution.TaskSpec{Key: key, Image: stock.Images().DF, Argv: []string{"sh", "-c", script},
 			Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 			Files:     []execution.File{config}, Source: &execution.TaskSource{Repository: hub, Commit: base}}
-		created, err := driver.Ensure(ctx, spec)
+		created, err := executiontest.Ensure(ctx, driver, spec)
 		if err != nil {
 			t.Fatal(err)
 		}

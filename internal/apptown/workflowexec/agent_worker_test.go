@@ -356,9 +356,18 @@ func inputsByPath(t *testing.T, spec execution.TaskSpec) map[string]execution.In
 	return out
 }
 
+func (f *agentOnWorker) prepare() (workerAgentRequest, error) {
+	ctx := context.Background()
+	plan, err := f.exec.planAgentOnWorker(ctx, f.call)
+	if err != nil {
+		return workerAgentRequest{}, err
+	}
+	return f.exec.prepareAgentOnWorker(ctx, f.call, plan)
+}
+
 func (f *agentOnWorker) build(t *testing.T) workerAgentRequest {
 	t.Helper()
-	req, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
+	req, err := f.prepare()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,7 +641,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 			if c.adjust != nil {
 				c.adjust(t, f)
 			}
-			_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
+			_, err := f.prepare()
 			var refusal *workerRefusal
 			if !errors.As(err, &refusal) || !strings.Contains(err.Error(), c.reason) {
 				t.Fatalf("refusal: %v (want %q)", err, c.reason)
@@ -680,11 +689,11 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 func TestAWorkerImageWithoutWhatIsPromisedRefusesTheStep(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
 	f.worker.image.Labels = nil
-	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); !isRefusal(err, "reported no labels") {
+	if _, err := f.prepare(); !isRefusal(err, "reported no labels") {
 		t.Fatalf("no labels: %v", err)
 	}
 	f = agentOnWorkerFixture(t, nil, "lsp")
-	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); !isRefusal(err, "extensions this project enabled (lsp)") {
+	if _, err := f.prepare(); !isRefusal(err, "extensions this project enabled (lsp)") {
 		t.Fatalf("a missing extension: %v", err)
 	}
 	if f.worker.imageReads != 1 {
@@ -693,7 +702,7 @@ func TestAWorkerImageWithoutWhatIsPromisedRefusesTheStep(t *testing.T) {
 	// Extensions that cannot be read are not "none enabled".
 	f = agentOnWorkerFixture(t, nil)
 	f.exec.home = piharness.NewPreparer(gatewayModels{}, f.exec.modelSelection, unreadableExtensions{}, f.exec.docker, "apptown-agent")
-	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); err == nil || !strings.Contains(err.Error(), "reading the project's extensions") {
+	if _, err := f.prepare(); err == nil || !strings.Contains(err.Error(), "reading the project's extensions") {
 		t.Fatalf("unreadable extensions: %v", err)
 	}
 }
@@ -819,7 +828,7 @@ func TestAContinuedSessionIsSentItsTranscript(t *testing.T) {
 		t.Errorf("the retry: %q %q %+v", req.spec.Key, req.spec.SharedWorkspace, req.spec.Results)
 	}
 	f.call.transcript = piharness.SessionHeader("step-00000000-0009-7000-8000-000000000000-a1", first, "/work")
-	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); err == nil {
+	if _, err := f.prepare(); err == nil {
 		t.Fatal("another session's transcript was sent")
 	}
 }
@@ -1022,7 +1031,7 @@ func TestPrivateDockerTurnedOffRefusesAStepOnAWorker(t *testing.T) {
 	f := agentOnWorkerFixture(t, map[string]any{"docker": true})
 	f.exec.cfg.PrivateDocker = false
 	f.worker.imageAllowed = false
-	_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
+	_, err := f.prepare()
 	var refusal *workerRefusal
 	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "this AppTown was started with -private-docker=false") {
 		t.Fatalf("turned off: %v", err)
@@ -1133,3 +1142,5 @@ func (s testSecretProjectScope) Slug(ctx context.Context, id ids.ID) (string, er
 func (agentCatalog) WorkflowVersions(context.Context, []wow.WorkflowRef) ([]wow.WorkflowObservation, error) {
 	return nil, nil
 }
+
+func (d *agentWorkerDriver) Admit(context.Context, string) (int, bool, error) { return 0, true, nil }

@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,7 +49,7 @@ func TestACollectionWorksWhenTheProjectIgnoresAppTown(t *testing.T) {
 			base := git("rev-parse", "HEAD")
 			spec := fakeSpec("review-ignored-forge", "", 0, false)
 			spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-			if _, err := driver.Ensure(ctx, spec); err != nil {
+			if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 				t.Fatal(err)
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)
@@ -112,7 +113,7 @@ func TestAStagingFailureFailsTheCollection(t *testing.T) {
 	base, _ := gitexec.Output(ctx, hub, "rev-parse", "HEAD")
 	spec := fakeSpec("real-staging-failure", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	if _, err := driver.Ensure(ctx, spec); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", spec.Key)

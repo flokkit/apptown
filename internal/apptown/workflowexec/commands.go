@@ -5,6 +5,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/imagelines"
+	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/clock"
@@ -20,6 +21,7 @@ const TestsKind = "tests"
 // commands executes script and test steps. It shares Workflow's execution
 // contract with agent work but requires no model, identity or harness service.
 type commands struct {
+	capacity  *model.Scheduler
 	images    imagelines.Resolver
 	judge     updateJudge
 	majors    majorDecider
@@ -47,8 +49,9 @@ type CommandConfig struct {
 	AppTownVersion string
 }
 type CommandDependencies struct {
-	Images imagelines.Resolver
-	Judge  updateJudge
+	Capacity *model.Scheduler
+	Images   imagelines.Resolver
+	Judge    updateJudge
 	// Majors decides direct dependency major moves at the aggressive level.
 	Majors    majorDecider
 	Bounds    updateBounds
@@ -78,9 +81,10 @@ func NewCommands(db *database.DB, deps CommandDependencies, cfg CommandConfig) *
 	if cfg.AppTownVersion == "" {
 		cfg.AppTownVersion = "unknown"
 	}
-	c := &commands{images: deps.Images, db: db, judge: deps.Judge, majors: deps.Majors, fixes: deps.Fixes, bounds: deps.Bounds, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
+	c := &commands{capacity: deps.Capacity, images: deps.Images, db: db, judge: deps.Judge, majors: deps.Majors, fixes: deps.Fixes, bounds: deps.Bounds, cfg: cfg, runner: deps.Runner, progress: deps.Progress, publisher: deps.Publisher, branches: deps.Branches, tasks: deps.Tasks, panics: deps.Panics, docker: deps.Docker, checks: deps.Checks, catalog: deps.Catalog, clock: deps.Now}
 	if deps.Tasks != nil {
 		deps.Tasks.commands = c
+		deps.Tasks.capacity = deps.Capacity
 	}
 	return c
 }

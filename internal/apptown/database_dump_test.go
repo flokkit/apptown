@@ -1015,3 +1015,5 @@ func exclusiveBackupFiles(directory string) (io.Closer, error) {
 	}
 	return f, nil
 }
+
+func (f *dumpTasks) Admit(context.Context, string) (int, bool, error) { return 0, true, nil }

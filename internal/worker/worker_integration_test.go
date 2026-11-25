@@ -40,7 +40,7 @@ func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 
 	t.Run("another installation is refused", func(t *testing.T) {
 		other := execution.WorkerTasks{URL: w.URL, Client: workertest.Client(t, ca, "inst-2")}
-		if _, err := other.Ensure(context.Background(), busyboxSpec("other", "", 0, false)); err == nil || !strings.Contains(err.Error(), "403") {
+		if _, err := executiontest.Ensure(context.Background(), other, busyboxSpec("other", "", 0, false)); err == nil || !strings.Contains(err.Error(), "403") {
 			t.Fatalf("another installation's request: %v", err)
 		}
 	})
@@ -48,7 +48,7 @@ func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 	t.Run("a restarted worker finds its running task", func(t *testing.T) {
 		ctx := context.Background()
 		spec := busyboxSpec(executiontest.UniqueKeys("dind")("restart"), "", 0, true)
-		created, err := driver.Ensure(ctx, spec)
+		created, err := executiontest.Ensure(ctx, driver, spec)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,13 +62,13 @@ func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 		if err != nil || running.ID != created.ID || running.State != execution.TaskRunning {
 			t.Fatalf("after the restart: %+v %v", running, err)
 		}
-		again, err := driver.Ensure(ctx, spec)
+		again, err := executiontest.Ensure(ctx, driver, spec)
 		if err != nil || again.ID != created.ID {
 			t.Fatalf("a retried ensure after the restart: %+v %v", again, err)
 		}
 		changed := spec
 		changed.Argv = []string{"sh", "-c", "echo something else"}
-		if _, err := driver.Ensure(ctx, changed); err == nil || !strings.Contains(err.Error(), "different request") {
+		if _, err := executiontest.Ensure(ctx, driver, changed); err == nil || !strings.Contains(err.Error(), "different request") {
 			t.Fatalf("a different request under the same key after the restart: %v", err)
 		}
 		if err := driver.Stop(ctx, ref); err != nil {
@@ -91,7 +91,7 @@ func TestIntegrationAWorkerInItsOwnContainer(t *testing.T) {
 		spec := busyboxSpec(executiontest.UniqueKeys("dind")("bundle"), "", 0, false)
 		spec.Argv = []string{"sh", "-c", "echo made in a container > /work/made.txt"}
 		spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-		created, err := driver.Ensure(ctx, spec)
+		created, err := executiontest.Ensure(ctx, driver, spec)
 		if err != nil {
 			t.Fatal(err)
 		}

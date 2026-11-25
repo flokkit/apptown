@@ -5,6 +5,7 @@ package worker_test
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"os/exec"
 	"strconv"
@@ -71,7 +72,7 @@ docker volume ls --format '{{.Name}}' | grep -q forge-cache && echo "FORGE CACHE
 docker buildx inspect apptown >/dev/null && echo "builder apptown"
 `
 	spec := f.spec("build", script, private)
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +138,7 @@ func TestIntegrationExternalWorkerAnInterruptedWorkerRecoversAndAStopFences(t *t
 	ctx := context.Background()
 	spec := f.spec("interrupted", `docker info >/dev/null && echo up; sleep 15; echo done > /work/done.txt`, &execution.PrivateDocker{Daemon: true},
 		execution.Result{Name: "done", Path: "/work/done.txt", Max: 64})
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +177,7 @@ func TestIntegrationExternalWorkerAnInterruptedWorkerRecoversAndAStopFences(t *t
 docker run -d -v /work:/work `+stock.Images().DF+` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
 echo writer-ready
 sleep 300`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "ticks", Path: "/work/ticks.txt", Max: 1 << 20})
-	created, err = f.driver.Ensure(ctx, stop)
+	created, err = executiontest.Ensure(ctx, f.driver, stop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,14 +225,14 @@ sleep 300`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "tick
 	if left := labelled(t, stop.Key); len(left) > 0 {
 		t.Errorf("released, it left %v", left)
 	}
-	if _, err := f.driver.Ensure(ctx, stop); err == nil || !strings.Contains(err.Error(), "stale") {
+	if _, err := executiontest.Ensure(ctx, f.driver, stop); err == nil || !strings.Contains(err.Error(), "stale") {
 		t.Fatalf("the request replayed after the release: %v", err)
 	}
 
 	// Expiry, with nothing asking the worker: its sweep runs each minute.
 	expiring := f.spec("expiring", "sleep 600", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: stock.Images().DF, Command: []string{"sleep", "3600"}}}})
 	expiring.Admission.Expires = time.Now().Add(20 * time.Second)
-	created, err = f.driver.Ensure(ctx, expiring)
+	created, err = executiontest.Ensure(ctx, f.driver, expiring)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +295,7 @@ func TestIntegrationExternalWorkerDiskExhaustionIsRefusedAndRecovered(t *testing
 echo filled
 sleep 1200`, &execution.PrivateDocker{Daemon: true})
 	fill.Admission.Expires = time.Now().Add(40 * time.Minute)
-	created, err := f.driver.Ensure(ctx, fill)
+	created, err := executiontest.Ensure(ctx, f.driver, fill)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +331,7 @@ sleep 1200`, &execution.PrivateDocker{Daemon: true})
 	refusedSpec := f.spec("disk-refused", "docker info >/dev/null && echo ran", &execution.PrivateDocker{Daemon: true})
 	var refusedRef *execution.TaskRef
 	refusal := func() error {
-		made, err := f.driver.Ensure(ctx, refusedSpec)
+		made, err := executiontest.Ensure(ctx, f.driver, refusedSpec)
 		if err != nil {
 			return err
 		}
@@ -381,7 +382,7 @@ sleep 1200`, &execution.PrivateDocker{Daemon: true})
 
 	// New work runs.
 	again := f.spec("disk-recovered", `docker build -q -t nested-greeting /work >/dev/null && docker run --rm nested-greeting`, &execution.PrivateDocker{Daemon: true})
-	created, err = f.driver.Ensure(ctx, again)
+	created, err = executiontest.Ensure(ctx, f.driver, again)
 	if err != nil {
 		t.Fatal(err)
 	}

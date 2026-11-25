@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,7 @@ func TestACollectionCanBeRepeated(t *testing.T) {
 			}
 			spec := fakeSpec("review-excluded", "", 0, false)
 			spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-			if _, err := driver.Ensure(context.Background(), spec); err != nil {
+			if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 				t.Fatal(err)
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)
@@ -65,7 +66,7 @@ func TestACollectionKeepsTheNativeAppContract(t *testing.T) {
 	}
 	spec := fakeSpec("review-contract", "", 0, false)
 	spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	work := filepath.Join(state, "workspaces", spec.Key)

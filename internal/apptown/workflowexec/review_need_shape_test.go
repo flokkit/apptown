@@ -1,7 +1,6 @@
 package workflowexec
 
 import (
-	"context"
 	"strings"
 	"testing"
 )
@@ -14,7 +13,7 @@ func TestReviewNonStringKeyMapsAreNotNeedScalars(t *testing.T) {
 		t.Run(shape, func(t *testing.T) {
 			f := agentOnWorkerFixture(t, map[string]any{"needs": true})
 			f.call.commit = hubCommit(t, f.hub, map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  postgres:\n    " + shape + "\n"})
-			req, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
+			req, err := f.prepare()
 			if err != nil {
 				t.Fatal(err)
 			}

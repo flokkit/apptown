@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/flokkit/apptown/stock"
 )
@@ -22,7 +24,8 @@ import (
 func TestASharedWorkspaceOutlivesItsTasksUntilReleased(t *testing.T) {
 	ca := workertest.NewCA(t)
 	state, fake := t.TempDir(), &executionfake.Tasks{}
-	first := workertest.Start(t, ca, state, fake)
+	server := &worker.Server{Installation: workertest.Installation, State: state, Tasks: fake, TaskLimit: 1}
+	first := workertest.StartServer(t, ca, server)
 	driver := workertest.Driver(t, ca, first)
 	ctx := context.Background()
 	hub := sourceRepo(t)
@@ -35,7 +38,7 @@ func TestASharedWorkspaceOutlivesItsTasksUntilReleased(t *testing.T) {
 	}
 	work, gitDir := filepath.Join(state, "workspaces", workspace), filepath.Join(state, "git", workspace+".git")
 	agent := invocation("step-7-a1-agent")
-	if _, err := driver.Ensure(ctx, agent); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, agent); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(state, "workspaces", agent.Key)); !os.IsNotExist(err) {
@@ -48,8 +51,11 @@ func TestASharedWorkspaceOutlivesItsTasksUntilReleased(t *testing.T) {
 	if err := driver.Release(ctx, execution.TaskRef{Key: agent.Key}); err != nil {
 		t.Fatal(err)
 	}
+	if got := workerAdmission(t, server, "another-workspace", true); got.Admitted {
+		t.Fatal("invocation release freed workspace slot")
+	}
 	retry := invocation("step-7-a1-agent-retry")
-	if _, err := driver.Ensure(ctx, retry); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, retry); err != nil {
 		t.Fatal(err)
 	}
 	if body, err := os.ReadFile(filepath.Join(work, "made.txt")); err != nil || string(body) != "by the agent\n" {
@@ -61,11 +67,15 @@ func TestASharedWorkspaceOutlivesItsTasksUntilReleased(t *testing.T) {
 
 	// The worker service restarts over the same state.
 	first.Close()
-	driver = workertest.Driver(t, ca, workertest.Start(t, ca, state, fake))
+	server = &worker.Server{Installation: workertest.Installation, State: state, Tasks: fake, TaskLimit: 1}
+	driver = workertest.Driver(t, ca, workertest.StartServer(t, ca, server))
+	if got := workerAdmission(t, server, "another-workspace", true); got.Admitted {
+		t.Fatal("restart lost workspace holder")
+	}
 	if err := driver.ReleaseWorkspace(ctx, workspace); !errors.Is(err, execution.ErrWorkspaceInUse) {
 		t.Fatalf("after a restart, removing a workspace with a task in it: %v", err)
 	}
-	if again, err := driver.Ensure(ctx, retry); err != nil || again.State != execution.TaskCreated {
+	if again, err := executiontest.Ensure(ctx, driver, retry); err != nil || again.State != execution.TaskCreated {
 		t.Fatalf("the task after the restart: %+v %v", again, err)
 	}
 	if body, err := os.ReadFile(filepath.Join(work, "made.txt")); err != nil || string(body) != "by the agent\n" {
@@ -77,10 +87,16 @@ func TestASharedWorkspaceOutlivesItsTasksUntilReleased(t *testing.T) {
 	if _, err := os.Stat(gitDir); err != nil {
 		t.Fatalf("releasing the last task removed the shared workspace: %v", err)
 	}
+	if got := workerAdmission(t, server, "another-workspace", true); got.Admitted {
+		t.Fatal("last invocation release freed workspace slot")
+	}
 	for range 2 {
 		if err := driver.ReleaseWorkspace(ctx, workspace); err != nil {
 			t.Fatalf("removing the workspace: %v", err)
 		}
+	}
+	if got := workerAdmission(t, server, "another-workspace", false); !got.Admitted {
+		t.Fatal("workspace release did not free its slot")
 	}
 	for _, dir := range []string{work, gitDir} {
 		if _, err := os.Stat(dir); !os.IsNotExist(err) {

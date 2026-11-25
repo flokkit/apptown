@@ -38,6 +38,7 @@ import (
 
 func main() {
 	var (
+		tasks         = flag.Int("tasks", worker.DefaultTaskLimit(), "maximum tasks admitted at once; default max(1, number of CPUs / 4)")
 		listen        = flag.String("listen", ":8443", "address to serve on")
 		installation  = flag.String("installation", "", "the one installation this worker serves: its client certificate's Common Name")
 		state         = flag.String("state", "", "directory for the worker's records and workspaces")
@@ -69,6 +70,9 @@ func main() {
 	flag.Parse()
 	if err := flagenv.Bind(flag.CommandLine, os.Getenv, "version", "check-metadata"); err != nil {
 		log.Fatal(err)
+	}
+	if *tasks < 1 {
+		log.Fatal("-tasks must be at least 1")
 	}
 	// Every Docker call of this program goes through one scope: the docker
 	// binary (after the environment form of -docker is applied) against the
@@ -197,7 +201,7 @@ func main() {
 		log.Printf("apptown-worker: Docker is at %s, not on this machine; this worker runs no previews", host)
 		previews = nil
 	}
-	w := &worker.Server{Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true, ToolVersions: tools}, ToolVersions: tools, Sessions: sessions,
+	w := &worker.Server{TaskLimit: *tasks, Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true, ToolVersions: tools}, ToolVersions: tools, Sessions: sessions,
 		Images: worker.DockerImages{Docker: scope}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Docker: scope}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
 		DindImage: *dindImage, Docker: scope.Client, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
 	// What private Docker rests on is measured now, and reported with what

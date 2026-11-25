@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"io"
 	"net/http"
 	"os"
@@ -66,12 +67,12 @@ func TestInputsStagedForAnotherRequestAreAConflict(t *testing.T) {
 	}
 	spec := fakeSpec("staged-inputs", "", 0, false)
 	spec.Inputs = []execution.Input{input("first")}
-	if _, err := driver.Ensure(ctx, spec); err != nil {
+	if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 		t.Fatal(err)
 	}
 	other := fakeSpec(spec.Key, "", 0, false)
 	other.Inputs, other.Request = []execution.Input{input("second")}, spec.Digest()
-	if _, err := driver.Ensure(ctx, other); !errors.Is(err, execution.ErrTaskConflict) {
+	if _, err := executiontest.Ensure(ctx, driver, other); !errors.Is(err, execution.ErrTaskConflict) {
 		t.Fatalf("an ensure with other inputs: %v", err)
 	}
 	if b, err := os.ReadFile(filepath.Join(state, "task-inputs", spec.Key, "0")); err != nil || string(b) != "first" {
@@ -142,7 +143,7 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 				workspace = key + "-shared"
 				request.SharedWorkspace = workspace
 			}
-			_, err := driver.Ensure(ctx, request)
+			_, err := executiontest.Ensure(ctx, driver, request)
 			if err == nil || !strings.Contains(err.Error(), "400") {
 				t.Errorf("%s: %v", key, err)
 			}

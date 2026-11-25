@@ -553,3 +553,24 @@ func isCommitID(s string) bool {
 	}
 	return true
 }
+
+// AdmissionAnswer reports the worker's current admission for a key.
+type AdmissionAnswer struct {
+	Ahead    int  `json:"ahead"`
+	Admitted bool `json:"admitted"`
+}
+
+func (w WorkerTasks) Admit(ctx context.Context, key string) (int, bool, error) {
+	var answer struct {
+		Ahead    *int  `json:"ahead"`
+		Admitted *bool `json:"admitted"`
+	}
+	err := w.call(ctx, http.MethodPost, "/v1/admissions/"+url.PathEscape(key), nil, &answer)
+	if err != nil {
+		return 0, false, err
+	}
+	if answer.Ahead == nil || answer.Admitted == nil || *answer.Ahead < 0 {
+		return 0, false, fmt.Errorf("%w: the admission answer lacks its state or number ahead", ErrWorkerUnavailable)
+	}
+	return *answer.Ahead, *answer.Admitted, nil
+}

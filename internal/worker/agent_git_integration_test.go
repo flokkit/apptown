@@ -5,6 +5,7 @@ package worker_test
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,7 +59,7 @@ git status --porcelain -- agent.txt change.txt > status.txt
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: source}, SharedWorkspace: namespace,
 		AgentGit: &execution.AgentGit{Branch: "change/1", Base: "main", BaseCommit: base}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}

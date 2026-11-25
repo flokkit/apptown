@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
@@ -41,7 +42,7 @@ func TestABlobTheWorkerLostIsSentAgain(t *testing.T) {
 	spec := execution.TaskSpec{Key: "lost-blob", Image: "fake", Argv: []string{"run"}, Env: []string{"FAKE_OUTPUT=", "FAKE_EXIT=0"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Inputs:    []execution.Input{in}}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatalf("a lost blob was not sent again: %v", err)
 	}
 	if !lost.Load() {
@@ -78,7 +79,7 @@ func TestReviewFirstInputValidationResendsABlobLostAfterUpload(t *testing.T) {
 	spec := execution.TaskSpec{Key: "lost-blob", Image: "fake", Argv: []string{"run"}, Env: []string{"FAKE_OUTPUT=", "FAKE_EXIT=0"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Inputs:    []execution.Input{in}}
-	if _, err := driver.Ensure(context.Background(), spec); err != nil {
+	if _, err := executiontest.Ensure(context.Background(), driver, spec); err != nil {
 		t.Fatalf("a lost blob was not sent again: %v", err)
 	}
 	if !lost.Load() {

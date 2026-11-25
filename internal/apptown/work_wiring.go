@@ -42,7 +42,7 @@ import (
 // Work is built once (architecture.md §5.7). AppTown supplies authority, external
 // participants and executors; Work connects its own lifecycle components.
 func (a *App) workDependencies() workflow.Dependencies {
-	commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
+	commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{Capacity: a.capacity,
 		Images: a.imageLines, Judge: a.guidance, Majors: a.majors, Bounds: &a.standingRules, Fixes: a.Adoption, Runner: projectProcesses(a), Progress: &a.progress,
 		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
@@ -53,7 +53,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	if a.cfg.worker != nil {
 		builds = &workflowexec.ReleaseBuilds{Tasks: a.tasks, PrivateDocker: a.cfg.privateDocker}
 	}
-	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Catalog: a.Dependencies, Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Builds: builds, Images: a.imageLines, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
+	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Capacity: a.capacity, Catalog: a.Dependencies, Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Builds: builds, Images: a.imageLines, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
 	repositories := workflowexec.NewRepositories(a.DB, a.repositoryAttachments, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
 	runners := make(map[string]workflow.Runner)
 	runners[workflowexec.CallKind] = workflowexec.NewCalls(a.DB, jobReporter{}).Run

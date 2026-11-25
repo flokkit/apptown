@@ -24,6 +24,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
@@ -594,5 +595,52 @@ func TestAnAgentThatExitsBeforeAskingTheModelSaysWhy(t *testing.T) {
 	r := j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric, Recheck: in.Recheck}, in.Call, in.Diff)
 	if r.Reason != "check agent exited with status 1: Error: Unknown option: --no-mcp" || r.Verdict.Verdict != "" || !r.Evidence.AppTownFault {
 		t.Fatalf("agent failure masked: %+v", r)
+	}
+}
+
+type waitingJudgeDriver struct {
+	execution.TaskDriver
+	admit   func()
+	ensured bool
+}
+
+func (d *waitingJudgeDriver) Admit(context.Context, string) (int, bool, error) {
+	d.admit()
+	return 0, true, nil
+}
+func (d *waitingJudgeDriver) Ensure(ctx context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
+	d.ensured = true
+	return d.TaskDriver.Ensure(ctx, spec)
+}
+
+func TestJudgeCapacityWaitPrecedesItsSessionAndFullTimeCap(t *testing.T) {
+	j, d, pid := fixtureCheckJudge(t)
+	now := clock.Or(nil)()
+	j.Now = func() time.Time { return now }
+	j.Sessions.Now = j.Now
+	d.Tasks.Now = j.Now
+	driver := &waitingJudgeDriver{TaskDriver: d}
+	asked := false
+	driver.admit = func() {
+		asked = true
+		if driver.ensured || len(d.specs) != 0 {
+			t.Fatal("task created before worker admission")
+		}
+		// No session has been opened yet: the task cannot spend its check cap.
+		now = now.Add(2 * j.TimeLimit)
+	}
+	j.Driver = driver
+	in := fixtureInvocation(t, pid)
+	result := j.JudgeCheck(t.Context(), check.Item{Repository: in.Repository, Commit: in.Commit, Declared: in.Rubric}, in.Call, in.Diff)
+	if !asked || !driver.ensured {
+		t.Fatal("judge bypassed worker admission")
+	}
+	if result.Reason != "" || result.Verdict.Verdict != "pass" {
+		t.Fatalf("delayed judge: %+v", result)
+	}
+	for _, spec := range d.specs {
+		if !spec.Admission.Expires.Equal(now.Add(j.TimeLimit)) || spec.Admission.Limits.WallClock != j.TimeLimit {
+			t.Fatalf("check lost its cap: %+v", spec.Admission)
+		}
 	}
 }

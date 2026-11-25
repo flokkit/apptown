@@ -68,7 +68,7 @@ func PrivateDocker(t *testing.T, h Harness) {
 		spec.Admission.Limits, spec.Admission.Network = limits, execution.NetworkDefault
 		spec.Private = &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "db", Image: "postgres"}, {Name: "cache", Image: "redis"}}}
 		change(&spec)
-		if _, err := h.Driver.Ensure(ctx, spec); err == nil {
+		if _, err := Ensure(ctx, h.Driver, spec); err == nil {
 			t.Errorf("%s was not refused", name)
 		}
 		if obs, err := h.Driver.Observe(ctx, execution.TaskRef{Key: key}); err != nil || obs.State != execution.TaskAbsent {
@@ -91,11 +91,11 @@ func Lifecycle(t *testing.T, h Harness) {
 		if absent, err := d.Observe(ctx, execution.TaskRef{Key: key}); err != nil || absent.State != execution.TaskAbsent {
 			t.Fatalf("before ensure: %+v %v", absent, err)
 		}
-		created, err := d.Ensure(ctx, h.Spec(key, "hello", 3, false))
+		created, err := Ensure(ctx, d, h.Spec(key, "hello", 3, false))
 		if err != nil || created.State != execution.TaskCreated || created.ID == "" {
 			t.Fatalf("ensure: %+v %v", created, err)
 		}
-		again, err := d.Ensure(ctx, h.Spec(key, "hello", 3, false))
+		again, err := Ensure(ctx, d, h.Spec(key, "hello", 3, false))
 		if err != nil || again.ID != created.ID {
 			t.Fatalf("a retried ensure made %+v, want the same task %s: %v", again, created.ID, err)
 		}
@@ -111,7 +111,7 @@ func Lifecycle(t *testing.T, h Harness) {
 	t.Run("a task runs once and keeps its result until released", func(t *testing.T) {
 		key := h.Key("result")
 		t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
-		created, err := d.Ensure(ctx, h.Spec(key, "hello world", 3, false))
+		created, err := Ensure(ctx, d, h.Spec(key, "hello world", 3, false))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,7 +146,7 @@ func Lifecycle(t *testing.T, h Harness) {
 	t.Run("a second start does not run a task again", func(t *testing.T) {
 		key := h.Key("once")
 		t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
-		created, err := d.Ensure(ctx, h.Spec(key, "ran", 0, false))
+		created, err := Ensure(ctx, d, h.Spec(key, "ran", 0, false))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +169,7 @@ func Lifecycle(t *testing.T, h Harness) {
 	t.Run("overlapping starts run a task once", func(t *testing.T) {
 		key := h.Key("overlap")
 		t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
-		created, err := d.Ensure(ctx, h.Spec(key, "ran", 0, false))
+		created, err := Ensure(ctx, d, h.Spec(key, "ran", 0, false))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,11 +197,11 @@ func Lifecycle(t *testing.T, h Harness) {
 	t.Run("a key is not adopted for a different request", func(t *testing.T) {
 		key := h.Key("conflict")
 		t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
-		created, err := d.Ensure(ctx, h.Spec(key, "first", 0, false))
+		created, err := Ensure(ctx, d, h.Spec(key, "first", 0, false))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got, err := d.Ensure(ctx, h.Spec(key, "second", 0, false)); !errors.Is(err, execution.ErrTaskConflict) {
+		if got, err := Ensure(ctx, d, h.Spec(key, "second", 0, false)); !errors.Is(err, execution.ErrTaskConflict) {
 			t.Fatalf("a different request under the key: %+v %v", got, err)
 		}
 		if still, err := d.Observe(ctx, execution.TaskRef{Key: key}); err != nil || still.ID != created.ID || still.State != execution.TaskCreated {
@@ -212,7 +212,7 @@ func Lifecycle(t *testing.T, h Harness) {
 	t.Run("stopping a task ends it", func(t *testing.T) {
 		key := h.Key("stop")
 		t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
-		created, err := d.Ensure(ctx, h.Spec(key, "", 0, true))
+		created, err := Ensure(ctx, d, h.Spec(key, "", 0, true))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +251,7 @@ func Lifecycle(t *testing.T, h Harness) {
 			key := h.Key("refused-" + strings.ReplaceAll(tc.name, " ", "-"))
 			spec := h.Spec(key, "", 0, false)
 			tc.change(&spec)
-			_, err := d.Ensure(ctx, spec)
+			_, err := Ensure(ctx, d, spec)
 			if err == nil || (tc.want != nil && !errors.Is(err, tc.want)) {
 				t.Fatalf("%s: %v, want a refusal %v", tc.name, err, tc.want)
 			}

@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,7 +75,7 @@ func TestACollectionReturnsWhatGitTakes(t *testing.T) {
 			base := git("rev-parse", "HEAD")
 			spec := fakeSpec("review-round3-staging", "", 0, false)
 			spec.Source = &execution.TaskSource{Repository: hub, Commit: base}
-			if _, err := driver.Ensure(ctx, spec); err != nil {
+			if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 				t.Fatal(err)
 			}
 			work := filepath.Join(state, "workspaces", spec.Key)

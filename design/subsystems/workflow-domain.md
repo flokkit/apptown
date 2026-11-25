@@ -138,7 +138,11 @@ this projection, including the chat header and wiring changes in Services.
 An open change without running work says "draft" in the neutral tone; while
 its chat's helper has the turn (the console owner's recorded turn) it says
 "building · helper working". Agent work says "building · helper working" or
-"building · waiting for a free slot".
+"building · waiting for a free slot". The same slot registry records worker
+admission waits for claimed, running steps as well as pending model work;
+the worker appears as another binding with the number ahead. Worker admission
+precedes execution deadlines, agent budgets and check caps. Shared agent
+invocations use their attempt workspace's slot until that workspace is released.
 Other running work says "checking", except a landing's final pinned stage,
 which says "going live". This describes publication work, not deployment
 health. Accepted work awaiting its landing says "going live · queued";

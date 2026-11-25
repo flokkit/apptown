@@ -30,6 +30,11 @@ func TestTheWorkersFlagsAreAlsoItsVariables(t *testing.T) {
 		})
 		return string(out.Output)
 	}
+	for _, value := range []string{"0", "-1"} {
+		if out := start("-tasks", value); !strings.Contains(out, "-tasks must be at least 1") {
+			t.Fatalf("invalid task limit %s: %s", value, out)
+		}
+	}
 	if out := start(); !strings.Contains(out, "from-variable.pem") {
 		t.Fatalf("the variable was not read: %s", out)
 	}

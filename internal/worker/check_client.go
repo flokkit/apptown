@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/strs"
@@ -26,6 +27,8 @@ import (
 // it on the worker. A request the worker cannot honour (a mount of this
 // machine's, a host route, a local process) is refused, never run here.
 type Checks struct {
+	// Now supplies the clock that starts a check's timeout after admission.
+	Now    func() time.Time
 	URL    string
 	Client *http.Client
 	// Limits bound each check's container on the worker (AppTown's task
@@ -52,7 +55,31 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	if req.Workspace == "" && (req.Report != "" || req.History != nil || req.ExportImage != "") {
 		return notRun(errors.New("a check with no tree has no report, history or image to export"))
 	}
-	spec := CheckSpec{
+	key, err := checkID()
+	if err != nil {
+		return notRun(err)
+	}
+	key = "check-" + key
+	driver := execution.WorkerTasks{URL: c.URL, Client: c.Client}
+	for {
+		if err := ctx.Err(); err != nil {
+			return notRun(err)
+		}
+		_, admitted, err := driver.Admit(ctx, key)
+		if err != nil {
+			return notRun(err)
+		}
+		if admitted {
+			out := c.runGranted(ctx, req, key)
+			if !errors.Is(out.RunErr, execution.ErrBusy) {
+				return out
+			}
+		}
+	}
+}
+
+func (c Checks) runGranted(ctx context.Context, req execution.Request, key string) execution.Outcome {
+	spec := CheckSpec{Key: key,
 		Image: req.Image, Argv: req.Argv, Env: req.Env, NoEntrypoint: req.NoEntrypoint,
 		Egress: req.Network == "", TimeoutSeconds: int(req.Timeout.Seconds() + 0.5),
 		CaptureInputs: req.CaptureInputs, Writable: !req.WorkspaceRO, Report: req.Report, History: req.History != nil,
@@ -61,7 +88,7 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	}
 	// The whole request, the transfers both ways and the wait between, ends
 	// by the check's own timeout with the worker's allowance for them.
-	ctx, cancel := context.WithTimeout(ctx, req.Timeout+2*checkGrace)
+	ctx, cancel := context.WithDeadline(ctx, clock.Or(c.Now)().Add(req.Timeout+2*checkGrace))
 	defer cancel()
 	body, content := io.Pipe()
 	form := multipart.NewWriter(content)
@@ -77,8 +104,7 @@ func (c Checks) Run(ctx context.Context, req execution.Request) execution.Outcom
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return notRun(fmt.Errorf("the worker refused the check (%d): %s", resp.StatusCode, strings.TrimSpace(string(msg))))
+		return notRun(execution.WorkerRefusal(resp))
 	}
 	answer, err := readAnswer(resp.Body)
 	if err != nil {

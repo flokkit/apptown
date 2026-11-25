@@ -17,7 +17,14 @@ import (
 func TestAnIncompleteAnswerIsNoAnswer(t *testing.T) {
 	for _, reply := range []string{`{"termination":"exited"}`, `{"termination":"exited","exitCode":null}`, `{"termination":"exited","exitCode":-1}`, `{"termination":"exited","exitCode":0} trailing junk`} {
 		t.Run(reply, func(t *testing.T) {
-			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.Copy(io.Discard, r.Body); io.WriteString(w, reply) }))
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				io.Copy(io.Discard, r.Body)
+				if strings.HasPrefix(r.URL.Path, "/v1/admissions/") {
+					io.WriteString(w, `{"admitted":true,"ahead":0}`)
+					return
+				}
+				io.WriteString(w, reply)
+			}))
 			defer s.Close()
 			out := (worker.Checks{URL: s.URL, Client: s.Client()}).Run(context.Background(), execution.Request{Workspace: t.TempDir(), Image: "x", Argv: []string{"true"}, Timeout: time.Second, Network: "none"})
 			if out.Termination == execution.Exited {
@@ -43,6 +50,9 @@ func (f reviewS2Transport) RoundTrip(r *http.Request) (*http.Response, error) { 
 
 func TestACheckRequestHasADeadline(t *testing.T) {
 	client := &http.Client{Transport: reviewS2Transport(func(r *http.Request) (*http.Response, error) {
+		if strings.HasPrefix(r.URL.Path, "/v1/admissions/") {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"admitted":true,"ahead":0}`))}, nil
+		}
 		defer r.Body.Close()
 		io.Copy(io.Discard, r.Body)
 		if _, ok := r.Context().Deadline(); !ok {

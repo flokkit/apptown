@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -32,7 +33,7 @@ func TestAWorkerTaskSharesTheWorkersToolCache(t *testing.T) {
 	ctx := context.Background()
 	for _, key := range []string{"script-1", "script-2"} {
 		spec := taskWithFiles(key, miseConfig)
-		if _, err := driver.Ensure(ctx, spec); err != nil {
+		if _, err := executiontest.Ensure(ctx, driver, spec); err != nil {
 			t.Fatal(err)
 		}
 		mounts := tasks.of(key)
@@ -47,7 +48,7 @@ func TestAWorkerTaskSharesTheWorkersToolCache(t *testing.T) {
 	// A worker given no tool cache mounts none.
 	none := &mountsSeen{Tasks: &executionfake.Tasks{}}
 	bare := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: none, Sessions: consoletest.NewAgent()})
-	if _, err := (execution.WorkerTasks{URL: bare.URL, Client: workertest.Client(t, ca, workertest.Installation)}).Ensure(ctx, taskWithFiles("script-3", miseConfig)); err != nil {
+	if _, err := executiontest.Ensure(ctx, execution.WorkerTasks{URL: bare.URL, Client: workertest.Client(t, ca, workertest.Installation)}, taskWithFiles("script-3", miseConfig)); err != nil {
 		t.Fatal(err)
 	}
 	for _, m := range none.of("script-3") {

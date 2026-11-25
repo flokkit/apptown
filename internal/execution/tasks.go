@@ -21,6 +21,10 @@ import (
 // the task; the caller records the returned identity first, then starts it.
 // A driver keeps no records of its own beyond what the backend holds.
 type TaskDriver interface {
+	// Admit waits for a slice for the holder's turn. A waiting answer gives
+	// the number ahead; callers ask again until admitted, before starting
+	// execution budgets or reserving work. A local backend admits immediately.
+	Admit(ctx context.Context, key string) (ahead int, admitted bool, err error)
 	Capabilities() Capabilities
 	Ensure(context.Context, TaskSpec) (TaskObservation, error)
 	Start(context.Context, TaskRef) error

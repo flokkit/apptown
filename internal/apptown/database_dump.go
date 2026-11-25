@@ -203,6 +203,19 @@ func (d databaseDump) DumpClientVersion(ctx context.Context) (string, error) {
 func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script, result string, out io.Writer) (err error) {
 	now := clock.Or(p.now)()
 	key := "apptown-dump-" + ids.New(now).String()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		_, admitted, err := p.tasks.Admit(ctx, key)
+		if err != nil {
+			return err
+		}
+		if admitted {
+			break
+		}
+	}
+	now = clock.Or(p.now)()
 	expires := now.Add(time.Hour)
 	if deadline, ok := ctx.Deadline(); ok {
 		expires = deadline
@@ -237,6 +250,20 @@ func (p *dumpPlace) run(ctx context.Context, image string, conn dumpConn, script
 		}
 	}()
 	obs, err := p.tasks.Ensure(ctx, spec)
+	for errors.Is(err, execution.ErrBusy) {
+		_, admitted, admissionErr := p.tasks.Admit(ctx, key)
+		if admissionErr != nil {
+			err = admissionErr
+			break
+		}
+		if admitted {
+			obs, err = p.tasks.Ensure(ctx, spec)
+		}
+		if ctx.Err() != nil {
+			err = ctx.Err()
+			break
+		}
+	}
 	if err != nil {
 		return err
 	}

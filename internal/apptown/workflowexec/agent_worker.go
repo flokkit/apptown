@@ -177,23 +177,35 @@ func privateLimits(l execution.Limits) execution.Limits {
 	return l
 }
 
-// prepareAgentOnWorker refuses a step the worker cannot run, then reads the
-// worker's agent image and builds the invocation's request. Nothing is asked
-// of the worker but its image, and only once the step's own requirements
-// are known to be met.
-func (a *Executor) prepareAgentOnWorker(ctx context.Context, c workerAgentCall) (workerAgentRequest, error) {
+// workerAgentPlan holds the step's requirements before it joins the worker's
+// admission line. Unreadable declarations must hold no slot.
+type workerAgentPlan struct {
+	cfg     agentConfig
+	knobs   agentKnobs
+	private *execution.PrivateDocker
+	needEnv []string
+}
+
+func (a *Executor) planAgentOnWorker(ctx context.Context, c workerAgentCall) (workerAgentPlan, error) {
+	cfg, k, err := a.admitOnWorker(ctx, c)
+	if err != nil {
+		return workerAgentPlan{}, err
+	}
+	private, needEnv, err := a.privateOnWorker(ctx, c, &cfg, k)
+	if err != nil {
+		return workerAgentPlan{}, err
+	}
+	return workerAgentPlan{cfg: cfg, knobs: k, private: private, needEnv: needEnv}, nil
+}
+
+// prepareAgentOnWorker reads the worker's image and builds the invocation's
+// request from its resolved requirements, with clocks set after admission.
+func (a *Executor) prepareAgentOnWorker(ctx context.Context, c workerAgentCall, plan workerAgentPlan) (workerAgentRequest, error) {
 	driver, err := a.worker.driver()
 	if err != nil {
 		return workerAgentRequest{}, err
 	}
-	cfg, k, err := a.admitOnWorker(ctx, c)
-	if err != nil {
-		return workerAgentRequest{}, err
-	}
-	private, needEnv, err := a.privateOnWorker(ctx, c, &cfg, k)
-	if err != nil {
-		return workerAgentRequest{}, err
-	}
+	cfg, k, private, needEnv := plan.cfg, plan.knobs, plan.private, plan.needEnv
 	if private != nil {
 		// What its private Docker rests on, as the worker measured it: the
 		// worker refuses the request if that has changed when it makes it.

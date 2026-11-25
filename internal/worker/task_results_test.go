@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"hash"
 	"io"
 	"os"
@@ -58,7 +59,7 @@ func TestALargeResultIsStreamedWhole(t *testing.T) {
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Expires: time.Now().Add(time.Hour)},
 		Results: []execution.Result{{Name: "dump", Path: "/apptown/state/dump.sql.gz", Max: 200 << 20},
 			{Name: "over", Path: "/apptown/state/over", Max: 4}}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +149,7 @@ func TestAResultWhoseCopyWouldFillTheStateFolderIsRefused(t *testing.T) {
 	spec := execution.TaskSpec{Key: "dump", Image: "fake", Argv: []string{"run"},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Expires: time.Now().Add(time.Hour)},
 		Results:   []execution.Result{{Name: "dump", Path: "/apptown/state/dump.sql.gz", Max: 1 << 20}}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}

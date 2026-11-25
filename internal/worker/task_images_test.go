@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"io"
 	"net/http"
 	"os"
@@ -79,7 +80,7 @@ func TestAWorkerServesAnImageByItsIndexAndBlobsAlone(t *testing.T) {
 	spec := execution.TaskSpec{Key: "build", Image: "fake", Argv: []string{"run"}, Admission: admission,
 		Source: &execution.TaskSource{Repository: hub, Commit: base},
 		Images: []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 20}, {Name: "api", Path: "/apptown/state/out/api", Max: 1 << 20}}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +183,7 @@ func TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused(t *testing.T) {
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Images:    []execution.ImageResult{{Name: "web", Path: "/apptown/state/out/web", Max: 1 << 20}}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,14 +227,14 @@ func TestATaskWithoutASourceLeavesResultsInItsOwnState(t *testing.T) {
 	ctx := context.Background()
 	admission := execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Expires: time.Now().Add(time.Hour)}
 
-	if _, err := driver.Ensure(ctx, execution.TaskSpec{Key: "in-work", Image: "fake", Argv: []string{"run"}, Admission: admission,
+	if _, err := executiontest.Ensure(ctx, driver, execution.TaskSpec{Key: "in-work", Image: "fake", Argv: []string{"run"}, Admission: admission,
 		Results: []execution.Result{{Name: "dump", Path: "/work/dump.sql.gz", Max: 1 << 20}}}); err == nil || tasks.Present("in-work") {
 		t.Fatalf("a result in /work of a task with no workspace: %v, created %v", err, tasks.Present("in-work"))
 	}
 
 	spec := execution.TaskSpec{Key: "dump", Image: "fake", Argv: []string{"run"}, Admission: admission,
 		Results: []execution.Result{{Name: "dump", Path: "/apptown/state/dump.sql.gz", Max: 1 << 20}}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -137,6 +137,11 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 	}
 	limits := privateLimits(runner.Profile.Limits)
 	limits.WallClock = releaseBuildWallClock
+	operation := fmt.Sprintf("step-%d-attempt-%d-release-build", step.ID, step.OwnedAttempt())
+	if err := admitTask(task.Context(), task, runner.Driver, operation, a.db, a.capacity, a.now); err != nil {
+		finishError(err.Error())
+		return nil, false
+	}
 	now := runner.now()
 	admitted := execution.Admission{Profile: runner.Profile.Name, Limits: limits, Network: runner.Profile.Network, Expires: now.Add(releaseBuildWallClock + taskGrace)}
 	private := &execution.PrivateDocker{Daemon: true, Profile: &profile}
@@ -144,7 +149,7 @@ func (a *shipping) buildRelease(task *workflow.Execution, in releaseTarget, fini
 		releaseRefused("the release build's private Docker: " + err.Error())
 		return nil, false
 	}
-	operation := fmt.Sprintf("step-%d-attempt-%d-release-build", step.ID, step.OwnedAttempt())
+
 	spec := execution.TaskSpec{Key: operation, Image: agentImage.Name, Argv: runOnce([]string{"sh", "-c", script}), Admission: admitted,
 		Source: &execution.TaskSource{Repository: in.repository, Commit: in.commit}, Files: files, Images: images, Private: private}
 	attempt, err := runner.Records.Reserve(ctx, tasks.Admission{Operation: operation, Invocation: tasks.ReleaseBuildInvocation,

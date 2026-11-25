@@ -200,6 +200,9 @@ func TestInterruptingAStepStopsItsTaskConfirmed(t *testing.T) {
 			onWorker(t, a, fake)
 			op := fmt.Sprintf("step-%d-attempt-%d-agent", stepID, step.Attempt)
 			spec := execution.TaskSpec{Key: op, Admission: execution.Admission{Profile: "worker", Network: execution.NetworkDefault}, Image: "fake", Argv: []string{"pi"}, Env: []string{"FAKE_BLOCK=1"}}
+			if _, admitted, err := a.tasks.Driver.Admit(t.Context(), op); err != nil || !admitted {
+				t.Fatalf("admitting the interrupt fixture: admitted=%v, err=%v", admitted, err)
+			}
 			obs, err := a.tasks.Driver.Ensure(context.Background(), spec)
 			if err == nil {
 				err = a.tasks.Driver.Start(context.Background(), execution.TaskRef{Key: op, ProviderID: obs.ID})

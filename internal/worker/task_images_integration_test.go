@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"io"
 	"log"
 	"maps"
@@ -70,7 +71,7 @@ exit 3
 			{Name: "big", Path: "/apptown/state/out/big", Max: 1024},
 			{Name: "absent", Path: "/apptown/state/out/absent", Max: 1024},
 		}}
-	created, err := driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +193,7 @@ docker buildx build --platform ` + platform + ` --provenance=false --sbom=false 
 `
 	spec := f.spec("release", script, &execution.PrivateDocker{Daemon: true})
 	spec.Images = []execution.ImageResult{{Name: "greeting", Path: "/apptown/state/out/greeting", Max: 512 << 20}}
-	created, err := f.driver.Ensure(ctx, spec)
+	created, err := executiontest.Ensure(ctx, f.driver, spec)
 	if err != nil {
 		t.Fatal(err)
 	}

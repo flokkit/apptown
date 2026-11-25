@@ -31,10 +31,12 @@ const (
 	// answers a wait at once, so AppTown would ask without pause. A worker
 	// of this build serves 5 alone: AppTown and its worker are stopped and
 	// upgraded together.
-	Protocol = 5
+	// Protocol 6 requires a capacity grant before each first write.
+	// AppTown and its worker are stopped and upgraded together.
+	Protocol = 6
 	// ProtocolMin and ProtocolMax are what this build's worker serves.
-	ProtocolMin = 5
-	ProtocolMax = 5
+	ProtocolMin = 6
+	ProtocolMax = 6
 )
 
 // VersionReport is GET /v1/version.
