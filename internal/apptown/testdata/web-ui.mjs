@@ -122,13 +122,15 @@ try {
   const facts = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
     const activity = await read('/projects/club-newsletter/overview');
+    // The overview's history holds changes and grouped upkeep rows; the seed facts are about changes.
+    const finished = activity.history.flatMap(e => e.change ? [e.change] : []);
     const deployments = await read('/projects/club-newsletter/deployments');
     const backups = await read('/projects/club-newsletter/deployments/main/backups');
     const releases = await read('/projects/club-newsletter/releases');
     const changes = await read('/projects/club-newsletter/changes');
     const integrations = await read('/integrations');
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
-    return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.filter(c => c.closedAs !== 'nothing-to-change' && c.type !== 'scheduled').length, quietChanges: activity.history.filter(c => c.closedAs === 'nothing-to-change').map(c => c.title), historyItems: activity.history.map(c => ({title: c.title, closedAs: c.closedAs})), backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
+    return { releases, registryConfigured: integrations.integrations.some(i => i.capability === 'container-registry'), idleSeconds: finished.find(c => c.title === "Replace the old ride archive")?.tookS, history: finished.filter(c => c.closedAs !== 'nothing-to-change' && c.type !== 'scheduled').length, quietChanges: finished.filter(c => c.closedAs === 'nothing-to-change').map(c => c.title), historyItems: finished.map(c => ({title: c.title, closedAs: c.closedAs})), backups: backups.backups, stoppedCheck: changes.some(c => c.title === "Fix the broken ride calendar link" && c.state === "abandoned"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
   if (process.env.DESIGN_PAGES?.split(',').includes('maintenance')) {
     const janitor = await page.evaluate(async () => {
