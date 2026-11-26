@@ -3738,6 +3738,9 @@
           "failed": {
             "type": "integer"
           },
+          "findingsLeft": {
+            "type": "integer"
+          },
           "nothingToChange": {
             "type": "integer"
           },
@@ -3760,6 +3763,7 @@
           "nothingToChange",
           "waiting",
           "failed",
+          "findingsLeft",
           "closed",
           "running"
         ],

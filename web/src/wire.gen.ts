@@ -1156,6 +1156,7 @@ export type JanitorCounts = {
   nothingToChange: number
   waiting: number
   failed: number
+  findingsLeft: number
   closed: number
   running: number
 }

@@ -22,7 +22,7 @@ func TestJanitorStatisticsPlaceEveryClosedOutcomeOnce(t *testing.T) {
 	ended := sql.NullTime{Time: time.Now(), Valid: true}
 	for outcome, want := range map[string]string{
 		ChangeShipped.String(): "shipped", "pass": "nothing",
-		"held": janitorFailed, "faulted": janitorFailed, "retried": janitorFailed, StatusFail.String(): janitorFailed, StatusError.String(): janitorFailed,
+		"held": janitorFailed, "faulted": janitorFailed, "retried": janitorFailed, StatusFail.String(): janitorFindingsLeft, StatusError.String(): janitorFailed,
 		"skipped": "closed", ChangeAbandoned.String(): "closed",
 	} {
 		got, _, err := janitorColumn(workflowsql.JanitorAttemptStatsRow{Outcome: outcome, EndedAt: ended, Reason: "step: why"}, nil)
@@ -222,5 +222,33 @@ func TestJanitorStatisticsCountThePeriodForVisibleProjects(t *testing.T) {
 	s.authority = allowProject(pid)
 	if _, err := s.JanitorStatistics(t.Context(), 7); err == nil {
 		t.Fatal("a failed read became empty statistics")
+	}
+}
+
+// A security run that closes with nothing to change while its scan still has
+// findings worked as intended: it counts as Findings left, not Failed, and is
+// not a reason for not shipping. A scan that could not run stays Failed.
+func TestJanitorStatisticsCountFindingsLeftApartFromFailures(t *testing.T) {
+	for _, state := range []StepState{StatusFail, StatusError} {
+		t.Run(state.String(), func(t *testing.T) {
+			s, ch, _, _, _ := automatedFixture(t)
+			run := admitAutomatedRun(t, s, ch, "scan")
+			settleScanTestSteps(t, s, run, state)
+			if err := s.endNothingToChange(t.Context(), run); err != nil {
+				t.Fatal(err)
+			}
+			week := statisticsFor(t, s, t.Context(), 7)
+			c := kindCounts(t, week, "security")
+			want := janitorCounts{Runs: 1, FindingsLeft: 1}
+			if state == StatusError {
+				want = janitorCounts{Runs: 1, Failed: 1}
+			}
+			if c != want || len(week.Projects) != 1 || week.Projects[0].Counts != want {
+				t.Fatalf("%s counted as %+v, projects %+v; want %+v", state, c, week.Projects, want)
+			}
+			if grouped := len(week.Reasons) != 0; grouped != (state == StatusError) {
+				t.Fatalf("%s reasons: %+v", state, week.Reasons)
+			}
+		})
 	}
 }
