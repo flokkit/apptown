@@ -178,7 +178,7 @@ LABEL apptown.pi.version=${PI_VERSION}
 # settings, so session start never touches the network. The label is how
 # apptownd learns the pinned version (and receipts record it).
 # renovate: datasource=npm depName=pi-subagents versioning=semver
-ARG PI_SUBAGENTS_VERSION=0.61.0
+ARG PI_SUBAGENTS_VERSION=0.90.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
 # UPSTREAM PATCH (pi-subagents 0.61.0, complaint #7): child model verification
 # compares the alias we pin (claude-haiku-4-5) against the dated id the
