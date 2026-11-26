@@ -257,7 +257,10 @@ judgement as the workflow, which checks the final work again.
 **Maintenance › Statistics** counts the Janitor's runs over the last 7 or 30
 days, by kind (packs, dependency and image updates, security fixes) and by
 project. Each run is in one column. A finished run counts as Shipped, Nothing
-to change, Failed or Closed (skipped, replaced or closed by a person). A run
+to change, Failed, Findings left or Closed (skipped, replaced or closed by a
+person). Findings left means the run had nothing to change and its scan worked
+but still found problems the Janitor cannot fix yet, such as no newer image or
+no fixed version; Failed means a step could not finish or a scan could not run. A run
 still open counts as Waiting on a person when Needs you shows its change for
 a decision, otherwise as Running. **Why not shipped** groups waiting and
 failed runs by the step that stopped them, with the latest reason and links

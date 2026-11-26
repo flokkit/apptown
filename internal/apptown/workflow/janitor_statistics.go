@@ -27,6 +27,7 @@ type janitorCounts struct {
 	NothingToChange int `json:"nothingToChange"`
 	Waiting         int `json:"waiting"`
 	Failed          int `json:"failed"`
+	FindingsLeft    int `json:"findingsLeft"`
 	Closed          int `json:"closed"`
 	Running         int `json:"running"`
 }
@@ -86,6 +87,7 @@ type janitorStatistics struct {
 const (
 	janitorWaiting          = "waiting"
 	janitorFailed           = "failed"
+	janitorFindingsLeft     = "findings"
 	janitorWaitsAcceptance  = "Waiting for acceptance"
 	janitorReasonsShown     = 5
 	janitorExamplesPerGroup = 3
@@ -227,6 +229,8 @@ func (c *janitorCounts) add(column string) {
 		c.Waiting++
 	case janitorFailed:
 		c.Failed++
+	case janitorFindingsLeft:
+		c.FindingsLeft++
 	case "closed":
 		c.Closed++
 	default:
@@ -255,8 +259,12 @@ func janitorColumn(a workflowsql.JanitorAttemptStatsRow, recorded []QueueStatus)
 		return "shipped", "", nil
 	case "pass":
 		return "nothing", "", nil
-	case "held", "faulted", "retried", "fail", "error":
+	case "held", "faulted", "retried", "error":
 		return janitorFailed, a.Reason, nil
+	case "fail":
+		// The run closed with nothing to change and its scan found what the
+		// Janitor cannot fix yet: the scan worked, so this is not a failure.
+		return janitorFindingsLeft, "", nil
 	case "skipped", "abandoned":
 		return "closed", "", nil
 	}

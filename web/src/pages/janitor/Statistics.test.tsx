@@ -11,7 +11,7 @@ import JanitorStatisticsPage, { fmtSpan } from './Statistics'
 import type { JanitorCounts, JanitorStatistics } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-const zero: JanitorCounts = { runs: 0, shipped: 0, nothingToChange: 0, waiting: 0, failed: 0, closed: 0, running: 0 }
+const zero: JanitorCounts = { runs: 0, shipped: 0, nothingToChange: 0, waiting: 0, failed: 0, findingsLeft: 0, closed: 0, running: 0 }
 const day = 86400
 function fixture(): JanitorStatistics {
   return {
@@ -19,7 +19,7 @@ function fixture(): JanitorStatistics {
     kinds: [
       { kind: 'packs', counts: { ...zero, runs: 10, shipped: 8, failed: 2 } },
       { kind: 'updates', counts: { ...zero, runs: 4, shipped: 1, waiting: 1, nothingToChange: 2 } },
-      { kind: 'security', counts: { ...zero, runs: 3, failed: 3 } },
+      { kind: 'security', counts: { ...zero, runs: 7, failed: 3, findingsLeft: 4 } },
     ],
     reasons: [
       { kind: 'packs', column: 'failed', step: 'tests', count: 2, latest: 'tests: the container could not be cleaned up', examples: [
@@ -31,7 +31,7 @@ function fixture(): JanitorStatistics {
     patch: { patched: 3, median: 2 * day, slowest: 5 * day, open: 1, oldestOpen: 9 * day },
     projects: [
       { projectId: 'p1', slug: 'shop', name: 'Shop', counts: { ...zero, runs: 12, shipped: 8, failed: 4 }, patch: { patched: 3, median: 2 * day, slowest: 5 * day, open: 0, oldestOpen: 0 } },
-      { projectId: 'p2', slug: 'garden', name: 'Garden', counts: { ...zero, runs: 5, shipped: 1, waiting: 1, nothingToChange: 2, failed: 1 }, patch: { patched: 0, median: 0, slowest: 0, open: 1, oldestOpen: 9 * day } },
+      { projectId: 'p2', slug: 'garden', name: 'Garden', counts: { ...zero, runs: 8, shipped: 1, waiting: 1, nothingToChange: 2, failed: 1, findingsLeft: 3 }, patch: { patched: 0, median: 0, slowest: 0, open: 1, oldestOpen: 9 * day } },
     ],
   }
 }
@@ -54,9 +54,9 @@ it('shows counts by kind and project, reasons with their examples, and the patch
   const el = await mount(async url => { urls.push(url); return new Response(JSON.stringify(fixture())) })
   expect(urls).toEqual(['/api/v1/janitor/statistics?days=7'])
   expect(rows(el, 'Runs by kind')).toEqual([
-    ['Packs', '10', '8', '0', '0', '2', '0', '0'],
-    ['Dependency and image updates', '4', '1', '2', '1', '0', '0', '0'],
-    ['Security fixes', '3', '0', '0', '0', '3', '0', '0'],
+    ['Packs', '10', '8', '0', '0', '2', '0', '0', '0'],
+    ['Dependency and image updates', '4', '1', '2', '1', '0', '0', '0', '0'],
+    ['Security fixes', '7', '0', '0', '0', '3', '4', '0', '0'],
   ])
   const examples = [...table(el, 'Why not shipped').querySelectorAll('a')].map(a => a.getAttribute('href'))
   expect(examples).toEqual(['/changes/kept-change', '/changes/decide-me'])
@@ -68,6 +68,8 @@ it('shows counts by kind and project, reasons with their examples, and the patch
   const projects = table(el, 'Projects')
   expect([...projects.querySelectorAll('tbody a')].map(a => a.getAttribute('href'))).toEqual(['/projects/shop/settings/general#janitor', '/projects/garden/settings/general#janitor'])
   expect(rows(el, 'Projects')[1].slice(-4)).toEqual(['0', '—', '—', '1'])
+  expect(rows(el, 'Projects')[1].slice(1, 9)).toEqual(['8', '1', '2', '1', '1', '3', '0', '0'])
+  expect([...table(el, 'Runs by kind').querySelectorAll('th')].map(h => h.textContent)).toContain('Findings left')
 })
 
 it('reads the 30-day period from the address', async () => {

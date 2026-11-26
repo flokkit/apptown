@@ -67,9 +67,18 @@ func TestRunningScansObserveEachDeploymentAndPullEachDigestOnce(t *testing.T) {
 		},
 	}}
 	subjects, _, _ := steps.imageSubjects(t.Context(), &workflow.Run{ProjectID: f.ProjectID}, "running")
-	observations, status, _ := steps.observeImages(t.Context(), &workflow.Run{ID: idstest.N(5), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(6), Config: []byte(`{"on":"running"}`)}, scanConfig{On: "running"}, subjects, nil)
+	observations, status, reason := steps.observeImages(t.Context(), &workflow.Run{ID: idstest.N(5), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(6), Config: []byte(`{"on":"running"}`)}, scanConfig{On: "running"}, subjects, nil)
 	if pulls != 2 || scans != 4 || len(observations) != 7 || status != workflow.StatusError {
 		t.Fatalf("pulls=%d scans=%d observations=%+v status=%s", pulls, scans, observations, status)
+	}
+	// The step's reason names the subject that decided it: the error, though a
+	// finding came first.
+	if reason != "unknown: the running bundle uses local image IDs" {
+		t.Fatalf("mixed reason: %q", reason)
+	}
+	_, status, reason = steps.observeImages(t.Context(), &workflow.Run{ID: idstest.N(7), ProjectID: f.ProjectID}, &workflow.Step{ID: idstest.N(8), Config: []byte(`{"on":"running"}`)}, scanConfig{On: "running"}, subjects[:2], nil)
+	if status != workflow.StatusFail || reason != "web: the running image has findings" {
+		t.Fatalf("findings-only: %s %q", status, reason)
 	}
 	for _, o := range observations {
 		if o.Subject.Part == "need/postgres" {

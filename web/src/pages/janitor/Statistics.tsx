@@ -23,7 +23,7 @@ export function fmtSpan(seconds: number): string {
 // Kind and project rows share these columns, so the two tables count alike.
 function countColumns<T>(counts: (row: T) => JanitorCounts): ListColumn<T>[] {
   const n = (key: keyof JanitorCounts, label: string): ListColumn<T> => ({ key, label, kind: 'number', render: row => counts(row)[key] })
-  return [n('runs', 'Runs'), n('shipped', 'Shipped'), n('nothingToChange', 'Nothing to change'), n('waiting', 'Waiting on a person'), n('failed', 'Failed'), n('closed', 'Closed'), n('running', 'Running')]
+  return [n('runs', 'Runs'), n('shipped', 'Shipped'), n('nothingToChange', 'Nothing to change'), n('waiting', 'Waiting on a person'), n('failed', 'Failed'), n('findingsLeft', 'Findings left'), n('closed', 'Closed'), n('running', 'Running')]
 }
 
 function patchColumns<T>(patch: (row: T) => JanitorPatchTimes): ListColumn<T>[] {
@@ -73,7 +73,9 @@ export default function JanitorStatisticsPage() {
     </Tabs>
     <ReadStatus q={q} what="janitor statistics" /><StaleNote q={q} />
     {data && <>
-      <Section title="By kind"><ListTable label="Runs by kind" columns={kinds} rows={data.kinds} rowKey={k => k.kind} /></Section>
+      <Section title="By kind" action={<HelpButton about="Findings left" guide="janitor#statistics">
+        <p>Findings left: the scan worked, but found problems the Janitor cannot fix yet, such as no newer image or no fixed version.</p>
+      </HelpButton>}><ListTable label="Runs by kind" columns={kinds} rows={data.kinds} rowKey={k => k.kind} /></Section>
       <Section title="Why not shipped">{data.reasons.length
         ? <ListTable label="Why not shipped" columns={reasons} rows={data.reasons} rowKey={reasonKey} />
         : <p>None in the last {days} days.</p>}</Section>

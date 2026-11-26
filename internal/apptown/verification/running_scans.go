@@ -189,7 +189,28 @@ func (a *ScanSteps) observeImages(ctx context.Context, run *workflow.Run, step *
 			add(subject, ans.scanner, ans.version, ans.raw, ans.verdict, ans.findings, ans.reason)
 		}
 	}
-	return observations, status, "images observed"
+	return observations, status, imagesReason(observations, status)
+}
+
+// imagesReason names the first subject whose verdict decided the step, so a
+// failing scan says which part and why rather than only that it ran.
+func imagesReason(observations []conformance.ScanObservation, status workflow.StepState) string {
+	if status != workflow.StatusFail && status != workflow.StatusError {
+		return "images observed"
+	}
+	for _, o := range observations {
+		if o.Verdict != status.String() {
+			continue
+		}
+		switch {
+		case o.Subject.Part != "":
+			return o.Subject.Part + ": " + o.Reason
+		case o.Subject.Deployment != "":
+			return o.Subject.Deployment + ": " + o.Reason
+		}
+		return o.Reason
+	}
+	return "images observed"
 }
 
 // Both scan points observe exact digests through the same executor and receipts.
