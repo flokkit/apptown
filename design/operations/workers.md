@@ -810,6 +810,9 @@ kept): the one file in the run's folder whose header names the session, or
 "unavailable" with the reason. Each attempt is imported once. The start log
 says how many: `startup repair: agent histories read from folders=… recorded
 unavailable=… failed=…`. Nothing reads a folder's file after that.
+An agent step the restart interrupted then continues its session only when
+that session's history was kept; one lost mid-invocation kept none, so it
+starts a new session on the current work with the step's own prompt.
 
 **Refused work.** When the branch owner's rules refuse a candidate, it is
 kept under `refs/apptown/refused/step-<id>-a<attempt>` in the project's

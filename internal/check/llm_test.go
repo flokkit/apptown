@@ -28,7 +28,9 @@ func TestAFailureNeedsACitation(t *testing.T) {
 
 // Supplied verdicts cannot promote project-authored assertions to evidence.
 func TestJudgementRequiresEvidenceBeyondProjectClaims(t *testing.T) {
-	for _, citation := range []string{"PROJECT-NOTES.md:2", "AGENTS.md:7", "./PROJECT-NOTES.md:2 and docs/AGENTS.md:3"} {
+	for _, citation := range []string{"PROJECT-NOTES.md:2", "AGENTS.md:7", "./PROJECT-NOTES.md:2 and docs/AGENTS.md:3",
+		// Image tags and digests beside a claim are not files.
+		"PROJECT-NOTES.md:4 (records the image digest sha256:1910abcdef)", "AGENTS.md:7 (image python:3.12.16-slim)", "PROJECT-NOTES.md:4 (python:3, sha256:1910)"} {
 		for _, verdict := range []string{"pass", "fail", "unclear"} {
 			it := check.Item{}
 			got := check.Judgement(it, check.Verdict{Verdict: verdict, Evidence: citation}, true, check.Gate)
@@ -37,7 +39,9 @@ func TestJudgementRequiresEvidenceBeyondProjectClaims(t *testing.T) {
 			}
 		}
 	}
-	for _, tc := range []struct{ use, evidence string }{{"", "PROJECT-NOTES.md:2 and app.go:3"}, {"wording", "PROJECT-NOTES.md:2"}} {
+	for _, tc := range []struct{ use, evidence string }{{"", "PROJECT-NOTES.md:2 and app.go:3"}, {"wording", "PROJECT-NOTES.md:2"},
+		// A digest-only image move cites the changed Dockerfile line (demo, 26 Nov).
+		{"", "/src/Dockerfile:1; /src/PROJECT-NOTES.md:4"}, {"", "PROJECT-NOTES.md:4 and Makefile:12-14."}} {
 		it := check.Item{Declared: check.Declared{Declaration: check.Declaration{EvidenceUse: tc.use}}}
 		if got := check.Judgement(it, check.Verdict{Verdict: "pass", Evidence: tc.evidence}, true, check.Gate); got.Outcome != check.Conforms {
 			t.Fatalf("%+v: %+v", tc, got)

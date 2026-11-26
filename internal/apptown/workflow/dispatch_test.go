@@ -230,8 +230,10 @@ func TestDispatchTransitionsRequireWritesAndReceipts(t *testing.T) {
 			wantEventCount(t, owner.db, count, ofKind("step.resumed"))
 			wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "n", "9007199254740993", "extra.keep", "true")
 			wantStepState(t, owner.db, id, after)
-			if failure == "none" {
-				wantJSONField(t, "config", storedStep(t, owner.db, id).Config, "retryMode", "continue")
+			if _, continues := jsonField(storedStep(t, owner.db, id).Config, "retryMode"); continues {
+				// No attempt of this step started a session, so there is no
+				// history to continue.
+				t.Fatalf("a restart with no session to continue set retryMode: %s", storedStep(t, owner.db, id).Config)
 			}
 		})
 	}

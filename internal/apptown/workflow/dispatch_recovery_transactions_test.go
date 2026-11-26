@@ -195,7 +195,9 @@ func TestWorkflowRecoveryRecordsAgentContinuationBeforeRunning(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				if prepared.Status != StatusPending || !jsonMatches(t, prepared.Config, "retryMode=continue", "model=pinned") || prepared.FinishedAt.Valid {
+				// No attempt started a session, so there is none to continue.
+				_, continues := jsonField(prepared.Config, "retryMode")
+				if prepared.Status != StatusPending || continues || !jsonMatches(t, prepared.Config, "model=pinned") || prepared.FinishedAt.Valid {
 					t.Errorf("resume preparation: %s %s finished=%v", prepared.Status, prepared.Config, prepared.FinishedAt.Valid)
 				}
 				if n := eventCount(t, db, id, "step.resumed"); n != 1 {

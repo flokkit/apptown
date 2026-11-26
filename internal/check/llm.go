@@ -84,8 +84,20 @@ func Judgement(it Item, v Verdict, answered bool, mode Mode) Evaluation {
 // other evaluators can share the boundary.
 var citationPath = regexp.MustCompile(`[A-Za-z0-9_./-]+\.[A-Za-z][A-Za-z0-9]*`)
 
+// An extensionless file is read only as a whole citation token with a line,
+// and only when its name starts with a capital letter (Dockerfile, Makefile,
+// Gemfile): image references are lowercase and digests are sha256:<hex>, so
+// python:3 or sha256:1910 in the evidence is never taken for a file.
+var extensionlessCitation = regexp.MustCompile(`^/?(?:[A-Za-z0-9_.-]+/)*[A-Z][A-Za-z0-9_-]*:[0-9]+(?:-[0-9]+)?$`)
+
 func claimsOnly(evidence string) bool {
 	paths := citationPath.FindAllString(evidence, -1)
+	for _, token := range strings.FieldsFunc(evidence, func(r rune) bool { return strings.ContainsRune(" \t\n\r;,()[]\"'", r) }) {
+		token = strings.TrimRight(token, ".:")
+		if extensionlessCitation.MatchString(token) {
+			paths = append(paths, token[:strings.LastIndexByte(token, ':')])
+		}
+	}
 	if len(paths) == 0 {
 		return false
 	}

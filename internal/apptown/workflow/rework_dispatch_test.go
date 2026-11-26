@@ -200,7 +200,14 @@ func TestWorkflowReworkRecoversCommittedIntent(t *testing.T) {
 								t.Error(err)
 								return
 							}
-							if current.Status != StatusPending || config.RetryMode != "continue" {
+							// A rework still pending continues its session. A
+							// claimed one the restart lost kept no history (none
+							// was recorded here), so it starts a new session.
+							want := "continue"
+							if claimed {
+								want = ""
+							}
+							if current.Status != StatusPending || config.RetryMode != want {
 								t.Errorf("bad resume: %+v", current)
 								return
 							}
