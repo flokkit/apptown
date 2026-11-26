@@ -444,18 +444,21 @@ func (q *Queries) DeleteProjectSteps(ctx context.Context, projectID ids.ID) erro
 
 const dispatchResume = `-- name: DispatchResume :execrows
 UPDATE steps SET status='pending', started_at=NULL, finished_at=NULL, evidence_json='{}',
-config_json=CASE WHEN type='agent/pi' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true) ELSE config_json END
-WHERE steps.id=$1 AND steps.run_id=$2 AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
+config_json=CASE WHEN type<>'agent/pi' THEN config_json
+  WHEN $1::boolean THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
+  ELSE config_json-'retryMode'-'continueSession' END
+WHERE steps.id=$2 AND steps.run_id=$3 AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage)
 `
 
 type DispatchResumeParams struct {
-	ID    ids.ID
-	RunID ids.ID
+	ContinueSession bool
+	ID              ids.ID
+	RunID           ids.ID
 }
 
 func (q *Queries) DispatchResume(ctx context.Context, arg DispatchResumeParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, dispatchResume, arg.ID, arg.RunID)
+	result, err := q.db.ExecContext(ctx, dispatchResume, arg.ContinueSession, arg.ID, arg.RunID)
 	if err != nil {
 		return 0, err
 	}

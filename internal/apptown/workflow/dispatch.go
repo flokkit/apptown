@@ -157,9 +157,12 @@ func entryStep(stage *schema.Stage, step *Step) bool {
 	return false
 }
 
-// Prepare the restart retry before invoking its runner. Agents continue their
-// saved session; clearing the orphan verdict and recording the resume are one
-// write. If this fails, no external work starts.
+// Prepare the restart retry before invoking its runner. An agent continues
+// its session when that session's history was kept (keptSessionIn); an
+// attempt lost mid-invocation kept none, so it starts a new session on the
+// current work instead of a continuation the executor must refuse. Clearing
+// the orphan verdict and recording the resume are one write. If this fails,
+// no external work starts.
 func (w dispatchPlans) Resume(ctx context.Context, runID, stepID ids.ID) (bool, error) {
 	tx, err := w.db.Begin(ctx)
 	if err != nil {
@@ -179,13 +182,20 @@ func (w dispatchPlans) Resume(ctx context.Context, runID, stepID ids.ID) (bool, 
 	if _, err := current.Status.transition(moveStepReset, StatusPending); err != nil {
 		return false, err
 	}
-	count, err := workflowsql.New(tx.SQL()).DispatchResume(ctx, workflowsql.DispatchResumeParams{ID: stepID, RunID: runID})
+	reason := "AppTown restarted; the step resumes"
+	kept := false
+	if current.Type == "agent/pi" {
+		if kept, err = keptSessionIn(ctx, tx, run, current); err != nil {
+			return false, err
+		}
+		reason = "AppTown restarted; the agent's session kept no history, so it starts a new session on the current work"
+		if kept {
+			reason = "AppTown restarted; the agent continues its session"
+		}
+	}
+	count, err := workflowsql.New(tx.SQL()).DispatchResume(ctx, workflowsql.DispatchResumeParams{ID: stepID, RunID: runID, ContinueSession: kept})
 	if err := requireAttemptWrite(count, err); err != nil {
 		return false, err
-	}
-	reason := "AppTown restarted; the step resumes"
-	if current.Type == "agent/pi" {
-		reason = "AppTown restarted; the agent continues its session"
 	}
 	if err := recordReceiptIn(ctx, tx, runID, "step.resumed", struct {
 		Step   ids.ID `json:"step"`

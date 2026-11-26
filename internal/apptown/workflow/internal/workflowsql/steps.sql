@@ -71,7 +71,9 @@ DELETE FROM steps WHERE run_id IN (SELECT id FROM runs WHERE project_id=$1);
 
 -- name: DispatchResume :execrows
 UPDATE steps SET status='pending', started_at=NULL, finished_at=NULL, evidence_json='{}',
-config_json=CASE WHEN type='agent/pi' THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true) ELSE config_json END
+config_json=CASE WHEN type<>'agent/pi' THEN config_json
+  WHEN sqlc.arg(continue_session)::boolean THEN jsonb_set(config_json, '{retryMode}', '"continue"'::jsonb, true)
+  ELSE config_json-'retryMode'-'continueSession' END
 WHERE steps.id=sqlc.arg(id) AND steps.run_id=sqlc.arg(run_id) AND status='error' AND evidence_json->>'reason'='orphaned by apptownd restart'
 AND EXISTS (SELECT 1 FROM runs r WHERE r.id=steps.run_id AND r.status='running' AND r.current_stage=steps.stage);
 

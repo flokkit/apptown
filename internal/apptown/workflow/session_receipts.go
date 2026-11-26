@@ -66,3 +66,19 @@ type continuationConfig struct {
 	RetryMode       string `json:"retryMode"`
 	ContinueSession string `json:"continueSession"`
 }
+
+// keptSessionIn says whether the session a continuing attempt of step would
+// resume has kept history: the receipt the next attempt's continuation reads
+// (ContinuedTranscriptIn, as the executor's earlierHistory does) names a
+// digest. Whether those bytes are still readable is the executor's check.
+func keptSessionIn(ctx context.Context, tx *database.Tx, run *Run, step *Step) (bool, error) {
+	session, err := previousAgentSessionIn(ctx, tx, step)
+	if err != nil || session == "" {
+		return false, err
+	}
+	earlier, err := ContinuedTranscriptIn(ctx, tx, RunRef{ID: run.ID, ProjectID: run.ProjectID}, step.ID, step.Attempt+1, session)
+	if err != nil {
+		return false, err
+	}
+	return earlier.Digest != "", nil
+}

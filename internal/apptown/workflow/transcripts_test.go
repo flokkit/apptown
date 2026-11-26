@@ -521,3 +521,47 @@ func TestReviewS5SweepPreservesAConcurrentlyRenewedCapture(t *testing.T) {
 	t.Logf("sweep removed %d captures", removed)
 	f.readsBytes(t, claim.Attempt, raw)
 }
+
+// An agent attempt interrupted by a restart continues its session only when
+// that session's history was kept. One lost mid-invocation kept none (the
+// startup backfill records it unavailable, or nothing at all): the restart
+// gives it a new session on the current work, never a continuation the
+// executor must refuse (demo, 26 Nov: every deploy restarts AppTown).
+func TestARestartContinuesOnlyASessionWhoseHistoryWasKept(t *testing.T) {
+	t.Parallel()
+	for _, history := range []string{"kept", "recorded unavailable", "not recorded"} {
+		t.Run(history, func(t *testing.T) {
+			t.Parallel()
+			f := transcriptFixture(t)
+			claim, session := f.start(t)
+			switch history {
+			case "kept":
+				f.keep(t, claim, session, 1, transcriptOf(session, "first"))
+			case "recorded unavailable":
+				if err := f.record(claim, session, 1, "", "it ran before transcripts were kept, and its folder's history could not be: no transcript names session"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := database.Transact(context.Background(), f.db, func(tx *database.Tx) (InterruptedSteps, error) {
+				return InterruptStepsIn(context.Background(), tx, nil, nil, time.Now())
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if ok, err := newDispatchPlans(f.db, []string{"agent/pi"}).Resume(context.Background(), f.run.ID, f.step); err != nil || !ok {
+				t.Fatalf("resume: %v %v", ok, err)
+			}
+			config := storedStep(t, f.db, f.step).Config
+			_, continues := jsonField(config, "retryMode")
+			next, nextSession := f.start(t)
+			kept := history == "kept"
+			reason := "AppTown restarted; the agent's session kept no history, so it starts a new session on the current work"
+			if kept {
+				reason = "AppTown restarted; the agent continues its session"
+			}
+			if continues != kept || (nextSession == session) != kept || next.Attempt != claim.Attempt+1 {
+				t.Fatalf("after the restart: config %s, attempt %d session %q (the lost one was %q)", config, next.Attempt, nextSession, session)
+			}
+			wantEventCount(t, f.db, 1, kindWith("step.resumed", "reason", reason))
+		})
+	}
+}
