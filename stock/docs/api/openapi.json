@@ -6932,6 +6932,14 @@
         ],
         "type": "object"
       },
+      "RunScopeRequest": {
+        "properties": {
+          "commit": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RunSnapshot": {
         "properties": {
           "artifacts": {
@@ -7310,6 +7318,33 @@
         },
         "required": [
           "on"
+        ],
+        "type": "object"
+      },
+      "ScopeResult": {
+        "properties": {
+          "brief": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "facts": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StepState"
+          }
+        },
+        "required": [
+          "commit",
+          "status",
+          "brief",
+          "reason",
+          "facts"
         ],
         "type": "object"
       },
@@ -20382,6 +20417,60 @@
           "tier": "always"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/runs/{id}/scope": {
+      "post": {
+        "operationId": "postRunsIdScope",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunScopeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeResult"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "runs"
+        ],
+        "x-apptown-access": {
+          "capability": "change:run-checks",
+          "kind": "capability",
+          "scope": "run"
+        },
+        "x-apptown-feature": {
+          "area": "changes",
+          "tier": "always"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/runs/{id}/steps/{step}/attempts/{attempt}/refused": {

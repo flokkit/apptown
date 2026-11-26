@@ -62,6 +62,8 @@ var consoleCarveOuts = []consoleCarveOut{
 		"start landing this change — only after explicit confirmation", "change"},
 	{regexp.MustCompile(`^/api/v1/console/[0-9a-f-]{36}/recheck$`), "apptown recheck",
 		"after fixing what a landing gate rejected, check the landing again: it catches up with main and reruns the failed gates, or every gate if the change moved (never approves)", "change"},
+	{regexp.MustCompile(`^/api/v1/runs/[0-9a-f-]{36}/scope$`), "apptown janitor scope",
+		"check the step’s diff against its run settings", "change"},
 	{regexp.MustCompile(`^/api/v1/changes/[0-9a-f-]{36}/check$`), "apptown check -c <change>",
 		"run a change's declared checks against its committed tree", ""},
 	{regexp.MustCompile(`^/api/v1/complaints$`), "apptown complain",

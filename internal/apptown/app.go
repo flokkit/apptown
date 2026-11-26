@@ -91,10 +91,13 @@ type App struct {
 	Backups *instancebackup.Service
 	// life is the App's lifetime: background work runs under it, and
 	// ShutdownBackground ends it.
-	life             context.Context
-	endLife          context.CancelFunc
-	preparation      *workcommands.Preparation
-	agents           *workflowexec.Executor
+	life         context.Context
+	endLife      context.CancelFunc
+	preparation  *workcommands.Preparation
+	agents       *workflowexec.Executor
+	scopeChecker interface {
+		Scope(context.Context, ids.ID, string) (workflowexec.ScopeResult, error)
+	}
 	workshop         *agentenv.Workshop
 	consoleAdmission *conversation.Admission
 	changeConsole    *changeconsole.Service

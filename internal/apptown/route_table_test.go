@@ -39,6 +39,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/workflowexec"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/gate"
 	"github.com/flokkit/apptown/internal/ids"
@@ -435,6 +436,7 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"POST /api/v1/runs/{id}/scope":               {request: httpapi.RunScopeRequest{}, status: 200, response: workflowexec.ScopeResult{}},
 	"GET /api/v1/projects/{slug}/scans":          {status: 200, response: httpapi.ProjectScanView{}},
 	"GET /api/v1/image-lines":                    {query: []string{"ref", "scope"}, status: 200, response: imagelines.Reading{}},
 	"GET /api/v1/runs/{id}/major-moves":          {query: []string{"purl"}, status: 200, response: []verification.MajorMove{}},

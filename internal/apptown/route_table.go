@@ -46,6 +46,7 @@ func appRoutes(a *App) []routeSpec {
 	var health httpapi.Health
 	var imageLines httpapi.ImageLines
 	var majorMoves httpapi.MajorMoves
+	var runScope httpapi.RunScope
 	var configuration httpapi.Configuration
 	var secrets httpapi.Secrets
 	var authorization httpapi.Authorization
@@ -232,6 +233,7 @@ func appRoutes(a *App) []routeSpec {
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
 		secrets = httpapi.NewSecrets(a.Secrets, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		imageLines = httpapi.ImageLines{Resolver: a.imageLines}
+		runScope = httpapi.RunScope{Scope: a.scopeChecker}
 		majorMoves = httpapi.MajorMoves{Majors: a.majors, Work: a.Work}
 		configuration = httpapi.NewConfiguration(a.Dependencies, a.imageLines)
 		health = httpapi.NewHealth(a.DB.Pool().PingContext)
@@ -500,6 +502,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/runs/{id}/diff", repositoryViews.RunDiff, access.CapRunRead, "run").inArea("changes"),
 		requireRoute("GET /api/v1/runs/{id}/steps/{step}/attempts/{attempt}/refused", refusedStepWork.Bundle, access.CapRunRead, "run").inArea("changes"),
 		requireRoute("GET /api/v1/runs/{id}/findings", findings.RunFindings, access.CapEvidenceRead, "run").inArea("changes"),
+		requireRoute("POST /api/v1/runs/{id}/scope", runScope.Check, access.CapChangeRunChecks, "run").inArea("changes"),
 		requireRoute("GET /api/v1/runs/{id}/major-moves", majorMoves.Decide, access.CapRunRead, "run").inArea("changes"),
 		requireRoute("POST /api/v1/projects/{slug}/dispositions", conformance.CreateDisposition, access.CapExceptionApprove, "project-slug").inArea("record"),
 		requireRoute("GET /api/v1/projects/{slug}/dispositions", conformance.ListDispositions, access.CapConformanceRead, "project-slug").inArea("record"),

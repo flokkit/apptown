@@ -97,7 +97,7 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 		{"none named: the change's latest", Selection{}, folder, inFolder},
 		{"a step's work in progress on the change's scratch ref", Selection{Commit: scratch}, hub, scratch},
 	} {
-		repo, sha, inScratch, err := changes.checkedCommit(ctx, ch, tc.sel)
+		repo, sha, inScratch, err := CheckedCommit(ctx, changes.db, changes.dataDir, ch, tc.sel)
 		if err != nil || repo != tc.repo || sha != tc.sha || inScratch != (sha == scratch) {
 			t.Fatalf("%s: read %s at %s (scratch %v, %v), want %s at %s", tc.name, sha, repo, inScratch, err, tc.sha, tc.repo)
 		}
@@ -148,6 +148,6 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 
 // Test setup delegates to the operations used by production.
 func (v *Changes) resolveCheckedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, err error) {
-	repo, sha, _, err = v.checkedCommit(ctx, ch, sel)
+	repo, sha, _, err = CheckedCommit(ctx, v.db, v.dataDir, ch, sel)
 	return repo, sha, err
 }
