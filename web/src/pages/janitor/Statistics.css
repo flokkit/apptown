@@ -1,11 +1,11 @@
 @layer pages {
-/* The count tables put up to twelve short columns side by side, each sized
-   to its one-line head. Their heads need about 68rem in one line, more than
-   a 1440px desktop has at large text; narrower than that, a head wraps
+/* The count tables put up to thirteen short columns side by side, each sized
+   to its one-line head. Their heads need about 76rem in one line, more than
+   a 1440px desktop has; narrower than that, a head wraps
    between its words ("Waiting / on a / person"), which shrinks the width
    the tables need. Values stay on one line. */
 .janitor-statistics { container-type: inline-size; }
-@container (width < 72rem) {
+@container (width < 80rem) {
   .janitor-statistics .record-table th.record-fit { white-space: normal; overflow-wrap: break-word; }
 }
 }
