@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -162,7 +163,10 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 		t.Fatal(err)
 	}
 	saved := ""
-	status := 3
+	// Atomic: a request from the timed-out settle can still be in the handler
+	// when the test switches the stack to deployed.
+	var status atomic.Int64
+	status.Store(3)
 	applies := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -176,9 +180,9 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 			}
 			saved = body.StackFileContent
 			applies++
-			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status)
+			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status.Load())
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/19":
-			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status)
+			fmt.Fprintf(w, `{"Id":19,"Status":%d}`, status.Load())
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/19/file":
 			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": saved})
 		case r.Method == "GET" && r.URL.Path == "/api/endpoints/9/docker/containers/json":
@@ -208,7 +212,7 @@ func TestStoppedPortainerReconcileUpdatesCodeWithoutStartingAppParts(t *testing.
 	if _, err := d.Resume(t.Context(), deploy.Placement{ID: ready.Deployment, Stopped: true}, 2, noted, func(string, ...any) {}); err == nil {
 		t.Fatal("recovery invented an applied stopped release")
 	}
-	status = 1
+	status.Store(1)
 	d.settleTimeout = 5 * time.Second
 	var file struct {
 		Services map[string]struct{ Deploy struct{ Replicas *int } }
