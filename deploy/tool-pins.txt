@@ -49,7 +49,7 @@ gopls           v0.24.0       arg GOPLS_VERSION
 # renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
 pi              1.6.0         arg PI_VERSION
 # renovate: datasource=npm depName=pi-subagents versioning=semver
-pi-subagents    0.61.0        arg PI_SUBAGENTS_VERSION
+pi-subagents    0.90.0        arg PI_SUBAGENTS_VERSION
 # renovate: datasource=npm depName=@narumitw/pi-lsp versioning=semver
 pi-lsp          0.49.12        arg PI_LSP_VERSION
 alpine-git      v2.54.0       image alpine/git
