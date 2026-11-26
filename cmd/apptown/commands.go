@@ -89,8 +89,9 @@ var sections = []section{
     Manage external sign-in; configuration contains secret names only.`, cmdSignIn},
 			{[]string{"image"}, `  image newest <ref> --scope <line|patch|minor|major> [--json]
                                         newest stable image and its recorded registry reading`, cmdImage},
-			{[]string{"janitor"}, `  janitor <choices|set|history|assess|attempts|run>
-                                        manage Janitor choices and run project queues now`, cmdJanitor},
+			{[]string{"janitor"}, `  janitor <choices|set|history|assess|attempts|run|majors|scope>
+                                        manage Janitor choices and run project queues now
+    janitor scope [-run RUN]             check committed work against this run’s dependency settings`, cmdJanitor},
 			{[]string{"uplift"}, `  uplift [-p proj]                      dependency uplift (dependency-uplift workflow)`, verb("uplift")},
 			{[]string{"excavate"}, `  excavate [-p proj] ["<focus>"]        reverse-engineer the codebase into REQUIREMENTS.md (excavate workflow)`, verb("excavate")},
 			{[]string{"adopt"}, `  adopt  <capability> [-p proj]         attach an integration and wire it in`, cmdAdopt},

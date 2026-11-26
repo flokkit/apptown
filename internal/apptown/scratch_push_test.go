@@ -1,8 +1,11 @@
 package apptown
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,8 +44,13 @@ type scratchWorld struct {
 
 func newScratchWorld(t *testing.T, configs ...Config) *scratchWorld {
 	t.Helper()
+	return scratchWorldForSpec(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "implement", Uses: "agent/pi"}, {Name: "other", Uses: "agent/pi"}}}}}, configs...)
+}
+
+func scratchWorldForSpec(t *testing.T, spec schema.Spec, configs ...Config) *scratchWorld {
+	t.Helper()
 	a, _ := internalApp(t, configs...)
-	_, ctx, ch := changeScenarioIn(t, a, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "implement", Uses: "agent/pi"}, {Name: "other", Uses: "agent/pi"}}}}})
+	_, ctx, ch := changeScenarioIn(t, a, spec)
 	p := a.projectByID(ctx, ch.ProjectID)
 	if err := a.lifecycle.InitializeRepository(ctx, p, "main", ""); err != nil {
 		t.Fatal(err)
@@ -67,10 +75,17 @@ func newScratchWorld(t *testing.T, configs ...Config) *scratchWorld {
 	})
 	a.Work.Stop()
 	snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
-	if err != nil || len(snapshot.Steps) != 2 {
+	if err != nil || len(snapshot.Steps) != len(spec.Stages[0].Steps) {
 		t.Fatalf("steps: %+v %v", snapshot, err)
 	}
-	w.first, w.second = snapshot.Steps[0].ID, snapshot.Steps[1].ID
+	for _, step := range snapshot.Steps {
+		if step.Name == "implement" {
+			w.first = step.ID
+		}
+		if step.Name == "other" {
+			w.second = step.ID
+		}
+	}
 	for _, id := range []ids.ID{w.first, w.second} {
 		if err := a.Work.ExecuteStep(ctx, id); err != nil {
 			t.Fatal(err)
@@ -484,4 +499,44 @@ func TestAHiddenObjectIsNotFetchableByAnyProtocol(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStepScopeThroughReadOnlyListenerIsOnlyForItsOwnRun(t *testing.T) {
+	w := newScratchWorld(t)
+	if _, err := w.push(w.token(w.first), w.commit+":"+w.scratchRef(w.first)); err != nil {
+		t.Fatal(err)
+	}
+	call := func(id ids.ID, want int) {
+		t.Helper()
+		body, _ := json.Marshal(map[string]string{"commit": w.commit})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/runs/"+id.String()+"/scope", bytes.NewReader(body))
+		req.Header.Set("X-AppTown-Session-Token", w.token(w.first))
+		out := httptest.NewRecorder()
+		GETOnly(w.a.Handler()).ServeHTTP(out, req)
+		if out.Code != want {
+			t.Fatalf("scope %s: %d %s", id, out.Code, out.Body.String())
+		}
+	}
+	// An ordinary person's workflow gains no routine or scope gate.
+	call(w.run.ID, 404)
+	// A dependency run admits its own routine. It uses the real scope owner
+	// through the same listener and live step credential.
+	w = scratchWorldForSpec(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "implement", Uses: "agent/pi"}, {Name: "other", Uses: "agent/pi"}, {Name: "routine", Uses: "routine", With: map[string]any{"rubric": "within settings"}}}}}})
+	if _, err := w.push(w.token(w.first), w.commit+":"+w.scratchRef(w.first)); err != nil {
+		t.Fatal(err)
+	}
+	call(w.run.ID, 200)
+	// Create a sibling in the same project: the capability guard permits the
+	// project, but the operation must refuse the token before calling the owner.
+	ctx := w.a.asEngine(t.Context())
+	ch, err := w.a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: w.ch.ProjectID, Title: "sibling"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sibling, err := w.a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "test"})
+	if !errors.Is(err, workflow.ErrDispatchStopped) {
+		t.Fatal(err)
+	}
+	w.a.Work.Wait()
+	call(sibling.ID, 403)
 }

@@ -50,7 +50,12 @@ mise, version files, go.mod's toolchain line and the build image. A dependency
 update moves each toolchain to its newest such patch; for a security finding in
 the toolchain itself, use the smallest one that fixes it. Change application code only where a moved
 package needs it. A declaration without a patch number (go = "1.24",
-node = "24") already follows its newest patch and stays as it is. Run declared tests and start-up. Run `apptown check` from this step to check
+node = "24") already follows its newest patch and stays as it is. Run declared tests and start-up. For dependency updates and security fixes, run
+`apptown janitor scope` before you start to read what the settings allow. Before
+you finish, commit and run it again. Undo every edit it names that the fix does
+not need: restore the file and keep its original formatting. Run it again. If
+the fix itself needs what it names, keep it and say so in one line; a person
+decides. Run `apptown check` from this step to check
 this change's declared checks and scans; if they cannot pass, say what needs a person.
 
 npm: `npm update` in every package folder (`--workspaces` for workspaces)

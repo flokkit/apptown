@@ -40,28 +40,9 @@ func (a *commands) RunFix(task *workflow.Execution) {
 }
 
 func (a *commands) RunRoutine(task *workflow.Execution) {
-	spec, err := task.Run().Definition()
+	handler, err := routineKind(task.Run())
 	if err != nil {
 		fixKindError(task, err)
-		return
-	}
-	kind := "update"
-	for _, stage := range spec.Stages {
-		for _, step := range append(stage.OnEnter, stage.Steps...) {
-			if step.Uses != FixKind {
-				continue
-			}
-			selected, _ := step.With["kind"].(string)
-			if kind != "update" && kind != selected {
-				fixKindError(task, fmt.Errorf("routine needs one fix kind in its run"))
-				return
-			}
-			kind = selected
-		}
-	}
-	handler, ok := fix.Lookup(kind)
-	if !ok {
-		fixKindError(task, fmt.Errorf("routine has no supported fix kind in its run"))
 		return
 	}
 	switch handler.Classifier {
@@ -77,4 +58,29 @@ func fixKindError(task *workflow.Execution, err error) {
 	if _, claimErr := task.Claim(); claimErr == nil {
 		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": err.Error()}, nil))
 	}
+}
+
+func routineKind(run *workflow.Run) (fix.Kind, error) {
+	spec, err := run.Definition()
+	if err != nil {
+		return fix.Kind{}, err
+	}
+	kind := "update"
+	for _, stage := range spec.Stages {
+		for _, step := range append(stage.OnEnter, stage.Steps...) {
+			if step.Uses != FixKind {
+				continue
+			}
+			selected, _ := step.With["kind"].(string)
+			if kind != "update" && kind != selected {
+				return fix.Kind{}, fmt.Errorf("routine needs one fix kind in its run")
+			}
+			kind = selected
+		}
+	}
+	handler, ok := fix.Lookup(kind)
+	if !ok {
+		return fix.Kind{}, fmt.Errorf("routine has no supported fix kind in its run")
+	}
+	return handler, nil
 }

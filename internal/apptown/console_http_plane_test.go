@@ -34,6 +34,7 @@ func TestGETOnly(t *testing.T) {
 			t.Fatalf("%s %s = %d, want %d", method, path, resp.StatusCode, want)
 		}
 	}
+	check("POST", "/api/v1/runs/00000000-0001-7000-8000-000000000000/scope", 200)
 	check("GET", "/api/v1/projects", 200)
 	check("POST", "/api/v1/projects", http.StatusMethodNotAllowed)
 	check("DELETE", "/api/v1/projects/x", http.StatusMethodNotAllowed)

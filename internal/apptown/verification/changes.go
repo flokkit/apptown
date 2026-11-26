@@ -72,7 +72,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	tools := v.evaluator.snapshot()
 	// What is checked is settled first: a commit AppTown cannot answer
 	// for is refused before anything runs.
-	read, headSHA, scratch, err := v.checkedCommit(ctx, ch, sel)
+	read, headSHA, scratch, err := CheckedCommit(ctx, v.db, v.dataDir, ch, sel)
 	if err != nil {
 		return nil, err
 	}
@@ -243,18 +243,18 @@ type Selection struct {
 	Published bool
 }
 
-// checkedCommit is CheckedCommit, saying too whether the commit is the
-// change's only as a step's scratch work.
-func (v *Changes) checkedCommit(ctx context.Context, ch *workflow.Change, sel Selection) (repo, sha string, scratch bool, err error) {
-	p, err := project.ByIDIn(ctx, v.db, ch.ProjectID)
+// CheckedCommit resolves a change revision, including history and step scratch
+// provenance. It also says whether the commit is scratch work.
+func CheckedCommit(ctx context.Context, db database.Queryer, dataDir string, ch *workflow.Change, sel Selection) (repo, sha string, scratch bool, err error) {
+	p, err := project.ByIDIn(ctx, db, ch.ProjectID)
 	if err != nil {
 		return "", "", false, err
 	}
-	hub, err := p.Repository(v.dataDir)
+	hub, err := p.Repository(dataDir)
 	if err != nil {
 		return "", "", false, err
 	}
-	ws := (workflow.Layout{DataDir: v.dataDir}).ChangeWorkspace(ch.ID)
+	ws := (workflow.Layout{DataDir: dataDir}).ChangeWorkspace(ch.ID)
 	commit := sel.Commit
 	if sel.Published {
 		if commit != "" {

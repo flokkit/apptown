@@ -245,6 +245,13 @@ workflows. Run now reads the scheduler's current answer. AppTown checks every
 candidate against the saved choices and requires current authority at acceptance
 and landing.
 
+For dependency updates and security fixes, the agent runs `apptown janitor scope`
+before starting to read the settings, then commits and checks its scope again
+before finishing. It removes edits the fix does not need, preserving the original
+formatting. If the fix needs more than the settings allow, it keeps that work and
+says why; the change stays held for a person. This feedback uses the same scope
+judgement as the workflow, which checks the final work again.
+
 ## Statistics
 
 **Maintenance › Statistics** counts the Janitor's runs over the last 7 or 30

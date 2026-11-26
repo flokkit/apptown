@@ -50,6 +50,7 @@ spec:
               and its own scans. If you leave a named finding unfixed, say in one line
               each which and why (for example "Waiting for a newer python:3.12-slim build: the
               newest build still has CVE-…"). Otherwise no explanation is needed.
+              Run `apptown janitor scope` first and before you finish, as the janitor skill says.
               Write no report file.
       steps:
         - name: repair
@@ -61,7 +62,7 @@ spec:
             repairRounds: 2
             mayChangeNothing: true
             skills: [skill/janitor]
-            prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change.
+            prompt: Make the failing check pass within this change’s intent. Write the code this update needs and run its checks. Never widen the change. Run `apptown janitor scope` first and before you finish, as the janitor skill says.
         - name: routine
           uses: routine
           with:

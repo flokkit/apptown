@@ -259,8 +259,11 @@ func (a *Executor) agentPrompt(ctx context.Context, run *workflow.Run, cfg *agen
 		}
 		prompt = "Your work was rejected. The feedback:\n\n" + fb +
 			"\n\nContinue from where you left off in this session: address every point" +
-			" precisely, update your report/output file to describe the WHOLE change," +
-			" and finish."
+			" precisely"
+		if cfg.Output.File != "" {
+			prompt += ", update " + cfg.Output.File + " to describe the WHOLE change"
+		}
+		prompt += ", and finish."
 	}
 	if cfg.RetryMode != "continue" && cfg.Sendback != "" {
 		prompt += "\n\nAdditional instructions for this attempt:\n\n" + cfg.Sendback
